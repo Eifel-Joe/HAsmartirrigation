@@ -2290,7 +2290,7 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
                             # add val to sensor values
                             sensor_values[key] = val
                         except (ValueError, TypeError):
-                            _LOGGER.warning(
+                            _LOGGER.debug(
                                 "No / unknown value for sensor %s",
                                 the_map.get(const.MAPPING_CONF_SENSOR),
                             )

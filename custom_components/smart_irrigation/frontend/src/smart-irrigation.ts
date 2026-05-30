@@ -16,12 +16,12 @@ import { localize } from "../localize/localize";
 import { exportPath, getPath, Path } from "./common/navigation";
 
 enum EMenuItems {
-  Info = 'info',
-  General = 'general',
-  Zones = 'zones',
-  Modules = 'modules',
-  Mappings = 'mappings',
-  Help = 'help',
+  Info = "info",
+  General = "general",
+  Zones = "zones",
+  Modules = "modules",
+  Mappings = "mappings",
+  Help = "help",
 }
 
 @customElement("smart-irrigation")
@@ -45,7 +45,10 @@ export class SmartIrrigationPanel extends LitElement {
   async firstUpdated() {
     // Ensure we have a default route
     const path = getPath();
-    if (!path.page || !Object.values(EMenuItems).includes(path.page as EMenuItems)) {
+    if (
+      !path.page ||
+      !Object.values(EMenuItems).includes(path.page as EMenuItems)
+    ) {
       navigate(this, exportPath(EMenuItems.General));
       return;
     }
@@ -80,8 +83,8 @@ export class SmartIrrigationPanel extends LitElement {
     const path = getPath();
 
     // Check what tab components are available
-    const hasTabGroup = !!customElements.get('ha-tab-group');
-    const hasTabGroupTab = !!customElements.get('ha-tab-group-tab');
+    const hasTabGroup = !!customElements.get("ha-tab-group");
+    const hasTabGroupTab = !!customElements.get("ha-tab-group-tab");
 
     return html`
       <div class="header">
@@ -94,32 +97,38 @@ export class SmartIrrigationPanel extends LitElement {
           <div class="version">${VERSION}</div>
         </div>
 
-        ${hasTabGroup && hasTabGroupTab ? html`
-          <ha-tab-group
-            @wa-tab-show=${this.handlePageSelected}
-          >
-            ${Object.values(EMenuItems).map(e => html`
-              <ha-tab-group-tab slot="nav" panel="${e}" .active=${path.page === e}>
-                ${localize(`panels.${e}.title`, this.hass.language)}
-              </ha-tab-group-tab>
-            `)}
-          </ha-tab-group>
-        ` : html`
-          <div class="custom-tabs">
-            ${Object.values(EMenuItems).map(e => html`
-              <button
-                class="custom-tab ${path.page === e ? 'active' : ''}"
-                @click=${() => this.navigateToPage(e)}
-              >
-                ${localize(`panels.${e}.title`, this.hass.language)}
-              </button>
-            `)}
-          </div>
-        `}
+        ${hasTabGroup && hasTabGroupTab
+          ? html`
+              <ha-tab-group @wa-tab-show=${this.handlePageSelected}>
+                ${Object.values(EMenuItems).map(
+                  (e) => html`
+                    <ha-tab-group-tab
+                      slot="nav"
+                      panel="${e}"
+                      .active=${path.page === e}
+                    >
+                      ${localize(`panels.${e}.title`, this.hass.language)}
+                    </ha-tab-group-tab>
+                  `,
+                )}
+              </ha-tab-group>
+            `
+          : html`
+              <div class="custom-tabs">
+                ${Object.values(EMenuItems).map(
+                  (e) => html`
+                    <button
+                      class="custom-tab ${path.page === e ? "active" : ""}"
+                      @click=${() => this.navigateToPage(e)}
+                    >
+                      ${localize(`panels.${e}.title`, this.hass.language)}
+                    </button>
+                  `,
+                )}
+              </div>
+            `}
       </div>
-      <div class="view">
-        ${this.getView(path)}
-      </div>
+      <div class="view">${this.getView(path)}</div>
     `;
   }
 
@@ -284,14 +293,21 @@ export class SmartIrrigationPanel extends LitElement {
           display: flex;
           margin-left: max(env(safe-area-inset-left), 24px);
           margin-right: max(env(safe-area-inset-right), 24px);
-          border-bottom: 1px solid rgba(var(--rgb-app-header-text-color, var(--rgb-text-primary-color)), 0.12);
+          border-bottom: 1px solid
+            rgba(
+              var(--rgb-app-header-text-color, var(--rgb-text-primary-color)),
+              0.12
+            );
           overflow-x: auto;
         }
 
         .custom-tab {
           background: transparent;
           border: none;
-          color: rgba(var(--rgb-app-header-text-color, var(--rgb-text-primary-color)), 0.7);
+          color: rgba(
+            var(--rgb-app-header-text-color, var(--rgb-text-primary-color)),
+            0.7
+          );
           cursor: pointer;
           font-family: inherit;
           font-size: 14px;
@@ -310,7 +326,10 @@ export class SmartIrrigationPanel extends LitElement {
 
         .custom-tab:hover {
           color: var(--app-header-text-color, white);
-          background-color: rgba(var(--rgb-app-header-text-color, var(--rgb-text-primary-color)), 0.04);
+          background-color: rgba(
+            var(--rgb-app-header-text-color, var(--rgb-text-primary-color)),
+            0.04
+          );
         }
 
         .custom-tab.active {
@@ -348,7 +367,7 @@ export class SmartIrrigationPanel extends LitElement {
           font-weight: 500;
           color: rgba(var(--rgb-text-primary-color), 0.9);
         }
-      `
+      `,
     ];
   }
 }

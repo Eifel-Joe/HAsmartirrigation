@@ -168,10 +168,10 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                         parsed_data[MAPPING_DEWPOINT] = data[
                             PirateWeather_dew_point_key_name
                         ]
-                        # add precip from daily
-                        parsed_data[MAPPING_PRECIPITATION] = data[
-                            PirateWeather_precip_key_name
-                        ]
+                        # add precip from daily — PirateWeather SI returns cm, convert to mm
+                        parsed_data[MAPPING_PRECIPITATION] = (
+                            data[PirateWeather_precip_key_name] * 10.0
+                        )
                         parsed_data_total.append(parsed_data)
                     self._cached_forecast_data = parsed_data_total
                     self._last_time_called = datetime.datetime.now()
@@ -287,15 +287,16 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                         PirateWeather_current_precip_key_name
                     ]
 
-                    # add precip from daily
+                    # add precip from daily — PirateWeather SI returns cm, convert to mm
                     dailydata = doc[PirateWeather_daily_weather_key_name]["data"][0]
                     if dailydata is not None:
-                        parsed_data[MAPPING_PRECIPITATION] = dailydata[
-                            PirateWeather_precip_key_name
-                        ]
+                        parsed_data[MAPPING_PRECIPITATION] = (
+                            dailydata[PirateWeather_precip_key_name] * 10.0
+                        )
                         _LOGGER.debug(
-                            "PirateWeatherClient daily precipitation: %s",
+                            "PirateWeatherClient daily precipitation: %s cm -> %s mm",
                             dailydata[PirateWeather_precip_key_name],
+                            parsed_data[MAPPING_PRECIPITATION],
                         )
 
                     else:

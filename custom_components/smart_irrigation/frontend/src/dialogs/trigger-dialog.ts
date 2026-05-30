@@ -249,27 +249,26 @@ export class TriggerDialog extends LitElement {
                 this.hass.language,
               )}
               .value=${this._trigger.type}
-              @value-changed=${this._typeChanged}
-              @change=${this._typeChanged}
+              @selected=${this._typeChanged}
             >
-              <mwc-list-item value=${TRIGGER_TYPE_SUNRISE}>
+              <ha-dropdown-item value=${TRIGGER_TYPE_SUNRISE}>
                 ${localize(
                   "irrigation_start_triggers.trigger_types.sunrise",
                   this.hass.language,
                 )}
-              </mwc-list-item>
-              <mwc-list-item value=${TRIGGER_TYPE_SUNSET}>
+              </ha-dropdown-item>
+              <ha-dropdown-item value=${TRIGGER_TYPE_SUNSET}>
                 ${localize(
                   "irrigation_start_triggers.trigger_types.sunset",
                   this.hass.language,
                 )}
-              </mwc-list-item>
-              <mwc-list-item value=${TRIGGER_TYPE_SOLAR_AZIMUTH}>
+              </ha-dropdown-item>
+              <ha-dropdown-item value=${TRIGGER_TYPE_SOLAR_AZIMUTH}>
                 ${localize(
                   "irrigation_start_triggers.trigger_types.solar_azimuth",
                   this.hass.language,
                 )}
-              </mwc-list-item>
+              </ha-dropdown-item>
             </ha-select>
           </div>
 
@@ -338,33 +337,43 @@ export class TriggerDialog extends LitElement {
             : ""}
         </div>
 
-        <div slot="primaryAction">
-          <mwc-button @click=${this._saveTrigger}>
-            ${localize(
-              "irrigation_start_triggers.dialog.save",
-              this.hass.language,
-            )}
-          </mwc-button>
-        </div>
-
-        <div slot="secondaryAction">
-          <mwc-button @click=${this._closeDialog}>
+        <ha-dialog-footer slot="footer">
+          <ha-button
+            slot="secondaryAction"
+            appearance="plain"
+            @click=${this._closeDialog}
+          >
             ${localize(
               "irrigation_start_triggers.dialog.cancel",
               this.hass.language,
             )}
-          </mwc-button>
+          </ha-button>
           ${!isCreate
             ? html`
-                <mwc-button @click=${this._deleteTrigger} class="warning">
+                <ha-button
+                  slot="secondaryAction"
+                  appearance="plain"
+                  variant="danger"
+                  @click=${this._deleteTrigger}
+                >
                   ${localize(
                     "irrigation_start_triggers.dialog.delete",
                     this.hass.language,
                   )}
-                </mwc-button>
+                </ha-button>
               `
             : ""}
-        </div>
+          <ha-button
+            slot="primaryAction"
+            appearance="accent"
+            @click=${this._saveTrigger}
+          >
+            ${localize(
+              "irrigation_start_triggers.dialog.save",
+              this.hass.language,
+            )}
+          </ha-button>
+        </ha-dialog-footer>
       </ha-dialog>
     `;
   }
