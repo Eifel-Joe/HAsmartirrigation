@@ -17,10 +17,14 @@ This integration calculates how long to run your irrigation system to compensate
 - Water only what evaporated — no over- or under-watering
 - Tracks a running moisture balance ("bucket") per zone
 - Supports multiple zones, each with its own size, throughput, module, and sensor group
-- Works with Open Weather Map, Pirate Weather, or your own local sensors
-- Can skip irrigation when significant rain is forecast
+- Works with **Open-Meteo** (free, no API key), Open Weather Map, Pirate Weather, or your own local sensors
+- **Direct valve control** — link a `switch` or `valve` entity to each zone; the integration turns it on, waits the calculated duration, and turns it off — no automations needed
+- **Irrigate Now** — trigger immediate irrigation from the dashboard (all zones or per zone), bypassing skip conditions
+- **Schedules tab** — create daily/weekly/monthly/interval recurring schedules entirely from the UI — no automations needed
+- **Seasonal Adjustments tab** — define month-range multiplier or bucket adjustments to adapt irrigation for each season — managed from the UI
+- **Skip conditions** — skip irrigation based on forecasted rain, low temperature, high wind speed, or a rain sensor
 - Enforces a configurable minimum number of days between irrigation events
-- Fires Home Assistant events that your automations act on — the integration never touches valves directly
+- Still fires HA events for power users who prefer automation-based control
 
 ## What's been fixed and improved
 
@@ -39,6 +43,13 @@ Compared to the last upstream release (`v2025.10.0`):
 | Bucket fluctuates with every forecast change | Now uses actual measured precipitation (`rain.1h`) instead of the daily forecast total |
 
 ### Improvements
+- **Direct valve control** — link a switch/valve entity per zone; the integration controls it directly with no automation needed
+- **Zone sequencing** — choose parallel (all zones at once) or sequential (one at a time) in General Settings
+- **Schedules tab** — full create/edit/delete UI for recurring schedules inside the panel
+- **Seasonal Adjustments tab** — full create/edit/delete UI for month-based irrigation adjustments inside the panel
+- **Irrigate Now buttons** — on Info tab (all zones) and Zones tab (per zone), bypasses skip conditions
+- **Skip conditions** — temperature threshold, wind speed threshold, and rain sensor entity added alongside the existing precipitation forecast check
+- **Open-Meteo weather service** — free, no API key required
 - **Mobile-friendly number inputs** — Zone float fields use `step=0.1` + `inputmode=decimal`; integer fields use `step=1` + `inputmode=numeric`; values parsed with `valueAsNumber` to avoid browser format differences
 - **Extended sensor attributes** — `multiplier`, `lead_time`, `maximum_duration`, `maximum_bucket` now exposed as entity attributes for use in automations and templates
 - **Code hygiene** — removed ~280 lines of dead commented-out V1 code, duplicate constant definitions, and orphaned test files

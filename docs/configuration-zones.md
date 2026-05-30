@@ -62,7 +62,21 @@ This recommendation is based on the soil water holding capacity. See [this discu
 - **Multiplier**: Multiplies / divides the duration of the irrigation. For lawns, it is recommended to set the multiplier depending on your grass type (See [this discussion for more details](https://github.com/JustChr/HAsmartirrigation/discussions/448)):
     * Cool-reason grasses (such as fescue, bluegrass) should be set to `0.8`
     * Warm-season grasses (such as bermuda, zoysia) should be set to `0.7`. 
-- *Duration*: Irrigation duration in seconds. Either calculated or manually set.
+- **Duration**: Irrigation duration in seconds. Either calculated or manually set.
+
+### Linked entity {#linked-entity}
+
+Optionally link a Home Assistant `switch` or `valve` entity to a zone. When irrigation fires, the integration will:
+
+1. Call `turn_on` on the entity
+2. Wait for the calculated duration (in seconds)
+3. Call `turn_off` on the entity
+
+This means **no automation is needed** to control your valve — the integration does it directly. The [zone sequencing](configuration-general.md#zone-sequencing) setting in General controls whether multiple linked zones run in parallel or one after another.
+
+> **Tip:** Start typing `switch.` or `valve.` in the field and all matching entities in your HA instance will appear as autocomplete suggestions.
+
+If you prefer to keep using automations, simply leave this field empty. The integration will still fire the `smart_irrigation_start_irrigation_all_zones` event as usual.
 
 ### Available actions per zone
 
@@ -70,12 +84,13 @@ This recommendation is based on the soil water holding capacity. See [this discu
 
 Below each zone there are some buttons, to perform the following tasks:
 
-* update weather data. This collects weather data from the sensor group for the zone.
-* calculate irrigation duration. Note that if you calculate irrigation duration using the buttons per zone, the weather data for the sensor group for that zone is deleted. 
-* after a calculation there is also a button to get some information how duration was calculated, which gives insight into how the bucket was updated, and how the lead time and multiplier influenced the calculated duration.
-* view weather data. View the last 10 records of the associated sensor group.
-* view watering calendar. View a yearly watering calendar based on the location and normal weather patterns.
-* delete the zone. 
+* **Update weather data** — Collect weather data from the sensor group for the zone.
+* **Calculate irrigation duration** — Recalculate the zone's irrigation duration. Weather data for the zone's sensor group is deleted after calculation.
+* **Irrigate Now** — Immediately turn on the zone's [linked entity](#linked-entity) for the calculated duration, then turn it off. Bypasses all skip conditions. Only visible when the zone has a linked entity and a duration > 0.
+* **Calculation explanation** — After a calculation, view a detailed breakdown of how the bucket was updated and how the lead time and multiplier affected the final duration.
+* **View weather data** — View the last 10 weather data records for the zone's sensor group.
+* **View watering calendar** — View a 12-month estimated watering calendar based on the zone's location and typical weather patterns.
+* **Delete** — Remove the zone. 
 
 > Main page: [Configuration](configuration.md)<br/>
 > Previous: [General configuration](configuration-general.md)<br/>

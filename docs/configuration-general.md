@@ -41,6 +41,37 @@ The system automatically tracks the number of days since the last irrigation eve
 
 This feature works alongside existing precipitation forecasting - if both restrictions apply, both must be satisfied for irrigation to occur.
 
+### Zone sequencing
+
+When multiple zones have a [linked entity](configuration-zones.md#linked-entity) configured and irrigation fires, this setting controls whether they run at the same time or one after another.
+
+- **Parallel** (default): all linked entities open simultaneously. Each closes after its own calculated duration.
+- **Sequential**: zones run one after another. The integration waits for each zone to finish before starting the next. Zones with 0 seconds calculated duration are skipped automatically.
+
+### Skip Conditions
+
+These settings let you automatically skip irrigation when conditions are unfavourable. All checks are independent — any one of them can veto an irrigation event.
+
+#### Skip on forecasted precipitation
+If enabled, irrigation is skipped when forecasted precipitation for today and tomorrow exceeds the configured threshold. Requires a weather service to be configured.
+
+#### Skip on low temperature
+If enabled, irrigation is skipped when the current temperature (from the weather service) is below the configured threshold (in °C). Useful for avoiding irrigation in near-freezing conditions.
+
+- Default threshold: 5 °C
+- Requires a weather service to be configured.
+
+#### Skip on high wind speed
+If enabled, irrigation is skipped when the current wind speed (from the weather service) is above the configured threshold (in m/s). Useful for avoiding evaporation or drift in windy conditions.
+
+- Default threshold: 6.9 m/s (≈ 25 km/h)
+- Requires a weather service to be configured.
+
+#### Rain sensor
+Optionally specify a `binary_sensor` entity. If that sensor is `on` when irrigation would normally fire, the event is skipped. No weather service is required for this check — it works with any binary sensor (e.g. a physical rain detector, a virtual sensor from a weather integration).
+
+Leave this field empty to disable the rain sensor check.
+
 ### Continuous updates (experimental)
 Continuous updates is an experimental feature that tries to capture more granular weather data to avoid missing chunks of weather patterns. For a zone to be continuous updated, it needs to:
 * be set to `automatic`

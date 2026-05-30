@@ -11,11 +11,15 @@ Smart Irrigation calculates the exact number of seconds to run your irrigation s
 Key capabilities:
 
 - **Multiple zones** — each with its own size, throughput, calculation module, and sensor group
-- **Weather sources** — Open Weather Map, Pirate Weather, or your own local sensors (or a mix)
+- **Weather sources** — Open-Meteo (free, no API key), Open Weather Map, Pirate Weather, or your own local sensors (or a mix)
 - **Moisture bucket** — tracks cumulative evapotranspiration and precipitation over time
-- **Rain skip** — optionally skip irrigation when significant rain is forecast
+- **Direct valve control** — link a switch or valve entity to each zone; the integration turns it on, waits the calculated duration, and turns it off — no automations needed
+- **Irrigate Now** — trigger irrigation from the dashboard for all zones or a single zone, bypassing skip conditions
+- **Schedules** — create recurring schedules (daily, weekly, monthly, or interval) entirely from the UI — no automations needed
+- **Seasonal adjustments** — define month-range multiplier or bucket adjustments to adapt irrigation for seasons — managed from the UI
+- **Skip conditions** — optionally skip irrigation based on forecasted rain, temperature, wind speed, or a rain sensor
 - **Days between irrigation** — enforce a minimum rest period between irrigation events
-- **Automations** — the integration fires Home Assistant events; your automations decide what to do with valves, timers, etc.
+- **Automations (optional)** — the integration also fires Home Assistant events so power users can still build custom automations on top
 
 > **Use this integration at your own risk.** It provides calculated recommendations only — always apply common sense before irrigating. Irrigating during heavy rainfall can cause flooding. The maintainers accept no responsibility for any damage or inconvenience caused.
 

@@ -10,7 +10,9 @@ You use the Smart Irrigation panel to configure the integration. Make sure you [
 
 The panel consists of multiple pages:
 
-1. [General](configuration-general.md): use this to configure  update / calculation schedules and other general settings.
-2. [Zones](configuration-zones.md): set up the zones in your irrigation system. Each zone is mapped to a sensor group and a module, but multiple zones can use the same sensor group or module.
-3. [Sensor groups](configuration-sensor-groups.md): this indicates which sensors or weather service provides what data for our calculations.
-4. [Modules](configuration-modules.md): use this page to configure how you want calculations to be done.
+1. [General](configuration-general.md): configure update/calculation schedules, zone sequencing, skip conditions, and other global settings.
+2. [Zones](configuration-zones.md): set up irrigation zones, link each zone to a switch or valve entity, and trigger per-zone irrigation from the UI.
+3. [Schedules](configuration-schedules.md): create and manage recurring schedules (daily, weekly, monthly, interval) — no automations needed.
+4. [Adjustments](configuration-adjustments.md): create and manage seasonal multiplier or bucket adjustments by month range.
+5. [Sensor groups](configuration-sensor-groups.md): configure which sensors or weather service provides weather data for calculations.
+6. [Modules](configuration-modules.md): configure the calculation module (PyETO, Static, etc.).

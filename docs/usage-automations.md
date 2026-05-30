@@ -1,65 +1,76 @@
 ---
 layout: default
-title: Usage: Entities
+title: Usage: Valve Control & Automations
 ---
-# Automations
+# Valve Control & Automations
 
 > Main page: [Usage](usage.md)<br/>
 > Previous: [Events](usage-events.md)<br/>
 > Next: [Troubleshooting](usage-troubleshooting.md)
 
-Since this integration does not interface with your irrigation system directly, you will need to use the data it outputs to create an automation that will start and stop your irrigation system for you. This way you can use this custom integration with any irrigation system you might have, regardless of how that interfaces with Home Assistant. In order for this to work correctly, you should base your automation on the value of `sensor.smart_irrigation_[zone_name]` as long as you run your automation after it was updated (e.g. 11:00 PM/23:00 hours local time). If that value is above `0` it is time to irrigate. Note that the value is the run time in seconds. Also, after irrigation, you need to call the `smart_irrigation.reset_bucket` service to reset the net irrigation tracking (`bucket`) to 0.
+Smart Irrigation calculates *how long* to irrigate. You have two ways to act on that calculation:
 
-> **The last step in any automation is very important, since you will need to let the integration know you have finished irrigating and the evaporation counter can be reset by calling the `smart_irrigation.reset_bucket` service**
+## Option A — Linked entity (recommended, no automation needed)
 
-Experts say you should water deeply but infrequently to avoid overwatering and encourage deep rooting. It might be a good idea to create an automation that starts early enough to finish before sunrise (using the [`smart_irrigation_start_irrigation_all_zones` event](usage-events.md)) and only once per week if duration is above `0` or whenever the `bucket < -25 mm`. Adjust to your specific needs.
+Set a **linked switch or valve entity** directly on each zone in the [Zones tab](configuration-zones.md#linked-entity). The integration then controls the valve itself:
 
-The examples on this page don't use a timer - see [this discussion](https://github.com/JustChr/HAsmartirrigation/discussions/361) for an example of using a timer for extra safety.
+1. When an irrigation trigger fires (sunrise, schedule, or "Irrigate Now"), the integration calls `turn_on` on the linked entity.
+2. It waits for the calculated duration (in seconds).
+3. It calls `turn_off`.
 
-Also, check out the [blueprints we provide](https://github.com/JustChr/HAsmartirrigation/tree/master/blueprints).
+No automation is needed. The integration also resets the bucket automatically after irrigation.
 
-### Example 1: one valve, once per week irrigation if duration > 0 or if the bucket < - 25 mm:
+[Zone sequencing](configuration-general.md#zone-sequencing) (General Settings) controls whether multiple zones run **in parallel** (default) or **sequentially** one after another.
 
-This example automation runs daily and checks `sensor.smart_irrigation_[zone_name]`. It checks if the `buckets` is `< -25mm (~1")` or if's a monday and duration is above `0`. This follows the expert recommendation mentioned above.
+[Skip conditions](configuration-general.md#skip-conditions) (General Settings) let you automatically skip irrigation based on weather or a rain sensor — even in this mode.
+
+### Irrigate Now
+
+The **Info tab** has a "Run all zones now" button that immediately irrigates all zones with linked entities, bypassing skip conditions. The **Zones tab** shows a per-zone "Irrigate Now" button on zones that have a linked entity and a calculated duration > 0.
+
+---
+
+## Option B — Automation-based (power users)
+
+If you prefer full control via HA automations, leave the linked entity field empty on each zone. The integration fires the `smart_irrigation_start_irrigation_all_zones` [event](usage-events.md) when irrigation should start. Your automation listens for that event, reads `sensor.smart_irrigation_[zone_name]` for the duration, controls the valve, and calls `smart_irrigation.reset_bucket` when done.
+
+> **Important:** Always call `smart_irrigation.reset_bucket` after irrigation so the integration knows irrigation happened and can reset the moisture deficit.
+
+Experts recommend watering deeply but infrequently. Consider running automations that check both `sensor.smart_irrigation_[zone_name] > 0` and a day-of-week condition so you water once or twice per week rather than daily.
+
+Check out the [blueprints](https://github.com/JustChr/HAsmartirrigation/tree/master/blueprints) for ready-made automation templates.
+
+Also see [this discussion](https://github.com/JustChr/HAsmartirrigation/discussions/361) for an example using a timer helper for extra safety.
+
+### Example 1: one valve, once per week
+
+Runs daily, checks if it is Monday and duration > 0, or if the bucket < −25 mm.
 
 [yaml](https://github.com/JustChr/HAsmartirrigation/blob/master/automations/1_one_valve_once_per_week.yaml)
 
-### Example 2: one valve, potentially daily irrigation
+### Example 2: one valve, potentially daily
 
-Here is an example automation that runs when the `smart_irrigation_start_irrigation_all_zones` event is fired. It checks if `sensor.smart_irrigation_[zone_name]` is above 0 and if it is it turns on `switch.irrigation_tap1`, waits the number of seconds as indicated by `sensor.smart_irrigation_[zone_name]` and then turns off `switch.irrigation_tap1`. Finally, it resets the bucket by calling the `smart_irrigation.reset_bucket` service. If you have multiple instances you will need to adjust the event, entities and service names accordingly.
+Listens for `smart_irrigation_start_irrigation_all_zones`, checks `sensor.smart_irrigation_[zone_name] > 0`, turns on the valve, waits, turns off, resets bucket.
 
 [yaml](https://github.com/JustChr/HAsmartirrigation/blob/master/automations/2_one_valve_potential_daily.yaml)
-## Example 3: one valve, irrigation depending on work day sensor
-Here is an example automation that runs at 5 AM local time, but only on set days of the week indicated by `binary_sensor.workday_sensor`). As above, it checks if `sensor.smart_irrigation_[zone_name]` is above 0 and if it is it turns on `switch.irrigation_tap1`, waits the number of seconds as indicated by `sensor.smart_irrigation_[zone_name]` and then turns off `switch.irrigation_tap1`. Finally, it resets the bucket by calling the `smart_irrigation.reset_bucket` service.
-This automation depends on the [workday binary sensor](https://www.home-assistant.io/integrations/workday/) which you will have to set up separately. Alternatively you could use a condition such as:
-```
-condition:
-  condition: time
-  weekday:
-  - mon
-  - thu
-```
+
+### Example 3: one valve, workday sensor
+
+Like Example 2 but restricted to specific days using `binary_sensor.workday_sensor`.
 
 [yaml](https://github.com/JustChr/HAsmartirrigation/blob/master/automations/3_one_valve_workday.yaml)
-### Example 4: two valves, irrigation depending on work day sensor
-Here is an example automation that runs at 4 AM local time, but only on set days of the week indicated by `binary_sensor.workday_sensor`). As above, it checks if `sensor.smart_irrigation_[zone_name]` is above 0 and if it is it turns on `switch.irrigation_tap1`, waits the number of seconds as indicated by `sensor.smart_irrigation_[zone_name]` and then turns off `switch.irrigation_tap1`. Then it turns on `switch.irrigation_tap2`, waits the number of seconds as indicated by `sensor.smart_irrigation_[zone_name]` and then turns off `switch.irrigation_tap2`. Finally, it resets the bucket by calling the `smart_irrigation.reset_bucket` service.
-This automation depends on the [workday binary sensor](https://www.home-assistant.io/integrations/workday/) which you will have to set up separately. Alternatively you could use a condition such as:
-```
-condition:
-  condition: time
-  weekday:
-  - mon
-  - thu
-```
+
+### Example 4: two valves, workday sensor
+
+Two sequential valves on workdays.
 
 [yaml](https://github.com/JustChr/HAsmartirrigation/blob/master/automations/4_two_valves_workday.yaml)
 
+### Example 5: advanced multi-tap
 
-## Example 5: Advanced multi-tap example
-This example handles multiple taps for a six-zone system controlled by [ESPHome](https://esphome.io/components/sprinkler.html). This is the automation the creator of this integration uses themselves (ignoring the expert advice above...).
+Six-zone system controlled by ESPHome.
 
 [yaml](https://github.com/JustChr/HAsmartirrigation/blob/master/automations/5_multi_tap.yaml)
-
 
 > Main page: [Usage](usage.md)<br/>
 > Previous: [Events](usage-events.md)<br/>
