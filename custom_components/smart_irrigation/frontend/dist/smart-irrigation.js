@@ -1125,7 +1125,7 @@
           "how-to-get-help": {
             title: "Hilfe bekommen",
             "first-read-the": "Lies zuerst im",
-            wiki: "Wiki",
+            wiki: "Documentation",
             "if-you-still-need-help": "Benötigst du weiterhin Hilfe, wende dich an das",
             "community-forum": "Community Forum",
             "or-open-a": "oder eröffne einen",
@@ -1452,7 +1452,7 @@
           "how-to-get-help": {
             title: "How to get help",
             "first-read-the": "First, read the",
-            wiki: "Wiki",
+            wiki: "Documentation",
             "if-you-still-need-help": "If you still need help reach out on the",
             "community-forum": "Community forum",
             "or-open-a": "or open a",
@@ -1850,7 +1850,7 @@
           "how-to-get-help": {
             title: "Cómo obtener ayuda",
             "first-read-the": "Primero lee la",
-            wiki: "Wiki",
+            wiki: "Documentation",
             "if-you-still-need-help": "Si aún necesitas ayuda, puedes:",
             "community-forum": "Comunidad/Foro",
             "or-open-a": "o abrir un",
@@ -2129,7 +2129,7 @@
           "how-to-get-help": {
             title: "Comment obtenir de l'aide",
             "first-read-the": "Premièrement, lisez ",
-            wiki: "Wiki",
+            wiki: "Documentation",
             "if-you-still-need-help": "Si vous avez toujours besoin d'aide, adressez vous sur le",
             "community-forum": "forum communautaire",
             "or-open-a": "ou ouvrez un",
@@ -2439,7 +2439,7 @@
           "how-to-get-help": {
             title: "Come ottenere aiuto",
             "first-read-the": "Per prima cosa, leggi il",
-            wiki: "Wiki",
+            wiki: "Documentation",
             "if-you-still-need-help": "Se hai ancora bisogno di aiuto, contatta il",
             "community-forum": "Forum della Comunità",
             "or-open-a": "oppure apri un",
@@ -2772,7 +2772,7 @@
           "how-to-get-help": {
             title: "Hulp vragen",
             "first-read-the": "Allereerst, lees de",
-            wiki: "Wiki",
+            wiki: "Documentation",
             "if-you-still-need-help": "Als je hierna nog steeds hulp nodig hebt, laat een bericht achter op het",
             "community-forum": "Community forum",
             "or-open-a": "of open een",
@@ -3049,7 +3049,7 @@
           "how-to-get-help": {
             title: "Hvordan få hjelp",
             "first-read-the": "Først, les",
-            wiki: "Wikien",
+            wiki: "Dokumentasjon",
             "if-you-still-need-help": "Hvis du fremdeles trenger hjelp, ta kontakt på",
             "community-forum": "Fellesskapsforumet",
             "or-open-a": "eller åpne en",
@@ -3326,7 +3326,7 @@
           "how-to-get-help": {
             title: "Ako získať pomoc",
             "first-read-the": "Najprv si prečítajte",
-            wiki: "Wiki",
+            wiki: "Documentation",
             "if-you-still-need-help": "Ak stále potrebujete pomoc, obráťte sa na",
             "community-forum": "komunitné fórum",
             "or-open-a": "alebo otvorte a",
@@ -11317,7 +11317,7 @@
         >
           <div class="card-content">
             ${Dn("panels.help.cards.how-to-get-help.first-read-the", this.hass.language)}
-            <a href="https://github.com/jeroenterheerdt/HAsmartirrigation/wiki"
+            <a href="${"https://justchr.github.io/HAsmartirrigation/"}"
               >${Dn("panels.help.cards.how-to-get-help.wiki", this.hass.language)}</a
             >.
             ${Dn("panels.help.cards.how-to-get-help.if-you-still-need-help", this.hass.language)}
@@ -11326,8 +11326,7 @@
               >${Dn("panels.help.cards.how-to-get-help.community-forum", this.hass.language)}</a
             >
             ${Dn("panels.help.cards.how-to-get-help.or-open-a", this.hass.language)}
-            <a
-              href="https://github.com/jeroenterheerdt/HAsmartirrigation/issues"
+            <a href="${"https://github.com/JustChr/HAsmartirrigation/issues"}"
               >${Dn("panels.help.cards.how-to-get-help.github-issue", this.hass.language)}</a
             >
             (${Dn("panels.help.cards.how-to-get-help.english-only", this.hass.language)}).

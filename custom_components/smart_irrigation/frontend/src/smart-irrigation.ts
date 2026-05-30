@@ -11,7 +11,8 @@ import "./views/mappings/view-mappings.ts";
 import "./views/info/view-info.ts";
 
 import { commonStyle } from "./styles";
-import { VERSION, PLATFORM } from "./const";
+import { VERSION, PLATFORM, ISSUES_URL } from "./const";
+const DOCS_URL = "https://justchr.github.io/HAsmartirrigation/";
 import { localize } from "../localize/localize";
 import { exportPath, getPath, Path } from "./common/navigation";
 
@@ -187,7 +188,7 @@ export class SmartIrrigationPanel extends LitElement {
               "panels.help.cards.how-to-get-help.first-read-the",
               this.hass.language,
             )}
-            <a href="https://github.com/jeroenterheerdt/HAsmartirrigation/wiki"
+            <a href="${DOCS_URL}"
               >${localize(
                 "panels.help.cards.how-to-get-help.wiki",
                 this.hass.language,
@@ -208,8 +209,7 @@ export class SmartIrrigationPanel extends LitElement {
               "panels.help.cards.how-to-get-help.or-open-a",
               this.hass.language,
             )}
-            <a
-              href="https://github.com/jeroenterheerdt/HAsmartirrigation/issues"
+            <a href="${ISSUES_URL}"
               >${localize(
                 "panels.help.cards.how-to-get-help.github-issue",
                 this.hass.language,
