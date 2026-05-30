@@ -17,7 +17,7 @@ Please follow the procedure below for each installed instance of V1, before upgr
 1. Make sure you are at least on V0.0.82.
 2. In Home Assistant, go to Settings>Devices&Services>Integrations>Smart Irrigation, or use [this link](https://my.home-assistant.io/redirect/integration/?domain=smart_irrigation).
 3. For each instance of Smart Irrigation that you have configured, click the 'three vertical dots' menu and select 'download diagnostics':
-![image](https://github.com/jeroenterheerdt/HAsmartirrigation/assets/8188990/d9715201-d4ee-4b58-a158-c0504e82eca4)
+![image](https://github.com/JustChr/HAsmartirrigation/assets/8188990/d9715201-d4ee-4b58-a158-c0504e82eca4)
 4. Your browser should download a diagnostics file. Store this file in a safe place and don't share it with anyone as it includes your Open Weather Map API key (if you have that configured). Consider giving it an easy to remember name, like 'Zone 1', etc.
 5. Confirm your diagnostics file opens and looks similar to this:
 ```
@@ -95,7 +95,7 @@ Please follow the procedure below for each installed instance of V1, before upgr
 - each zone has a property called 'size'. This is the same as the `area` from your diagnostics file for that zone.
 - sensor groups are where you decide what sources to use (Open Weather Map, Sensors, Static values (new in V2) or a mix). Use the true/false values and sensors from your diagnostics file to figure out what set up you had.
 
-If you need help, please reach out by [opening an issue](https://github.com/jeroenterheerdt/HAsmartirrigation/issues).
+If you need help, please reach out by [opening an issue](https://github.com/JustChr/HAsmartirrigation/issues).
 
 
 > Main page: [Installation](installation.md)<br/>

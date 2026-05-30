@@ -13,14 +13,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jeroenterheerdt/HASmartIrrigation.git"
+    "url": "git+https://github.com/JustChr/HAsmartirrigation.git"
   },
-  "author": "jeroenterheerdt",
+  "author": "JustChr",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/jeroenterheerdt/HASmartIrrigation/issues"
+    "url": "https://github.com/JustChr/HAsmartirrigation/issues"
   },
-  "homepage": "https://github.com/jeroenterheerdt/HASmartIrrigation#readme",
+  "homepage": "https://github.com/JustChr/HAsmartirrigation#readme",
   "dependencies": {
     "@mdi/js": "*",
     "custom-card-helpers": "^1.9.0",
