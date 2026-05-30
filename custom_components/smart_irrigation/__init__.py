@@ -116,30 +116,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY] = entry.data[
                 "owm_api_key"
             ]
-    # logic here is: if options are set that do not agree with the data settings, use the options
-    # handle options flow data
-    if const.CONF_USE_WEATHER_SERVICE in entry.options and entry.options.get(
-        const.CONF_USE_WEATHER_SERVICE
-    ) != entry.data.get(const.CONF_USE_WEATHER_SERVICE):
+    # Options always override data — they represent the most recent user-configured
+    # values. Previously this only applied options when use_weather_service differed
+    # between data and options, meaning API key or weather service changes were
+    # silently ignored after reconfiguration (issue #683).
+    if const.CONF_USE_WEATHER_SERVICE in entry.options:
         hass.data[const.DOMAIN][const.CONF_USE_WEATHER_SERVICE] = entry.options.get(
             const.CONF_USE_WEATHER_SERVICE
         )
-        if const.CONF_WEATHER_SERVICE in entry.options:
-            hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE] = entry.options.get(
-                const.CONF_WEATHER_SERVICE
-            )
-        if const.CONF_WEATHER_SERVICE_API_KEY in entry.options:
-            hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY] = (
-                entry.options.get(const.CONF_WEATHER_SERVICE_API_KEY)
-            )
-            if hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY] is not None:
-                hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY] = hass.data[
-                    const.DOMAIN
-                ][const.CONF_WEATHER_SERVICE_API_KEY].strip()
-        if const.CONF_WEATHER_SERVICE_API_VERSION in entry.options:
-            hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_VERSION] = (
-                entry.options.get(const.CONF_WEATHER_SERVICE_API_VERSION)
-            )
+        if hass.data[const.DOMAIN][const.CONF_USE_WEATHER_SERVICE]:
+            if const.CONF_WEATHER_SERVICE in entry.options:
+                hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE] = entry.options.get(
+                    const.CONF_WEATHER_SERVICE
+                )
+            if const.CONF_WEATHER_SERVICE_API_KEY in entry.options:
+                api_key = entry.options.get(const.CONF_WEATHER_SERVICE_API_KEY)
+                hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY] = (
+                    api_key.strip() if api_key is not None else None
+                )
+            if const.CONF_WEATHER_SERVICE_API_VERSION in entry.options:
+                hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_VERSION] = (
+                    entry.options.get(const.CONF_WEATHER_SERVICE_API_VERSION)
+                )
+        else:
+            hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE] = None
+            hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY] = None
+            hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_VERSION] = None
 
     # Removed because of addition of other weather services than OWM
     # check if API version is 2.5, force it to be 3.0. API keys should still be valid.
