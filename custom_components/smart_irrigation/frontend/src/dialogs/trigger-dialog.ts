@@ -9,12 +9,6 @@ import {
   TRIGGER_TYPE_SUNRISE,
   TRIGGER_TYPE_SUNSET,
   TRIGGER_TYPE_SOLAR_AZIMUTH,
-  TRIGGER_CONF_TYPE,
-  TRIGGER_CONF_NAME,
-  TRIGGER_CONF_ENABLED,
-  TRIGGER_CONF_OFFSET_MINUTES,
-  TRIGGER_CONF_AZIMUTH_ANGLE,
-  TRIGGER_CONF_ACCOUNT_FOR_DURATION,
 } from "../const";
 
 export interface TriggerDialogParams {
@@ -171,110 +165,127 @@ export class TriggerDialog extends LitElement {
         </div>
 
         <div class="wrapper">
-          <div class="form-group">
-            <ha-textfield
-              .label=${localize(
+          <div class="field">
+            <label
+              >${localize(
                 "irrigation_start_triggers.fields.name.name",
                 this.hass.language,
-              )}
+              )}</label
+            >
+            <input
+              type="text"
               .value=${this._trigger.name || ""}
               @input=${this._nameChanged}
               required
-            ></ha-textfield>
+            />
           </div>
 
-          <div class="form-group">
-            <ha-select
-              fixedMenuPosition
-              naturalMenuWidth
-              .label=${localize(
+          <div class="field">
+            <label
+              >${localize(
                 "irrigation_start_triggers.fields.type.name",
                 this.hass.language,
-              )}
-              .value=${this._trigger.type}
-              @value-changed=${this._typeChanged}
+              )}</label
             >
-              <ha-list-item value=${TRIGGER_TYPE_SUNRISE}>
+            <select @change=${this._typeChanged}>
+              <option
+                value=${TRIGGER_TYPE_SUNRISE}
+                ?selected=${this._trigger.type === TRIGGER_TYPE_SUNRISE}
+              >
                 ${localize(
                   "irrigation_start_triggers.trigger_types.sunrise",
                   this.hass.language,
                 )}
-              </ha-list-item>
-              <ha-list-item value=${TRIGGER_TYPE_SUNSET}>
+              </option>
+              <option
+                value=${TRIGGER_TYPE_SUNSET}
+                ?selected=${this._trigger.type === TRIGGER_TYPE_SUNSET}
+              >
                 ${localize(
                   "irrigation_start_triggers.trigger_types.sunset",
                   this.hass.language,
                 )}
-              </ha-list-item>
-              <ha-list-item value=${TRIGGER_TYPE_SOLAR_AZIMUTH}>
+              </option>
+              <option
+                value=${TRIGGER_TYPE_SOLAR_AZIMUTH}
+                ?selected=${this._trigger.type === TRIGGER_TYPE_SOLAR_AZIMUTH}
+              >
                 ${localize(
                   "irrigation_start_triggers.trigger_types.solar_azimuth",
                   this.hass.language,
                 )}
-              </ha-list-item>
-            </ha-select>
+              </option>
+            </select>
           </div>
 
-          <div class="form-group">
-            <ha-formfield
-              .label=${localize(
+          <div class="field-row">
+            <label
+              >${localize(
                 "irrigation_start_triggers.fields.enabled.name",
                 this.hass.language,
-              )}
+              )}</label
             >
-              <ha-switch
-                .checked=${this._trigger.enabled}
-                @change=${this._enabledChanged}
-              ></ha-switch>
-            </ha-formfield>
+            <input
+              type="checkbox"
+              ?checked=${this._trigger.enabled}
+              @change=${this._enabledChanged}
+            />
           </div>
 
-          <div class="form-group">
-            <ha-textfield
-              type="number"
-              .label=${localize(
+          <div class="field">
+            <label
+              >${localize(
                 "irrigation_start_triggers.fields.offset_minutes.name",
                 this.hass.language,
-              )}
-              .value=${this._trigger.offset_minutes?.toString() || "0"}
-              min="-1440"
-              max="1440"
-              step="1"
-              suffix="min"
-              @input=${this._offsetChanged}
-            ></ha-textfield>
+              )}</label
+            >
+            <div class="input-suffix-row">
+              <input
+                type="number"
+                .value=${this._trigger.offset_minutes?.toString() || "0"}
+                min="-1440"
+                max="1440"
+                step="1"
+                @input=${this._offsetChanged}
+              />
+              <span class="suffix">min</span>
+            </div>
           </div>
 
-          <div class="form-group">
-            <ha-formfield
-              .label=${localize(
+          <div class="field-row">
+            <label
+              >${localize(
                 "irrigation_start_triggers.fields.account_for_duration.name",
                 this.hass.language,
-              )}
+              )}</label
             >
-              <ha-switch
-                .checked=${this._trigger.account_for_duration}
-                @change=${this._accountForDurationChanged}
-              ></ha-switch>
-            </ha-formfield>
+            <input
+              type="checkbox"
+              ?checked=${this._trigger.account_for_duration}
+              @change=${this._accountForDurationChanged}
+            />
           </div>
 
           ${this._trigger.type === TRIGGER_TYPE_SOLAR_AZIMUTH
             ? html`
-                <div class="form-group">
-                  <ha-textfield
-                    type="number"
-                    .label=${localize(
+                <div class="field">
+                  <label
+                    >${localize(
                       "irrigation_start_triggers.fields.azimuth_angle.name",
                       this.hass.language,
-                    )}
-                    .value=${this._trigger.azimuth_angle?.toString() || "90"}
-                    min="0"
-                    max="359"
-                    step="1"
-                    suffix="°"
-                    @input=${this._azimuthChanged}
-                  ></ha-textfield>
+                    )}</label
+                  >
+                  <div class="input-suffix-row">
+                    <input
+                      type="number"
+                      .value=${this._trigger.azimuth_angle?.toString() || "90"}
+                      min="0"
+                      max="359"
+                      step="1"
+                      @input=${this._azimuthChanged}
+                    />
+                    <span class="suffix">°</span>
+                  </div>
                 </div>
               `
             : ""}
@@ -327,8 +338,8 @@ export class TriggerDialog extends LitElement {
     this._updateTrigger({ name: (event.target as HTMLInputElement).value });
   }
 
-  private _typeChanged(event: CustomEvent) {
-    const newType = String(event.detail.value) as TriggerType;
+  private _typeChanged(event: Event) {
+    const newType = (event.target as HTMLSelectElement).value as TriggerType;
     if (!newType) return;
 
     if (newType === TRIGGER_TYPE_SOLAR_AZIMUTH) {
@@ -383,19 +394,80 @@ export class TriggerDialog extends LitElement {
       css`
         .wrapper {
           color: var(--primary-text-color);
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
         }
-        .form-group {
-          margin-bottom: 16px;
+
+        .field {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
         }
-        .form-group:last-child {
-          margin-bottom: 0;
+
+        .field label,
+        .field-row label {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: var(--secondary-text-color);
         }
-        ha-textfield,
-        ha-select {
+
+        .field input[type="text"],
+        .field input[type="number"],
+        .field select {
+          padding: 8px 10px;
+          border: 1px solid var(--divider-color, #e0e0e0);
+          border-radius: 4px;
+          background: var(--card-background-color, #fff);
+          color: var(--primary-text-color);
+          font-size: 1rem;
+          font-family: inherit;
           width: 100%;
+          box-sizing: border-box;
         }
-        ha-formfield {
-          width: 100%;
+
+        .field input[type="text"]:focus,
+        .field input[type="number"]:focus,
+        .field select:focus {
+          outline: none;
+          border-color: var(--primary-color);
+        }
+
+        .field-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          min-height: 40px;
+        }
+
+        .field-row label {
+          flex: 1;
+          font-size: 1rem;
+          color: var(--primary-text-color);
+          font-weight: normal;
+        }
+
+        .field-row input[type="checkbox"] {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+          accent-color: var(--primary-color);
+        }
+
+        .input-suffix-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .input-suffix-row input {
+          flex: 1;
+        }
+
+        .suffix {
+          color: var(--secondary-text-color);
+          font-size: 0.875rem;
+          white-space: nowrap;
         }
       `,
     ];
