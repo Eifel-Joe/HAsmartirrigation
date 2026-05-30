@@ -230,6 +230,12 @@ ZONE_LAST_UPDATED = "last_updated"
 ZONE_NUMBER_OF_DATA_POINTS = "number_of_data_points"
 ZONE_DRAINAGE_RATE = "drainage_rate"
 ZONE_CURRENT_DRAINAGE = "current_drainage"
+ZONE_LINKED_ENTITY = "linked_entity"
+
+CONF_ZONE_SEQUENCING = "zone_sequencing"
+CONF_ZONE_SEQUENCING_SEQUENTIAL = "sequential"
+CONF_ZONE_SEQUENCING_PARALLEL = "parallel"
+CONF_DEFAULT_ZONE_SEQUENCING = CONF_ZONE_SEQUENCING_PARALLEL
 
 MODULE_DIR = "calcmodules"
 MODULE_ID = "id"

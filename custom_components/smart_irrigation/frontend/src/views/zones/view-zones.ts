@@ -59,6 +59,7 @@ import {
   ZONE_SIZE,
   ZONE_STATE,
   ZONE_THROUGHPUT,
+  ZONE_LINKED_ENTITY,
 } from "../../const";
 import moment, { Moment } from "moment";
 
@@ -1237,6 +1238,39 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                       [ZONE_DURATION]: Math.round(v),
                     });
                 }}"
+              />
+            </div>
+            <div class="zoneline">
+              <label for="linked_entity${index}"
+                >${localize(
+                  "panels.zones.labels.linked_entity",
+                  this.hass.language,
+                )}:</label
+              >
+              <datalist id="entity-list-${index}">
+                ${Object.keys(this.hass.states)
+                  .filter(
+                    (id) =>
+                      id.startsWith("switch.") || id.startsWith("valve."),
+                  )
+                  .sort()
+                  .map((id) => html`<option value="${id}"></option>`)}
+              </datalist>
+              <input
+                id="linked_entity${index}"
+                type="text"
+                list="entity-list-${index}"
+                placeholder="${localize(
+                  "panels.zones.labels.linked_entity_placeholder",
+                  this.hass.language,
+                )}"
+                .value="${zone.linked_entity || ""}"
+                @change="${(e: Event) =>
+                  this.handleEditZone(index, {
+                    ...zone,
+                    [ZONE_LINKED_ENTITY]:
+                      (e.target as HTMLInputElement).value.trim() || undefined,
+                  })}"
               />
             </div>
             <div class="action-buttons">

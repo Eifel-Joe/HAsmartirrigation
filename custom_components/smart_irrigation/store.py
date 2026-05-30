@@ -48,6 +48,7 @@ from .const import (
     CONF_DEFAULT_SKIP_IRRIGATION_ON_PRECIPITATION,
     CONF_DEFAULT_USE_WEATHER_SERVICE,
     CONF_DEFAULT_WEATHER_SERVICE,
+    CONF_DEFAULT_ZONE_SEQUENCING,
     CONF_IMPERIAL,
     CONF_IRRIGATION_START_TRIGGERS,
     CONF_METRIC,
@@ -58,6 +59,7 @@ from .const import (
     CONF_USE_WEATHER_SERVICE,
     CONF_WEATHER_SERVICE,
     CONF_WEATHER_SERVICE_OWM,
+    CONF_ZONE_SEQUENCING,
     DOMAIN,
     MAPPING_CONF_SENSOR,
     MAPPING_CONF_SOURCE,
@@ -104,6 +106,7 @@ from .const import (
     ZONE_ID,
     ZONE_LAST_UPDATED,
     ZONE_LEAD_TIME,
+    ZONE_LINKED_ENTITY,
     ZONE_MAPPING,
     ZONE_MAXIMUM_BUCKET,
     ZONE_MAXIMUM_DURATION,
@@ -123,7 +126,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_REGISTRY = f"{DOMAIN}_storage"
 STORAGE_KEY = f"{DOMAIN}.storage"
-STORAGE_VERSION = 5
+STORAGE_VERSION = 6
 SAVE_DELAY = 0
 
 
@@ -151,6 +154,7 @@ class ZoneEntry:
     number_of_data_points = attr.ib(type=int, default=0)
     drainage_rate = attr.ib(type=float, default=CONF_DEFAULT_DRAINAGE_RATE)
     current_drainage = attr.ib(type=float, default=0)
+    linked_entity = attr.ib(type=str, default=None)
 
 
 @attr.s(slots=True, frozen=True)
@@ -214,6 +218,7 @@ class Config:
     )
     seasonal_adjustments = attr.ib(type=list, default=CONF_DEFAULT_SEASONAL_ADJUSTMENTS)
     recurring_schedules = attr.ib(type=list, default=CONF_DEFAULT_RECURRING_SCHEDULES)
+    zone_sequencing = attr.ib(type=str, default=CONF_DEFAULT_ZONE_SEQUENCING)
 
 
 class MigratableStore(Store):
@@ -304,6 +309,8 @@ class MigratableStore(Store):
                 data["config"][
                     CONF_DAYS_SINCE_LAST_IRRIGATION
                 ] = CONF_DEFAULT_DAYS_SINCE_LAST_IRRIGATION
+            if CONF_ZONE_SEQUENCING not in data["config"]:
+                data["config"][CONF_ZONE_SEQUENCING] = CONF_DEFAULT_ZONE_SEQUENCING
 
             # Get valid field names from Config class to filter out unrecognized keys
             valid_fields = set(attr.fields_dict(Config).keys())
@@ -430,6 +437,10 @@ class SmartIrrigationStorage:
                     CONF_DAYS_SINCE_LAST_IRRIGATION,
                     CONF_DEFAULT_DAYS_SINCE_LAST_IRRIGATION,
                 ),
+                zone_sequencing=data["config"].get(
+                    CONF_ZONE_SEQUENCING,
+                    CONF_DEFAULT_ZONE_SEQUENCING,
+                ),
             )
 
             if "zones" in data:
@@ -459,6 +470,7 @@ class SmartIrrigationStorage:
                         ),
                         drainage_rate=zone.get(ZONE_DRAINAGE_RATE, None),
                         current_drainage=zone.get(ZONE_CURRENT_DRAINAGE, None),
+                        linked_entity=zone.get(ZONE_LINKED_ENTITY, None),
                     )
             if "modules" in data:
                 for module in data["modules"]:

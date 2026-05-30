@@ -34,6 +34,9 @@ import {
   CONF_MANUAL_LONGITUDE,
   CONF_MANUAL_ELEVATION,
   CONF_DAYS_BETWEEN_IRRIGATION,
+  CONF_ZONE_SEQUENCING,
+  CONF_ZONE_SEQUENCING_SEQUENTIAL,
+  CONF_ZONE_SEQUENCING_PARALLEL,
   TRIGGER_TYPE_SUNRISE,
   TRIGGER_TYPE_SUNSET,
   TRIGGER_TYPE_SOLAR_AZIMUTH,
@@ -651,13 +654,16 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
       // Days Between Irrigation Card
       const r8 = this.renderDaysBetweenIrrigationCard();
 
+      // Zone Sequencing Card
+      const r9 = this.renderZoneSequencingCard();
+
       const r = html`<ha-card
           header="${localize("panels.general.title", this.hass.language)}"
         >
           <div class="card-content">
             ${localize("panels.general.description", this.hass.language)}
           </div> </ha-card
-        >${r2}${r1}${r3}${r4}${r5}${r6}${r7}${r8}
+        >${r2}${r1}${r3}${r4}${r5}${r6}${r7}${r8}${r9}
         <trigger-dialog
           .hass=${this.hass}
           @trigger-save=${(e: CustomEvent) => this._handleTriggerSave(e.detail)}
@@ -1233,6 +1239,61 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
                 "days_between_irrigation.help_text",
                 this.hass.language,
               )}
+            </div>
+          </div>
+        </div>
+      </ha-card>
+    `;
+  }
+
+  renderZoneSequencingCard() {
+    if (!this.config || !this.data || !this.hass) return html``;
+
+    const isSequential =
+      this.config.zone_sequencing === CONF_ZONE_SEQUENCING_SEQUENTIAL;
+
+    return html`
+      <ha-card
+        header="${localize("zone_sequencing.title", this.hass.language)}"
+      >
+        <div class="card-content">
+          ${localize("zone_sequencing.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="zoneline">
+            <div class="switch-container">
+              <input
+                type="radio"
+                id="sequencing_parallel"
+                name="${CONF_ZONE_SEQUENCING}"
+                value="${CONF_ZONE_SEQUENCING_PARALLEL}"
+                ?checked="${!isSequential}"
+                @change=${() =>
+                  this.handleConfigChange({
+                    [CONF_ZONE_SEQUENCING]: CONF_ZONE_SEQUENCING_PARALLEL,
+                  })}
+              /><label for="sequencing_parallel"
+                >${localize(
+                  "zone_sequencing.parallel",
+                  this.hass.language,
+                )}</label
+              >
+              <input
+                type="radio"
+                id="sequencing_sequential"
+                name="${CONF_ZONE_SEQUENCING}"
+                value="${CONF_ZONE_SEQUENCING_SEQUENTIAL}"
+                ?checked="${isSequential}"
+                @change=${() =>
+                  this.handleConfigChange({
+                    [CONF_ZONE_SEQUENCING]: CONF_ZONE_SEQUENCING_SEQUENTIAL,
+                  })}
+              /><label for="sequencing_sequential"
+                >${localize(
+                  "zone_sequencing.sequential",
+                  this.hass.language,
+                )}</label
+              >
             </div>
           </div>
         </div>

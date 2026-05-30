@@ -2804,6 +2804,9 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
                     _LOGGER.info("Fired start event: %s", event_to_fire)
                     self._start_event_fired_today = True
 
+                    # Directly control linked valve/switch entities
+                    await self._irrigate_linked_entities()
+
                     # Reset days since last irrigation counter
                     await self._reset_days_since_irrigation()
 
@@ -2834,6 +2837,70 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
             self.hass.async_create_task(check_and_fire())
         else:
             _LOGGER.info("Did not fire start event, it was already fired today")
+
+    async def _irrigate_linked_entities(self):
+        """Directly control linked valve/switch entities for all zones needing irrigation."""
+        zones = await self.store.async_get_zones()
+        sequencing = self.store.config.zone_sequencing
+
+        zones_to_irrigate = [
+            z
+            for z in zones
+            if z.get(const.ZONE_LINKED_ENTITY)
+            and (z.get(const.ZONE_DURATION) or 0) > 0
+            and z.get(const.ZONE_STATE) != const.ZONE_STATE_DISABLED
+        ]
+
+        if not zones_to_irrigate:
+            _LOGGER.debug(
+                "No zones with linked entities and duration > 0 to irrigate directly"
+            )
+            return
+
+        if sequencing == const.CONF_ZONE_SEQUENCING_SEQUENTIAL:
+            asyncio.create_task(self._irrigate_zones_sequential(zones_to_irrigate))
+        else:
+            await self._irrigate_zones_parallel(zones_to_irrigate)
+
+    async def _irrigate_zones_sequential(self, zones: list):
+        """Irrigate zones one after another, skipping zones with no duration."""
+        for zone in zones:
+            entity_id = zone[const.ZONE_LINKED_ENTITY]
+            duration = zone[const.ZONE_DURATION]
+            domain = entity_id.split(".")[0]
+            _LOGGER.info(
+                "Sequential irrigation: turning on %s for %s seconds",
+                entity_id,
+                duration,
+            )
+            await self.hass.services.async_call(
+                domain, "turn_on", {"entity_id": entity_id}
+            )
+            await asyncio.sleep(duration)
+            await self.hass.services.async_call(
+                domain, "turn_off", {"entity_id": entity_id}
+            )
+            _LOGGER.info("Sequential irrigation: finished %s", entity_id)
+
+    async def _irrigate_zones_parallel(self, zones: list):
+        """Start all zone entities simultaneously, each turning off after its own duration."""
+        for zone in zones:
+            entity_id = zone[const.ZONE_LINKED_ENTITY]
+            duration = zone[const.ZONE_DURATION]
+            domain = entity_id.split(".")[0]
+            _LOGGER.info(
+                "Parallel irrigation: turning on %s for %s seconds", entity_id, duration
+            )
+            await self.hass.services.async_call(
+                domain, "turn_on", {"entity_id": entity_id}
+            )
+
+            async def _turn_off(eid=entity_id, dom=domain, dur=duration):
+                await asyncio.sleep(dur)
+                await self.hass.services.async_call(dom, "turn_off", {"entity_id": eid})
+                _LOGGER.info("Parallel irrigation: turned off %s", eid)
+
+            asyncio.create_task(_turn_off())
 
     @callback
     def _reset_event_fired_today(self, *args):

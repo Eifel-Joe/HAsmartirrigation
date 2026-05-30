@@ -39,6 +39,7 @@ export class SmartIrrigationConfig {
   manual_longitude?: number;
   manual_elevation?: number;
   days_between_irrigation: number;
+  zone_sequencing: string;
 
   constructor() {
     this.calctime = "23:00";
@@ -62,6 +63,7 @@ export class SmartIrrigationConfig {
     this.manual_longitude = undefined;
     this.manual_elevation = undefined;
     this.days_between_irrigation = 0;
+    this.zone_sequencing = "parallel";
   }
 }
 
@@ -108,6 +110,7 @@ export class SmartIrrigationZone {
   number_of_data_points?: number;
   drainage_rate?: number;
   current_drainage?: number;
+  linked_entity?: string;
 
   constructor(
     i: number,
