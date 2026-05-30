@@ -185,6 +185,8 @@ export class TriggerDialog extends LitElement {
 
           <div class="form-group">
             <ha-select
+              fixedMenuPosition
+              naturalMenuWidth
               .label=${localize(
                 "irrigation_start_triggers.fields.type.name",
                 this.hass.language,

@@ -1,6 +1,6 @@
 import { CSSResultGroup, LitElement, css, html } from "lit";
 import { property, customElement } from "lit/decorators.js";
-import { HomeAssistant, fireEvent } from "custom-card-helpers";
+import { HomeAssistant } from "custom-card-helpers";
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
 
 import { fetchConfig, saveConfig } from "../../data/websockets";
@@ -657,7 +657,13 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
           <div class="card-content">
             ${localize("panels.general.description", this.hass.language)}
           </div> </ha-card
-        >${r2}${r1}${r3}${r4}${r5}${r6}${r7}${r8}`;
+        >${r2}${r1}${r3}${r4}${r5}${r6}${r7}${r8}
+        <trigger-dialog
+          .hass=${this.hass}
+          @trigger-save=${(e: CustomEvent) => this._handleTriggerSave(e.detail)}
+          @trigger-delete=${(e: CustomEvent) =>
+            this._handleTriggerDelete(e.detail)}
+        ></trigger-dialog>`;
 
       return r;
     }
@@ -807,16 +813,15 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
   }
 
   private _addTrigger() {
-    this._showTriggerDialog({ createTrigger: true });
+    const dialog = this.shadowRoot?.querySelector("trigger-dialog") as any;
+    if (dialog) dialog.showDialog({ createTrigger: true });
   }
 
   private _editTrigger(index: number) {
     const trigger = this.config?.irrigation_start_triggers?.[index];
     if (trigger) {
-      this._showTriggerDialog({
-        trigger: trigger,
-        triggerIndex: index,
-      });
+      const dialog = this.shadowRoot?.querySelector("trigger-dialog") as any;
+      if (dialog) dialog.showDialog({ trigger, triggerIndex: index });
     }
   }
 
@@ -839,44 +844,6 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
     }
   }
 
-  private async _showTriggerDialog(params: any) {
-    if (!this.hass) return;
-
-    const dialog = document.createElement("trigger-dialog") as any;
-    dialog.hass = this.hass;
-
-    dialog.addEventListener("trigger-save", (event: any) => {
-      this._handleTriggerSave(event.detail);
-    });
-
-    dialog.addEventListener("trigger-delete", (event: any) => {
-      this._handleTriggerDelete(event.detail);
-    });
-
-    // Add to DOM and show dialog
-    document.body.appendChild(dialog);
-    await dialog.showDialog(params);
-
-    // Clean up when dialog closes
-    dialog.addEventListener("closed", (ev: Event) => {
-      // Only react when the closed event originates from the dialog itself.
-      // Ignore "closed" emitted by nested overlays (mwc-menu / ha-select).
-      const origin = ev.target as Element | null;
-      if (!origin) return;
-      if (origin.tagName.toLowerCase() !== "ha-dialog") {
-        return;
-      }
-
-      document.body.removeChild(dialog);
-    });
-
-    /*fireEvent(this, "show-dialog", {
-      dialogTag: "trigger-dialog",
-      dialogImport: () => import("../../dialogs/trigger-dialog"),
-      dialogParams: params,
-    });*/
-  }
-
   private _handleTriggerSave(detail: any) {
     if (!this.config) return;
 
@@ -889,9 +856,6 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
     } else if (detail.index !== undefined) {
       triggers[detail.index] = detail.trigger;
     }
-
-    // Log for debugging so you can see what we received
-    console.log("RECEIVED trigger-save in view-general", { detail, triggers });
 
     // Optimistic update so UI immediately reflects change
     this.config = { ...this.config, irrigation_start_triggers: triggers };

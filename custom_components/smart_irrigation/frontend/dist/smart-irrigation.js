@@ -5643,6 +5643,8 @@
 
           <div class="form-group">
             <ha-select
+              fixedMenuPosition
+              naturalMenuWidth
               .label=${Dn("irrigation_start_triggers.fields.type.name", this.hass.language)}
               .value=${this._trigger.type}
               @value-changed=${this._typeChanged}
@@ -6234,14 +6236,20 @@
         const n = this.renderTriggersCard(),
           s = this.renderWeatherSkipCard(),
           r = this.renderCoordinateCard(),
-          o = this.renderDaysBetweenIrrigationCard();
-        return F`<ha-card
+          o = this.renderDaysBetweenIrrigationCard(),
+          l = F`<ha-card
           header="${Dn("panels.general.title", this.hass.language)}"
         >
           <div class="card-content">
             ${Dn("panels.general.description", this.hass.language)}
           </div> </ha-card
-        >${t}${e}${a}${i}${n}${s}${r}${o}`;
+        >${t}${e}${a}${i}${n}${s}${r}${o}
+        <trigger-dialog
+          .hass=${this.hass}
+          @trigger-save=${e => this._handleTriggerSave(e.detail)}
+          @trigger-delete=${e => this._handleTriggerDelete(e.detail)}
+        ></trigger-dialog>`;
+        return l;
       }
     }
     renderTriggersCard() {
@@ -6331,17 +6339,22 @@
     `;
     }
     _addTrigger() {
-      this._showTriggerDialog({
+      var e;
+      const t = null === (e = this.shadowRoot) || void 0 === e ? void 0 : e.querySelector("trigger-dialog");
+      t && t.showDialog({
         createTrigger: !0
       });
     }
     _editTrigger(e) {
-      var t, a;
-      const i = null === (a = null === (t = this.config) || void 0 === t ? void 0 : t.irrigation_start_triggers) || void 0 === a ? void 0 : a[e];
-      i && this._showTriggerDialog({
-        trigger: i,
-        triggerIndex: e
-      });
+      var t, a, i;
+      const n = null === (a = null === (t = this.config) || void 0 === t ? void 0 : t.irrigation_start_triggers) || void 0 === a ? void 0 : a[e];
+      if (n) {
+        const t = null === (i = this.shadowRoot) || void 0 === i ? void 0 : i.querySelector("trigger-dialog");
+        t && t.showDialog({
+          trigger: n,
+          triggerIndex: e
+        });
+      }
     }
     _deleteTrigger(e) {
       var t, a;
@@ -6354,25 +6367,10 @@
         });
       }
     }
-    async _showTriggerDialog(e) {
-      if (!this.hass) return;
-      const t = document.createElement("trigger-dialog");
-      t.hass = this.hass, t.addEventListener("trigger-save", e => {
-        this._handleTriggerSave(e.detail);
-      }), t.addEventListener("trigger-delete", e => {
-        this._handleTriggerDelete(e.detail);
-      }), document.body.appendChild(t), await t.showDialog(e), t.addEventListener("closed", e => {
-        const a = e.target;
-        a && "ha-dialog" === a.tagName.toLowerCase() && document.body.removeChild(t);
-      });
-    }
     _handleTriggerSave(e) {
       if (!this.config) return;
       const t = this.config.irrigation_start_triggers ? [...this.config.irrigation_start_triggers] : [];
-      e.isNew ? t.push(e.trigger) : void 0 !== e.index && (t[e.index] = e.trigger), console.log("RECEIVED trigger-save in view-general", {
-        detail: e,
-        triggers: t
-      }), this.config = Object.assign(Object.assign({}, this.config), {
+      e.isNew ? t.push(e.trigger) : void 0 !== e.index && (t[e.index] = e.trigger), this.config = Object.assign(Object.assign({}, this.config), {
         irrigation_start_triggers: t
       }), this.saveData({
         [ze]: t
