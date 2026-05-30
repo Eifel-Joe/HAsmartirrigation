@@ -866,33 +866,41 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
           <div class="card-content">
             <div class="zone-info-table">
               <div class="zone-info-row">
-                <span class="zone-info-label">${localize(
-                  "panels.zones.labels.last_calculated",
-                  this.hass.language,
-                )}:</span>
-                <span class="zone-info-value">${
-                  zone.last_calculated
+                <span class="zone-info-label"
+                  >${localize(
+                    "panels.zones.labels.last_calculated",
+                    this.hass.language,
+                  )}:</span
+                >
+                <span class="zone-info-value"
+                  >${zone.last_calculated
                     ? moment(zone.last_calculated).format("YYYY-MM-DD HH:mm:ss")
-                    : "-"
-                }</span>
+                    : "-"}</span
+                >
               </div>
               <div class="zone-info-row">
-                <span class="zone-info-label">${localize(
-                  "panels.zones.labels.data-last-updated",
-                  this.hass.language,
-                )}:</span>
-                <span class="zone-info-value">${
-                  zone.last_updated
+                <span class="zone-info-label"
+                  >${localize(
+                    "panels.zones.labels.data-last-updated",
+                    this.hass.language,
+                  )}:</span
+                >
+                <span class="zone-info-value"
+                  >${zone.last_updated
                     ? moment(zone.last_updated).format("YYYY-MM-DD HH:mm:ss")
-                    : "-"
-                }</span>
+                    : "-"}</span
+                >
               </div>
               <div class="zone-info-row">
-                <span class="zone-info-label">${localize(
-                  "panels.zones.labels.data-number-of-data-points",
-                  this.hass.language,
-                )}:</span>
-                <span class="zone-info-value">${zone.number_of_data_points}</span>
+                <span class="zone-info-label"
+                  >${localize(
+                    "panels.zones.labels.data-number-of-data-points",
+                    this.hass.language,
+                  )}:</span
+                >
+                <span class="zone-info-value"
+                  >${zone.number_of_data_points}</span
+                >
               </div>
             </div>
           </div>
@@ -918,13 +926,19 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 >${localize("panels.zones.labels.size", this.hass.language)}
                 (${output_unit(this.config, ZONE_SIZE)}):</label
               >
-              <input class="shortinput" id="size${index}" type="number""
-              .value="${zone.size}"
-              @input="${(e: Event) =>
-                this.handleEditZone(index, {
-                  ...zone,
-                  [ZONE_SIZE]: parseFloat((e.target as HTMLInputElement).value),
-                })}"
+              <input
+                class="shortinput"
+                id="size${index}"
+                type="number"
+                step="0.1"
+                min="0"
+                inputmode="decimal"
+                .value="${zone.size}"
+                @input="${(e: Event) => {
+                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  if (!isNaN(v))
+                    this.handleEditZone(index, { ...zone, [ZONE_SIZE]: v });
+                }}"
               />
             </div>
             <div class="zoneline">
@@ -939,14 +953,18 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 class="shortinput"
                 id="throughput${index}"
                 type="number"
+                step="0.1"
+                min="0"
+                inputmode="decimal"
                 .value="${zone.throughput}"
-                @input="${(e: Event) =>
-                  this.handleEditZone(index, {
-                    ...zone,
-                    [ZONE_THROUGHPUT]: parseFloat(
-                      (e.target as HTMLInputElement).value,
-                    ),
-                  })}"
+                @input="${(e: Event) => {
+                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  if (!isNaN(v))
+                    this.handleEditZone(index, {
+                      ...zone,
+                      [ZONE_THROUGHPUT]: v,
+                    });
+                }}"
               />
             </div>
             <div class="zoneline">
@@ -961,14 +979,18 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 class="shortinput"
                 id="drainage_rate${index}"
                 type="number"
+                step="0.1"
+                min="0"
+                inputmode="decimal"
                 .value="${zone.drainage_rate}"
-                @input="${(e: Event) =>
-                  this.handleEditZone(index, {
-                    ...zone,
-                    [ZONE_DRAINAGE_RATE]: parseFloat(
-                      (e.target as HTMLInputElement).value,
-                    ),
-                  })}"
+                @input="${(e: Event) => {
+                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  if (!isNaN(v))
+                    this.handleEditZone(index, {
+                      ...zone,
+                      [ZONE_DRAINAGE_RATE]: v,
+                    });
+                }}"
               />
             </div>
             <div class="zoneline">
@@ -991,9 +1013,8 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
               >
                 <option
                   value="${SmartIrrigationZoneState.Automatic}"
-                  ?selected="${
-                    zone.state === SmartIrrigationZoneState.Automatic
-                  }"
+                  ?selected="${zone.state ===
+                  SmartIrrigationZoneState.Automatic}"
                 >
                   ${localize(
                     "panels.zones.labels.states.automatic",
@@ -1002,9 +1023,8 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 </option>
                 <option
                   value="${SmartIrrigationZoneState.Disabled}"
-                  ?selected="${
-                    zone.state === SmartIrrigationZoneState.Disabled
-                  }"
+                  ?selected="${zone.state ===
+                  SmartIrrigationZoneState.Disabled}"
                 >
                   ${localize(
                     "panels.zones.labels.states.disabled",
@@ -1066,14 +1086,14 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 class="shortinput"
                 id="bucket${index}"
                 type="number"
+                step="0.1"
+                inputmode="decimal"
                 .value="${Number(zone.bucket).toFixed(1)}"
-                @input="${(e: Event) =>
-                  this.handleEditZone(index, {
-                    ...zone,
-                    [ZONE_BUCKET]: parseFloat(
-                      (e.target as HTMLInputElement).value,
-                    ),
-                  })}"
+                @input="${(e: Event) => {
+                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  if (!isNaN(v))
+                    this.handleEditZone(index, { ...zone, [ZONE_BUCKET]: v });
+                }}"
               />
               <label for="maximum-bucket${index}"
                 >${localize(
@@ -1086,14 +1106,18 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 class="shortinput"
                 id="maximum-bucket${index}"
                 type="number"
+                step="0.1"
+                min="0"
+                inputmode="decimal"
                 .value="${Number(zone.maximum_bucket).toFixed(1)}"
-                @input="${(e: Event) =>
-                  this.handleEditZone(index, {
-                    ...zone,
-                    [ZONE_MAXIMUM_BUCKET]: parseFloat(
-                      (e.target as HTMLInputElement).value,
-                    ),
-                  })}"
+                @input="${(e: Event) => {
+                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  if (!isNaN(v))
+                    this.handleEditZone(index, {
+                      ...zone,
+                      [ZONE_MAXIMUM_BUCKET]: v,
+                    });
+                }}"
               />
             </div>
             <div class="zoneline">
@@ -1108,15 +1132,18 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 class="shortinput"
                 id="lead_time${index}"
                 type="number"
+                step="1"
+                min="0"
+                inputmode="numeric"
                 .value="${zone.lead_time}"
-                @input="${(e: Event) =>
-                  this.handleEditZone(index, {
-                    ...zone,
-                    [ZONE_LEAD_TIME]: parseInt(
-                      (e.target as HTMLInputElement).value,
-                      10,
-                    ),
-                  })}"
+                @input="${(e: Event) => {
+                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  if (!isNaN(v))
+                    this.handleEditZone(index, {
+                      ...zone,
+                      [ZONE_LEAD_TIME]: Math.round(v),
+                    });
+                }}"
               />
             </div>
             <div class="zoneline">
@@ -1131,15 +1158,18 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 class="shortinput"
                 id="maximum-duration${index}"
                 type="number"
+                step="1"
+                min="0"
+                inputmode="numeric"
                 .value="${zone.maximum_duration}"
-                @input="${(e: Event) =>
-                  this.handleEditZone(index, {
-                    ...zone,
-                    [ZONE_MAXIMUM_DURATION]: parseInt(
-                      (e.target as HTMLInputElement).value,
-                      10,
-                    ),
-                  })}"
+                @input="${(e: Event) => {
+                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  if (!isNaN(v))
+                    this.handleEditZone(index, {
+                      ...zone,
+                      [ZONE_MAXIMUM_DURATION]: Math.round(v),
+                    });
+                }}"
               />
             </div>
             <div class="zoneline">
@@ -1153,14 +1183,18 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 class="shortinput"
                 id="multiplier${index}"
                 type="number"
+                step="0.1"
+                min="0"
+                inputmode="decimal"
                 .value="${zone.multiplier}"
-                @input="${(e: Event) =>
-                  this.handleEditZone(index, {
-                    ...zone,
-                    [ZONE_MULTIPLIER]: parseFloat(
-                      (e.target as HTMLInputElement).value,
-                    ),
-                  })}"
+                @input="${(e: Event) => {
+                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  if (!isNaN(v))
+                    this.handleEditZone(index, {
+                      ...zone,
+                      [ZONE_MULTIPLIER]: v,
+                    });
+                }}"
               />
               <label for="duration${index}"
                 >${localize("panels.zones.labels.duration", this.hass.language)}
@@ -1170,32 +1204,30 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 class="shortinput"
                 id="duration${index}"
                 type="number"
+                step="1"
+                min="0"
+                inputmode="numeric"
                 .value="${zone.duration}"
-                ?readonly="${
-                  zone.state === SmartIrrigationZoneState.Disabled ||
-                  zone.state === SmartIrrigationZoneState.Automatic
-                }"
-                @input="${(e: Event) =>
-                  this.handleEditZone(index, {
-                    ...zone,
-                    [ZONE_DURATION]: parseInt(
-                      (e.target as HTMLInputElement).value,
-                      10,
-                    ),
-                  })}"
+                ?readonly="${zone.state === SmartIrrigationZoneState.Disabled ||
+                zone.state === SmartIrrigationZoneState.Automatic}"
+                @input="${(e: Event) => {
+                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  if (!isNaN(v))
+                    this.handleEditZone(index, {
+                      ...zone,
+                      [ZONE_DURATION]: Math.round(v),
+                    });
+                }}"
               />
             </div>
             <div class="action-buttons">
               <div class="action-buttons-left">
-                ${update_button_to_show}
-                ${calculation_button_to_show}
+                ${update_button_to_show} ${calculation_button_to_show}
                 ${information_button_to_show}
               </div>
               <div class="action-buttons-right">
-                ${reset_bucket_button_to_show}
-                ${weather_info_button_to_show}
-                ${calendar_button_to_show}
-                ${delete_button_to_show}
+                ${reset_bucket_button_to_show} ${weather_info_button_to_show}
+                ${calendar_button_to_show} ${delete_button_to_show}
               </div>
             </div>
             <div class="zoneline">
@@ -1290,6 +1322,9 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
             <input
               id="sizeInput"
               type="number"
+              step="0.1"
+              min="0"
+              inputmode="decimal"
               @focus="${this.handleZoneFormFocus}"
               @blur="${this.handleZoneFormBlur}"
             />
@@ -1304,6 +1339,9 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
             <input
               id="throughputInput"
               type="number"
+              step="0.1"
+              min="0"
+              inputmode="decimal"
               @focus="${this.handleZoneFormFocus}"
               @blur="${this.handleZoneFormBlur}"
             />
