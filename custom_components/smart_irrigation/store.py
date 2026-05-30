@@ -240,13 +240,6 @@ class MigratableStore(Store):
                     )
                 if data["config"]["use_weather_service"]:
                     data["config"]["weather_service"] = CONF_WEATHER_SERVICE_OWM
-                # if "owm_api_version" in data:
-                #    data["forecasting_api_version"] = data.pop("owm_api_version")
-                # v3 to v4
-                # use_owm --> use_forecasting
-                # owm_api_key --> forecasting_api_key
-                # owm_api_version --> forecasting_api_version
-                # new: forecasting_service (OWM or PirateWeather)
         if old_version <= 4:
             # v4 to v5: Add irrigation start triggers configuration
             # Default to backward compatible behavior (sunrise trigger with total duration offset)
@@ -528,15 +521,6 @@ class SmartIrrigationStorage:
 
     async def async_factory_default_zones(self):
         """Set up factory default zones if none exist."""
-        # new_zone1 = ZoneEntry(
-        #    **{ZONE_ID: 0, ZONE_NAME: localize("defaults.default-zone", self.hass.config.language)+" 1", ZONE_SIZE: 50.5, ZONE_THROUGHPUT: 10.1,ZONE_MODULE:0,ZONE_MAPPING:0,ZONE_LEAD_TIME:0, ZONE_MAXIMUM_DURATION:CONF_DEFAULT_MAXIMUM_DURATION, ZONE_MAXIMUM_BUCKET: CONF_DEFAULT_MAXIMUM_BUCKET}
-        # )
-        # new_zone2 = ZoneEntry(
-        #    **{ZONE_ID: 1, ZONE_NAME: localize("defaults.default-zone", self.hass.config.language)+" 2", ZONE_SIZE: 100.1, ZONE_THROUGHPUT: 20.2,ZONE_MODULE:0,ZONE_MAPPING: 0, ZONE_LEAD_TIME:0, ZONE_MAXIMUM_DURATION: CONF_DEFAULT_MAXIMUM_DURATION, ZONE_MAXIMUM_BUCKET: CONF_DEFAULT_MAXIMUM_BUCKET}
-        # )
-        # self.zones[0] = new_zone1
-        # self.zones[1] = new_zone2
-        # self.async_schedule_save()
         return
 
     async def async_factory_default_modules(self):
@@ -680,26 +664,13 @@ class SmartIrrigationStorage:
         """Get an existing ZoneEntry by id."""
         res = self.zones.get(int(zone_id))
         return attr.asdict(res) if res else None
-        # res = None
-        # for key,val in self.zones.items():
-        #    if str(val.id) == str(zone_id):
-        #        res = val
-        #        break
-        # return attr.asdict(res) if res else None
 
     async def async_get_zones(self):
         """Get all ZoneEntries."""
-        # res = {}
-        # for key, val in self.zones.items():
-        #    res[key] = attr.asdict(val)
-        # return res
-
         return [attr.asdict(val) for val in self.zones.values()]
 
     async def async_create_zone(self, data: dict) -> ZoneEntry:
         """Create a new ZoneEntry."""
-        # zone_id = str(int(time.time()))
-        # new_zone = ZoneEntry(**data, id=zone_id)
         new_zone = ZoneEntry(**data)
         if not new_zone.id:
             zones = await self.async_get_zones()
@@ -765,17 +736,10 @@ class SmartIrrigationStorage:
 
     async def async_get_modules(self):
         """Get all ModuleEntries."""
-        # res = {}
-        # for key, val in self.modules.items():
-        #    res[key] = attr.asdict(val)
-        # return res
-
         return [attr.asdict(val) for val in self.modules.values()]
 
     async def async_create_module(self, data: dict) -> ModuleEntry:
         """Create a new ModuleEntry."""
-        # module_id = str(int(time.time()))
-        # new_module = moduleEntry(**data, id=module_id)
         new_module = ModuleEntry(**data)
         if not new_module.id:
             modules = await self.async_get_modules()
@@ -811,11 +775,6 @@ class SmartIrrigationStorage:
 
     async def async_get_mappings(self):
         """Get all MappingEntries."""
-        # res = {}
-        # for key, val in self.modules.items():
-        #    res[key] = attr.asdict(val)
-        # return res
-
         return [attr.asdict(val) for val in self.mappings.values()]
 
     async def async_create_mapping(self, data: dict) -> MappingEntry:

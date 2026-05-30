@@ -146,11 +146,6 @@ class SmartIrrigationOptionsFlowHandler(config_entries.OptionsFlow):
                     const.CONF_WEATHER_SERVICE_API_KEY
                 ].strip()
                 self._weather_service = user_input[const.CONF_WEATHER_SERVICE]
-                # forcing it to be 3.0 because of sunsetting of 2.5 API by OWM in June 2024
-                # user_input[const.CONF_WEATHER_SERVICE_API_VERSION] = "3.0"
-                # self._owm_api_version = user_input[
-                #    const.CONF_WEATHER_SERVICE_API_VERSION
-                # ]
                 user_input[const.CONF_USE_WEATHER_SERVICE] = self._use_weather_service
                 await validate_api_key(
                     self.hass, self._weather_service, self._weather_service_api_key

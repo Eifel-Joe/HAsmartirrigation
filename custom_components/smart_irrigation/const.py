@@ -2,7 +2,7 @@
 
 VERSION = "v2025.10.0"
 NAME = "Smart Irrigation"
-MANUFACTURER = "@jeroenterheerdt"
+MANUFACTURER = "@JustChr"
 
 DOMAIN = "smart_irrigation"
 CUSTOM_COMPONENTS = "custom_components"
@@ -119,10 +119,6 @@ CONF_REFERENCE_ET_10 = "reference_evapotranspiration_10"
 CONF_REFERENCE_ET_11 = "reference_evapotranspiration_11"
 CONF_REFERENCE_ET_12 = "reference_evapotranspiration_12"
 CONF_DEFAULT_REFERENCE_ET = 0.0
-# V1 only, no longer used in V2
-# CONF_MAXIMUM_ET = "maximum_et"
-# DEFAULT_MAXIMUM_ET = 0
-
 # Weather Services
 
 CONF_WEATHER_SERVICE_OWM = "Open Weather Map"
@@ -172,7 +168,6 @@ CONF_PYETO_COASTAL = "coastal"
 CONF_PYETO_SOLRAD_BEHAVIOR = "solrad_behavior"
 CONF_PYETO_FORECAST_DAYS = "forecast_days"
 
-CUSTOM_COMPONENTS = "custom_components"
 INTEGRATION_FOLDER = DOMAIN
 PANEL_FOLDER = "frontend"
 PANEL_FILENAME = "dist/smart-irrigation.js"
@@ -222,7 +217,6 @@ ZONE_BUCKET = "bucket"
 ZONE_DELTA = "delta"
 ZONE_EXPLANATION = "explanation"
 ZONE_MULTIPLIER = "multiplier"
-ZONE_THROUGHPUT = "throughput"
 ZONE_MAPPING = "mapping"
 ZONE_LEAD_TIME = "lead_time"
 ZONE_MAXIMUM_DURATION = "maximum_duration"
@@ -239,9 +233,6 @@ MODULE_NAME = "name"
 MODULE_DESCRIPTION = "description"
 MODULE_CONFIG = "config"
 MODULE_SCHEMA = "schema"
-
-CONF_IMPERIAL = "imperial"
-CONF_METRIC = "metric"
 
 MAPPING_ID = "id"
 MAPPING_NAME = "name"

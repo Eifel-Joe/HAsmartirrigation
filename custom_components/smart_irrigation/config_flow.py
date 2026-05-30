@@ -69,12 +69,6 @@ class SmartIrrigationConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
                     const.CONF_WEATHER_SERVICE_API_KEY
                 ].strip()
                 self._weather_service = user_input[const.CONF_WEATHER_SERVICE].strip()
-                # v2024.4.5: removing handling of 2.5 API version of sunsetting by OWM in June 2024.
-                # self._owm_api_version = user_input[const.CONF_OWM_API_VERSION]
-                # user_input[const.CONF_FORECASTING_API_VERSION] = "3.0"
-                # self._forecasting_api_version = user_input[
-                #    const.CONF_FORECASTING_API_VERSION
-                # ]
                 user_input[const.CONF_USE_WEATHER_SERVICE] = self._use_weather_service
                 user_input[const.CONF_INSTANCE_NAME] = self._name
                 await validate_api_key(

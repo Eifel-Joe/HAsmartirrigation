@@ -39,8 +39,6 @@ from .pyeto import (
     svp_from_t,
 )
 
-# v1 only, no longer used in v2
-# from ...const import CONF_MAXIMUM_ET, DEFAULT_MAXIMUM_ET
 _LOGGER = logging.getLogger(__name__)
 
 

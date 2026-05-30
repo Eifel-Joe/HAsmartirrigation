@@ -320,8 +320,6 @@ class RecurringScheduleManager:
 
     def _generate_schedule_id(self) -> str:
         """Generate a unique schedule ID."""
-        import uuid
-
         return f"schedule_{uuid.uuid4().hex[:8]}"
 
     def get_schedules(self) -> list[dict[str, Any]]:

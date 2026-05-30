@@ -143,11 +143,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY] = None
             hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_VERSION] = None
 
-    # Removed because of addition of other weather services than OWM
-    # check if API version is 2.5, force it to be 3.0. API keys should still be valid.
-    # if const.CONF_WEATHER_SERVICE_API_VERSION in hass.data[const.DOMAIN]:
-    #    if hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_VERSION] == "2.5":
-    #        hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_VERSION] = "3.0"
     coordinator = SmartIrrigationCoordinator(hass, session, entry, store)
 
     device_registry = dr.async_get(hass)
@@ -556,30 +551,6 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
         # experiment to use subscriptions to catch all updates instead of just on a time schedule
         await self.update_subscriptions(data)
         if data[const.CONF_AUTO_UPDATE_ENABLED]:
-            # CONF_AUTO_UPDATE_SCHEDULE: minute, hour, day
-            # CONF_AUTO_UPDATE_INTERVAL: X
-            # CONF_AUTO_UPDATE_TIME: first update time
-            # 2023.9.0-beta14 experiment: ignore auto update time. Instead do a delay?
-
-            # if check_time(data[const.CONF_AUTO_UPDATE_TIME]):
-            # first auto update time is valid
-            # update only the actual changed value: auto update time
-            #    timesplit = data[const.CONF_AUTO_UPDATE_TIME].split(":")
-            #    if self._track_auto_update_time_unsub:
-            #        self._track_auto_update_time_unsub()
-            #    self._track_auto_update_time_unsub = async_track_time_change(
-            #        self.hass,
-            #        self._async_track_update_time,
-            #        hour=timesplit[0],
-            #        minute=timesplit[1],
-            #        second=0
-            #    )
-            #    _LOGGER.info("Scheduled auto update first time update for {}".format(data[const.CONF_AUTO_UPDATE_TIME]))
-            # else:
-            #    _LOGGER.warning("Schedule auto update time is not valid: {}".format(data[const.CONF_AUTO_UPDATE_TIME]))
-            #    raise ValueError("Time is not a valid time")
-            # call update track time after waiting [update_delay] seconds
-
             delay = 0
             if const.CONF_AUTO_UPDATE_DELAY in data:
                 if int(data[const.CONF_AUTO_UPDATE_DELAY]) > 0:
@@ -1990,16 +1961,6 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
                 tput = convert_between(const.UNIT_GPM, const.UNIT_LPM, tput)
                 sz = convert_between(const.UNIT_SQ_FT, const.UNIT_M2, sz)
             precipitation_rate = (tput * 60) / sz
-            # new version of calculation below - this is the old version from V1. Switching to the new version removes the need for ET values to be passed in!
-            # water_budget = 1
-            # if mod.maximum_et != 0:
-            #    water_budget = round(abs(data[const.ZONE_BUCKET])/mod.maximum_et,2)
-            #
-            # base_schedule_index = (mod.maximum_et / precipitation_rate * 60)*60
-
-            # duration = water_budget * base_schedule_index
-            # new version (2.0): ART = W * BSI = ( |B| / ETpeak ) * ( ETpeak / PR * 3600 ) = |B| / PR * 3600 = ( ET - P ) / PR * 3600
-            # so duration = |B| / PR * 3600
             duration = abs(newbucket) / precipitation_rate * 3600
             explanation += (
                 await localize(
@@ -2013,9 +1974,6 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
                 )
                 + ":<br/>"
             )
-            # v1 only
-            # explanation += "<ol><li>Water budget is defined as abs([bucket])/max(ET)={}</li>".format(water_budget)
-            # beta25: temporarily removing all rounds to see if we can find the math issue reported in #186
             explanation += (
                 "<ol><li>"
                 + await localize(
@@ -2030,10 +1988,6 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
                 + await localize("common.attributes.size", self.hass.config.language)
                 + f"] = {tput:.1f} * 60 / {sz:.1f} = {precipitation_rate:.1f}.</li>"
             )
-            # v1 only
-            # explanation += "<li>The base schedule index is defined as (max(ET)/[precipitation rate]*60)*60=({}/{}*60)*60={}</li>".format(mod.maximum_et,precipitation_rate,round(base_schedule_index,1))
-            # explanation += "<li>the duration is calculated as [water_budget]*[base_schedule_index]={}*{}={}</li>".format(water_budget,round(base_schedule_index,1),round(duration))
-            # beta25: temporarily removing all rounds to see if we can find the math issue reported in #186
             explanation += (
                 "<li>"
                 + await localize(
@@ -2434,14 +2388,6 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
 
     async def register_start_event(self):
         """Register a callback to fire the irrigation start event before sunrise based on total duration of enabled zones."""
-        # sun_state = self.hass.states.get("sun.sun")
-        # if sun_state is not None:
-        #    sun_rise = sun_state.attributes.get("next_rising")
-        #    if sun_rise is not None:
-        #        try:
-        #            sun_rise = datetime.strptime(sun_rise, "%Y-%m-%dT%H:%M:%S.%f%z")
-        #        except(ValueError):
-        #            sun_rise = datetime.strptime(sun_rise, "%Y-%m-%dT%H:%M:%S%z")
         total_duration = await self.get_total_duration_all_enabled_zones()
         if self._track_sunrise_event_unsub:
             self._track_sunrise_event_unsub()
@@ -2514,16 +2460,6 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
         """Register the legacy sunrise trigger for backward compatibility."""
         total_duration = await self.get_total_duration_all_enabled_zones()
         if total_duration > 0:
-            # time_to_wait = sun_rise - datetime.now(timezone.utc) - timedelta(seconds=total_duration)
-            # time_to_fire = datetime.now(timezone.utc) + time_to_wait
-            # time_to_fire = sun_rise - timedelta(seconds=total_duration)
-            # time_to_wait = total_duration
-
-            # time_to_fire = datetime.now(timezone.utc)+timedelta(seconds=total_duration)
-
-            # self._track_sunrise_event_unsub = async_track_point_in_utc_time(
-            #    self.hass, self._fire_start_event, point_in_time=time_to_fire
-            # )
             self._track_sunrise_event_unsub = async_track_sunrise(
                 self.hass,
                 self._fire_start_event,

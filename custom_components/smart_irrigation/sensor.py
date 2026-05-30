@@ -119,21 +119,6 @@ class SmartIrrigationZoneEntity(SensorEntity, RestoreEntity):
     ) -> None:
         """Initialize the sensor entity."""
         self._hass = hass
-        # check if entity_id is already in self._hass
-        # if (
-        #    hass
-        #    and const.DOMAIN in hass.data
-        #    and self.check_zone_entity_in_hass_data(entity_id)
-        # ):
-        #    _LOGGER.warning(
-        #        f"Entity {entity_id} already exists in hass data, skipping config."
-        #    )
-        # entity_id = generate_entity_id(
-        #    entity_id_format="sensor.{}", name=entity_id.split(".")[1], hass=hass
-        # )
-        #    self._name = name
-        #    return
-        # else:
         self.entity_id = entity_id
         self._id = id
         self._name = name
@@ -341,28 +326,6 @@ class SmartIrrigationZoneEntity(SensorEntity, RestoreEntity):
             "lead_time": self._lead_time,
             "maximum_duration": self._maximum_duration,
             "maximum_bucket": self._maximum_bucket,
-            # asyncio.run_coroutine_threadsafe(
-            #    localize("common.attributes.size", "en"), self._hass.loop
-            # ).result(): self._size,
-            # asyncio.run_coroutine_threadsafe(
-            #    localize("common.attributes.throughput", "en"), self._hass.loop
-            # ).result(): self._throughput,
-            # asyncio.run_coroutine_threadsafe(
-            #    localize("common.attributes.state", "en"), self._hass.loop
-            # ).result(): self._state,
-            # asyncio.run_coroutine_threadsafe(
-            #    localize("common.attributes.bucket", "en"), self._hass.loop
-            # ).result(): self._bucket,
-            # asyncio.run_coroutine_threadsafe(
-            #    localize("common.attributes.last_updated", "en"), self._hass.loop
-            # ).result(): convert_timestamp(self._last_updated),
-            # asyncio.run_coroutine_threadsafe(
-            #    localize("common.attributes.last_calculated", "en"), self._hass.loop
-            # ).result(): convert_timestamp(self._last_calculated),
-            # asyncio.run_coroutine_threadsafe(
-            #    localize("common.attributes.number_of_data_points", "en"),
-            #    self._hass.loop,
-            # ).result(): self._number_of_data_points,
         }
 
     async def async_added_to_hass(self):
