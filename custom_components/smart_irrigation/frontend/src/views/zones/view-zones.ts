@@ -261,8 +261,9 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
     const newZone: SmartIrrigationZone = {
       //id: this.zones.length + 1, //new zone will have ID that is equal to current zone length + 1
       name: this.nameInput.value.trim(),
-      size: parseFloat(this.sizeInput.value) || 0,
-      throughput: parseFloat(this.throughputInput.value) || 0,
+      size: Math.round((parseFloat(this.sizeInput.value) || 0) * 100) / 100,
+      throughput:
+        Math.round((parseFloat(this.throughputInput.value) || 0) * 100) / 100,
       state: SmartIrrigationZoneState.Automatic,
       duration: 0,
       bucket: 0,
@@ -933,9 +934,12 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 step="0.1"
                 min="0"
                 inputmode="decimal"
-                .value="${zone.size}"
+                .value="${parseFloat(zone.size.toFixed(2))}"
                 @input="${(e: Event) => {
-                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  const v =
+                    Math.round(
+                      (e.target as HTMLInputElement).valueAsNumber * 100,
+                    ) / 100;
                   if (!isNaN(v))
                     this.handleEditZone(index, { ...zone, [ZONE_SIZE]: v });
                 }}"
@@ -956,9 +960,12 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 step="0.1"
                 min="0"
                 inputmode="decimal"
-                .value="${zone.throughput}"
+                .value="${parseFloat(zone.throughput.toFixed(2))}"
                 @input="${(e: Event) => {
-                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  const v =
+                    Math.round(
+                      (e.target as HTMLInputElement).valueAsNumber * 100,
+                    ) / 100;
                   if (!isNaN(v))
                     this.handleEditZone(index, {
                       ...zone,
@@ -982,9 +989,12 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 step="0.1"
                 min="0"
                 inputmode="decimal"
-                .value="${zone.drainage_rate}"
+                .value="${parseFloat((zone.drainage_rate ?? 0).toFixed(2))}"
                 @input="${(e: Event) => {
-                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  const v =
+                    Math.round(
+                      (e.target as HTMLInputElement).valueAsNumber * 100,
+                    ) / 100;
                   if (!isNaN(v))
                     this.handleEditZone(index, {
                       ...zone,
@@ -1088,9 +1098,12 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 type="number"
                 step="0.1"
                 inputmode="decimal"
-                .value="${Number(zone.bucket).toFixed(1)}"
+                .value="${parseFloat(Number(zone.bucket).toFixed(2))}"
                 @input="${(e: Event) => {
-                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  const v =
+                    Math.round(
+                      (e.target as HTMLInputElement).valueAsNumber * 100,
+                    ) / 100;
                   if (!isNaN(v))
                     this.handleEditZone(index, { ...zone, [ZONE_BUCKET]: v });
                 }}"
@@ -1109,9 +1122,12 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 step="0.1"
                 min="0"
                 inputmode="decimal"
-                .value="${Number(zone.maximum_bucket).toFixed(1)}"
+                .value="${parseFloat(Number(zone.maximum_bucket).toFixed(2))}"
                 @input="${(e: Event) => {
-                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  const v =
+                    Math.round(
+                      (e.target as HTMLInputElement).valueAsNumber * 100,
+                    ) / 100;
                   if (!isNaN(v))
                     this.handleEditZone(index, {
                       ...zone,
@@ -1186,9 +1202,12 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 step="0.1"
                 min="0"
                 inputmode="decimal"
-                .value="${zone.multiplier}"
+                .value="${parseFloat(zone.multiplier.toFixed(2))}"
                 @input="${(e: Event) => {
-                  const v = (e.target as HTMLInputElement).valueAsNumber;
+                  const v =
+                    Math.round(
+                      (e.target as HTMLInputElement).valueAsNumber * 100,
+                    ) / 100;
                   if (!isNaN(v))
                     this.handleEditZone(index, {
                       ...zone,
