@@ -52,11 +52,17 @@ SCHEDULE_TYPE_DAILY = "daily"
 SCHEDULE_TYPE_WEEKLY = "weekly"
 SCHEDULE_TYPE_MONTHLY = "monthly"
 SCHEDULE_TYPE_INTERVAL = "interval"
+SCHEDULE_TYPE_SUNRISE = "sunrise"
+SCHEDULE_TYPE_SUNSET = "sunset"
+SCHEDULE_TYPE_SOLAR_AZIMUTH = "solar_azimuth"
 SCHEDULE_TYPES = [
     SCHEDULE_TYPE_DAILY,
     SCHEDULE_TYPE_WEEKLY,
     SCHEDULE_TYPE_MONTHLY,
     SCHEDULE_TYPE_INTERVAL,
+    SCHEDULE_TYPE_SUNRISE,
+    SCHEDULE_TYPE_SUNSET,
+    SCHEDULE_TYPE_SOLAR_AZIMUTH,
 ]
 
 # Recurring Schedule Keys
@@ -72,6 +78,9 @@ SCHEDULE_CONF_START_DATE = "start_date"
 SCHEDULE_CONF_END_DATE = "end_date"
 SCHEDULE_CONF_ZONES = "zones"  # List of zone IDs or "all"
 SCHEDULE_CONF_ACTION = "action"  # "calculate", "update", or "irrigate"
+SCHEDULE_CONF_OFFSET_MINUTES = "offset_minutes"
+SCHEDULE_CONF_ACCOUNT_FOR_DURATION = "account_for_duration"
+SCHEDULE_CONF_AZIMUTH_ANGLE = "azimuth_angle"
 
 # Seasonal Adjustment Configuration
 SEASONAL_CONF_ID = "id"
@@ -244,6 +253,8 @@ ZONE_NUMBER_OF_DATA_POINTS = "number_of_data_points"
 ZONE_DRAINAGE_RATE = "drainage_rate"
 ZONE_CURRENT_DRAINAGE = "current_drainage"
 ZONE_LINKED_ENTITY = "linked_entity"
+ZONE_BUCKET_THRESHOLD = "bucket_threshold"
+CONF_DEFAULT_BUCKET_THRESHOLD = 0.0  # mm; water whenever bucket < 0 (any deficit)
 
 CONF_ZONE_SEQUENCING = "zone_sequencing"
 CONF_ZONE_SEQUENCING_SEQUENTIAL = "sequential"

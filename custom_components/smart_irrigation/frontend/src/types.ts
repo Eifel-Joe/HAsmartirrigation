@@ -31,7 +31,6 @@ export class SmartIrrigationConfig {
   autoclearenabled: boolean;
   continuousupdates: boolean;
   sensor_debounce: number;
-  irrigation_start_triggers: IrrigationStartTrigger[];
   skip_irrigation_on_precipitation: boolean;
   precipitation_threshold_mm: number;
   manual_coordinates_enabled: boolean;
@@ -60,7 +59,6 @@ export class SmartIrrigationConfig {
     // continuousupdates are disabled by default
     this.continuousupdates = false;
     this.sensor_debounce = 100;
-    this.irrigation_start_triggers = [];
     this.skip_irrigation_on_precipitation = false;
     this.precipitation_threshold_mm = 2.0;
     this.manual_coordinates_enabled = false;
@@ -121,6 +119,7 @@ export class SmartIrrigationZone {
   drainage_rate?: number;
   current_drainage?: number;
   linked_entity?: string;
+  bucket_threshold?: number;
 
   constructor(
     i: number,
@@ -148,6 +147,7 @@ export class SmartIrrigationZone {
     this.last_calculated = undefined;
     this.drainage_rate = 50.8; //default mm / hour (=2 inch per hour)
     this.current_drainage = 0;
+    this.bucket_threshold = 0;
   }
 }
 

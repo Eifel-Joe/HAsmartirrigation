@@ -61,6 +61,7 @@ import {
   ZONE_STATE,
   ZONE_THROUGHPUT,
   ZONE_LINKED_ENTITY,
+  ZONE_BUCKET_THRESHOLD,
 } from "../../const";
 import moment, { Moment } from "moment";
 
@@ -1293,6 +1294,37 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                     [ZONE_LINKED_ENTITY]:
                       (e.target as HTMLInputElement).value.trim() || undefined,
                   })}"
+              />
+            </div>
+            <div class="zoneline">
+              <label for="bucket_threshold${index}"
+                >${localize(
+                  "panels.zones.labels.bucket_threshold",
+                  this.hass.language,
+                )}
+                (${output_unit(this.config, ZONE_BUCKET)}):</label
+              >
+              <input
+                class="shortinput"
+                id="bucket_threshold${index}"
+                type="number"
+                step="0.5"
+                max="0"
+                inputmode="decimal"
+                .value="${parseFloat(
+                  (zone.bucket_threshold ?? 0).toFixed(1),
+                )}"
+                @input="${(e: Event) => {
+                  const v =
+                    Math.round(
+                      (e.target as HTMLInputElement).valueAsNumber * 10,
+                    ) / 10;
+                  if (!isNaN(v))
+                    this.handleEditZone(index, {
+                      ...zone,
+                      [ZONE_BUCKET_THRESHOLD]: Math.min(v, 0),
+                    });
+                }}"
               />
             </div>
             <div class="action-buttons">

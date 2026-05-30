@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import uuid
 from collections import OrderedDict
 from collections.abc import MutableMapping
 from typing import cast
@@ -32,13 +33,13 @@ from .const import (
     CONF_DEFAULT_AUTO_UPDATE_ENABLED,
     CONF_DEFAULT_AUTO_UPDATE_INTERVAL,
     CONF_DEFAULT_AUTO_UPDATE_SCHEDULE,
+    CONF_DEFAULT_BUCKET_THRESHOLD,
     CONF_DEFAULT_CALC_TIME,
     CONF_DEFAULT_CLEAR_TIME,
     CONF_DEFAULT_CONTINUOUS_UPDATES,
     CONF_DEFAULT_DAYS_BETWEEN_IRRIGATION,
     CONF_DEFAULT_DAYS_SINCE_LAST_IRRIGATION,
     CONF_DEFAULT_DRAINAGE_RATE,
-    CONF_DEFAULT_IRRIGATION_START_TRIGGERS,
     CONF_DEFAULT_MAXIMUM_BUCKET,
     CONF_DEFAULT_MAXIMUM_DURATION,
     CONF_DEFAULT_PRECIPITATION_THRESHOLD_MM,
@@ -55,7 +56,6 @@ from .const import (
     CONF_DEFAULT_WIND_THRESHOLD,
     CONF_DEFAULT_ZONE_SEQUENCING,
     CONF_IMPERIAL,
-    CONF_IRRIGATION_START_TRIGGERS,
     CONF_METRIC,
     CONF_PRECIPITATION_THRESHOLD_MM,
     CONF_RAIN_SENSOR,
@@ -101,14 +101,8 @@ from .const import (
     MODULE_ID,
     MODULE_NAME,
     MODULE_SCHEMA,
-    START_EVENT_FIRED_TODAY,
-    TRIGGER_CONF_ACCOUNT_FOR_DURATION,
-    TRIGGER_CONF_ENABLED,
-    TRIGGER_CONF_NAME,
-    TRIGGER_CONF_OFFSET_MINUTES,
-    TRIGGER_CONF_TYPE,
-    TRIGGER_TYPE_SUNRISE,
     ZONE_BUCKET,
+    ZONE_BUCKET_THRESHOLD,
     ZONE_CURRENT_DRAINAGE,
     ZONE_DELTA,
     ZONE_DRAINAGE_RATE,
@@ -136,7 +130,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_REGISTRY = f"{DOMAIN}_storage"
 STORAGE_KEY = f"{DOMAIN}.storage"
-STORAGE_VERSION = 6
+STORAGE_VERSION = 7
 SAVE_DELAY = 0
 
 
@@ -165,6 +159,7 @@ class ZoneEntry:
     drainage_rate = attr.ib(type=float, default=CONF_DEFAULT_DRAINAGE_RATE)
     current_drainage = attr.ib(type=float, default=0)
     linked_entity = attr.ib(type=str, default=None)
+    bucket_threshold = attr.ib(type=float, default=CONF_DEFAULT_BUCKET_THRESHOLD)
 
 
 @attr.s(slots=True, frozen=True)
@@ -206,14 +201,10 @@ class Config:
     autoupdateinterval = attr.ib(type=str, default=CONF_DEFAULT_AUTO_UPDATE_INTERVAL)
     autoclearenabled = attr.ib(type=bool, default=CONF_DEFAULT_AUTO_CLEAR_ENABLED)
     cleardatatime = attr.ib(type=str, default=CONF_DEFAULT_CLEAR_TIME)
-    starteventfiredtoday = attr.ib(type=bool, default=False)
     continuousupdates = attr.ib(
         type=bool, default=CONF_DEFAULT_CONTINUOUS_UPDATES
     )  # continuous updates are disabled by default for now
     sensor_debounce = attr.ib(type=int, default=CONF_DEFAULT_SENSOR_DEBOUNCE)
-    irrigation_start_triggers = attr.ib(
-        type=list, default=CONF_DEFAULT_IRRIGATION_START_TRIGGERS
-    )
     skip_irrigation_on_precipitation = attr.ib(
         type=bool, default=CONF_DEFAULT_SKIP_IRRIGATION_ON_PRECIPITATION
     )
@@ -261,25 +252,7 @@ class MigratableStore(Store):
                 if data["config"]["use_weather_service"]:
                     data["config"]["weather_service"] = CONF_WEATHER_SERVICE_OWM
         if old_version <= 4:
-            # v4 to v5: Add irrigation start triggers configuration
-            # Default to backward compatible behavior (sunrise trigger with total duration offset)
             if "config" in data:
-                if CONF_IRRIGATION_START_TRIGGERS not in data["config"]:
-                    # Create default trigger that mimics current behavior
-                    default_trigger = {
-                        TRIGGER_CONF_TYPE: TRIGGER_TYPE_SUNRISE,
-                        TRIGGER_CONF_OFFSET_MINUTES: 0,  # Will be calculated from total duration
-                        TRIGGER_CONF_ENABLED: True,
-                        TRIGGER_CONF_NAME: "Sunrise (Legacy)",
-                        TRIGGER_CONF_ACCOUNT_FOR_DURATION: True,  # Default to accounting for duration
-                    }
-                    data["config"][CONF_IRRIGATION_START_TRIGGERS] = [default_trigger]
-                else:
-                    # Update existing triggers to include account_for_duration if missing
-                    for trigger in data["config"][CONF_IRRIGATION_START_TRIGGERS]:
-                        if TRIGGER_CONF_ACCOUNT_FOR_DURATION not in trigger:
-                            trigger[TRIGGER_CONF_ACCOUNT_FOR_DURATION] = True
-
                 # Add weather skip configuration if missing
                 if CONF_SKIP_IRRIGATION_ON_PRECIPITATION not in data["config"]:
                     data["config"][
@@ -289,8 +262,6 @@ class MigratableStore(Store):
                     data["config"][
                         CONF_PRECIPITATION_THRESHOLD_MM
                     ] = CONF_DEFAULT_PRECIPITATION_THRESHOLD_MM
-
-                # Add days between irrigation configuration if missing
                 if CONF_DAYS_BETWEEN_IRRIGATION not in data["config"]:
                     data["config"][
                         CONF_DAYS_BETWEEN_IRRIGATION
@@ -300,14 +271,31 @@ class MigratableStore(Store):
                         CONF_DAYS_SINCE_LAST_IRRIGATION
                     ] = CONF_DEFAULT_DAYS_SINCE_LAST_IRRIGATION
 
+        if old_version <= 6:
+            # v6→v7: migrate irrigation_start_triggers to recurring_schedules
+            if "config" in data:
+                triggers = data["config"].pop("irrigation_start_triggers", [])
+                existing_schedules = data["config"].get("recurring_schedules", [])
+                for t in triggers:
+                    schedule = {
+                        "id": f"schedule_{uuid.uuid4().hex[:8]}",
+                        "name": t.get("name", "Migrated trigger"),
+                        "type": t.get("type", "sunrise"),
+                        "enabled": t.get("enabled", True),
+                        "action": "irrigate",
+                        "zones": "all",
+                        "offset_minutes": t.get("offset_minutes", 0),
+                        "account_for_duration": t.get("account_for_duration", True),
+                    }
+                    if t.get("type") == "solar_azimuth":
+                        schedule["azimuth_angle"] = t.get("azimuth_angle", 90)
+                    existing_schedules.append(schedule)
+                data["config"]["recurring_schedules"] = existing_schedules
+
         # CRITICAL: Always ensure required fields are present and strip unrecognized keys
         # This prevents TypeError when Config(**config_data) is called
         if "config" in data:
             # Ensure all required fields are present with defaults
-            if CONF_IRRIGATION_START_TRIGGERS not in data["config"]:
-                data["config"][
-                    CONF_IRRIGATION_START_TRIGGERS
-                ] = CONF_DEFAULT_IRRIGATION_START_TRIGGERS
             if CONF_SKIP_IRRIGATION_ON_PRECIPITATION not in data["config"]:
                 data["config"][
                     CONF_SKIP_IRRIGATION_ON_PRECIPITATION
@@ -389,7 +377,6 @@ class SmartIrrigationStorage:
             autoupdateinterval=CONF_DEFAULT_AUTO_UPDATE_INTERVAL,
             autoclearenabled=CONF_DEFAULT_AUTO_CLEAR_ENABLED,
             cleardatatime=CONF_DEFAULT_CLEAR_TIME,
-            starteventfiredtoday=False,
             continuousupdates=CONF_DEFAULT_CONTINUOUS_UPDATES,
             sensor_debounce=CONF_DEFAULT_SENSOR_DEBOUNCE,
         )
@@ -435,16 +422,11 @@ class SmartIrrigationStorage:
                 cleardatatime=data["config"].get(
                     CONF_CLEAR_TIME, CONF_DEFAULT_CLEAR_TIME
                 ),
-                starteventfiredtoday=data["config"].get(START_EVENT_FIRED_TODAY, False),
                 continuousupdates=data["config"].get(
                     CONF_CONTINUOUS_UPDATES, CONF_DEFAULT_CONTINUOUS_UPDATES
                 ),
                 sensor_debounce=data["config"].get(
                     CONF_SENSOR_DEBOUNCE, CONF_DEFAULT_SENSOR_DEBOUNCE
-                ),
-                irrigation_start_triggers=data["config"].get(
-                    CONF_IRRIGATION_START_TRIGGERS,
-                    CONF_DEFAULT_IRRIGATION_START_TRIGGERS,
                 ),
                 skip_irrigation_on_precipitation=data["config"].get(
                     CONF_SKIP_IRRIGATION_ON_PRECIPITATION,
@@ -516,6 +498,9 @@ class SmartIrrigationStorage:
                         drainage_rate=zone.get(ZONE_DRAINAGE_RATE, None),
                         current_drainage=zone.get(ZONE_CURRENT_DRAINAGE, None),
                         linked_entity=zone.get(ZONE_LINKED_ENTITY, None),
+                        bucket_threshold=zone.get(
+                            ZONE_BUCKET_THRESHOLD, CONF_DEFAULT_BUCKET_THRESHOLD
+                        ),
                     )
             if "modules" in data:
                 for module in data["modules"]:

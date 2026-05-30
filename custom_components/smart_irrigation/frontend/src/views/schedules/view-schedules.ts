@@ -13,7 +13,12 @@ import {
 import { SubscribeMixin } from "../../subscribe-mixin";
 import { localize } from "../../../localize/localize";
 import { globalStyle } from "../../styles/global-style";
-import { DOMAIN } from "../../const";
+import {
+  DOMAIN,
+  SCHEDULE_TYPE_SUNRISE,
+  SCHEDULE_TYPE_SUNSET,
+  SCHEDULE_TYPE_SOLAR_AZIMUTH,
+} from "../../const";
 import { SmartIrrigationZone } from "../../types";
 
 const DAYS = [
@@ -49,6 +54,9 @@ interface Schedule {
   days_of_week?: string[];
   day_of_month?: number;
   interval_hours?: number;
+  offset_minutes?: number;
+  account_for_duration?: boolean;
+  azimuth_angle?: number;
   action: string;
   zones: string | string[];
   start_date?: string;
@@ -381,9 +389,84 @@ class SmartIrrigationViewSchedules extends SubscribeMixin(LitElement) {
             </div>
           </div>
         `;
+      case SCHEDULE_TYPE_SUNRISE:
+      case SCHEDULE_TYPE_SUNSET:
+        return html`${this._renderSunOffsetFields()}`;
+      case SCHEDULE_TYPE_SOLAR_AZIMUTH:
+        return html`
+          <div class="field">
+            <label
+              >${localize(
+                "panels.schedules.fields.azimuth_angle",
+                this.hass.language,
+              )}</label
+            >
+            <div class="input-suffix-row">
+              <input
+                type="number"
+                min="0"
+                max="359"
+                step="1"
+                .value="${String(s.azimuth_angle ?? 90)}"
+                @input=${(e: Event) =>
+                  this._update({
+                    azimuth_angle: parseInt(
+                      (e.target as HTMLInputElement).value,
+                    ),
+                  })}
+              />
+              <span class="suffix">°</span>
+            </div>
+          </div>
+          ${this._renderSunOffsetFields()}
+        `;
       default:
         return html``;
     }
+  }
+
+  private _renderSunOffsetFields() {
+    const s = this._editingSchedule;
+    return html`
+      <div class="field">
+        <label
+          >${localize(
+            "panels.schedules.fields.offset_minutes",
+            this.hass.language,
+          )}</label
+        >
+        <div class="input-suffix-row">
+          <input
+            type="number"
+            step="1"
+            .value="${String(s.offset_minutes ?? 0)}"
+            @input=${(e: Event) =>
+              this._update({
+                offset_minutes: parseInt((e.target as HTMLInputElement).value),
+              })}
+          />
+          <span class="suffix"
+            >${localize("panels.schedules.minutes", this.hass.language)}</span
+          >
+        </div>
+      </div>
+      <div class="field-row">
+        <label
+          >${localize(
+            "panels.schedules.fields.account_for_duration",
+            this.hass.language,
+          )}</label
+        >
+        <input
+          type="checkbox"
+          ?checked="${s.account_for_duration !== false}"
+          @change=${(e: Event) =>
+            this._update({
+              account_for_duration: (e.target as HTMLInputElement).checked,
+            })}
+        />
+      </div>
+    `;
   }
 
   private _renderDialog() {
@@ -436,7 +519,15 @@ class SmartIrrigationViewSchedules extends SubscribeMixin(LitElement) {
                   type: (e.target as HTMLSelectElement).value,
                 })}
             >
-              ${["daily", "weekly", "monthly", "interval"].map(
+              ${[
+                "daily",
+                "weekly",
+                "monthly",
+                "interval",
+                "sunrise",
+                "sunset",
+                "solar_azimuth",
+              ].map(
                 (t) => html`
                   <option value="${t}" ?selected="${s.type === t}">
                     ${this._typeLabel(t)}

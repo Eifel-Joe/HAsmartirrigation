@@ -5,13 +5,18 @@ import logging
 import uuid
 from typing import Any
 
+from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import (
+    async_track_point_in_utc_time,
+    async_track_sunrise,
+    async_track_sunset,
     async_track_time_change,
     async_track_time_interval,
 )
 
 from . import const
+from .helpers import find_next_solar_azimuth_time, normalize_azimuth_angle
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -132,6 +137,12 @@ class RecurringScheduleManager:
             tracker = await self._setup_monthly_tracker(schedule)
         elif schedule_type == const.SCHEDULE_TYPE_INTERVAL:
             tracker = await self._setup_interval_tracker(schedule)
+        elif schedule_type == const.SCHEDULE_TYPE_SUNRISE:
+            tracker = await self._setup_sunrise_tracker(schedule)
+        elif schedule_type == const.SCHEDULE_TYPE_SUNSET:
+            tracker = await self._setup_sunset_tracker(schedule)
+        elif schedule_type == const.SCHEDULE_TYPE_SOLAR_AZIMUTH:
+            tracker = await self._setup_azimuth_tracker(schedule)
         else:
             _LOGGER.warning("Unknown schedule type: %s", schedule_type)
             return
@@ -203,6 +214,107 @@ class RecurringScheduleManager:
             self.hass, lambda now: self._execute_schedule(schedule, now), interval_delta
         )
 
+    async def _setup_sunrise_tracker(self, schedule: dict[str, Any]) -> Any:
+        """Set up a sunrise-based schedule tracker."""
+        offset_minutes = schedule.get(const.SCHEDULE_CONF_OFFSET_MINUTES, 0)
+        account_for_duration = schedule.get(
+            const.SCHEDULE_CONF_ACCOUNT_FOR_DURATION, True
+        )
+
+        if account_for_duration:
+            total_duration = (
+                await self.coordinator.get_total_duration_all_enabled_zones()
+            )
+            offset_seconds = (offset_minutes * 60) - total_duration
+        else:
+            offset_seconds = offset_minutes * 60
+
+        _LOGGER.info(
+            "Registered sunrise schedule '%s' with offset %ss",
+            schedule.get(const.SCHEDULE_CONF_NAME),
+            offset_seconds,
+        )
+        return async_track_sunrise(
+            self.hass,
+            lambda now: self._execute_schedule(schedule, now),
+            datetime.timedelta(seconds=offset_seconds),
+        )
+
+    async def _setup_sunset_tracker(self, schedule: dict[str, Any]) -> Any:
+        """Set up a sunset-based schedule tracker."""
+        offset_minutes = schedule.get(const.SCHEDULE_CONF_OFFSET_MINUTES, 0)
+        account_for_duration = schedule.get(
+            const.SCHEDULE_CONF_ACCOUNT_FOR_DURATION, True
+        )
+
+        if account_for_duration:
+            total_duration = (
+                await self.coordinator.get_total_duration_all_enabled_zones()
+            )
+            offset_seconds = (offset_minutes * 60) - total_duration
+        else:
+            offset_seconds = offset_minutes * 60
+
+        _LOGGER.info(
+            "Registered sunset schedule '%s' with offset %ss",
+            schedule.get(const.SCHEDULE_CONF_NAME),
+            offset_seconds,
+        )
+        return async_track_sunset(
+            self.hass,
+            lambda now: self._execute_schedule(schedule, now),
+            datetime.timedelta(seconds=offset_seconds),
+        )
+
+    async def _setup_azimuth_tracker(self, schedule: dict[str, Any]) -> Any:
+        """Set up a solar azimuth-based schedule tracker (one-shot, self-rescheduling)."""
+        azimuth_angle = normalize_azimuth_angle(
+            schedule.get(const.SCHEDULE_CONF_AZIMUTH_ANGLE, 90)
+        )
+        offset_minutes = schedule.get(const.SCHEDULE_CONF_OFFSET_MINUTES, 0)
+        account_for_duration = schedule.get(
+            const.SCHEDULE_CONF_ACCOUNT_FOR_DURATION, True
+        )
+
+        ha_cfg = self.hass.config.as_dict()
+        latitude = ha_cfg.get(CONF_LATITUDE, 45.0)
+        longitude = ha_cfg.get(CONF_LONGITUDE, 0.0)
+
+        next_time = find_next_solar_azimuth_time(
+            latitude, longitude, azimuth_angle, datetime.datetime.now()
+        )
+        if next_time is None:
+            _LOGGER.warning(
+                "Could not calculate next azimuth time for schedule '%s'",
+                schedule.get(const.SCHEDULE_CONF_NAME),
+            )
+            return None
+
+        if account_for_duration:
+            total_duration = (
+                await self.coordinator.get_total_duration_all_enabled_zones()
+            )
+            trigger_time = (
+                next_time
+                + datetime.timedelta(minutes=offset_minutes)
+                - datetime.timedelta(seconds=total_duration)
+            )
+        else:
+            trigger_time = next_time + datetime.timedelta(minutes=offset_minutes)
+
+        def azimuth_callback(now, s=schedule):
+            self._execute_schedule(s, now)
+            # Re-register for next occurrence
+            self.hass.async_create_task(self._setup_azimuth_tracker(s))
+
+        _LOGGER.info(
+            "Registered azimuth schedule '%s' for %s° at %s",
+            schedule.get(const.SCHEDULE_CONF_NAME),
+            azimuth_angle,
+            trigger_time,
+        )
+        return async_track_point_in_utc_time(self.hass, azimuth_callback, trigger_time)
+
     async def _remove_schedule_tracker(self, schedule_id: str) -> None:
         """Remove a schedule tracker."""
         if schedule_id in self._schedule_trackers:
@@ -273,6 +385,13 @@ class RecurringScheduleManager:
                     for zone_id in zones:
                         await self.coordinator._async_update_zone(zone_id)
             elif action == "irrigate":
+                # Check skip conditions (same as trigger-based irrigation)
+                if await self.coordinator._check_skip_conditions():
+                    _LOGGER.info(
+                        "Schedule '%s': irrigation skipped due to conditions",
+                        schedule_name,
+                    )
+                    return
                 # Fire irrigation event for backward compatibility
                 event_data = {
                     "triggered_by": "recurring_schedule",
@@ -282,8 +401,9 @@ class RecurringScheduleManager:
                 self.hass.bus.fire(
                     f"{const.DOMAIN}_{const.EVENT_IRRIGATE_START}", event_data
                 )
-                # Also directly control linked entities (all zones with linked entity)
-                await self.coordinator.async_irrigate_now()
+                # Directly control linked entities, then reset counter
+                await self.coordinator._irrigate_linked_entities()
+                await self.coordinator._reset_days_since_irrigation()
 
             _LOGGER.info(
                 "Successfully executed schedule action: %s for zones: %s", action, zones

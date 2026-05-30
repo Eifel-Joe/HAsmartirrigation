@@ -134,7 +134,15 @@ export const ZONE_MAXIMUM_BUCKET = "maximum_bucket";
 export const ZONE_DRAINAGE_RATE = "drainage_rate";
 export const ZONE_CURRENT_DRAINAGE = "current_drainage";
 export const ZONE_LINKED_ENTITY = "linked_entity";
+export const ZONE_BUCKET_THRESHOLD = "bucket_threshold";
 
 export const CONF_ZONE_SEQUENCING = "zone_sequencing";
 export const CONF_ZONE_SEQUENCING_SEQUENTIAL = "sequential";
 export const CONF_ZONE_SEQUENCING_PARALLEL = "parallel";
+
+export const SCHEDULE_TYPE_SUNRISE = "sunrise";
+export const SCHEDULE_TYPE_SUNSET = "sunset";
+export const SCHEDULE_TYPE_SOLAR_AZIMUTH = "solar_azimuth";
+export const SCHEDULE_CONF_OFFSET_MINUTES = "offset_minutes";
+export const SCHEDULE_CONF_ACCOUNT_FOR_DURATION = "account_for_duration";
+export const SCHEDULE_CONF_AZIMUTH_ANGLE = "azimuth_angle";

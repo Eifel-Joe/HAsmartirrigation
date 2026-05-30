@@ -145,11 +145,15 @@
       "zones_all": "All zones",
       "zones_specific": "Specific zones",
       "hours": "hours",
+      "minutes": "min",
       "types": {
         "daily": "Daily",
         "weekly": "Weekly",
         "monthly": "Monthly",
-        "interval": "Every N hours"
+        "interval": "Every N hours",
+        "sunrise": "Sunrise",
+        "sunset": "Sunset",
+        "solar_azimuth": "Solar azimuth"
       },
       "actions": {
         "calculate": "Calculate (update irrigation duration)",
@@ -176,7 +180,10 @@
         "action": "Action",
         "zones": "Zones",
         "start_date": "Start date (optional)",
-        "end_date": "End date (optional)"
+        "end_date": "End date (optional)",
+        "offset_minutes": "Offset from sunrise/sunset",
+        "account_for_duration": "Start early so irrigation finishes at trigger time",
+        "azimuth_angle": "Solar azimuth angle"
       },
       "dialog": {
         "add_title": "Add Schedule",
@@ -414,7 +421,8 @@
         "drainage_rate": "Drainage rate",
         "linked_entity": "Linked switch/valve entity",
         "linked_entity_placeholder": "e.g. switch.garden_valve",
-        "irrigate_now": "Irrigate Now"
+        "irrigate_now": "Irrigate Now",
+        "bucket_threshold": "Minimum deficit to irrigate"
       },
       "no_items": "There are no zones defined yet.",
       "title": "Zones"

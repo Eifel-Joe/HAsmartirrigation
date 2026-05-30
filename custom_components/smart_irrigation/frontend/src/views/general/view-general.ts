@@ -8,8 +8,7 @@ import { SubscribeMixin } from "../../subscribe-mixin";
 import { localize } from "../../../localize/localize";
 import { output_unit, pick, handleError, parseBoolean } from "../../helpers";
 import { loadHaForm } from "../../load-ha-elements";
-import "../../dialogs/trigger-dialog";
-import { SmartIrrigationConfig, IrrigationStartTrigger } from "../../types";
+import { SmartIrrigationConfig } from "../../types";
 import { globalStyle } from "../../styles/global-style";
 import { Path } from "../../common/navigation";
 import {
@@ -26,7 +25,6 @@ import {
   CONF_CLEAR_TIME,
   CONF_CONTINUOUS_UPDATES,
   CONF_SENSOR_DEBOUNCE,
-  CONF_IRRIGATION_START_TRIGGERS,
   CONF_SKIP_IRRIGATION_ON_PRECIPITATION,
   CONF_PRECIPITATION_THRESHOLD_MM,
   CONF_MANUAL_COORDINATES_ENABLED,
@@ -37,12 +35,9 @@ import {
   CONF_ZONE_SEQUENCING,
   CONF_ZONE_SEQUENCING_SEQUENTIAL,
   CONF_ZONE_SEQUENCING_PARALLEL,
-  TRIGGER_TYPE_SUNRISE,
-  TRIGGER_TYPE_SUNSET,
-  TRIGGER_TYPE_SOLAR_AZIMUTH,
   DOMAIN,
 } from "../../const";
-import { mdiInformationOutline, mdiPlus, mdiPencil, mdiDelete } from "@mdi/js";
+import { mdiInformationOutline } from "@mdi/js";
 
 @customElement("smart-irrigation-view-general")
 export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
@@ -642,9 +637,6 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
         >${r4}</ha-card
       > `;
 
-      // Irrigation Start Triggers Card
-      const r5 = this.renderTriggersCard();
-
       // Weather-based Skip Card
       const r6 = this.renderWeatherSkipCard();
 
@@ -663,226 +655,11 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
           <div class="card-content">
             ${localize("panels.general.description", this.hass.language)}
           </div> </ha-card
-        >${r2}${r1}${r3}${r4}${r5}${r6}${r7}${r8}${r9}
-        <trigger-dialog
-          .hass=${this.hass}
-          @trigger-save=${(e: CustomEvent) => this._handleTriggerSave(e.detail)}
-          @trigger-delete=${(e: CustomEvent) =>
-            this._handleTriggerDelete(e.detail)}
-        ></trigger-dialog>`;
+        >${r2}${r1}${r3}${r4}${r6}${r7}${r8}${r9}
+`;
 
       return r;
     }
-  }
-
-  renderTriggersCard() {
-    if (!this.config || !this.data || !this.hass) return html``;
-
-    const triggers = this.config.irrigation_start_triggers || [];
-
-    return html`
-      <ha-card
-        header="${localize(
-          "irrigation_start_triggers.title",
-          this.hass.language,
-        )}"
-      >
-        <div class="card-content">
-          <svg
-            style="width:24px;height:24px"
-            viewBox="0 0 24 24"
-            id="showtriggersdescription"
-            @click="${() => this.toggleInformation("triggersdescription")}"
-          >
-            <title>
-              ${localize(
-                "panels.zones.actions.information",
-                this.hass.language,
-              )}
-            </title>
-            <path fill="#404040" d="${mdiInformationOutline}" />
-          </svg>
-        </div>
-
-        <div class="card-content">
-          <label class="hidden" id="triggersdescription">
-            ${localize(
-              "irrigation_start_triggers.description",
-              this.hass.language,
-            )}
-          </label>
-        </div>
-
-        <div class="card-content">
-          <div class="triggers-list">
-            ${triggers.length === 0
-              ? html`
-                  <div class="no-triggers">
-                    ${localize(
-                      "irrigation_start_triggers.no_triggers",
-                      this.hass.language,
-                    )}
-                  </div>
-                `
-              : triggers.map((trigger, index) =>
-                  this.renderTriggerItem(trigger, index),
-                )}
-          </div>
-
-          <div class="add-trigger-section">
-            <ha-button @click="${this._addTrigger}">
-              <ha-icon .path="${mdiPlus}"></ha-icon>
-              ${localize(
-                "irrigation_start_triggers.add_trigger",
-                this.hass.language,
-              )}
-            </ha-button>
-          </div>
-        </div>
-      </ha-card>
-    `;
-  }
-
-  renderTriggerItem(trigger: IrrigationStartTrigger, index: number) {
-    if (!this.hass) return html``;
-
-    const triggerTypeLabel = localize(
-      `irrigation_start_triggers.trigger_types.${trigger.type}`,
-      this.hass.language,
-    );
-
-    let offsetText = "";
-    if (trigger.type === TRIGGER_TYPE_SUNRISE && trigger.offset_minutes === 0) {
-      offsetText = localize(
-        "irrigation_start_triggers.offset_auto",
-        this.hass.language,
-      );
-    } else {
-      const minutes = Math.abs(trigger.offset_minutes);
-      const hours = Math.floor(minutes / 60);
-      const mins = minutes % 60;
-      const direction =
-        trigger.offset_minutes < 0
-          ? localize("common.labels.before", this.hass.language)
-          : localize("common.labels.after", this.hass.language);
-
-      if (hours > 0) {
-        offsetText = `${hours}h ${mins}m ${direction}`;
-      } else {
-        offsetText = `${mins}m ${direction}`;
-      }
-    }
-
-    let additionalInfo = "";
-    if (
-      trigger.type === TRIGGER_TYPE_SOLAR_AZIMUTH &&
-      trigger.azimuth_angle !== undefined
-    ) {
-      additionalInfo = ` (${trigger.azimuth_angle}°)`;
-    }
-
-    return html`
-      <div class="trigger-item ${trigger.enabled ? "enabled" : "disabled"}">
-        <div class="trigger-main">
-          <div class="trigger-info">
-            <div class="trigger-name">${trigger.name}</div>
-            <div class="trigger-details">
-              ${triggerTypeLabel}${additionalInfo} - ${offsetText}
-            </div>
-          </div>
-          <div class="trigger-status">
-            ${trigger.enabled
-              ? localize("common.labels.enabled", this.hass.language)
-              : localize("common.labels.disabled", this.hass.language)}
-          </div>
-        </div>
-        <div class="trigger-actions">
-          <ha-icon-button
-            .path="${mdiPencil}"
-            @click="${() => this._editTrigger(index)}"
-            title="${localize(
-              "irrigation_start_triggers.edit_trigger",
-              this.hass.language,
-            )}"
-          ></ha-icon-button>
-          <ha-icon-button
-            .path="${mdiDelete}"
-            @click="${() => this._deleteTrigger(index)}"
-            title="${localize(
-              "irrigation_start_triggers.delete_trigger",
-              this.hass.language,
-            )}"
-          ></ha-icon-button>
-        </div>
-      </div>
-    `;
-  }
-
-  private _addTrigger() {
-    const dialog = this.shadowRoot?.querySelector("trigger-dialog") as any;
-    if (dialog) dialog.showDialog({ createTrigger: true });
-  }
-
-  private _editTrigger(index: number) {
-    const trigger = this.config?.irrigation_start_triggers?.[index];
-    if (trigger) {
-      const dialog = this.shadowRoot?.querySelector("trigger-dialog") as any;
-      if (dialog) dialog.showDialog({ trigger, triggerIndex: index });
-    }
-  }
-
-  private _deleteTrigger(index: number) {
-    if (!this.config?.irrigation_start_triggers || !this.hass) return;
-
-    const triggerName =
-      this.config.irrigation_start_triggers[index]?.name || "Unknown";
-    if (
-      confirm(
-        localize(
-          "irrigation_start_triggers.confirm_delete",
-          this.hass.language,
-        ).replace("{name}", triggerName),
-      )
-    ) {
-      const triggers = [...this.config.irrigation_start_triggers];
-      triggers.splice(index, 1);
-      this.handleConfigChange({ [CONF_IRRIGATION_START_TRIGGERS]: triggers });
-    }
-  }
-
-  private _handleTriggerSave(detail: any) {
-    if (!this.config) return;
-
-    const triggers = this.config.irrigation_start_triggers
-      ? [...this.config.irrigation_start_triggers]
-      : [];
-
-    if (detail.isNew) {
-      triggers.push(detail.trigger);
-    } else if (detail.index !== undefined) {
-      triggers[detail.index] = detail.trigger;
-    }
-
-    // Optimistic update so UI immediately reflects change
-    this.config = { ...this.config, irrigation_start_triggers: triggers };
-
-    // Save immediately (no debounce) to avoid stale data if dialog is reopened quickly
-    this.saveData({ [CONF_IRRIGATION_START_TRIGGERS]: triggers }).catch(
-      (err) => {
-        console.error("Error saving triggers:", err);
-        // Optionally re-fetch data on error to restore authoritative state
-        this._fetchData().catch(() => {});
-      },
-    );
-  }
-
-  private _handleTriggerDelete(detail: any) {
-    if (!this.config?.irrigation_start_triggers || detail.index === undefined)
-      return;
-
-    const triggers = [...this.config.irrigation_start_triggers];
-    triggers.splice(detail.index, 1);
-    this.handleConfigChange({ [CONF_IRRIGATION_START_TRIGGERS]: triggers });
   }
 
   renderWeatherSkipCard() {
