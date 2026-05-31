@@ -1448,12 +1448,28 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
             d = [float(i) for i in d]
 
             aggregate = const.MAPPING_CONF_AGGREGATE_OPTIONS_DEFAULT
+            mappings = mapping.get(const.MAPPING_MAPPINGS, {})
             if key == const.MAPPING_PRECIPITATION:
-                aggregate = const.MAPPING_CONF_AGGREGATE_OPTIONS_DEFAULT_PRECIPITATION
+                # Default aggregate for precipitation depends on the source.
+                # Cumulative sensors (rain gauge counting up all day) use DELTA.
+                # Weather service sources provide per-period snapshots (rain.1h,
+                # precipIntensity) — these must be SUMmed, not delta-diffed.
+                precip_source = (
+                    mappings.get(const.MAPPING_PRECIPITATION, {}).get(
+                        const.MAPPING_CONF_SOURCE
+                    )
+                    if mappings
+                    else None
+                )
+                if precip_source == const.MAPPING_CONF_SOURCE_WEATHER_SERVICE:
+                    aggregate = const.MAPPING_CONF_AGGREGATE_SUM
+                else:
+                    aggregate = (
+                        const.MAPPING_CONF_AGGREGATE_OPTIONS_DEFAULT_PRECIPITATION
+                    )
             elif key == const.MAPPING_TEMPERATURE:
                 resultdata[const.MAPPING_MAX_TEMP] = max(d)
                 resultdata[const.MAPPING_MIN_TEMP] = min(d)
-            mappings = mapping.get(const.MAPPING_MAPPINGS, {})
             if key in mappings:
                 aggregate = mappings[key].get(
                     const.MAPPING_CONF_AGGREGATE,
