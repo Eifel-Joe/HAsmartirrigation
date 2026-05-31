@@ -171,46 +171,58 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
   private handleCalculateAllZones(): void {
     if (!this.hass) return;
     this.isSaving = true;
+    this._scheduleUpdate();
     calculateAllZones(this.hass)
       .catch((error) => console.error("Failed to calculate all zones:", error))
       .finally(() => {
         this.isSaving = false;
-        this._scheduleUpdate();
+        this._fetchData().catch((e) =>
+          console.error("fetchData after calc-all:", e),
+        );
       });
   }
 
   private handleUpdateAllZones(): void {
     if (!this.hass) return;
     this.isSaving = true;
+    this._scheduleUpdate();
     updateAllZones(this.hass)
       .catch((error) => console.error("Failed to update all zones:", error))
       .finally(() => {
         this.isSaving = false;
-        this._scheduleUpdate();
+        this._fetchData().catch((e) =>
+          console.error("fetchData after update-all:", e),
+        );
       });
   }
 
   private handleResetAllBuckets(): void {
     if (!this.hass) return;
     this.isSaving = true;
+    this._scheduleUpdate();
     resetAllBuckets(this.hass)
       .catch((error) => console.error("Failed to reset all buckets:", error))
       .finally(() => {
         this.isSaving = false;
-        this._scheduleUpdate();
+        this._fetchData().catch((e) =>
+          console.error("fetchData after reset:", e),
+        );
       });
   }
 
   private handleClearAllWeatherdata(): void {
     if (!this.hass) return;
     this.isSaving = true;
+    this._scheduleUpdate();
     clearAllWeatherdata(this.hass)
       .catch((error) =>
         console.error("Failed to clear all weather data:", error),
       )
       .finally(() => {
         this.isSaving = false;
-        this._scheduleUpdate();
+        this._fetchData().catch((e) =>
+          console.error("fetchData after clear-weather:", e),
+        );
       });
   }
 
@@ -315,13 +327,31 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
   private handleCalculateZone(index: number): void {
     const zone = this.zones[index];
     if (!zone || zone.id == undefined || !this.hass) return;
-    void calculateZone(this.hass, zone.id.toString());
+    this.isSaving = true;
+    this._scheduleUpdate();
+    calculateZone(this.hass, zone.id.toString())
+      .catch((err) => console.error("calculateZone failed:", err))
+      .finally(() => {
+        this.isSaving = false;
+        this._fetchData().catch((e) =>
+          console.error("fetchData after calc:", e),
+        );
+      });
   }
 
   private handleUpdateZone(index: number): void {
     const zone = this.zones[index];
     if (!zone || zone.id == undefined || !this.hass) return;
-    void updateZone(this.hass, zone.id.toString());
+    this.isSaving = true;
+    this._scheduleUpdate();
+    updateZone(this.hass, zone.id.toString())
+      .catch((err) => console.error("updateZone failed:", err))
+      .finally(() => {
+        this.isSaving = false;
+        this._fetchData().catch((e) =>
+          console.error("fetchData after update:", e),
+        );
+      });
   }
 
   private async _fetchWeatherRecords(): Promise<void> {

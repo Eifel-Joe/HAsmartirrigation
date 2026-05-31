@@ -845,7 +845,7 @@
     });
     return n.detail = a, e.dispatchEvent(n), n;
   };
-  const ze = `v${"2026.05.13"}`,
+  const ze = `v${"2026.05.14"}`,
     Se = "smart_irrigation",
     $e = "precipitation_threshold_mm",
     xe = "Open Weather Map",
@@ -9961,34 +9961,34 @@
     }
     handleCalculateAllZones() {
       var e;
-      this.hass && (this.isSaving = !0, (e = this.hass, e.callApi("POST", Se + "/zones", {
+      this.hass && (this.isSaving = !0, this._scheduleUpdate(), (e = this.hass, e.callApi("POST", Se + "/zones", {
         calculate_all: !0
       })).catch(e => console.error("Failed to calculate all zones:", e)).finally(() => {
-        this.isSaving = !1, this._scheduleUpdate();
+        this.isSaving = !1, this._fetchData().catch(e => console.error("fetchData after calc-all:", e));
       }));
     }
     handleUpdateAllZones() {
       var e;
-      this.hass && (this.isSaving = !0, (e = this.hass, e.callApi("POST", Se + "/zones", {
+      this.hass && (this.isSaving = !0, this._scheduleUpdate(), (e = this.hass, e.callApi("POST", Se + "/zones", {
         update_all: !0
       })).catch(e => console.error("Failed to update all zones:", e)).finally(() => {
-        this.isSaving = !1, this._scheduleUpdate();
+        this.isSaving = !1, this._fetchData().catch(e => console.error("fetchData after update-all:", e));
       }));
     }
     handleResetAllBuckets() {
       var e;
-      this.hass && (this.isSaving = !0, (e = this.hass, e.callApi("POST", Se + "/zones", {
+      this.hass && (this.isSaving = !0, this._scheduleUpdate(), (e = this.hass, e.callApi("POST", Se + "/zones", {
         reset_all_buckets: !0
       })).catch(e => console.error("Failed to reset all buckets:", e)).finally(() => {
-        this.isSaving = !1, this._scheduleUpdate();
+        this.isSaving = !1, this._fetchData().catch(e => console.error("fetchData after reset:", e));
       }));
     }
     handleClearAllWeatherdata() {
       var e;
-      this.hass && (this.isSaving = !0, (e = this.hass, e.callApi("POST", Se + "/zones", {
+      this.hass && (this.isSaving = !0, this._scheduleUpdate(), (e = this.hass, e.callApi("POST", Se + "/zones", {
         clear_all_weatherdata: !0
       })).catch(e => console.error("Failed to clear all weather data:", e)).finally(() => {
-        this.isSaving = !1, this._scheduleUpdate();
+        this.isSaving = !1, this._fetchData().catch(e => console.error("fetchData after clear-weather:", e));
       }));
     }
     handleAddZone() {
@@ -10046,18 +10046,22 @@
     handleCalculateZone(e) {
       const t = this.zones[e];
       var a, i;
-      t && null != t.id && this.hass && (a = this.hass, i = t.id.toString(), a.callApi("POST", Se + "/zones", {
+      t && null != t.id && this.hass && (this.isSaving = !0, this._scheduleUpdate(), (a = this.hass, i = t.id.toString(), a.callApi("POST", Se + "/zones", {
         id: i,
         calculate: !0,
         override_cache: !0
+      })).catch(e => console.error("calculateZone failed:", e)).finally(() => {
+        this.isSaving = !1, this._fetchData().catch(e => console.error("fetchData after calc:", e));
       }));
     }
     handleUpdateZone(e) {
       const t = this.zones[e];
       var a, i;
-      t && null != t.id && this.hass && (a = this.hass, i = t.id.toString(), a.callApi("POST", Se + "/zones", {
+      t && null != t.id && this.hass && (this.isSaving = !0, this._scheduleUpdate(), (a = this.hass, i = t.id.toString(), a.callApi("POST", Se + "/zones", {
         id: i,
         update: !0
+      })).catch(e => console.error("updateZone failed:", e)).finally(() => {
+        this.isSaving = !1, this._fetchData().catch(e => console.error("fetchData after update:", e));
       }));
     }
     async _fetchWeatherRecords() {

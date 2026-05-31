@@ -1739,6 +1739,14 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
             forecastdata,
         )
 
+        if calc_data is None:
+            _LOGGER.error(
+                "async_calculate_zone: calculation returned no result for zone %s "
+                "(module missing or not configured?)",
+                zone_id,
+            )
+            return
+
         # Apply seasonal adjustments before updating the zone
         calc_data = await self.seasonal_adjustment_manager.apply_seasonal_adjustments(
             calc_data, zone_id
@@ -2339,14 +2347,20 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
             # aggregate sensor data
             weatherdata = None
             zone = self.store.get_zone(zone_id)
-            mapping_id = zone[const.ZONE_MAPPING]
-            mapping = self.store.get_mapping(mapping_id)
-            if mapping.get(const.MAPPING_DATA):
+            if zone is None:
+                _LOGGER.error("[async_update_zone_config] Zone %s not found", zone_id)
+                return
+            mapping_id = zone.get(const.ZONE_MAPPING)
+            mapping = (
+                self.store.get_mapping(mapping_id) if mapping_id is not None else None
+            )
+            if mapping is not None and mapping.get(const.MAPPING_DATA):
                 weatherdata = await self.apply_aggregates_to_mapping_data(mapping)
             else:
                 _LOGGER.error(
-                    "[async_update_zone_config] Error calculating zone %s: no sensor data available",
+                    "[async_update_zone_config] Error calculating zone %s: no sensor data available (mapping: %s)",
                     zone.get(const.ZONE_NAME),
+                    mapping_id,
                 )
                 return
 
