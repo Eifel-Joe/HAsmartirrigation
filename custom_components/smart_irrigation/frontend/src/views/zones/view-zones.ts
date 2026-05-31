@@ -109,9 +109,12 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
   private globalDebounceTimer: number | null = null;
 
   firstUpdated() {
-    loadHaForm().catch((error) => {
-      console.error("Failed to load HA form:", error);
-    });
+    loadHaForm()
+      .then(() => this._scheduleUpdate())
+      .catch((error) => {
+        console.error("Failed to load HA form:", error);
+        this._scheduleUpdate();
+      });
   }
 
   public hassSubscribe(): Promise<UnsubscribeFunc>[] {
@@ -678,14 +681,16 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
             <span slot="heading"
               >${localize("panels.zones.labels.name", this.hass.language)}</span
             >
-            <ha-textfield
+            <input
+              type="text"
+              class="settings-input"
               .value="${zone.name}"
               @input="${(e: Event) =>
                 this.handleEditZone(index, {
                   ...zone,
                   [ZONE_NAME]: (e.target as HTMLInputElement).value,
                 })}"
-            ></ha-textfield>
+            />
           </ha-settings-row>
 
           <ha-settings-row>
@@ -693,13 +698,13 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
               >${localize("panels.zones.labels.size", this.hass.language)}
               (${output_unit(this.config, ZONE_SIZE)})</span
             >
-            <ha-textfield
+            <input
               type="number"
-              class="shortfield"
+              class="settings-input shortfield"
               step="0.1"
               min="0"
               inputmode="decimal"
-              .value="${String(parseFloat(zone.size.toFixed(2)))}"
+              .value="${parseFloat(zone.size.toFixed(2))}"
               @input="${(e: Event) => {
                 const v =
                   Math.round(
@@ -708,7 +713,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 if (!isNaN(v))
                   this.handleEditZone(index, { ...zone, [ZONE_SIZE]: v });
               }}"
-            ></ha-textfield>
+            />
           </ha-settings-row>
 
           <ha-settings-row>
@@ -716,13 +721,13 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
               >${localize("panels.zones.labels.throughput", this.hass.language)}
               (${output_unit(this.config, ZONE_THROUGHPUT)})</span
             >
-            <ha-textfield
+            <input
               type="number"
-              class="shortfield"
+              class="settings-input shortfield"
               step="0.1"
               min="0"
               inputmode="decimal"
-              .value="${String(parseFloat(zone.throughput.toFixed(2)))}"
+              .value="${parseFloat(zone.throughput.toFixed(2))}"
               @input="${(e: Event) => {
                 const v =
                   Math.round(
@@ -734,7 +739,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                     [ZONE_THROUGHPUT]: v,
                   });
               }}"
-            ></ha-textfield>
+            />
           </ha-settings-row>
 
           <ha-settings-row>
@@ -745,15 +750,13 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
               )}
               (${output_unit(this.config, ZONE_DRAINAGE_RATE)})</span
             >
-            <ha-textfield
+            <input
               type="number"
-              class="shortfield"
+              class="settings-input shortfield"
               step="0.1"
               min="0"
               inputmode="decimal"
-              .value="${String(
-                parseFloat((zone.drainage_rate ?? 0).toFixed(2)),
-              )}"
+              .value="${parseFloat((zone.drainage_rate ?? 0).toFixed(2))}"
               @input="${(e: Event) => {
                 const v =
                   Math.round(
@@ -765,7 +768,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                     [ZONE_DRAINAGE_RATE]: v,
                   });
               }}"
-            ></ha-textfield>
+            />
           </ha-settings-row>
 
           <ha-settings-row>
@@ -892,12 +895,12 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
               >${localize("panels.zones.labels.bucket", this.hass.language)}
               (${output_unit(this.config, ZONE_BUCKET)})</span
             >
-            <ha-textfield
+            <input
               type="number"
-              class="shortfield"
+              class="settings-input shortfield"
               step="0.1"
               inputmode="decimal"
-              .value="${String(parseFloat(Number(zone.bucket).toFixed(2)))}"
+              .value="${parseFloat(Number(zone.bucket).toFixed(2))}"
               @input="${(e: Event) => {
                 const v =
                   Math.round(
@@ -906,7 +909,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 if (!isNaN(v))
                   this.handleEditZone(index, { ...zone, [ZONE_BUCKET]: v });
               }}"
-            ></ha-textfield>
+            />
           </ha-settings-row>
 
           <ha-settings-row>
@@ -917,15 +920,13 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
               )}
               (${output_unit(this.config, ZONE_BUCKET)})</span
             >
-            <ha-textfield
+            <input
               type="number"
-              class="shortfield"
+              class="settings-input shortfield"
               step="0.1"
               min="0"
               inputmode="decimal"
-              .value="${String(
-                parseFloat(Number(zone.maximum_bucket).toFixed(2)),
-              )}"
+              .value="${parseFloat(Number(zone.maximum_bucket).toFixed(2))}"
               @input="${(e: Event) => {
                 const v =
                   Math.round(
@@ -937,7 +938,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                     [ZONE_MAXIMUM_BUCKET]: v,
                   });
               }}"
-            ></ha-textfield>
+            />
           </ha-settings-row>
 
           <ha-settings-row>
@@ -947,13 +948,13 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 this.hass.language,
               )}</span
             >
-            <ha-textfield
+            <input
               type="number"
-              class="shortfield"
+              class="settings-input shortfield"
               step="0.1"
               min="0"
               inputmode="decimal"
-              .value="${String(parseFloat(zone.multiplier.toFixed(2)))}"
+              .value="${parseFloat(zone.multiplier.toFixed(2))}"
               @input="${(e: Event) => {
                 const v =
                   Math.round(
@@ -965,7 +966,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                     [ZONE_MULTIPLIER]: v,
                   });
               }}"
-            ></ha-textfield>
+            />
           </ha-settings-row>
 
           <ha-settings-row>
@@ -973,13 +974,13 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
               >${localize("panels.zones.labels.lead-time", this.hass.language)}
               (s)</span
             >
-            <ha-textfield
+            <input
               type="number"
-              class="shortfield"
+              class="settings-input shortfield"
               step="1"
               min="0"
               inputmode="numeric"
-              .value="${String(zone.lead_time ?? 0)}"
+              .value="${zone.lead_time ?? 0}"
               @input="${(e: Event) => {
                 const v = (e.target as HTMLInputElement).valueAsNumber;
                 if (!isNaN(v))
@@ -988,7 +989,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                     [ZONE_LEAD_TIME]: Math.round(v),
                   });
               }}"
-            ></ha-textfield>
+            />
           </ha-settings-row>
 
           <ha-settings-row>
@@ -999,13 +1000,13 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
               )}
               (s)</span
             >
-            <ha-textfield
+            <input
               type="number"
-              class="shortfield"
+              class="settings-input shortfield"
               step="1"
               min="0"
               inputmode="numeric"
-              .value="${String(zone.maximum_duration ?? "")}"
+              .value="${zone.maximum_duration ?? ""}"
               @input="${(e: Event) => {
                 const v = (e.target as HTMLInputElement).valueAsNumber;
                 if (!isNaN(v))
@@ -1014,7 +1015,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                     [ZONE_MAXIMUM_DURATION]: Math.round(v),
                   });
               }}"
-            ></ha-textfield>
+            />
           </ha-settings-row>
 
           <ha-settings-row>
@@ -1025,15 +1026,13 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
               )}
               (${output_unit(this.config, ZONE_BUCKET)})</span
             >
-            <ha-textfield
+            <input
               type="number"
-              class="shortfield"
+              class="settings-input shortfield"
               step="0.5"
               max="0"
               inputmode="decimal"
-              .value="${String(
-                parseFloat((zone.bucket_threshold ?? 0).toFixed(1)),
-              )}"
+              .value="${parseFloat((zone.bucket_threshold ?? 0).toFixed(1))}"
               @input="${(e: Event) => {
                 const v =
                   Math.round(
@@ -1045,7 +1044,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                     [ZONE_BUCKET_THRESHOLD]: Math.min(v, 0),
                   });
               }}"
-            ></ha-textfield>
+            />
           </ha-settings-row>
 
           ${zone.state === SmartIrrigationZoneState.Manual
@@ -1058,13 +1057,13 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                     )}
                     (${UNIT_SECONDS})</span
                   >
-                  <ha-textfield
+                  <input
                     type="number"
-                    class="shortfield"
+                    class="settings-input shortfield"
                     step="1"
                     min="0"
                     inputmode="numeric"
-                    .value="${String(zone.duration ?? 0)}"
+                    .value="${zone.duration ?? 0}"
                     @input="${(e: Event) => {
                       const v = (e.target as HTMLInputElement).valueAsNumber;
                       if (!isNaN(v))
@@ -1073,7 +1072,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                           [ZONE_DURATION]: Math.round(v),
                         });
                     }}"
-                  ></ha-textfield>
+                  />
                 </ha-settings-row>
               `
             : ""}
@@ -1195,16 +1194,23 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
         )}"
       >
         <div class="add-zone-form">
-          <ha-textfield
-            label="${localize("panels.zones.labels.name", this.hass.language)}"
+          <label class="form-label">
+            ${localize("panels.zones.labels.name", this.hass.language)}
+          </label>
+          <input
+            type="text"
+            class="settings-input"
             .value="${this._newZoneName}"
             @input="${(e: Event) => {
               this._newZoneName = (e.target as HTMLInputElement).value;
             }}"
-          ></ha-textfield>
-          <ha-textfield
-            label="${localize("panels.zones.labels.size", this.hass.language)}"
+          />
+          <label class="form-label">
+            ${localize("panels.zones.labels.size", this.hass.language)}
+          </label>
+          <input
             type="number"
+            class="settings-input"
             step="0.1"
             min="0"
             inputmode="decimal"
@@ -1212,13 +1218,13 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
             @input="${(e: Event) => {
               this._newZoneSize = (e.target as HTMLInputElement).value;
             }}"
-          ></ha-textfield>
-          <ha-textfield
-            label="${localize(
-              "panels.zones.labels.throughput",
-              this.hass.language,
-            )}"
+          />
+          <label class="form-label">
+            ${localize("panels.zones.labels.throughput", this.hass.language)}
+          </label>
+          <input
             type="number"
+            class="settings-input"
             step="0.1"
             min="0"
             inputmode="decimal"
@@ -1226,7 +1232,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
             @input="${(e: Event) => {
               this._newZoneThroughput = (e.target as HTMLInputElement).value;
             }}"
-          ></ha-textfield>
+          />
         </div>
         <ha-button
           slot="secondaryAction"
@@ -1446,17 +1452,49 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
         color: var(--error-color);
       }
 
+      /* Native input styled to match HA */
+      .settings-input {
+        background: var(--input-fill-color, var(--secondary-background-color));
+        border: 1px solid var(--input-ink-color, var(--secondary-text-color));
+        border-radius: 4px;
+        color: var(--primary-text-color);
+        padding: 6px 10px;
+        font-family: var(
+          --mdc-typography-body1-font-family,
+          Roboto,
+          sans-serif
+        );
+        font-size: 0.9375rem;
+        box-sizing: border-box;
+        height: 36px;
+      }
+
+      .settings-input:focus {
+        border-color: var(--primary-color);
+        outline: none;
+      }
+
+      .settings-input.shortfield {
+        width: 110px;
+      }
+
       /* Add zone dialog form */
       .add-zone-form {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 8px;
         padding: 8px 0;
         min-width: 300px;
       }
 
-      .add-zone-form ha-textfield {
+      .add-zone-form .settings-input {
         width: 100%;
+      }
+
+      .form-label {
+        font-size: 0.875rem;
+        color: var(--secondary-text-color);
+        margin-bottom: -4px;
       }
 
       /* Bulk actions */

@@ -121,9 +121,12 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
   }
 
   firstUpdated() {
-    loadHaForm().catch((error) => {
-      console.error("Failed to load HA form:", error);
-    });
+    loadHaForm()
+      .then(() => this._scheduleUpdate())
+      .catch((error) => {
+        console.error("Failed to load HA form:", error);
+        this._scheduleUpdate();
+      });
   }
 
   render() {
@@ -163,109 +166,108 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
           this.hass.language,
         )}"
       >
-        <ha-expansion-panel
-          .header="${localize(
-            "panels.zones.actions.information",
+        <div class="card-content description-text">
+          ${localize(
+            "panels.general.cards.automatic-update.description",
             this.hass.language,
-          )}"
-        >
-          <div class="card-content">
-            ${localize(
-              "panels.general.cards.automatic-update.description",
-              this.hass.language,
-            )}
+          )}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${localize(
+                "panels.general.cards.automatic-update.labels.auto-update-enabled",
+                this.hass.language,
+              )}
+            </label>
+            <ha-switch
+              .checked="${this.config.autoupdateenabled}"
+              @change="${(e: Event) =>
+                this.handleConfigChange({
+                  autoupdateenabled: (e.target as HTMLInputElement).checked,
+                })}"
+            ></ha-switch>
           </div>
-        </ha-expansion-panel>
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize(
-              "panels.general.cards.automatic-update.labels.auto-update-enabled",
-              this.hass.language,
-            )}
-          </span>
-          <ha-switch
-            .checked="${this.config.autoupdateenabled}"
-            @change="${(e: Event) =>
-              this.handleConfigChange({
-                autoupdateenabled: (e.target as HTMLInputElement).checked,
-              })}"
-          ></ha-switch>
-        </ha-settings-row>
-        ${this.data.autoupdateenabled
-          ? html`
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize(
-                    "panels.general.cards.automatic-update.labels.auto-update-interval",
-                    this.hass.language,
-                  )}
-                </span>
-                <div class="inline-row">
-                  <ha-textfield
+          ${this.data.autoupdateenabled
+            ? html`
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "panels.general.cards.automatic-update.labels.auto-update-interval",
+                      this.hass.language,
+                    )}
+                  </label>
+                  <div class="inline-row">
+                    <input
+                      type="number"
+                      class="settings-input shortfield"
+                      min="1"
+                      step="1"
+                      inputmode="numeric"
+                      .value="${this.data.autoupdateinterval ?? 1}"
+                      @input="${(e: Event) => {
+                        const v = parseInt(
+                          (e.target as HTMLInputElement).value,
+                        );
+                        if (!isNaN(v))
+                          this.handleConfigChange({ autoupdateinterval: v });
+                      }}"
+                    />
+                    <ha-select
+                      .value="${this.data.autoupdateschedule ||
+                      AUTO_UPDATE_SCHEDULE_HOURLY}"
+                      @selected="${(e: CustomEvent) =>
+                        this.handleConfigChange({
+                          autoupdateschedule: e.detail.value,
+                        })}"
+                      @closed="${(e: Event) => e.stopPropagation()}"
+                    >
+                      <mwc-list-item value="${AUTO_UPDATE_SCHEDULE_MINUTELY}">
+                        ${localize(
+                          "panels.general.cards.automatic-update.options.minutes",
+                          this.hass.language,
+                        )}
+                      </mwc-list-item>
+                      <mwc-list-item value="${AUTO_UPDATE_SCHEDULE_HOURLY}">
+                        ${localize(
+                          "panels.general.cards.automatic-update.options.hours",
+                          this.hass.language,
+                        )}
+                      </mwc-list-item>
+                      <mwc-list-item value="${AUTO_UPDATE_SCHEDULE_DAILY}">
+                        ${localize(
+                          "panels.general.cards.automatic-update.options.days",
+                          this.hass.language,
+                        )}
+                      </mwc-list-item>
+                    </ha-select>
+                  </div>
+                </div>
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "panels.general.cards.automatic-update.labels.auto-update-delay",
+                      this.hass.language,
+                    )}
+                    (s)
+                  </label>
+                  <input
                     type="number"
-                    class="shortfield"
-                    min="1"
+                    class="settings-input shortfield"
+                    min="0"
                     step="1"
-                    .value="${String(this.data.autoupdateinterval ?? 1)}"
+                    inputmode="numeric"
+                    .value="${this.config.autoupdatedelay ?? 0}"
                     @input="${(e: Event) => {
                       const v = parseInt((e.target as HTMLInputElement).value);
                       if (!isNaN(v))
-                        this.handleConfigChange({ autoupdateinterval: v });
+                        this.handleConfigChange({ autoupdatedelay: v });
                     }}"
-                  ></ha-textfield>
-                  <ha-select
-                    .value="${this.data.autoupdateschedule ||
-                    AUTO_UPDATE_SCHEDULE_HOURLY}"
-                    @selected="${(e: CustomEvent) =>
-                      this.handleConfigChange({
-                        autoupdateschedule: e.detail.value,
-                      })}"
-                    @closed="${(e: Event) => e.stopPropagation()}"
-                  >
-                    <mwc-list-item value="${AUTO_UPDATE_SCHEDULE_MINUTELY}">
-                      ${localize(
-                        "panels.general.cards.automatic-update.options.minutes",
-                        this.hass.language,
-                      )}
-                    </mwc-list-item>
-                    <mwc-list-item value="${AUTO_UPDATE_SCHEDULE_HOURLY}">
-                      ${localize(
-                        "panels.general.cards.automatic-update.options.hours",
-                        this.hass.language,
-                      )}
-                    </mwc-list-item>
-                    <mwc-list-item value="${AUTO_UPDATE_SCHEDULE_DAILY}">
-                      ${localize(
-                        "panels.general.cards.automatic-update.options.days",
-                        this.hass.language,
-                      )}
-                    </mwc-list-item>
-                  </ha-select>
+                  />
                 </div>
-              </ha-settings-row>
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize(
-                    "panels.general.cards.automatic-update.labels.auto-update-delay",
-                    this.hass.language,
-                  )}
-                  (s)
-                </span>
-                <ha-textfield
-                  type="number"
-                  class="shortfield"
-                  min="0"
-                  step="1"
-                  .value="${String(this.config.autoupdatedelay ?? 0)}"
-                  @input="${(e: Event) => {
-                    const v = parseInt((e.target as HTMLInputElement).value);
-                    if (!isNaN(v))
-                      this.handleConfigChange({ autoupdatedelay: v });
-                  }}"
-                ></ha-textfield>
-              </ha-settings-row>
-            `
-          : ""}
+              `
+            : ""}
+        </div>
       </ha-card>
     `;
   }
@@ -279,54 +281,50 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
           this.hass.language,
         )}"
       >
-        <ha-expansion-panel
-          .header="${localize(
-            "panels.zones.actions.information",
+        <div class="card-content description-text">
+          ${localize(
+            "panels.general.cards.automatic-duration-calculation.description",
             this.hass.language,
-          )}"
-        >
-          <div class="card-content">
-            ${localize(
-              "panels.general.cards.automatic-duration-calculation.description",
-              this.hass.language,
-            )}
+          )}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${localize(
+                "panels.general.cards.automatic-duration-calculation.labels.auto-calc-enabled",
+                this.hass.language,
+              )}
+            </label>
+            <ha-switch
+              .checked="${this.config.autocalcenabled}"
+              @change="${(e: Event) =>
+                this.handleConfigChange({
+                  autocalcenabled: (e.target as HTMLInputElement).checked,
+                })}"
+            ></ha-switch>
           </div>
-        </ha-expansion-panel>
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize(
-              "panels.general.cards.automatic-duration-calculation.labels.auto-calc-enabled",
-              this.hass.language,
-            )}
-          </span>
-          <ha-switch
-            .checked="${this.config.autocalcenabled}"
-            @change="${(e: Event) =>
-              this.handleConfigChange({
-                autocalcenabled: (e.target as HTMLInputElement).checked,
-              })}"
-          ></ha-switch>
-        </ha-settings-row>
-        ${this.data.autocalcenabled
-          ? html`
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize(
-                    "panels.general.cards.automatic-duration-calculation.labels.calc-time",
-                    this.hass.language,
-                  )}
-                </span>
-                <ha-textfield
-                  class="shortfield"
-                  .value="${this.config.calctime}"
-                  @input="${(e: Event) =>
-                    this.handleConfigChange({
-                      calctime: (e.target as HTMLInputElement).value,
-                    })}"
-                ></ha-textfield>
-              </ha-settings-row>
-            `
-          : ""}
+          ${this.data.autocalcenabled
+            ? html`
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "panels.general.cards.automatic-duration-calculation.labels.calc-time",
+                      this.hass.language,
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    class="settings-input shortfield"
+                    .value="${this.config.calctime}"
+                    @input="${(e: Event) =>
+                      this.handleConfigChange({
+                        calctime: (e.target as HTMLInputElement).value,
+                      })}"
+                  />
+                </div>
+              `
+            : ""}
+        </div>
       </ha-card>
     `;
   }
@@ -340,54 +338,50 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
           this.hass.language,
         )}"
       >
-        <ha-expansion-panel
-          .header="${localize(
-            "panels.zones.actions.information",
+        <div class="card-content description-text">
+          ${localize(
+            "panels.general.cards.automatic-clear.description",
             this.hass.language,
-          )}"
-        >
-          <div class="card-content">
-            ${localize(
-              "panels.general.cards.automatic-clear.description",
-              this.hass.language,
-            )}
+          )}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${localize(
+                "panels.general.cards.automatic-clear.labels.automatic-clear-enabled",
+                this.hass.language,
+              )}
+            </label>
+            <ha-switch
+              .checked="${this.config.autoclearenabled}"
+              @change="${(e: Event) =>
+                this.handleConfigChange({
+                  autoclearenabled: (e.target as HTMLInputElement).checked,
+                })}"
+            ></ha-switch>
           </div>
-        </ha-expansion-panel>
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize(
-              "panels.general.cards.automatic-clear.labels.automatic-clear-enabled",
-              this.hass.language,
-            )}
-          </span>
-          <ha-switch
-            .checked="${this.config.autoclearenabled}"
-            @change="${(e: Event) =>
-              this.handleConfigChange({
-                autoclearenabled: (e.target as HTMLInputElement).checked,
-              })}"
-          ></ha-switch>
-        </ha-settings-row>
-        ${this.data.autoclearenabled
-          ? html`
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize(
-                    "panels.general.cards.automatic-clear.labels.automatic-clear-time",
-                    this.hass.language,
-                  )}
-                </span>
-                <ha-textfield
-                  class="shortfield"
-                  .value="${this.config.cleardatatime}"
-                  @input="${(e: Event) =>
-                    this.handleConfigChange({
-                      cleardatatime: (e.target as HTMLInputElement).value,
-                    })}"
-                ></ha-textfield>
-              </ha-settings-row>
-            `
-          : ""}
+          ${this.data.autoclearenabled
+            ? html`
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "panels.general.cards.automatic-clear.labels.automatic-clear-time",
+                      this.hass.language,
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    class="settings-input shortfield"
+                    .value="${this.config.cleardatatime}"
+                    @input="${(e: Event) =>
+                      this.handleConfigChange({
+                        cleardatatime: (e.target as HTMLInputElement).value,
+                      })}"
+                  />
+                </div>
+              `
+            : ""}
+        </div>
       </ha-card>
     `;
   }
@@ -401,59 +395,55 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
           this.hass.language,
         )}"
       >
-        <ha-expansion-panel
-          .header="${localize(
-            "panels.zones.actions.information",
+        <div class="card-content description-text">
+          ${localize(
+            "panels.general.cards.continuousupdates.description",
             this.hass.language,
-          )}"
-        >
-          <div class="card-content">
-            ${localize(
-              "panels.general.cards.continuousupdates.description",
-              this.hass.language,
-            )}
+          )}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${localize(
+                "panels.general.cards.continuousupdates.labels.continuousupdates",
+                this.hass.language,
+              )}
+            </label>
+            <ha-switch
+              .checked="${this.config.continuousupdates}"
+              @change="${(e: Event) =>
+                this.handleConfigChange({
+                  continuousupdates: (e.target as HTMLInputElement).checked,
+                })}"
+            ></ha-switch>
           </div>
-        </ha-expansion-panel>
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize(
-              "panels.general.cards.continuousupdates.labels.continuousupdates",
-              this.hass.language,
-            )}
-          </span>
-          <ha-switch
-            .checked="${this.config.continuousupdates}"
-            @change="${(e: Event) =>
-              this.handleConfigChange({
-                continuousupdates: (e.target as HTMLInputElement).checked,
-              })}"
-          ></ha-switch>
-        </ha-settings-row>
-        ${this.data.continuousupdates
-          ? html`
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize(
-                    "panels.general.cards.continuousupdates.labels.sensor_debounce",
-                    this.hass.language,
-                  )}
-                  (ms)
-                </span>
-                <ha-textfield
-                  type="number"
-                  class="shortfield"
-                  min="0"
-                  step="1"
-                  .value="${String(this.config.sensor_debounce ?? 100)}"
-                  @input="${(e: Event) => {
-                    const v = parseInt((e.target as HTMLInputElement).value);
-                    if (!isNaN(v))
-                      this.handleConfigChange({ sensor_debounce: v });
-                  }}"
-                ></ha-textfield>
-              </ha-settings-row>
-            `
-          : ""}
+          ${this.data.continuousupdates
+            ? html`
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "panels.general.cards.continuousupdates.labels.sensor_debounce",
+                      this.hass.language,
+                    )}
+                    (ms)
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    .value="${this.config.sensor_debounce ?? 100}"
+                    @input="${(e: Event) => {
+                      const v = parseInt((e.target as HTMLInputElement).value);
+                      if (!isNaN(v))
+                        this.handleConfigChange({ sensor_debounce: v });
+                    }}"
+                  />
+                </div>
+              `
+            : ""}
+        </div>
       </ha-card>
     `;
   }
@@ -462,168 +452,166 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
     if (!this.hass || !this.config || !this.data) return html``;
     return html`
       <ha-card header="${localize("weather_skip.title", this.hass.language)}">
-        <ha-expansion-panel
-          .header="${localize(
-            "panels.zones.actions.information",
-            this.hass.language,
-          )}"
-        >
-          <div class="card-content">
-            ${localize("weather_skip.description", this.hass.language)}
+        <div class="card-content description-text">
+          ${localize("weather_skip.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${localize("weather_skip.threshold_label", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.skip_irrigation_on_precipitation}"
+              @change="${(e: Event) =>
+                this.handleConfigChange({
+                  skip_irrigation_on_precipitation: (
+                    e.target as HTMLInputElement
+                  ).checked,
+                })}"
+            ></ha-switch>
           </div>
-        </ha-expansion-panel>
+          ${this.config.skip_irrigation_on_precipitation
+            ? html`
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "weather_skip.threshold_label",
+                      this.hass.language,
+                    )}
+                    (${output_unit(
+                      this.config,
+                      CONF_PRECIPITATION_THRESHOLD_MM,
+                    )})
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="0"
+                    step="0.1"
+                    inputmode="decimal"
+                    .value="${this.config.precipitation_threshold_mm ?? 2}"
+                    @input="${(e: Event) => {
+                      const v = parseFloat(
+                        (e.target as HTMLInputElement).value,
+                      );
+                      if (!isNaN(v))
+                        this.handleConfigChange({
+                          precipitation_threshold_mm: v,
+                        });
+                    }}"
+                  />
+                </div>
+              `
+            : ""}
 
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize("weather_skip.threshold_label", this.hass.language)}
-          </span>
-          <span slot="description">
+          <div class="section-divider">
+            ${localize("weather_skip.temp_section_title", this.hass.language)}
+          </div>
+          <div class="setting-row">
+            <label>
+              ${localize("weather_skip.temp_section_title", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.skip_on_temp_enabled}"
+              @change="${(e: Event) =>
+                this.handleConfigChange({
+                  skip_on_temp_enabled: (e.target as HTMLInputElement).checked,
+                })}"
+            ></ha-switch>
+          </div>
+          ${this.config.skip_on_temp_enabled
+            ? html`
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "weather_skip.temp_threshold_label",
+                      this.hass.language,
+                    )}
+                    (°C)
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    step="0.5"
+                    .value="${this.config.temp_threshold ?? 5}"
+                    @input="${(e: Event) => {
+                      const v = parseFloat(
+                        (e.target as HTMLInputElement).value,
+                      );
+                      if (!isNaN(v))
+                        this.handleConfigChange({ temp_threshold: v });
+                    }}"
+                  />
+                </div>
+              `
+            : ""}
+
+          <div class="section-divider">
+            ${localize("weather_skip.wind_section_title", this.hass.language)}
+          </div>
+          <div class="setting-row">
+            <label>
+              ${localize("weather_skip.wind_section_title", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.skip_on_wind_enabled}"
+              @change="${(e: Event) =>
+                this.handleConfigChange({
+                  skip_on_wind_enabled: (e.target as HTMLInputElement).checked,
+                })}"
+            ></ha-switch>
+          </div>
+          ${this.config.skip_on_wind_enabled
+            ? html`
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "weather_skip.wind_threshold_label",
+                      this.hass.language,
+                    )}
+                    (m/s)
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="0"
+                    step="0.1"
+                    inputmode="decimal"
+                    .value="${this.config.wind_threshold ?? 6.9}"
+                    @input="${(e: Event) => {
+                      const v = parseFloat(
+                        (e.target as HTMLInputElement).value,
+                      );
+                      if (!isNaN(v))
+                        this.handleConfigChange({ wind_threshold: v });
+                    }}"
+                  />
+                </div>
+              `
+            : ""}
+
+          <div class="section-divider">
             ${localize(
-              "weather_skip.threshold_description",
+              "weather_skip.rain_sensor_section_title",
               this.hass.language,
             )}
-          </span>
-          <ha-switch
-            .checked="${this.config.skip_irrigation_on_precipitation}"
-            @change="${(e: Event) =>
-              this.handleConfigChange({
-                skip_irrigation_on_precipitation: (e.target as HTMLInputElement)
-                  .checked,
-              })}"
-          ></ha-switch>
-        </ha-settings-row>
-        ${this.config.skip_irrigation_on_precipitation
-          ? html`
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize(
-                    "weather_skip.threshold_label",
-                    this.hass.language,
-                  )}
-                  (${output_unit(this.config, CONF_PRECIPITATION_THRESHOLD_MM)})
-                </span>
-                <ha-textfield
-                  type="number"
-                  class="shortfield"
-                  min="0"
-                  step="0.1"
-                  .value="${String(
-                    this.config.precipitation_threshold_mm ?? 2,
-                  )}"
-                  @input="${(e: Event) => {
-                    const v = parseFloat((e.target as HTMLInputElement).value);
-                    if (!isNaN(v))
-                      this.handleConfigChange({
-                        precipitation_threshold_mm: v,
-                      });
-                  }}"
-                ></ha-textfield>
-              </ha-settings-row>
-            `
-          : ""}
-
-        <div class="section-divider">
-          ${localize("weather_skip.temp_section_title", this.hass.language)}
+          </div>
+          <div class="setting-row">
+            <label>
+              ${localize("weather_skip.rain_sensor_label", this.hass.language)}
+            </label>
+            <ha-entity-picker
+              .hass="${this.hass}"
+              .value="${this.config.rain_sensor || ""}"
+              .includeDomains="${["binary_sensor"]}"
+              allow-custom-entity
+              @value-changed="${(e: CustomEvent) =>
+                this.handleConfigChange({
+                  rain_sensor: e.detail.value || null,
+                })}"
+            ></ha-entity-picker>
+          </div>
         </div>
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize("weather_skip.temp_section_title", this.hass.language)}
-          </span>
-          <ha-switch
-            .checked="${this.config.skip_on_temp_enabled}"
-            @change="${(e: Event) =>
-              this.handleConfigChange({
-                skip_on_temp_enabled: (e.target as HTMLInputElement).checked,
-              })}"
-          ></ha-switch>
-        </ha-settings-row>
-        ${this.config.skip_on_temp_enabled
-          ? html`
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize(
-                    "weather_skip.temp_threshold_label",
-                    this.hass.language,
-                  )}
-                  (°C)
-                </span>
-                <ha-textfield
-                  type="number"
-                  class="shortfield"
-                  step="0.5"
-                  .value="${String(this.config.temp_threshold ?? 5)}"
-                  @input="${(e: Event) => {
-                    const v = parseFloat((e.target as HTMLInputElement).value);
-                    if (!isNaN(v))
-                      this.handleConfigChange({ temp_threshold: v });
-                  }}"
-                ></ha-textfield>
-              </ha-settings-row>
-            `
-          : ""}
-
-        <div class="section-divider">
-          ${localize("weather_skip.wind_section_title", this.hass.language)}
-        </div>
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize("weather_skip.wind_section_title", this.hass.language)}
-          </span>
-          <ha-switch
-            .checked="${this.config.skip_on_wind_enabled}"
-            @change="${(e: Event) =>
-              this.handleConfigChange({
-                skip_on_wind_enabled: (e.target as HTMLInputElement).checked,
-              })}"
-          ></ha-switch>
-        </ha-settings-row>
-        ${this.config.skip_on_wind_enabled
-          ? html`
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize(
-                    "weather_skip.wind_threshold_label",
-                    this.hass.language,
-                  )}
-                  (m/s)
-                </span>
-                <ha-textfield
-                  type="number"
-                  class="shortfield"
-                  min="0"
-                  step="0.1"
-                  .value="${String(this.config.wind_threshold ?? 6.9)}"
-                  @input="${(e: Event) => {
-                    const v = parseFloat((e.target as HTMLInputElement).value);
-                    if (!isNaN(v))
-                      this.handleConfigChange({ wind_threshold: v });
-                  }}"
-                ></ha-textfield>
-              </ha-settings-row>
-            `
-          : ""}
-
-        <div class="section-divider">
-          ${localize(
-            "weather_skip.rain_sensor_section_title",
-            this.hass.language,
-          )}
-        </div>
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize("weather_skip.rain_sensor_label", this.hass.language)}
-          </span>
-          <ha-entity-picker
-            .hass="${this.hass}"
-            .value="${this.config.rain_sensor || ""}"
-            .includeDomains="${["binary_sensor"]}"
-            allow-custom-entity
-            @value-changed="${(e: CustomEvent) =>
-              this.handleConfigChange({
-                rain_sensor: e.detail.value || null,
-              })}"
-          ></ha-entity-picker>
-        </ha-settings-row>
       </ha-card>
     `;
   }
@@ -640,107 +628,125 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
       <ha-card
         header="${localize("coordinate_config.title", this.hass.language)}"
       >
-        <ha-expansion-panel
-          .header="${localize(
-            "panels.zones.actions.information",
-            this.hass.language,
-          )}"
-        >
-          <div class="card-content">
-            ${localize("coordinate_config.description", this.hass.language)}
+        <div class="card-content description-text">
+          ${localize("coordinate_config.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${localize(
+                "coordinate_config.manual_enabled",
+                this.hass.language,
+              )}
+            </label>
+            <ha-switch
+              .checked="${this.config.manual_coordinates_enabled}"
+              @change="${(e: Event) =>
+                this.handleConfigChange({
+                  manual_coordinates_enabled: (e.target as HTMLInputElement)
+                    .checked,
+                })}"
+            ></ha-switch>
           </div>
-        </ha-expansion-panel>
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize("coordinate_config.manual_enabled", this.hass.language)}
-          </span>
-          <ha-switch
-            .checked="${this.config.manual_coordinates_enabled}"
-            @change="${(e: Event) =>
-              this.handleConfigChange({
-                manual_coordinates_enabled: (e.target as HTMLInputElement)
-                  .checked,
-              })}"
-          ></ha-switch>
-        </ha-settings-row>
-        ${this.config.manual_coordinates_enabled
-          ? html`
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize("coordinate_config.latitude", this.hass.language)}
-                </span>
-                <ha-textfield
-                  type="number"
-                  class="shortfield"
-                  min="-90"
-                  max="90"
-                  step="0.000001"
-                  .value="${String(this.config.manual_latitude ?? haLatitude)}"
-                  @input="${(e: Event) => {
-                    const v = parseFloat((e.target as HTMLInputElement).value);
-                    if (!isNaN(v))
-                      this.handleConfigChange({ manual_latitude: v });
-                  }}"
-                ></ha-textfield>
-              </ha-settings-row>
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize("coordinate_config.longitude", this.hass.language)}
-                </span>
-                <ha-textfield
-                  type="number"
-                  class="shortfield"
-                  min="-180"
-                  max="180"
-                  step="0.000001"
-                  .value="${String(
-                    this.config.manual_longitude ?? haLongitude,
-                  )}"
-                  @input="${(e: Event) => {
-                    const v = parseFloat((e.target as HTMLInputElement).value);
-                    if (!isNaN(v))
-                      this.handleConfigChange({ manual_longitude: v });
-                  }}"
-                ></ha-textfield>
-              </ha-settings-row>
-              <ha-settings-row>
-                <span slot="heading">
-                  ${localize("coordinate_config.elevation", this.hass.language)}
-                </span>
-                <ha-textfield
-                  type="number"
-                  class="shortfield"
-                  min="-1000"
-                  max="9000"
-                  step="1"
-                  .value="${String(
-                    this.config.manual_elevation ?? haElevation,
-                  )}"
-                  @input="${(e: Event) => {
-                    const v = parseFloat((e.target as HTMLInputElement).value);
-                    if (!isNaN(v))
-                      this.handleConfigChange({ manual_elevation: v });
-                  }}"
-                ></ha-textfield>
-              </ha-settings-row>
-            `
-          : html`
-              <div
-                class="card-content"
-                style="color: var(--secondary-text-color); font-style: italic;"
-              >
-                ${localize(
-                  "coordinate_config.current_ha_coords",
-                  this.hass.language,
-                )}:
-                ${localize("coordinate_config.latitude", this.hass.language)}:
-                ${haLatitude},
-                ${localize("coordinate_config.longitude", this.hass.language)}:
-                ${haLongitude},
-                ${localize("coordinate_config.elevation", this.hass.language)}:
-                ${haElevation}m
-              </div>
-            `}
+          ${this.config.manual_coordinates_enabled
+            ? html`
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "coordinate_config.latitude",
+                      this.hass.language,
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="-90"
+                    max="90"
+                    step="0.000001"
+                    inputmode="decimal"
+                    .value="${this.config.manual_latitude ?? haLatitude}"
+                    @input="${(e: Event) => {
+                      const v = parseFloat(
+                        (e.target as HTMLInputElement).value,
+                      );
+                      if (!isNaN(v))
+                        this.handleConfigChange({ manual_latitude: v });
+                    }}"
+                  />
+                </div>
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "coordinate_config.longitude",
+                      this.hass.language,
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="-180"
+                    max="180"
+                    step="0.000001"
+                    inputmode="decimal"
+                    .value="${this.config.manual_longitude ?? haLongitude}"
+                    @input="${(e: Event) => {
+                      const v = parseFloat(
+                        (e.target as HTMLInputElement).value,
+                      );
+                      if (!isNaN(v))
+                        this.handleConfigChange({ manual_longitude: v });
+                    }}"
+                  />
+                </div>
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "coordinate_config.elevation",
+                      this.hass.language,
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="-1000"
+                    max="9000"
+                    step="1"
+                    inputmode="numeric"
+                    .value="${this.config.manual_elevation ?? haElevation}"
+                    @input="${(e: Event) => {
+                      const v = parseFloat(
+                        (e.target as HTMLInputElement).value,
+                      );
+                      if (!isNaN(v))
+                        this.handleConfigChange({ manual_elevation: v });
+                    }}"
+                  />
+                </div>
+              `
+            : html`
+                <div
+                  class="card-content"
+                  style="color: var(--secondary-text-color); font-style: italic;"
+                >
+                  ${localize(
+                    "coordinate_config.current_ha_coords",
+                    this.hass.language,
+                  )}:
+                  ${localize("coordinate_config.latitude", this.hass.language)}:
+                  ${haLatitude},
+                  ${localize(
+                    "coordinate_config.longitude",
+                    this.hass.language,
+                  )}:
+                  ${haLongitude},
+                  ${localize(
+                    "coordinate_config.elevation",
+                    this.hass.language,
+                  )}:
+                  ${haElevation}m
+                </div>
+              `}
+        </div>
       </ha-card>
     `;
   }
@@ -754,43 +760,38 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
           this.hass.language,
         )}"
       >
-        <ha-expansion-panel
-          .header="${localize(
-            "panels.zones.actions.information",
-            this.hass.language,
-          )}"
-        >
-          <div class="card-content">
-            ${localize(
-              "days_between_irrigation.description",
-              this.hass.language,
-            )}
+        <div class="card-content description-text">
+          ${localize("days_between_irrigation.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${localize("days_between_irrigation.label", this.hass.language)}
+              <div class="setting-description">
+                ${localize(
+                  "days_between_irrigation.help_text",
+                  this.hass.language,
+                )}
+              </div>
+            </label>
+            <input
+              type="number"
+              class="settings-input shortfield"
+              min="0"
+              max="365"
+              step="1"
+              inputmode="numeric"
+              .value="${this.config.days_between_irrigation ?? 0}"
+              @input="${(e: Event) => {
+                const v = (e.target as HTMLInputElement).valueAsNumber;
+                if (!isNaN(v))
+                  this.handleConfigChange({
+                    days_between_irrigation: Math.round(v),
+                  });
+              }}"
+            />
           </div>
-        </ha-expansion-panel>
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize("days_between_irrigation.label", this.hass.language)}
-          </span>
-          <span slot="description">
-            ${localize("days_between_irrigation.help_text", this.hass.language)}
-          </span>
-          <ha-textfield
-            type="number"
-            class="shortfield"
-            min="0"
-            max="365"
-            step="1"
-            inputmode="numeric"
-            .value="${String(this.config.days_between_irrigation ?? 0)}"
-            @input="${(e: Event) => {
-              const v = (e.target as HTMLInputElement).valueAsNumber;
-              if (!isNaN(v))
-                this.handleConfigChange({
-                  days_between_irrigation: Math.round(v),
-                });
-            }}"
-          ></ha-textfield>
-        </ha-settings-row>
+        </div>
       </ha-card>
     `;
   }
@@ -801,30 +802,32 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
       <ha-card
         header="${localize("zone_sequencing.title", this.hass.language)}"
       >
-        <div class="card-content">
+        <div class="card-content description-text">
           ${localize("zone_sequencing.description", this.hass.language)}
         </div>
-        <ha-settings-row>
-          <span slot="heading">
-            ${localize("zone_sequencing.title", this.hass.language)}
-          </span>
-          <ha-select
-            .value="${this.config.zone_sequencing ||
-            CONF_ZONE_SEQUENCING_PARALLEL}"
-            @selected="${(e: CustomEvent) =>
-              this.handleConfigChange({
-                [CONF_ZONE_SEQUENCING]: e.detail.value,
-              })}"
-            @closed="${(e: Event) => e.stopPropagation()}"
-          >
-            <mwc-list-item value="${CONF_ZONE_SEQUENCING_PARALLEL}">
-              ${localize("zone_sequencing.parallel", this.hass.language)}
-            </mwc-list-item>
-            <mwc-list-item value="${CONF_ZONE_SEQUENCING_SEQUENTIAL}">
-              ${localize("zone_sequencing.sequential", this.hass.language)}
-            </mwc-list-item>
-          </ha-select>
-        </ha-settings-row>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${localize("zone_sequencing.title", this.hass.language)}
+            </label>
+            <ha-select
+              .value="${this.config.zone_sequencing ||
+              CONF_ZONE_SEQUENCING_PARALLEL}"
+              @selected="${(e: CustomEvent) =>
+                this.handleConfigChange({
+                  [CONF_ZONE_SEQUENCING]: e.detail.value,
+                })}"
+              @closed="${(e: Event) => e.stopPropagation()}"
+            >
+              <mwc-list-item value="${CONF_ZONE_SEQUENCING_PARALLEL}">
+                ${localize("zone_sequencing.parallel", this.hass.language)}
+              </mwc-list-item>
+              <mwc-list-item value="${CONF_ZONE_SEQUENCING_SEQUENTIAL}">
+                ${localize("zone_sequencing.sequential", this.hass.language)}
+              </mwc-list-item>
+            </ha-select>
+          </div>
+        </div>
       </ha-card>
     `;
   }
@@ -864,18 +867,35 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
     return css`
       ${globalStyle}
 
-      ha-settings-row {
-        padding: 0 16px;
+      .description-text {
+        font-size: 0.875rem;
+        color: var(--secondary-text-color);
+        padding-bottom: 4px;
       }
 
-      ha-expansion-panel {
-        margin: 8px 16px;
-        border-radius: 4px;
-        border: 1px solid var(--divider-color);
+      .setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--divider-color);
+        gap: 16px;
       }
 
-      .shortfield {
-        width: 120px;
+      .setting-row:last-child {
+        border-bottom: none;
+      }
+
+      .setting-row label {
+        flex: 1;
+        color: var(--primary-text-color);
+        font-size: 0.9375rem;
+      }
+
+      .setting-description {
+        font-size: 0.8125rem;
+        color: var(--secondary-text-color);
+        margin-top: 2px;
       }
 
       .inline-row {
@@ -885,14 +905,40 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
       }
 
       .section-divider {
-        padding: 12px 16px 4px;
+        padding: 12px 0 4px;
         font-weight: 500;
-        font-size: 0.875rem;
+        font-size: 0.8125rem;
         color: var(--secondary-text-color);
         text-transform: uppercase;
         letter-spacing: 0.05em;
         border-top: 1px solid var(--divider-color);
         margin-top: 8px;
+      }
+
+      /* Native input styled to match HA */
+      .settings-input {
+        background: var(--input-fill-color, var(--secondary-background-color));
+        border: 1px solid var(--input-ink-color, var(--secondary-text-color));
+        border-radius: 4px;
+        color: var(--primary-text-color);
+        padding: 6px 10px;
+        font-family: var(
+          --mdc-typography-body1-font-family,
+          Roboto,
+          sans-serif
+        );
+        font-size: 0.9375rem;
+        box-sizing: border-box;
+        height: 36px;
+      }
+
+      .settings-input:focus {
+        border-color: var(--primary-color);
+        outline: none;
+      }
+
+      .settings-input.shortfield {
+        width: 110px;
       }
     `;
   }
