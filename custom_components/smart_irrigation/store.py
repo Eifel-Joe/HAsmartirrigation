@@ -46,6 +46,8 @@ from .const import (
     CONF_DEFAULT_RAIN_SENSOR,
     CONF_DEFAULT_RECURRING_SCHEDULES,
     CONF_DEFAULT_SEASONAL_ADJUSTMENTS,
+    CONF_RECURRING_SCHEDULES,
+    CONF_SEASONAL_ADJUSTMENTS,
     CONF_DEFAULT_SENSOR_DEBOUNCE,
     CONF_DEFAULT_SKIP_IRRIGATION_ON_PRECIPITATION,
     CONF_DEFAULT_SKIP_TEMP_ENABLED,
@@ -469,6 +471,14 @@ class SmartIrrigationStorage:
                 rain_sensor=data["config"].get(
                     CONF_RAIN_SENSOR,
                     CONF_DEFAULT_RAIN_SENSOR,
+                ),
+                recurring_schedules=data["config"].get(
+                    CONF_RECURRING_SCHEDULES,
+                    CONF_DEFAULT_RECURRING_SCHEDULES,
+                ),
+                seasonal_adjustments=data["config"].get(
+                    CONF_SEASONAL_ADJUSTMENTS,
+                    CONF_DEFAULT_SEASONAL_ADJUSTMENTS,
                 ),
             )
 

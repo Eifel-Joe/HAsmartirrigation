@@ -845,7 +845,7 @@
     });
     return n.detail = a, e.dispatchEvent(n), n;
   };
-  const ze = `v${"2026.05.08"}`,
+  const ze = `v${"2026.05.09"}`,
     Se = "smart_irrigation",
     $e = "precipitation_threshold_mm",
     xe = "hours",
@@ -10626,7 +10626,7 @@
       }}"
                   ?disabled="${this.isSaving}"
                 >
-                  ${es("panels.zones.actions.irrigate_now", this.hass.language)}
+                  ${es("panels.zones.labels.irrigate_now", this.hass.language)}
                 </ha-button>
               ` : ""}
         </div>

@@ -665,7 +665,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                   ?disabled="${this.isSaving}"
                 >
                   ${localize(
-                    "panels.zones.actions.irrigate_now",
+                    "panels.zones.labels.irrigate_now",
                     this.hass.language,
                   )}
                 </ha-button>
