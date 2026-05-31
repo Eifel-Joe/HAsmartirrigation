@@ -337,8 +337,13 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
             )
 
             if self.weather_service == const.CONF_WEATHER_SERVICE_OWM:
+                # Prefer the per-service key (stored since v2026.05.14);
+                # fall back to the legacy single-key slot for compatibility.
+                owm_key = hass.data[const.DOMAIN].get(
+                    const.CONF_OWM_API_KEY
+                ) or hass.data[const.DOMAIN].get(const.CONF_WEATHER_SERVICE_API_KEY)
                 self._WeatherServiceClient = OWMClient(
-                    api_key=hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY],
+                    api_key=owm_key,
                     api_version=hass.data[const.DOMAIN].get(
                         const.CONF_WEATHER_SERVICE_API_VERSION
                     ),
@@ -347,8 +352,11 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
                     elevation=effective_elev,
                 )
             elif self.weather_service == const.CONF_WEATHER_SERVICE_PW:
+                pw_key = hass.data[const.DOMAIN].get(
+                    const.CONF_PW_API_KEY
+                ) or hass.data[const.DOMAIN].get(const.CONF_WEATHER_SERVICE_API_KEY)
                 self._WeatherServiceClient = PirateWeatherClient(
-                    api_key=hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY],
+                    api_key=pw_key,
                     api_version="1",
                     latitude=effective_lat,
                     longitude=effective_lon,
