@@ -284,7 +284,8 @@ async def async_unload_entry(hass: HomeAssistant, entry):
     """Unload Smart Irrigation config entry."""
     unload_ok = all(
         await asyncio.gather(
-            *[hass.config_entries.async_forward_entry_unload(entry, PLATFORM)]
+            hass.config_entries.async_forward_entry_unload(entry, PLATFORM),
+            hass.config_entries.async_forward_entry_unload(entry, "number"),
         )
     )
     if not unload_ok:
