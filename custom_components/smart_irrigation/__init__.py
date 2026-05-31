@@ -1110,10 +1110,19 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
             ) = self.check_mapping_sources(mapping_id=mapping_id)
             weatherdata = None
             if self.use_weather_service and owm_in_mapping:
-                # retrieve data from OWM
-                weatherdata = await self.hass.async_add_executor_job(
-                    self._WeatherServiceClient.get_data
-                )
+                # retrieve data from weather service
+                try:
+                    weatherdata = await self.hass.async_add_executor_job(
+                        self._WeatherServiceClient.get_data
+                    )
+                except OSError as err:
+                    raise SmartIrrigationError(
+                        f"Weather service error while updating zone: {err}"
+                    ) from err
+                if weatherdata is None:
+                    raise SmartIrrigationError(
+                        "Weather service returned no data — check your API key and subscription."
+                    )
 
             if sensor_in_mapping:
                 sensor_values = self.build_sensor_values_for_mapping(mapping)
@@ -1126,12 +1135,11 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
                     weatherdata, static_values
                 )
             if sensor_in_mapping or static_in_mapping:
-                # if pressure type is set to relative, replace it with absolute. not necessary for OWM as it already happened
-                # convert the relative pressure to absolute or estimate from height
+                # convert relative pressure to absolute if configured
+                mapping_mappings = mapping.get(const.MAPPING_MAPPINGS) or {}
+                pressure_map = mapping_mappings.get(const.MAPPING_PRESSURE) or {}
                 if (
-                    mapping.get(const.MAPPING_MAPPINGS)
-                    .get(const.MAPPING_PRESSURE)
-                    .get(const.MAPPING_CONF_PRESSURE_TYPE)
+                    pressure_map.get(const.MAPPING_CONF_PRESSURE_TYPE)
                     == const.MAPPING_CONF_PRESSURE_RELATIVE
                 ):
                     if const.MAPPING_PRESSURE in weatherdata:
@@ -1221,10 +1229,24 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
             mapping = self.store.get_mapping(mapping_id)
             weatherdata = None
             if self.use_weather_service and owm_in_mapping:
-                # retrieve data from OWM
-                weatherdata = await self.hass.async_add_executor_job(
-                    self._WeatherServiceClient.get_data
-                )
+                # retrieve data from weather service; log and skip on failure
+                try:
+                    weatherdata = await self.hass.async_add_executor_job(
+                        self._WeatherServiceClient.get_data
+                    )
+                except OSError as err:
+                    _LOGGER.error(
+                        "[async_update_all] Weather service error for mapping %s: %s",
+                        mapping_id,
+                        err,
+                    )
+                    continue
+                if weatherdata is None:
+                    _LOGGER.warning(
+                        "[async_update_all] No weather data to parse for sensor group %s",
+                        mapping_id,
+                    )
+                    continue
 
             if sensor_in_mapping:
                 sensor_values = self.build_sensor_values_for_mapping(mapping)
@@ -1237,12 +1259,11 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
                     weatherdata, static_values
                 )
             if sensor_in_mapping or static_in_mapping:
-                # if pressure type is set to relative, replace it with absolute. not necessary for OWM as it already happened
-                # convert the relative pressure to absolute or estimate from height
+                # convert relative pressure to absolute if configured
+                mapping_mappings = mapping.get(const.MAPPING_MAPPINGS) or {}
+                pressure_map = mapping_mappings.get(const.MAPPING_PRESSURE) or {}
                 if (
-                    mapping.get(const.MAPPING_MAPPINGS)
-                    .get(const.MAPPING_PRESSURE)
-                    .get(const.MAPPING_CONF_PRESSURE_TYPE)
+                    pressure_map.get(const.MAPPING_CONF_PRESSURE_TYPE)
                     == const.MAPPING_CONF_PRESSURE_RELATIVE
                 ):
                     if const.MAPPING_PRESSURE in weatherdata:
