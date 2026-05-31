@@ -3,7 +3,13 @@ import { property, customElement } from "lit/decorators.js";
 import { HomeAssistant } from "custom-card-helpers";
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
 
-import { fetchConfig, saveConfig } from "../../data/websockets";
+import {
+  fetchConfig,
+  saveConfig,
+  fetchWeatherConfig,
+  saveWeatherConfig,
+  WeatherConfig,
+} from "../../data/websockets";
 import { SubscribeMixin } from "../../subscribe-mixin";
 import { localize } from "../../../localize/localize";
 import { output_unit, pick, handleError } from "../../helpers";
@@ -34,6 +40,9 @@ import {
   CONF_ZONE_SEQUENCING,
   CONF_ZONE_SEQUENCING_SEQUENTIAL,
   CONF_ZONE_SEQUENCING_PARALLEL,
+  CONF_WEATHER_SERVICE_OWM,
+  CONF_WEATHER_SERVICE_PW,
+  CONF_WEATHER_SERVICE_OPENMETEO,
   DOMAIN,
 } from "../../const";
 
@@ -51,6 +60,21 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
 
   @property({ type: Boolean })
   private isSaving = false;
+
+  @property()
+  private _weatherConfig: WeatherConfig | null = null;
+
+  @property()
+  private _weatherService: string | null = null;
+
+  @property({ type: Boolean })
+  private _useWeatherService = false;
+
+  @property()
+  private _newApiKey = "";
+
+  @property({ type: Boolean })
+  private _weatherSaving = false;
 
   private _updateScheduled = false;
   private _scheduleUpdate() {
@@ -94,7 +118,15 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
     this.isLoading = true;
     this._scheduleUpdate();
     try {
-      this.config = await fetchConfig(this.hass);
+      const [configResult, weatherConfigResult] = await Promise.all([
+        fetchConfig(this.hass),
+        fetchWeatherConfig(this.hass),
+      ]);
+      this.config = configResult;
+      this._weatherConfig = weatherConfigResult;
+      this._useWeatherService = weatherConfigResult.use_weather_service;
+      this._weatherService =
+        weatherConfigResult.weather_service ?? CONF_WEATHER_SERVICE_OPENMETEO;
       this.data = pick(this.config, [
         CONF_CALC_TIME,
         CONF_AUTO_CALC_ENABLED,
@@ -144,16 +176,173 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
       </div>`;
     }
     return html`
-      <ha-card header="${localize("panels.general.title", this.hass.language)}">
+      ${this._renderWeatherServiceCard()} ${this._renderAutoUpdateCard()}
+      ${this._renderAutoCalcCard()} ${this._renderAutoClearCard()}
+      ${this._renderContinuousUpdatesCard()} ${this._renderWeatherSkipCard()}
+      ${this._renderCoordinateCard()} ${this._renderDaysBetweenIrrigationCard()}
+      ${this._renderZoneSequencingCard()}
+    `;
+  }
+
+  private async _saveWeatherConfig(): Promise<void> {
+    if (!this.hass) return;
+    this._weatherSaving = true;
+    this._scheduleUpdate();
+    try {
+      await saveWeatherConfig(
+        this.hass,
+        this._useWeatherService,
+        this._useWeatherService ? this._weatherService : null,
+        this._newApiKey || null,
+      );
+      this._newApiKey = "";
+      await this._fetchData();
+    } catch (error) {
+      console.error("Failed to save weather config:", error);
+    } finally {
+      this._weatherSaving = false;
+      this._scheduleUpdate();
+    }
+  }
+
+  private _renderWeatherServiceCard(): TemplateResult {
+    if (!this.hass) return html``;
+    const noApiKeyServices = this._weatherConfig?.no_api_key_services ?? [
+      CONF_WEATHER_SERVICE_OPENMETEO,
+    ];
+    const needsApiKey =
+      this._useWeatherService &&
+      this._weatherService &&
+      !noApiKeyServices.includes(this._weatherService);
+
+    return html`
+      <ha-card
+        header="${localize("weather_service_config.title", this.hass.language)}"
+      >
+        <div class="card-content description-text">
+          ${localize("weather_service_config.description", this.hass.language)}
+        </div>
         <div class="card-content">
-          ${localize("panels.general.description", this.hass.language)}
+          <div class="setting-row">
+            <label>
+              ${localize(
+                "weather_service_config.enabled_label",
+                this.hass.language,
+              )}
+            </label>
+            <ha-switch
+              .checked="${this._useWeatherService}"
+              @change="${(e: Event) => {
+                this._useWeatherService = (
+                  e.target as HTMLInputElement
+                ).checked;
+              }}"
+            ></ha-switch>
+          </div>
+          ${this._useWeatherService
+            ? html`
+                <div class="setting-row">
+                  <label>
+                    ${localize(
+                      "weather_service_config.service_label",
+                      this.hass.language,
+                    )}
+                  </label>
+                  <ha-select
+                    .value="${this._weatherService ||
+                    CONF_WEATHER_SERVICE_OPENMETEO}"
+                    @selected="${(e: CustomEvent) => {
+                      this._weatherService = e.detail.value;
+                    }}"
+                    @closed="${(e: Event) => e.stopPropagation()}"
+                  >
+                    <mwc-list-item value="${CONF_WEATHER_SERVICE_OPENMETEO}">
+                      ${localize(
+                        "weather_service_config.openmeteo",
+                        this.hass.language,
+                      )}
+                    </mwc-list-item>
+                    <mwc-list-item value="${CONF_WEATHER_SERVICE_OWM}">
+                      ${localize(
+                        "weather_service_config.owm",
+                        this.hass.language,
+                      )}
+                    </mwc-list-item>
+                    <mwc-list-item value="${CONF_WEATHER_SERVICE_PW}">
+                      ${localize(
+                        "weather_service_config.pw",
+                        this.hass.language,
+                      )}
+                    </mwc-list-item>
+                  </ha-select>
+                </div>
+                ${needsApiKey
+                  ? html`
+                      <div class="setting-row">
+                        <label>
+                          ${localize(
+                            "weather_service_config.api_key_label",
+                            this.hass.language,
+                          )}
+                          ${this._weatherConfig?.has_api_key
+                            ? html`<div class="setting-description">
+                                ${localize(
+                                  "weather_service_config.api_key_configured",
+                                  this.hass.language,
+                                )}
+                              </div>`
+                            : html`<div
+                                class="setting-description"
+                                style="color:var(--warning-color)"
+                              >
+                                ${localize(
+                                  "weather_service_config.api_key_not_configured",
+                                  this.hass.language,
+                                )}
+                              </div>`}
+                        </label>
+                        <input
+                          type="password"
+                          class="settings-input"
+                          placeholder="${localize(
+                            "weather_service_config.api_key_placeholder",
+                            this.hass.language,
+                          )}"
+                          .value="${this._newApiKey}"
+                          @input="${(e: Event) => {
+                            this._newApiKey = (
+                              e.target as HTMLInputElement
+                            ).value;
+                          }}"
+                        />
+                      </div>
+                    `
+                  : html`
+                      <div class="description-text" style="padding: 8px 0;">
+                        ${localize(
+                          "weather_service_config.no_api_key_needed",
+                          this.hass.language,
+                        )}
+                      </div>
+                    `}
+              `
+            : ""}
+          <div style="margin-top: 12px;">
+            <ha-button
+              raised
+              ?disabled="${this._weatherSaving}"
+              @click="${this._saveWeatherConfig}"
+            >
+              ${this._weatherSaving
+                ? localize("common.saving-messages.saving", this.hass.language)
+                : localize(
+                    "weather_service_config.save_button",
+                    this.hass.language,
+                  )}
+            </ha-button>
+          </div>
         </div>
       </ha-card>
-      ${this._renderAutoUpdateCard()} ${this._renderAutoCalcCard()}
-      ${this._renderAutoClearCard()} ${this._renderContinuousUpdatesCard()}
-      ${this._renderWeatherSkipCard()} ${this._renderCoordinateCard()}
-      ${this._renderDaysBetweenIrrigationCard()}
-      ${this._renderZoneSequencingCard()}
     `;
   }
 

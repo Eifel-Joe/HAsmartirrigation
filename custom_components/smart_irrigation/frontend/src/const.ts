@@ -32,6 +32,13 @@ export const CONF_PRECIPITATION_THRESHOLD_MM = "precipitation_threshold_mm";
 // Days between irrigation configuration
 export const CONF_DAYS_BETWEEN_IRRIGATION = "days_between_irrigation";
 
+// Weather service configuration
+export const CONF_USE_WEATHER_SERVICE = "use_weather_service";
+export const CONF_WEATHER_SERVICE = "weather_service";
+export const CONF_WEATHER_SERVICE_OWM = "Open Weather Map";
+export const CONF_WEATHER_SERVICE_PW = "Pirate Weather";
+export const CONF_WEATHER_SERVICE_OPENMETEO = "Open-Meteo";
+
 // Irrigation start trigger configuration
 export const CONF_IRRIGATION_START_TRIGGERS = "irrigation_start_triggers";
 export const TRIGGER_TYPE_SUNRISE = "sunrise";

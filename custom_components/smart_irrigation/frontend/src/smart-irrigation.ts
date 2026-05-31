@@ -4,13 +4,8 @@ import { HomeAssistant } from "custom-card-helpers";
 import { loadHaForm } from "./load-ha-elements";
 import { navigate } from "./helpers";
 
-import "./views/general/view-general.ts";
 import "./views/zones/view-zones.ts";
-import "./views/modules/view-modules.ts";
-import "./views/mappings/view-mappings.ts";
-import "./views/info/view-info.ts";
-import "./views/schedules/view-schedules.ts";
-import "./views/adjustments/view-adjustments.ts";
+import "./views/setup/view-setup.ts";
 
 import { commonStyle } from "./styles";
 import { VERSION, PLATFORM, ISSUES_URL } from "./const";
@@ -19,14 +14,8 @@ import { localize } from "../localize/localize";
 import { exportPath, getPath, Path } from "./common/navigation";
 
 enum EMenuItems {
-  Info = "info",
   Zones = "zones",
-  General = "general",
-  Schedules = "schedules",
-  Adjustments = "adjustments",
-  Modules = "modules",
-  Mappings = "mappings",
-  Help = "help",
+  Setup = "setup",
 }
 
 @customElement("smart-irrigation")
@@ -48,15 +37,8 @@ export class SmartIrrigationPanel extends LitElement {
   }
 
   async firstUpdated() {
-    // Ensure we have a default route
-    const path = getPath();
-    if (
-      !path.page ||
-      !Object.values(EMenuItems).includes(path.page as EMenuItems)
-    ) {
-      navigate(this, exportPath(EMenuItems.Zones));
-      return;
-    }
+    // Always land on Zones when the panel first mounts
+    navigate(this, exportPath(EMenuItems.Zones));
 
     window.addEventListener("location-changed", () => {
       if (!window.location.pathname.includes(PLATFORM)) return;
@@ -140,22 +122,6 @@ export class SmartIrrigationPanel extends LitElement {
   getView(path: Path) {
     const page = path.page;
     switch (page) {
-      case "info":
-        return html`
-          <smart-irrigation-view-info
-            .hass=${this.hass}
-            .narrow=${this.narrow}
-            .path=${path}
-          ></smart-irrigation-view-info>
-        `;
-      case "general":
-        return html`
-          <smart-irrigation-view-general
-            .hass=${this.hass}
-            .narrow=${this.narrow}
-            .path=${path}
-          ></smart-irrigation-view-general>
-        `;
       case "zones":
         return html`
           <smart-irrigation-view-zones
@@ -164,91 +130,20 @@ export class SmartIrrigationPanel extends LitElement {
             .path=${path}
           ></smart-irrigation-view-zones>
         `;
-      case "schedules":
+      case "setup":
         return html`
-          <smart-irrigation-view-schedules
+          <smart-irrigation-view-setup
             .hass=${this.hass}
             .narrow=${this.narrow}
-            .path=${path}
-          ></smart-irrigation-view-schedules>
+          ></smart-irrigation-view-setup>
         `;
-      case "adjustments":
-        return html`
-          <smart-irrigation-view-adjustments
-            .hass=${this.hass}
-            .narrow=${this.narrow}
-            .path=${path}
-          ></smart-irrigation-view-adjustments>
-        `;
-      case "modules":
-        return html`
-          <smart-irrigation-view-modules
-            .hass=${this.hass}
-            .narrow=${this.narrow}
-            .path=${path}
-          ></smart-irrigation-view-modules>
-        `;
-      case "mappings":
-        return html`
-          <smart-irrigation-view-mappings
-            .hass=${this.hass}
-            .narrow=${this.narrow}
-            .path=${path}
-          ></smart-irrigation-view-mappings>
-        `;
-      case "help":
-        return html`<ha-card
-          header="${localize(
-            "panels.help.cards.how-to-get-help.title",
-            this.hass.language,
-          )}"
-        >
-          <div class="card-content">
-            ${localize(
-              "panels.help.cards.how-to-get-help.first-read-the",
-              this.hass.language,
-            )}
-            <a href="${DOCS_URL}"
-              >${localize(
-                "panels.help.cards.how-to-get-help.wiki",
-                this.hass.language,
-              )}</a
-            >.
-            ${localize(
-              "panels.help.cards.how-to-get-help.if-you-still-need-help",
-              this.hass.language,
-            )}
-            <a
-              href="https://community.home-assistant.io/t/smart-irrigation-save-water-by-precisely-watering-your-lawn-garden"
-              >${localize(
-                "panels.help.cards.how-to-get-help.community-forum",
-                this.hass.language,
-              )}</a
-            >
-            ${localize(
-              "panels.help.cards.how-to-get-help.or-open-a",
-              this.hass.language,
-            )}
-            <a href="${ISSUES_URL}"
-              >${localize(
-                "panels.help.cards.how-to-get-help.github-issue",
-                this.hass.language,
-              )}</a
-            >
-            (${localize(
-              "panels.help.cards.how-to-get-help.english-only",
-              this.hass.language,
-            )}).
-          </div></ha-card
-        >`;
       default:
         return html`
-          <ha-card header="Page not found">
-            <div class="card-content">
-              The page you are trying to reach cannot be found. Please select a
-              page from the menu above to continue.
-            </div>
-          </ha-card>
+          <smart-irrigation-view-zones
+            .hass=${this.hass}
+            .narrow=${this.narrow}
+            .path=${path}
+          ></smart-irrigation-view-zones>
         `;
     }
   }

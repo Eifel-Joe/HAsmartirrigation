@@ -85,7 +85,7 @@
     m = g.trustedTypes,
     f = m ? m.emptyScript : "",
     v = g.reactiveElementPolyfillSupport,
-    b = {
+    _ = {
       toAttribute(e, t) {
         switch (t) {
           case Boolean:
@@ -117,13 +117,13 @@
         return a;
       }
     },
-    _ = (e, t) => t !== e && (t == t || e == e),
+    b = (e, t) => t !== e && (t == t || e == e),
     y = {
       attribute: !0,
       type: String,
-      converter: b,
+      converter: _,
       reflect: !1,
-      hasChanged: _
+      hasChanged: b
     },
     w = "finalized";
   class k extends HTMLElement {
@@ -238,7 +238,7 @@
       var i;
       const n = this.constructor._$Ep(e, a);
       if (void 0 !== n && !0 === a.reflect) {
-        const s = (void 0 !== (null === (i = a.converter) || void 0 === i ? void 0 : i.toAttribute) ? a.converter : b).toAttribute(t, a.type);
+        const s = (void 0 !== (null === (i = a.converter) || void 0 === i ? void 0 : i.toAttribute) ? a.converter : _).toAttribute(t, a.type);
         this._$El = e, null == s ? this.removeAttribute(n) : this.setAttribute(n, s), this._$El = null;
       }
     }
@@ -250,13 +250,13 @@
         const e = i.getPropertyOptions(n),
           s = "function" == typeof e.converter ? {
             fromAttribute: e.converter
-          } : void 0 !== (null === (a = e.converter) || void 0 === a ? void 0 : a.fromAttribute) ? e.converter : b;
+          } : void 0 !== (null === (a = e.converter) || void 0 === a ? void 0 : a.fromAttribute) ? e.converter : _;
         this._$El = n, this[n] = s.fromAttribute(t, e.type), this._$El = null;
       }
     }
     requestUpdate(e, t, a) {
       let i = !0;
-      void 0 !== e && (((a = a || this.constructor.getPropertyOptions(e)).hasChanged || _)(this[e], t) ? (this._$AL.has(e) || this._$AL.set(e, t), !0 === a.reflect && this._$El !== e && (void 0 === this._$EC && (this._$EC = new Map()), this._$EC.set(e, a))) : i = !1), !this.isUpdatePending && i && (this._$E_ = this._$Ej());
+      void 0 !== e && (((a = a || this.constructor.getPropertyOptions(e)).hasChanged || b)(this[e], t) ? (this._$AL.has(e) || this._$AL.set(e, t), !0 === a.reflect && this._$El !== e && (void 0 === this._$EC && (this._$EC = new Map()), this._$EC.set(e, a))) : i = !1), !this.isUpdatePending && i && (this._$E_ = this._$Ej());
     }
     async _$Ej() {
       this.isUpdatePending = !0;
@@ -335,8 +335,8 @@
     M = `<${T}>`,
     D = document,
     C = () => D.createComment(""),
-    N = e => null === e || "object" != typeof e && "function" != typeof e,
-    O = Array.isArray,
+    O = e => null === e || "object" != typeof e && "function" != typeof e,
+    N = Array.isArray,
     j = "[ \t\n\f\r]",
     H = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,
     P = /-->/g,
@@ -350,8 +350,8 @@
       strings: t,
       values: a
     }))(1),
-    Y = Symbol.for("lit-noChange"),
-    W = Symbol.for("lit-nothing"),
+    W = Symbol.for("lit-noChange"),
+    Y = Symbol.for("lit-nothing"),
     V = new WeakMap(),
     Z = D.createTreeWalker(D, 129, null, !1);
   function G(e, t) {
@@ -448,9 +448,9 @@
   }
   function X(e, t, a = e, i) {
     var n, s, r, o;
-    if (t === Y) return t;
+    if (t === W) return t;
     let l = void 0 !== i ? null === (n = a._$Co) || void 0 === n ? void 0 : n[i] : a._$Cl;
-    const d = N(t) ? void 0 : t._$litDirective$;
+    const d = O(t) ? void 0 : t._$litDirective$;
     return (null == l ? void 0 : l.constructor) !== d && (null === (s = null == l ? void 0 : l._$AO) || void 0 === s || s.call(l, !1), void 0 === d ? l = void 0 : (l = new d(e), l._$AT(e, a, i)), void 0 !== i ? (null !== (r = (o = a)._$Co) && void 0 !== r ? r : o._$Co = [])[i] = l : a._$Cl = l), void 0 !== l && (t = X(e, l._$AS(e, t.values), l, i)), t;
   }
   class J {
@@ -494,7 +494,7 @@
   class Q {
     constructor(e, t, a, i) {
       var n;
-      this.type = 2, this._$AH = W, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = a, this.options = i, this._$Cp = null === (n = null == i ? void 0 : i.isConnected) || void 0 === n || n;
+      this.type = 2, this._$AH = Y, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = a, this.options = i, this._$Cp = null === (n = null == i ? void 0 : i.isConnected) || void 0 === n || n;
     }
     get _$AU() {
       var e, t;
@@ -512,7 +512,7 @@
       return this._$AB;
     }
     _$AI(e, t = this) {
-      e = X(this, e, t), N(e) ? e === W || null == e || "" === e ? (this._$AH !== W && this._$AR(), this._$AH = W) : e !== this._$AH && e !== Y && this._(e) : void 0 !== e._$litType$ ? this.g(e) : void 0 !== e.nodeType ? this.$(e) : (e => O(e) || "function" == typeof (null == e ? void 0 : e[Symbol.iterator]))(e) ? this.T(e) : this._(e);
+      e = X(this, e, t), O(e) ? e === Y || null == e || "" === e ? (this._$AH !== Y && this._$AR(), this._$AH = Y) : e !== this._$AH && e !== W && this._(e) : void 0 !== e._$litType$ ? this.g(e) : void 0 !== e.nodeType ? this.$(e) : (e => N(e) || "function" == typeof (null == e ? void 0 : e[Symbol.iterator]))(e) ? this.T(e) : this._(e);
     }
     k(e) {
       return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -521,7 +521,7 @@
       this._$AH !== e && (this._$AR(), this._$AH = this.k(e));
     }
     _(e) {
-      this._$AH !== W && N(this._$AH) ? this._$AA.nextSibling.data = e : this.$(D.createTextNode(e)), this._$AH = e;
+      this._$AH !== Y && O(this._$AH) ? this._$AA.nextSibling.data = e : this.$(D.createTextNode(e)), this._$AH = e;
     }
     g(e) {
       var t;
@@ -541,7 +541,7 @@
       return void 0 === t && V.set(e.strings, t = new K(e)), t;
     }
     T(e) {
-      O(this._$AH) || (this._$AH = [], this._$AR());
+      N(this._$AH) || (this._$AH = [], this._$AR());
       const t = this._$AH;
       let a,
         i = 0;
@@ -562,7 +562,7 @@
   }
   class ee {
     constructor(e, t, a, i, n) {
-      this.type = 1, this._$AH = W, this._$AN = void 0, this.element = e, this.name = t, this._$AM = i, this.options = n, a.length > 2 || "" !== a[0] || "" !== a[1] ? (this._$AH = Array(a.length - 1).fill(new String()), this.strings = a) : this._$AH = W;
+      this.type = 1, this._$AH = Y, this._$AN = void 0, this.element = e, this.name = t, this._$AM = i, this.options = n, a.length > 2 || "" !== a[0] || "" !== a[1] ? (this._$AH = Array(a.length - 1).fill(new String()), this.strings = a) : this._$AH = Y;
     }
     get tagName() {
       return this.element.tagName;
@@ -573,15 +573,15 @@
     _$AI(e, t = this, a, i) {
       const n = this.strings;
       let s = !1;
-      if (void 0 === n) e = X(this, e, t, 0), s = !N(e) || e !== this._$AH && e !== Y, s && (this._$AH = e);else {
+      if (void 0 === n) e = X(this, e, t, 0), s = !O(e) || e !== this._$AH && e !== W, s && (this._$AH = e);else {
         const i = e;
         let r, o;
-        for (e = n[0], r = 0; r < n.length - 1; r++) o = X(this, i[a + r], t, r), o === Y && (o = this._$AH[r]), s || (s = !N(o) || o !== this._$AH[r]), o === W ? e = W : e !== W && (e += (null != o ? o : "") + n[r + 1]), this._$AH[r] = o;
+        for (e = n[0], r = 0; r < n.length - 1; r++) o = X(this, i[a + r], t, r), o === W && (o = this._$AH[r]), s || (s = !O(o) || o !== this._$AH[r]), o === Y ? e = Y : e !== Y && (e += (null != o ? o : "") + n[r + 1]), this._$AH[r] = o;
       }
       s && !i && this.j(e);
     }
     j(e) {
-      e === W ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, null != e ? e : "");
+      e === Y ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, null != e ? e : "");
     }
   }
   class te extends ee {
@@ -589,7 +589,7 @@
       super(...arguments), this.type = 3;
     }
     j(e) {
-      this.element[this.name] = e === W ? void 0 : e;
+      this.element[this.name] = e === Y ? void 0 : e;
     }
   }
   const ae = $ ? $.emptyScript : "";
@@ -598,7 +598,7 @@
       super(...arguments), this.type = 4;
     }
     j(e) {
-      e && e !== W ? this.element.setAttribute(this.name, ae) : this.element.removeAttribute(this.name);
+      e && e !== Y ? this.element.setAttribute(this.name, ae) : this.element.removeAttribute(this.name);
     }
   }
   class ne extends ee {
@@ -607,10 +607,10 @@
     }
     _$AI(e, t = this) {
       var a;
-      if ((e = null !== (a = X(this, e, t, 0)) && void 0 !== a ? a : W) === Y) return;
+      if ((e = null !== (a = X(this, e, t, 0)) && void 0 !== a ? a : Y) === W) return;
       const i = this._$AH,
-        n = e === W && i !== W || e.capture !== i.capture || e.once !== i.once || e.passive !== i.passive,
-        s = e !== W && (i === W || n);
+        n = e === Y && i !== Y || e.capture !== i.capture || e.once !== i.once || e.passive !== i.passive,
+        s = e !== Y && (i === Y || n);
       n && this.element.removeEventListener(this.name, this, i), s && this.element.addEventListener(this.name, this, e), this._$AH = e;
     }
     handleEvent(e) {
@@ -670,7 +670,7 @@
       super.disconnectedCallback(), null === (e = this._$Do) || void 0 === e || e.setConnected(!1);
     }
     render() {
-      return Y;
+      return W;
     }
   }
   de.finalized = !0, de._$litElement$ = !0, null === (oe = globalThis.litElementHydrateSupport) || void 0 === oe || oe.call(globalThis, {
@@ -801,11 +801,11 @@
   var fe;
   null === (fe = window.HTMLSlotElement) || void 0 === fe || fe.prototype.assignedElements;
   let ve = !1,
-    be = null;
-  const _e = async () => {
-    if (ve && be) return be;
+    _e = null;
+  const be = async () => {
+    if (ve && _e) return _e;
     if (customElements.get("ha-checkbox") && customElements.get("ha-slider") && customElements.get("ha-panel-config")) return Promise.resolve();
-    ve = !0, be = async function () {
+    ve = !0, _e = async function () {
       try {
         await new Promise(e => {
           "requestIdleCallback" in window ? requestIdleCallback(() => e()) : setTimeout(() => e(), 0);
@@ -825,9 +825,9 @@
       }
     }();
     try {
-      await be;
+      await _e;
     } finally {
-      ve = !1, be = null;
+      ve = !1, _e = null;
     }
   };
   var ye, we;
@@ -845,55 +845,56 @@
     });
     return n.detail = a, e.dispatchEvent(n), n;
   };
-  const ze = `v${"2026.05.09"}`,
+  const ze = `v${"2026.05.10"}`,
     Se = "smart_irrigation",
     $e = "precipitation_threshold_mm",
-    xe = "hours",
-    Ae = "imperial",
-    Ee = "metric",
-    Te = "Dewpoint",
-    Me = "Evapotranspiration",
-    De = "Humidity",
-    Ce = "Precipitation",
+    xe = "Open-Meteo",
+    Ae = "hours",
+    Ee = "imperial",
+    Te = "metric",
+    Me = "Dewpoint",
+    De = "Evapotranspiration",
+    Ce = "Humidity",
+    Oe = "Precipitation",
     Ne = "Current Precipitation",
-    Oe = "Pressure",
-    je = "Solar Radiation",
-    He = "Temperature",
-    Pe = "Windspeed",
-    Le = "weather_service",
-    Ie = "sensor",
-    Ue = "static",
-    Be = "pressure_type",
-    Re = "absolute",
-    Fe = "relative",
+    je = "Pressure",
+    He = "Solar Radiation",
+    Pe = "Temperature",
+    Le = "Windspeed",
+    Ie = "weather_service",
+    Ue = "sensor",
+    Be = "static",
+    Re = "pressure_type",
+    Fe = "absolute",
+    We = "relative",
     Ye = "none",
-    We = "source",
-    Ve = "sensorentity",
-    Ze = "static_value",
-    Ge = "unit",
-    qe = "aggregate",
-    Ke = ["average", "first", "last", "maximum", "median", "minimum", "riemannsum", "sum", "delta"],
-    Xe = "mm/h",
-    Je = "in/h",
-    Qe = "name",
-    et = "size",
-    tt = "throughput",
-    at = "state",
-    it = "duration",
-    nt = "module",
-    st = "bucket",
-    rt = "multiplier",
-    ot = "mapping",
-    lt = "lead_time",
-    dt = "maximum_duration",
-    ut = "maximum_bucket",
-    ct = "drainage_rate",
-    ht = "linked_entity",
-    pt = "bucket_threshold",
-    gt = "flow_sensor",
-    mt = "zone_sequencing",
-    ft = "parallel",
-    vt = 2;
+    Ve = "source",
+    Ze = "sensorentity",
+    Ge = "static_value",
+    qe = "unit",
+    Ke = "aggregate",
+    Xe = ["average", "first", "last", "maximum", "median", "minimum", "riemannsum", "sum", "delta"],
+    Je = "mm/h",
+    Qe = "in/h",
+    et = "name",
+    tt = "size",
+    at = "throughput",
+    it = "state",
+    nt = "duration",
+    st = "module",
+    rt = "bucket",
+    ot = "multiplier",
+    lt = "mapping",
+    dt = "lead_time",
+    ut = "maximum_duration",
+    ct = "maximum_bucket",
+    ht = "drainage_rate",
+    pt = "linked_entity",
+    gt = "bucket_threshold",
+    mt = "flow_sensor",
+    ft = "zone_sequencing",
+    vt = "parallel",
+    _t = 2;
   class bt {
     constructor(e) {}
     get _$AU() {
@@ -914,13 +915,13 @@
        * Copyright 2017 Google LLC
        * SPDX-License-Identifier: BSD-3-Clause
        */
-  class _t extends bt {
+  class yt extends bt {
     constructor(e) {
-      if (super(e), this.et = W, e.type !== vt) throw Error(this.constructor.directiveName + "() can only be used in child bindings");
+      if (super(e), this.et = Y, e.type !== _t) throw Error(this.constructor.directiveName + "() can only be used in child bindings");
     }
     render(e) {
-      if (e === W || null == e) return this.ft = void 0, this.et = e;
-      if (e === Y) return e;
+      if (e === Y || null == e) return this.ft = void 0, this.et = e;
+      if (e === W) return e;
       if ("string" != typeof e) throw Error(this.constructor.directiveName + "() called with a non-string value");
       if (e === this.et) return this.ft;
       this.et = e;
@@ -932,35 +933,35 @@
       };
     }
   }
-  _t.directiveName = "unsafeHTML", _t.resultType = 1;
-  const yt = (e => (...t) => ({
+  yt.directiveName = "unsafeHTML", yt.resultType = 1;
+  const wt = (e => (...t) => ({
     _$litDirective$: e,
     values: t
-  }))(_t);
-  function wt(e, t) {
+  }))(yt);
+  function kt(e, t) {
     return (e = e.toString()).split(",")[t];
   }
-  function kt(e, t) {
+  function zt(e, t) {
     switch (t) {
-      case ct:
-        return e.units == Ee ? F`${yt(Xe)}` : F`${yt(Je)}`;
+      case ht:
+        return e.units == Te ? F`${wt(Je)}` : F`${wt(Qe)}`;
       case $e:
-      case st:
-        return e.units == Ee ? F`${yt("mm")}` : F`${yt("in")}`;
-      case et:
-        return e.units == Ee ? F`${yt("m<sup>2</sup>")}` : F`${yt("sq ft")}`;
+      case rt:
+        return e.units == Te ? F`${wt("mm")}` : F`${wt("in")}`;
       case tt:
-        return e.units == Ee ? F`${yt("l/minute")}` : F`${yt("gal/minute")}`;
+        return e.units == Te ? F`${wt("m<sup>2</sup>")}` : F`${wt("sq ft")}`;
+      case at:
+        return e.units == Te ? F`${wt("l/minute")}` : F`${wt("gal/minute")}`;
       default:
         return F``;
     }
   }
-  function zt(e, t) {
+  function St(e, t) {
     !function (e, t) {
       ke(e, "show-dialog", {
         dialogTag: "error-dialog",
         dialogImport: () => Promise.resolve().then(function () {
-          return As;
+          return Ds;
         }),
         dialogParams: {
           error: t
@@ -970,34 +971,37 @@
     ${e.error}:${e.body.message ? F` ${e.body.message} ` : ""}
   `);
   }
-  const St = (e, t, a = !1) => {
-      a ? history.replaceState(null, "", t) : history.pushState(null, "", t), ke(window, "location-changed", {
-        replace: a
-      });
-    },
-    $t = e => e.callWS({
+  const $t = (e, t, a = !1) => {
+    a ? history.replaceState(null, "", t) : history.pushState(null, "", t), ke(window, "location-changed", {
+      replace: a
+    });
+  };
+  var xt = "M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z",
+    At = "M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z",
+    Et = "M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z";
+  const Tt = e => e.callWS({
       type: Se + "/config"
     }),
-    xt = e => e.callWS({
+    Mt = e => e.callWS({
       type: Se + "/zones"
     }),
-    At = e => e.callWS({
+    Dt = e => e.callWS({
       type: Se + "/modules"
     }),
-    Et = e => e.callWS({
+    Ct = e => e.callWS({
       type: Se + "/mappings"
     }),
-    Tt = (e, t, a = 10) => e.callWS({
+    Ot = (e, t, a = 10) => e.callWS({
       type: Se + "/weather_records",
       mapping_id: t,
       limit: a
     }),
-    Mt = (e, t) => e.callWS(Object.assign({
+    Nt = (e, t) => e.callWS(Object.assign({
       type: Se + "/irrigate_now"
     }, void 0 !== t ? {
       zone_id: t
     } : {})),
-    Dt = e => {
+    jt = e => {
       class t extends e {
         connectedCallback() {
           super.connectedCallback(), this.__checkSubscribed();
@@ -1025,5980 +1029,13 @@
         attribute: !1
       })], t.prototype, "hass", void 0), t;
     };
-  var Ct = {
-      actions: {
-        delete: "Lösche",
-        edit: "Bearbeiten",
-        save: "Speichern",
-        cancel: "Abbrechen"
-      },
-      labels: {
-        module: "Modul",
-        no: "Nein",
-        select: "Wähle",
-        yes: "Ja",
-        enabled: "Aktiviert",
-        disabled: "Deaktiviert",
-        before: "vor",
-        after: "nach"
-      },
-      attributes: {
-        size: "Größe",
-        throughput: "Durchfluss",
-        state: "Zustand",
-        bucket: "Eimer",
-        last_updated: "zuletzt aktualisiert",
-        last_calculated: "zuletzt berechnet",
-        number_of_data_points: "Anzahl Datenpunkte"
-      },
-      loading: "Laden",
-      saving: "Speichern",
-      units: {
-        seconds: "Sekunden"
-      },
-      "loading-messages": {
-        configuration: "Konfiguration wird geladen...",
-        modules: "Module werden geladen...",
-        general: "Laden..."
-      },
-      "saving-messages": {
-        adding: "Hinzufügen...",
-        saving: "Speichern..."
-      }
-    },
-    Nt = {
-      "default-zone": "Standard Zone",
-      "default-mapping": "Standard Sensorgruppe"
-    },
-    Ot = {
-      calculation: {
-        explanation: {
-          "module-returned-evapotranspiration-deficiency": "Beachte: Diese Beschreibung nutzt '.' als Dezimalzeichen und zeigt gerundete Werte. Das Modul berechnete einen Evapotranspirationsmangel von",
-          "bucket-was": "Der alte Vorrat war",
-          "new-bucket-values-is": "Der neue Vorrat ist",
-          "old-bucket-variable": "alter_Vorrat",
-          delta: "Veränderung",
-          "bucket-less-than-zero-irrigation-necessary": "Wenn der Vorrat < 0 ist, ist eine Bewässerung nötig.",
-          "steps-taken-to-calculate-duration": "Für eine exakte Berechnung der Dauer, wurden folgende Schritte durchgeführt",
-          "precipitation-rate-defined-as": "Der Niederschlag ist",
-          "duration-is-calculated-as": "Die Dauer ist",
-          bucket: "Vorrat",
-          "precipitation-rate-variable": "Niederschlag",
-          "multiplier-is-applied": "Der Multiplikator wird angewendet. Der Multiplikator ist",
-          "duration-after-multiplier-is": "also ist die Dauer",
-          "maximum-duration-is-applied": "Die maximale Dauer wird angewendet. Diese ist",
-          "duration-after-maximum-duration-is": "also ist die Dauer",
-          "lead-time-is-applied": "Zuletzt wird die Vorlaufzeit angewendet. Die Vorlaufzeit ist",
-          "duration-after-lead-time-is": "also ist die Dauer",
-          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Wenn der Vorrat >= 0 ist, ist keine Bewässerung nötig und die Dauer ist gleich",
-          "maximum-bucket-is": "Der maximale Vorrat ist",
-          "max-bucket-variable": "max_bucket",
-          drainage: "drainage",
-          "drainage-rate": "drainage_rate",
-          hours: "hours",
-          "drainage-rate-is": "Drainagerate bei Sättigung (Eimer am Maximum) beträgt",
-          "current-drainage-is": "Aktuelle Drainage berechnet als",
-          "no-drainage": "Aktuelle Drainage ist 0, weil"
-        }
-      }
-    },
-    jt = {
-      pyeto: {
-        description: "Die Berechnung der Verunstungsrate basiert auf der FAO56-Formel aus der PyETO-Bibliothek"
-      },
-      static: {
-        description: "Modul mit einer statisch konfigurierbaren Verdunstungsrate."
-      },
-      passthrough: {
-        description: "Pass Through übernimmt den Evapotranspirationssensor und gibt seinen Wert zurück. Auf diese Weise werden alle Berechnungen der Verdunstung umgangen, außer der Anwendung von Aggregaten wie Summe, Durchschnitt etc)."
-      }
-    },
-    Ht = {
-      general: {
-        cards: {
-          "automatic-duration-calculation": {
-            header: "Automatische Berechnung der Bewässerungsdauer",
-            description: "Die Berechnung berücksichtigt die bis zu diesem Zeitpunkt gesammelten Wetterdaten und aktualisiert den Vorrat für jede automatische Zone. Anschließend wird die Dauer basierend auf dem neuen Vorrat angepasst und die gesammelten Wetterdaten entfernt.",
-            labels: {
-              "auto-calc-enabled": "Automatische Berechnung der Dauer pro Zone",
-              "auto-calc-time": "Berechne um",
-              "calc-time": "Berechnen um"
-            }
-          },
-          "automatic-update": {
-            errors: {
-              "warning-update-time-on-or-after-calc-time": "Hinweis: Die automatische Aktualisierung der Wetterdaten erfolgt bei oder nach der automatischen Berechnung der Bewässerungsdauer"
-            },
-            header: "Automatische Aktualisierung der Wetterdaten",
-            description: "Die Wetterdaten werden automatisch gesammelt und gespeichert. Zur Berechnung der Zonen und Bewässerungsdauer sind Wetterdaten erforderlich.",
-            labels: {
-              "auto-update-enabled": "Automatisches Update der Wetterdaten",
-              "auto-update-delay": "Update Verzögerung",
-              "auto-update-interval": "Update der Sensordaten alle",
-              "auto-update-schedule": "Aktualisierungsplan",
-              "auto-update-time": "Aktualisieren um"
-            },
-            options: {
-              days: "Tage",
-              hours: "Stunden",
-              minutes: "Minuten"
-            }
-          },
-          "automatic-clear": {
-            header: "Automatisches Löschen der Wetterdaten",
-            description: "Gesammelte Wetterdaten zu einem bestimmten Zeitpunkt automatisch entfernen. Damit wird sicher gestellt, dass keine Wetterdaten von vergangenen Tagen übrig bleiben. Entferne die Wetterdaten nicht vor der Berechnung und verwende diese Option nur, wenn du erwartest, dass das automatische Update Wetterdaten erfasst hat, nachdem der Tag berechnet wurde. Idealerweise sollte dieser Schnitt so spät wie möglich Tag durchgeführt werden.",
-            labels: {
-              "automatic-clear-enabled": "Automatisches Löschen der Wetterdaten",
-              "automatic-clear-time": "Löschen der Wetterdaten um"
-            }
-          },
-          continuousupdates: {
-            header: "Kontinuierliche Sensoraktualisierungen (experimentell)",
-            description: "Experimentelle Funktion für granularere Wetterdaten.",
-            labels: {
-              continuousupdates: "Enable continuous updates",
-              sensor_debounce: "Sensor debounce",
-              "sensor-debounce": "Sensor-Entprellzeit (ms)"
-            }
-          }
-        },
-        description: "Diese Seite ist für allgemeine Einstellungen.",
-        title: "Allgemein"
-      },
-      help: {
-        title: "Hilfe",
-        cards: {
-          "how-to-get-help": {
-            title: "Hilfe bekommen",
-            "first-read-the": "Lies zuerst im",
-            wiki: "Documentation",
-            "if-you-still-need-help": "Benötigst du weiterhin Hilfe, wende dich an das",
-            "community-forum": "Community Forum",
-            "or-open-a": "oder eröffne einen",
-            "github-issue": "Github Issue",
-            "english-only": "nur Englisch"
-          }
-        }
-      },
-      mappings: {
-        cards: {
-          "add-mapping": {
-            actions: {
-              add: "Hinzufügen"
-            },
-            header: "Sensorgruppe hinzufügen"
-          },
-          mapping: {
-            aggregates: {
-              average: "Durchschnitt",
-              first: "Erster",
-              last: "Letzter",
-              maximum: "Maximum",
-              median: "Median",
-              minimum: "Minimum",
-              sum: "Summe",
-              riemannsum: "Riemann sum",
-              delta: "Delta"
-            },
-            errors: {
-              "cannot-delete-mapping-because-zones-use-it": "Diese Sensorgruppe kann nicht entfernt werden, da sie von mindestens einer Zone verwendet wird.",
-              invalid_source: "Invalid source",
-              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
-            },
-            items: {
-              dewpoint: "Taupunkt",
-              evapotranspiration: "Verdunstung",
-              humidity: "Feuchtigkeit",
-              "maximum temperature": "Maximum-Temperatur",
-              "minimum temperature": "Minimum-Temperatur",
-              precipitation: "Gesamtniederschlag",
-              pressure: "Luftdruck",
-              "solar radiation": "Sonnenstrahlung",
-              temperature: "Temperatur",
-              windspeed: "Windgeschwindigkeit",
-              "current precipitation": "Current precipitation"
-            },
-            pressure_types: {
-              absolute: "absolut",
-              relative: "relativ"
-            },
-            "pressure-type": "Der Luftdruck ist",
-            "sensor-aggregate-of-sensor-values-to-calculate": "des Sensors für die Berechnung.",
-            "sensor-aggregate-use-the": "Nutze den/die/das",
-            "sensor-entity": "Sensor Entität",
-            static_value: "Wert",
-            "input-units": "Sensor Werte in",
-            source: "Quelle",
-            sources: {
-              none: "Keine",
-              weather_service: "Weather service",
-              sensor: "Sensor",
-              static: "Fester Wert"
-            }
-          }
-        },
-        description: "Füge eine oder mehrere Sensorgruppen hinzu, die Wetterdaten von Weather service, Sensoren oder einer Kombination daraus abrufen. Jede Sensorgruppe kann für eine oder mehrere Zonen verwendet werden",
-        labels: {
-          "mapping-name": "Name"
-        },
-        no_items: "Es ist noch keine Sensorgruppe angelegt.",
-        title: "Sensorgruppen",
-        "weather-records": {
-          title: "Weather Records (Last 10)",
-          timestamp: "Time",
-          temperature: "Temp",
-          humidity: "Humidity",
-          precipitation: "Precip",
-          "retrieval-time": "Retrieved",
-          "no-data": "No weather data available for this sensor group"
-        }
-      },
-      modules: {
-        cards: {
-          "add-module": {
-            actions: {
-              add: "Hinzufügen"
-            },
-            header: "Modul hinzufügen"
-          },
-          module: {
-            errors: {
-              "cannot-delete-module-because-zones-use-it": "Dieses Modul kann nicht entfernt werden, da es von mindestens einer Zone verwendet wird."
-            },
-            labels: {
-              configuration: "Konfiguration",
-              required: "Feld ist erforderlich"
-            },
-            "translated-options": {
-              DontEstimate: "Nicht berechnen",
-              EstimateFromSunHours: "Basierend auf den Sonnenstunden",
-              EstimateFromTemp: "Basierend auf der Temperatur",
-              EstimateFromSunHoursAndTemperature: "Basierend auf dem Durchschnitt von Sonnenstunden und Temperatur"
-            }
-          }
-        },
-        description: "Füge ein oder mehrere Module hinzu. Module berechnen die Bewässerungsdauer. Jedes Modul hat seine eigene Konfiguration und kann zur Berechnung der Bewässerungsdauer für eine oder mehrere Zonen verwendet werden.",
-        no_items: "Es ist noch kein Module angelegt.",
-        title: "Module"
-      },
-      zones: {
-        actions: {
-          add: "Hinzufügen",
-          calculate: "Bewässerungsdauer berechnen.",
-          information: "Information",
-          update: "Wetterdaten aktualisieren.",
-          "reset-bucket": "Vorrat zurücksetzen",
-          "view-weather-info": "Wetterdaten anzeigen",
-          "view-weather-info-message": "Weather data available for",
-          "view-watering-calendar": "Bewässerungskalender"
-        },
-        cards: {
-          "add-zone": {
-            actions: {
-              add: "Hinzufügen"
-            },
-            header: "Zone hinzufügen"
-          },
-          "zone-actions": {
-            actions: {
-              "calculate-all": "Alle Zonen berechnen",
-              "update-all": "Alle Zonen aktualisieren",
-              "reset-all-buckets": "Alle Vorräte zurücksetzen",
-              "clear-all-weatherdata": "Alle Wetterdaten löschen"
-            },
-            header: "Aktionen für alle Zonen"
-          }
-        },
-        description: "Füge eine oder mehrere Zonen hinzu. Die Bewässerungsdauer wird pro Zone, abhängig von Größe, Durchsatz, Status, Modul und Sensorgruppe berechnet.",
-        labels: {
-          bucket: "Vorrat",
-          duration: "Dauer",
-          "lead-time": "Vorlaufzeit",
-          mapping: "Sensorgruppe",
-          "maximum-duration": "Maximale Dauer",
-          multiplier: "Multiplikator",
-          name: "Name",
-          size: "Größe",
-          state: "Berechnung",
-          states: {
-            automatic: "Automatisch",
-            disabled: "Aus",
-            manual: "Manuell"
-          },
-          throughput: "Durchfluss",
-          "maximum-bucket": "Maximaler Vorrat",
-          last_calculated: "Zuletzt berechnet",
-          "data-last-updated": "Daten zuletzt aktualisiert",
-          "data-number-of-data-points": "Anzahl der Messungen",
-          drainage_rate: "Drainage rate",
-          linked_entity: "Verknüpfte Schalter/Ventil-Entität",
-          linked_entity_placeholder: "z.B. switch.garten_ventil",
-          irrigate_now: "Jetzt bewässern",
-          bucket_threshold: "Mindestdefizit für Bewässerung"
-        },
-        no_items: "Es ist noch keine Zone vorhanden.",
-        title: "Zonen"
-      },
-      schedules: {
-        title: "Zeitpläne",
-        description: "Erstellen Sie wiederkehrende Zeitpläne für automatische Berechnung, Aktualisierung oder Bewässerung – ohne Automationen.",
-        add: "Zeitplan hinzufügen",
-        no_items: "Noch keine Zeitpläne konfiguriert. Klicken Sie auf 'Zeitplan hinzufügen'.",
-        zones_all: "Alle Zonen",
-        zones_specific: "Bestimmte Zonen",
-        hours: "Stunden",
-        minutes: "Min",
-        types: {
-          daily: "Täglich",
-          weekly: "Wöchentlich",
-          monthly: "Monatlich",
-          interval: "Alle N Stunden",
-          sunrise: "Sonnenaufgang",
-          sunset: "Sonnenuntergang",
-          solar_azimuth: "Sonnenazimut"
-        },
-        actions: {
-          calculate: "Berechnen (Bewässerungsdauer aktualisieren)",
-          update: "Aktualisieren (Wetterdaten sammeln)",
-          irrigate: "Bewässern (Ventile direkt steuern)"
-        },
-        days: {
-          monday: "Mo",
-          tuesday: "Di",
-          wednesday: "Mi",
-          thursday: "Do",
-          friday: "Fr",
-          saturday: "Sa",
-          sunday: "So"
-        },
-        fields: {
-          name: "Name",
-          type: "Zeitplantyp",
-          enabled: "Aktiviert",
-          time: "Uhrzeit (HH:MM)",
-          days_of_week: "Wochentage",
-          day_of_month: "Tag des Monats",
-          interval_hours: "Intervall",
-          action: "Aktion",
-          zones: "Zonen",
-          start_date: "Startdatum (optional)",
-          end_date: "Enddatum (optional)",
-          offset_minutes: "Versatz von Sonnenaufgang/-untergang",
-          account_for_duration: "Früh starten, damit Bewässerung zur Zielzeit endet",
-          azimuth_angle: "Sonnenazimutwinkel"
-        },
-        dialog: {
-          add_title: "Zeitplan hinzufügen",
-          edit_title: "Zeitplan bearbeiten"
-        }
-      },
-      adjustments: {
-        title: "Saisonale Anpassungen",
-        description: "Monatsbasierte Multiplikator- oder Schwellenwertanpassungen für saisonale Bedingungen.",
-        add: "Anpassung hinzufügen",
-        no_items: "Noch keine saisonalen Anpassungen konfiguriert.",
-        zones_all: "Alle Zonen",
-        zones_specific: "Bestimmte Zonen",
-        multiplier_hint: "1,0 = keine Änderung, 1,5 = 50% mehr Bewässerung, 0,5 = 50% weniger",
-        threshold_hint: "Wird zum Zoneneimer addiert. Positiv = mehr Wasser nötig, negativ = weniger.",
-        fields: {
-          name: "Name",
-          enabled: "Aktiviert",
-          month_start: "Von Monat",
-          month_end: "Bis Monat",
-          multiplier_adjustment: "Multiplikatoranpassung",
-          threshold_adjustment: "Schwellenwertanpassung (mm)",
-          zones: "Zonen"
-        },
-        dialog: {
-          add_title: "Saisonale Anpassung hinzufügen",
-          edit_title: "Saisonale Anpassung bearbeiten"
-        }
-      },
-      info: {
-        title: "Info",
-        description: "Nächste Bewässerung und Systemstatus anzeigen.",
-        "configuration-not-available": "Konfiguration nicht verfügbar.",
-        cards: {
-          "zone-bucket-values": {
-            title: "Zoneneimerstand & Dauer",
-            labels: {
-              bucket: "Eimer",
-              duration: "Dauer"
-            },
-            "no-zones": "Keine Zonen konfiguriert"
-          },
-          "next-irrigation": {
-            title: "Nächste Bewässerung",
-            labels: {
-              "next-start": "Nächster Start",
-              duration: "Dauer",
-              zones: "Zonen"
-            },
-            "no-data": "Keine Daten verfügbar"
-          },
-          "irrigation-reason": {
-            title: "Bewässerungsgrund",
-            labels: {
-              reason: "Grund",
-              sunrise: "Sonnenaufgang",
-              "total-duration": "Gesamtdauer",
-              explanation: "Erklärung"
-            },
-            "no-data": "Keine Daten verfügbar"
-          },
-          irrigate_now: {
-            title: "Jetzt bewässern",
-            description: "Bewässerung sofort für alle Zonen mit verknüpfter Entität starten. Übersprungbedingungen werden ignoriert.",
-            button_all: "Alle Zonen jetzt starten",
-            no_linked_zones: "Keine Zonen haben eine verknüpfte Schalter/Ventil-Entität mit berechneter Dauer."
-          }
-        }
-      }
-    },
-    Pt = "Smart Irrigation",
-    Lt = {
-      title: "Standortkoordinaten",
-      description: "Konfigurieren Sie Standortkoordinaten für den Abruf von Wetterdaten. Sie können manuelle Koordinaten verwenden, die sich von Ihrem Home Assistant Standort unterscheiden.",
-      manual_enabled: "Manuelle Koordinaten verwenden",
-      use_ha_location: "Home Assistant Standort verwenden",
-      latitude: "Breitengrad (Dezimalgrad)",
-      longitude: "Längengrad (Dezimalgrad)",
-      elevation: "Höhe (Meter über dem Meeresspiegel)",
-      current_ha_coords: "Aktuelle Home Assistant Koordinaten"
-    },
-    It = {
-      title: "Tage zwischen Bewässerungen",
-      description: "Konfigurieren Sie die Mindestanzahl an Tagen zwischen Bewässerungsereignissen.",
-      label: "Minimale Tage zwischen Bewässerungen",
-      help_text: "Auf 0 setzen zum Deaktivieren. Werte von 1–365 Tagen werden unterstützt."
-    },
-    Ut = {
-      title: "Irrigation Start Triggers",
-      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
-      add_trigger: "Add Trigger",
-      edit_trigger: "Edit Trigger",
-      delete_trigger: "Delete Trigger",
-      trigger_types: {
-        sunrise: "Sunrise",
-        sunset: "Sunset",
-        solar_azimuth: "Solar Azimuth"
-      },
-      fields: {
-        name: {
-          name: "Trigger Name",
-          description: "A descriptive name to identify this trigger"
-        },
-        type: {
-          name: "Trigger Type",
-          description: "The type of solar event to trigger on"
-        },
-        enabled: {
-          name: "Enabled",
-          description: "Whether this trigger is currently active"
-        },
-        offset_minutes: {
-          name: "Offset (minutes)",
-          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
-        },
-        azimuth_angle: {
-          name: "Azimuth Angle (degrees)",
-          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
-        },
-        account_for_duration: {
-          name: "Account for Duration",
-          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
-        }
-      },
-      dialog: {
-        add_title: "Add Irrigation Start Trigger",
-        edit_title: "Edit Irrigation Start Trigger",
-        cancel: "Cancel",
-        save: "Save",
-        delete: "Delete"
-      },
-      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
-      offset_auto: "Auto (calculated from total zone duration)",
-      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
-      validation: {
-        name_required: "Trigger name is required",
-        azimuth_invalid: "Azimuth angle must be a valid number"
-      },
-      help: {
-        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
-        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
-        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
-        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
-      }
-    },
-    Bt = {
-      title: "Übersprungbedingungen",
-      description: "Bewässerung automatisch überspringen, wenn die Bedingungen ungünstig sind. Niederschlagsprüfung, Temperatur und Wind erfordern einen Wetterdienst.",
-      threshold_label: "Niederschlagsschwelle",
-      threshold_description: "Mindestmenge an prognostiziertem Niederschlag (in mm) für heute und morgen, um die Bewässerung zu überspringen.",
-      temp_section_title: "Bei niedriger Temperatur überspringen",
-      temp_threshold_label: "Überspringen wenn Temperatur unter",
-      wind_section_title: "Bei hoher Windgeschwindigkeit überspringen",
-      wind_threshold_label: "Überspringen wenn Windgeschwindigkeit über",
-      rain_sensor_section_title: "Regenmelder-Bedingung",
-      rain_sensor_label: "Regenmelder-Entität (optional)",
-      rain_sensor_placeholder: "z.B. binary_sensor.regen"
-    },
-    Rt = {
-      title: "Zonenreihenfolge",
-      description: "Wenn mehrere Zonen bewässert werden müssen, legen Sie fest, ob alle gleichzeitig oder nacheinander laufen. Im sequenziellen Modus wartet das System, bis jede Zone fertig ist, bevor die nächste beginnt.",
-      parallel: "Parallel (alle Zonen gleichzeitig)",
-      sequential: "Sequenziell (eine Zone nach der anderen)"
-    },
-    Ft = {
-      common: Ct,
-      defaults: Nt,
-      module: Ot,
-      calcmodules: jt,
-      panels: Ht,
-      title: Pt,
-      coordinate_config: Lt,
-      days_between_irrigation: It,
-      irrigation_start_triggers: Ut,
-      weather_skip: Bt,
-      zone_sequencing: Rt
-    },
-    Yt = Object.freeze({
-      __proto__: null,
-      common: Ct,
-      defaults: Nt,
-      module: Ot,
-      calcmodules: jt,
-      panels: Ht,
-      title: Pt,
-      coordinate_config: Lt,
-      days_between_irrigation: It,
-      irrigation_start_triggers: Ut,
-      weather_skip: Bt,
-      zone_sequencing: Rt,
-      default: Ft
-    }),
-    Wt = {
-      loading: "Loading",
-      saving: "Saving",
-      actions: {
-        delete: "Delete",
-        edit: "Edit",
-        save: "Save",
-        cancel: "Cancel",
-        confirm_delete: "Confirm Delete",
-        confirm_delete_zone: "Are you sure you want to delete this zone?"
-      },
-      labels: {
-        module: "Module",
-        no: "No",
-        select: "Select",
-        yes: "Yes",
-        enabled: "Enabled",
-        disabled: "Disabled",
-        before: "before",
-        after: "after",
-        settings: "Settings",
-        bulk_actions: "Bulk Actions"
-      },
-      units: {
-        seconds: "seconds"
-      },
-      attributes: {
-        size: "size",
-        throughput: "throughput",
-        state: "state",
-        bucket: "bucket",
-        last_updated: "last updated",
-        last_calculated: "last calculated",
-        number_of_data_points: "number of data points"
-      },
-      "loading-messages": {
-        configuration: "Loading configuration...",
-        modules: "Loading modules...",
-        general: "Loading..."
-      },
-      "saving-messages": {
-        adding: "Adding...",
-        saving: "Saving..."
-      }
-    },
-    Vt = {
-      "default-zone": "Default zone",
-      "default-mapping": "Default sensor group"
-    },
-    Zt = {
-      calculation: {
-        explanation: {
-          "module-returned-evapotranspiration-deficiency": "Note: this explanation uses '.' as decimal separator, shows rounded and metric values. Module returned Evapotranspiration deficiency ( = et0 * hour_multiplier + precipitation) of",
-          "bucket-was": "Bucket was",
-          "new-bucket-values-is": "New bucket value is",
-          bucket: "bucket",
-          "old-bucket-variable": "old_bucket",
-          "max-bucket-variable": "max_bucket",
-          delta: "delta",
-          "bucket-less-than-zero-irrigation-necessary": "Since bucket < 0, irrigation is necessary",
-          "steps-taken-to-calculate-duration": "To calculate the exact duration, the following steps were taken",
-          "precipitation-rate-defined-as": "The precipitation rate is defined as",
-          "duration-is-calculated-as": "The duration is calculated as",
-          drainage: "drainage",
-          "drainage-rate": "drainage_rate",
-          hours: "hours",
-          "precipitation-rate-variable": "precipitation_rate",
-          "multiplier-is-applied": "Now, the multiplier is applied. The multiplier is",
-          "duration-after-multiplier-is": "hence the duration is",
-          "maximum-duration-is-applied": "Then, the maximum duration is applied. The maximum duration is",
-          "duration-after-maximum-duration-is": "hence the duration is",
-          "lead-time-is-applied": "Finally, the lead time is applied. The lead time is",
-          "duration-after-lead-time-is": "hence the final duration is",
-          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Since bucket >= 0, no irrigation is necessary and duration is set to",
-          "maximum-bucket-is": "Maximum bucket size is",
-          "drainage-rate-is": "Drainage rate when saturated (bucket at max) is",
-          "current-drainage-is": "Current drainage is calculated as",
-          "no-drainage": "Current drainage is 0 because"
-        }
-      }
-    },
-    Gt = {
-      pyeto: {
-        description: "Calculate duration based on the FAO56 calculation from the PyETO library"
-      },
-      static: {
-        description: "'Dummy' module with a static configurable delta"
-      },
-      passthrough: {
-        description: "Passthrough module that returns the value of an Evapotranspiration sensor as delta"
-      }
-    },
-    qt = {
-      general: {
-        cards: {
-          "automatic-duration-calculation": {
-            header: "Automatic duration calculation",
-            description: "Calculation takes collected weather data up to that point and updates the bucket for each automatic zone. Then, the duration is adjusted based on the new bucket value and the collected weather data is removed.",
-            labels: {
-              "auto-calc-enabled": "Automatically calculate irrigation durations",
-              "calc-time": "Calculate at"
-            }
-          },
-          "automatic-update": {
-            errors: {
-              "warning-update-time-on-or-after-calc-time": "Warning: weather data update time on or after calculation time"
-            },
-            header: "Automatic weather data update",
-            description: "Collect and store weather data automatically. Weather data is required to calculate zone buckets and durations.",
-            labels: {
-              "auto-update-enabled": "Automatically update weather data",
-              "auto-update-schedule": "Update schedule",
-              "auto-update-time": "Update at",
-              "auto-update-interval": "Update sensor data every",
-              "auto-update-delay": "Update delay"
-            },
-            options: {
-              minutes: "minutes",
-              hours: "hours",
-              days: "days"
-            }
-          },
-          "automatic-clear": {
-            header: "Automatic weather data pruning",
-            description: "Automatically remove collected weather data at a configured time. Use this to make sure that there is no left over weather data from previous days. Don't remove the weather data before you calculate and only use this option if you expect the automatic update to collect weather data after you calculated for the day. Ideally, you want to prune as late in the day as possible.",
-            labels: {
-              "automatic-clear-enabled": "Automatically clear collected weather data",
-              "automatic-clear-time": "Clear weather data at"
-            }
-          },
-          continuousupdates: {
-            header: "Continuous updates for sensors (experimental)",
-            description: "This experimental feature will continuously update the sensor data. This is useful for sensor groups that use sources that provide continuous data, such as weather stations. This feature cannot be used for sensor groups that at least partly rely on weather services as continous polling of APIs will incur costs. Keep in mind that this is experimental and may not work as expected. Use at your own risk.",
-            labels: {
-              continuousupdates: "Enable continuous updates",
-              sensor_debounce: "Sensor debounce"
-            }
-          }
-        },
-        description: "This page provides global settings.",
-        title: "General"
-      },
-      schedules: {
-        title: "Schedules",
-        description: "Create recurring schedules to automatically calculate, update, or irrigate your zones. No automations needed.",
-        add: "Add Schedule",
-        no_items: "No schedules configured yet. Click 'Add Schedule' to get started.",
-        zones_all: "All zones",
-        zones_specific: "Specific zones",
-        hours: "hours",
-        minutes: "min",
-        types: {
-          daily: "Daily",
-          weekly: "Weekly",
-          monthly: "Monthly",
-          interval: "Every N hours",
-          sunrise: "Sunrise",
-          sunset: "Sunset",
-          solar_azimuth: "Solar azimuth"
-        },
-        actions: {
-          calculate: "Calculate (update irrigation duration)",
-          update: "Update (collect weather data)",
-          irrigate: "Irrigate (run valves directly)"
-        },
-        days: {
-          monday: "Mon",
-          tuesday: "Tue",
-          wednesday: "Wed",
-          thursday: "Thu",
-          friday: "Fri",
-          saturday: "Sat",
-          sunday: "Sun"
-        },
-        fields: {
-          name: "Name",
-          type: "Schedule type",
-          enabled: "Enabled",
-          time: "Time (HH:MM)",
-          days_of_week: "Days of week",
-          day_of_month: "Day of month",
-          interval_hours: "Interval",
-          action: "Action",
-          zones: "Zones",
-          start_date: "Start date (optional)",
-          end_date: "End date (optional)",
-          offset_minutes: "Offset from sunrise/sunset",
-          account_for_duration: "Start early so irrigation finishes at trigger time",
-          azimuth_angle: "Solar azimuth angle"
-        },
-        dialog: {
-          add_title: "Add Schedule",
-          edit_title: "Edit Schedule"
-        }
-      },
-      adjustments: {
-        title: "Seasonal Adjustments",
-        description: "Apply month-based multiplier or bucket adjustments to automatically adapt irrigation for seasonal conditions.",
-        add: "Add Adjustment",
-        no_items: "No seasonal adjustments configured yet. Click 'Add Adjustment' to get started.",
-        zones_all: "All zones",
-        zones_specific: "Specific zones",
-        multiplier_hint: "1.0 = no change, 1.5 = 50% more irrigation, 0.5 = 50% less",
-        threshold_hint: "Added to the zone bucket. Positive = more water needed, negative = less.",
-        fields: {
-          name: "Name",
-          enabled: "Enabled",
-          month_start: "From month",
-          month_end: "To month",
-          multiplier_adjustment: "Multiplier adjustment",
-          threshold_adjustment: "Bucket threshold adjustment (mm)",
-          zones: "Zones"
-        },
-        dialog: {
-          add_title: "Add Seasonal Adjustment",
-          edit_title: "Edit Seasonal Adjustment"
-        }
-      },
-      help: {
-        title: "Help",
-        cards: {
-          "how-to-get-help": {
-            title: "How to get help",
-            "first-read-the": "First, read the",
-            wiki: "Documentation",
-            "if-you-still-need-help": "If you still need help reach out on the",
-            "community-forum": "Community forum",
-            "or-open-a": "or open a",
-            "github-issue": "Github Issue",
-            "english-only": "English only"
-          }
-        }
-      },
-      info: {
-        title: "Info",
-        description: "View information about next irrigation and system status.",
-        "configuration-not-available": "Configuration not available.",
-        cards: {
-          "zone-bucket-values": {
-            title: "Zone Bucket Values & Duration",
-            labels: {
-              bucket: "Bucket",
-              duration: "Duration"
-            },
-            "no-zones": "No zones configured"
-          },
-          "next-irrigation": {
-            title: "Next Irrigation",
-            labels: {
-              "next-start": "Next start",
-              duration: "Duration",
-              zones: "Zones"
-            },
-            "no-data": "No data available"
-          },
-          "irrigation-reason": {
-            title: "Irrigation Reason",
-            labels: {
-              reason: "Reason",
-              sunrise: "Sunrise",
-              "total-duration": "Total duration",
-              explanation: "Explanation"
-            },
-            "no-data": "No data available"
-          },
-          irrigate_now: {
-            title: "Irrigate Now",
-            description: "Immediately start irrigation for all zones that have a linked entity. Skip conditions are ignored.",
-            button_all: "Run all zones now",
-            no_linked_zones: "No zones have a linked switch/valve entity with a calculated duration."
-          }
-        }
-      },
-      mappings: {
-        cards: {
-          "add-mapping": {
-            actions: {
-              add: "Add sensor group"
-            },
-            header: "Add sensor groups"
-          },
-          mapping: {
-            aggregates: {
-              average: "Average",
-              first: "First",
-              last: "Last",
-              maximum: "Maximum",
-              median: "Median",
-              minimum: "Minimum",
-              riemannsum: "Riemann sum",
-              sum: "Sum",
-              delta: "Delta"
-            },
-            errors: {
-              "cannot-delete-mapping-because-zones-use-it": "You cannot delete this sensor group because there is at least one zone using it.",
-              invalid_source: "Invalid source",
-              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
-            },
-            items: {
-              dewpoint: "Dewpoint",
-              evapotranspiration: "Evapotranspiration",
-              humidity: "Humidity",
-              "maximum temperature": "Maximum temperature",
-              "minimum temperature": "Minimum temperature",
-              precipitation: "Total precipitation",
-              "current precipitation": "Current precipitation",
-              pressure: "Pressure",
-              "solar radiation": "Solar radiation",
-              temperature: "Temperature",
-              windspeed: "Wind speed"
-            },
-            pressure_types: {
-              absolute: "absolute",
-              relative: "relative"
-            },
-            "pressure-type": "Pressure is",
-            "sensor-aggregate-of-sensor-values-to-calculate": "of sensor values to calculate duration",
-            "sensor-aggregate-use-the": "Use the",
-            "sensor-entity": "Sensor entity",
-            static_value: "Value",
-            "input-units": "Input provides values in",
-            source: "Source",
-            sources: {
-              none: "None",
-              weather_service: "Weather service",
-              sensor: "Sensor",
-              static: "Static value"
-            }
-          }
-        },
-        description: "Add one or more sensor groups that retrieve weather data from Weather service, from sensors or a combination of these. You can map each sensor group to one or more zones",
-        labels: {
-          "mapping-name": "Name"
-        },
-        no_items: "There are no sensor group defined yet.",
-        title: "Sensor Groups",
-        "weather-records": {
-          title: "Weather Records (Last 10)",
-          timestamp: "Time",
-          temperature: "Temp",
-          humidity: "Humidity",
-          precipitation: "Precip",
-          "retrieval-time": "Retrieved",
-          "no-data": "No weather data available for this sensor group"
-        }
-      },
-      modules: {
-        cards: {
-          "add-module": {
-            actions: {
-              add: "Add module"
-            },
-            header: "Add module"
-          },
-          module: {
-            errors: {
-              "cannot-delete-module-because-zones-use-it": "You cannot delete this module because there is at least one zone using it."
-            },
-            labels: {
-              configuration: "Configuration",
-              required: "indicates a required field"
-            },
-            "translated-options": {
-              DontEstimate: "Do not estimate",
-              EstimateFromSunHours: "Estimate from sun hours",
-              EstimateFromTemp: "Estimate from temperature",
-              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
-            }
-          }
-        },
-        description: "Add one or more modules that calculate irrigation duration. Each module comes with its own configuration and can be used to calculate duration for one or more zones.",
-        no_items: "There are no modules defined yet.",
-        title: "Modules"
-      },
-      zones: {
-        actions: {
-          add: "Add",
-          calculate: "Calculate",
-          information: "Information",
-          update: "Update",
-          "reset-bucket": "Reset bucket",
-          "view-weather-info": "View weather data",
-          "view-weather-info-message": "Weather data available for",
-          "view-watering-calendar": "View watering calendar"
-        },
-        cards: {
-          "add-zone": {
-            actions: {
-              add: "Add zone"
-            },
-            header: "Add zone"
-          },
-          "zone-actions": {
-            actions: {
-              "calculate-all": "Calculate all zones",
-              "update-all": "Update all zones",
-              "reset-all-buckets": "Reset all buckets",
-              "clear-all-weatherdata": "Clear all weather data"
-            },
-            header: "Actions on all zones"
-          }
-        },
-        description: "Specify one or more irrigation zones here. The irrigation duration is calculated per zone, depending on size, throughput, state, module and sensor group.",
-        labels: {
-          bucket: "Bucket",
-          duration: "Duration",
-          "lead-time": "Lead time",
-          mapping: "Sensor Group",
-          "maximum-duration": "Maximum duration",
-          multiplier: "Multiplier",
-          name: "Name",
-          size: "Size",
-          state: "State",
-          states: {
-            automatic: "Automatic",
-            disabled: "Disabled",
-            manual: "Manual"
-          },
-          throughput: "Throughput",
-          "maximum-bucket": "Maximum bucket",
-          last_calculated: "Last calculated",
-          "data-last-updated": "Data last updated",
-          "data-number-of-data-points": "Number of data points",
-          drainage_rate: "Drainage rate",
-          linked_entity: "Linked switch/valve entity",
-          linked_entity_placeholder: "e.g. switch.garden_valve",
-          flow_sensor: "Flow meter sensor (optional)",
-          flow_sensor_placeholder: "e.g. sensor.zone_flow_rate",
-          irrigate_now: "Irrigate Now",
-          bucket_threshold: "Minimum deficit to irrigate"
-        },
-        no_items: "There are no zones defined yet.",
-        title: "Zones"
-      }
-    },
-    Kt = "Smart Irrigation",
-    Xt = {
-      title: "Irrigation Start Triggers",
-      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
-      add_trigger: "Add Trigger",
-      edit_trigger: "Edit Trigger",
-      delete_trigger: "Delete Trigger",
-      trigger_types: {
-        sunrise: "Sunrise",
-        sunset: "Sunset",
-        solar_azimuth: "Solar Azimuth"
-      },
-      fields: {
-        name: {
-          name: "Trigger Name",
-          description: "A descriptive name to identify this trigger"
-        },
-        type: {
-          name: "Trigger Type",
-          description: "The type of solar event to trigger on"
-        },
-        enabled: {
-          name: "Enabled",
-          description: "Whether this trigger is currently active"
-        },
-        offset_minutes: {
-          name: "Offset (minutes)",
-          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
-        },
-        azimuth_angle: {
-          name: "Azimuth Angle (degrees)",
-          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
-        },
-        account_for_duration: {
-          name: "Account for Duration",
-          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
-        }
-      },
-      dialog: {
-        add_title: "Add Irrigation Start Trigger",
-        edit_title: "Edit Irrigation Start Trigger",
-        cancel: "Cancel",
-        save: "Save",
-        delete: "Delete"
-      },
-      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
-      offset_auto: "Auto (calculated from total zone duration)",
-      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
-      validation: {
-        name_required: "Trigger name is required",
-        azimuth_invalid: "Azimuth angle must be a valid number"
-      },
-      help: {
-        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
-        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
-        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
-        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
-      }
-    },
-    Jt = {
-      title: "Skip Conditions",
-      description: "Automatically skip irrigation when conditions are unfavorable. Precipitation check requires a weather service. Temperature and wind checks also require a weather service.",
-      threshold_label: "Precipitation Threshold",
-      threshold_description: "Minimum amount of precipitation (in mm) forecasted for today and tomorrow to skip irrigation.",
-      temp_section_title: "Skip on low temperature",
-      temp_threshold_label: "Skip if temperature is below",
-      wind_section_title: "Skip on high wind speed",
-      wind_threshold_label: "Skip if wind speed is above",
-      rain_sensor_section_title: "Skip on rain sensor",
-      rain_sensor_label: "Rain sensor entity (optional)",
-      rain_sensor_placeholder: "e.g. binary_sensor.rain"
-    },
-    Qt = {
-      title: "Location Coordinates",
-      description: "Configure location coordinates for weather data retrieval. You can use manual coordinates different from your Home Assistant location if needed.",
-      manual_enabled: "Use manual coordinates",
-      use_ha_location: "Use Home Assistant location",
-      latitude: "Latitude (decimal degrees)",
-      longitude: "Longitude (decimal degrees)",
-      elevation: "Elevation (meters above sea level)",
-      current_ha_coords: "Current Home Assistant coordinates"
-    },
-    ea = {
-      title: "Days Between Irrigation",
-      description: "Configure the minimum number of days that must pass between irrigation events. This helps control watering frequency for water conservation and plant health management.\n\nTypical real-world use cases:\n• Lawn care: 1-2 day intervals prevent overwatering\n• Drought restrictions: 6+ day intervals for weekly watering\n• Deep-rooted plants: 3-7 day intervals for less frequent watering\n• Water conservation: Customizable based on climate and soil conditions",
-      label: "Minimum days between irrigation",
-      help_text: "Set to 0 to disable this feature. Values from 1-365 days are supported. This setting works alongside existing precipitation forecasting logic."
-    },
-    ta = {
-      title: "Zone Sequencing",
-      description: "When multiple zones need irrigation, choose whether they run at the same time or one after another. Sequential mode waits for each zone to finish before starting the next.",
-      parallel: "Parallel (all zones at once)",
-      sequential: "Sequential (one zone at a time)"
-    },
-    aa = {
-      common: Wt,
-      defaults: Vt,
-      module: Zt,
-      calcmodules: Gt,
-      panels: qt,
-      title: Kt,
-      irrigation_start_triggers: Xt,
-      weather_skip: Jt,
-      coordinate_config: Qt,
-      days_between_irrigation: ea,
-      zone_sequencing: ta
-    },
-    ia = Object.freeze({
-      __proto__: null,
-      common: Wt,
-      defaults: Vt,
-      module: Zt,
-      calcmodules: Gt,
-      panels: qt,
-      title: Kt,
-      irrigation_start_triggers: Xt,
-      weather_skip: Jt,
-      coordinate_config: Qt,
-      days_between_irrigation: ea,
-      zone_sequencing: ta,
-      default: aa
-    }),
-    na = {
-      actions: {
-        delete: "Eliminar",
-        edit: "Editar",
-        save: "Guardar",
-        cancel: "Cancelar"
-      },
-      labels: {
-        module: "Módulo",
-        no: "No",
-        select: "Seleccionar",
-        yes: "Sí",
-        enabled: "Activado",
-        disabled: "Desactivado",
-        before: "antes",
-        after: "después"
-      },
-      attributes: {
-        size: "Tamaño",
-        throughput: "Rendimiento",
-        state: "Estado",
-        bucket: "depósito",
-        last_updated: "última actualización",
-        last_calculated: "último cálculo",
-        number_of_data_points: "número de puntos de datos"
-      },
-      loading: "Cargando",
-      saving: "Guardando",
-      units: {
-        seconds: "segundos"
-      },
-      "loading-messages": {
-        configuration: "Cargando configuración...",
-        modules: "Cargando módulos...",
-        general: "Cargando..."
-      },
-      "saving-messages": {
-        adding: "Añadiendo...",
-        saving: "Guardando..."
-      }
-    },
-    sa = {
-      "default-zone": "Zona de riego predeterminada",
-      "default-mapping": "Grupo de sensores predeterminado"
-    },
-    ra = {
-      calculation: {
-        explanation: {
-          "module-returned-evapotranspiration-deficiency": "Nota: esta explicación utiliza '.' como separador decimal y muestra valores redondeados. El módulo devuelve una deficiencia de evapotranspiración de",
-          "bucket-was": "El cubo era",
-          "new-bucket-values-is": "El nuevo valor del cubo es",
-          "old-bucket-variable": "old_bucket",
-          delta: "delta",
-          "bucket-less-than-zero-irrigation-necessary": "Dado que cubo < 0, el riego es necesario",
-          "steps-taken-to-calculate-duration": "Para calcular la duración exacta, se siguieron los siguientes pasos",
-          "precipitation-rate-defined-as": "La tasa de precipitación se define como",
-          "duration-is-calculated-as": "La duración se calcula como",
-          bucket: "cubo",
-          "precipitation-rate-variable": "precipitation_rate",
-          "multiplier-is-applied": "A continuación, se aplica el multiplicador. El multiplicador es",
-          "duration-after-multiplier-is": "por lo que la duración es",
-          "maximum-duration-is-applied": "A continuación, se aplica la duración máxima. La duración máxima es",
-          "duration-after-maximum-duration-is": "por lo que la duración es",
-          "lead-time-is-applied": "Por último, se aplica el plazo de entrega. El plazo de entrega es",
-          "duration-after-lead-time-is": "por lo que la duración final es",
-          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Como cubo >= 0, no es necesario regar y la duración se fija en",
-          "maximum-bucket-is": "El tamaño máximo de cubo es",
-          "max-bucket-variable": "max_bucket",
-          drainage: "drainage",
-          "drainage-rate": "drainage_rate",
-          hours: "hours",
-          "drainage-rate-is": "La tasa de drenaje cuando está saturado (depósito al máximo) es",
-          "current-drainage-is": "El drenaje actual se calcula como",
-          "no-drainage": "El drenaje actual es 0 porque"
-        }
-      }
-    },
-    oa = {
-      pyeto: {
-        description: "Calcular la duración a partir del cálculo FAO56 de la biblioteca PyETO"
-      },
-      static: {
-        description: "Módulo 'de prueba' con un delta estático configurable"
-      },
-      passthrough: {
-        description: "Módulo de paso que devuelve el valor de un sensor de evapotranspiración como delta"
-      }
-    },
-    la = {
-      general: {
-        cards: {
-          "automatic-duration-calculation": {
-            header: "Cálculo automático de la duración",
-            labels: {
-              "auto-calc-enabled": "Cálculo automático de la duración de las zonas",
-              "auto-calc-time": "Calcular en",
-              "calc-time": "Calcular a las"
-            },
-            description: "Calculation takes collected weather data up to that point and updates the bucket for each automatic zone. Then, the duration is adjusted based on the new bucket value and the collected weather data is removed."
-          },
-          "automatic-update": {
-            errors: {
-              "warning-update-time-on-or-after-calc-time": "Advertencia: la hora de actualización de los datos meteorológicos es igual o posterior a la hora de cálculo"
-            },
-            header: "Actualización automática de los datos meteorológicos",
-            labels: {
-              "auto-update-enabled": "Actualizar automáticamente los datos meteorológicos",
-              "auto-update-first-update": "(Primer) Actualización a las",
-              "auto-update-interval": "Actualizar datos del sensor cada",
-              "auto-update-schedule": "Programa de actualización",
-              "auto-update-time": "Actualizar a las",
-              "auto-update-delay": "Update delay"
-            },
-            options: {
-              days: "días",
-              hours: "horas",
-              minutes: "minutos"
-            },
-            description: "Collect and store weather data automatically. Weather data is required to calculate zone buckets and durations."
-          },
-          "automatic-clear": {
-            header: "Automatic weather data pruning",
-            description: "Automatically remove collected weather data at a configured time. Use this to make sure that there is no left over weather data from previous days. Don't remove the weather data before you calculate and only use this option if you expect the automatic update to collect weather data after you calculated for the day. Ideally, you want to prune as late in the day as possible.",
-            labels: {
-              "automatic-clear-enabled": "Automatically clear collected weather data",
-              "automatic-clear-time": "Clear weather data at"
-            }
-          },
-          continuousupdates: {
-            header: "Actualizaciones continuas de sensores (experimental)",
-            description: "Función experimental para datos meteorológicos más detallados.",
-            labels: {
-              continuousupdates: "Enable continuous updates",
-              sensor_debounce: "Sensor debounce",
-              "sensor-debounce": "Tiempo de antirrebote del sensor (ms)"
-            }
-          }
-        },
-        description: "Esta página provee configuraciones globales.",
-        title: "General"
-      },
-      help: {
-        title: "Ayuda",
-        cards: {
-          "how-to-get-help": {
-            title: "Cómo obtener ayuda",
-            "first-read-the": "Primero lee la",
-            wiki: "Documentation",
-            "if-you-still-need-help": "Si aún necesitas ayuda, puedes:",
-            "community-forum": "Comunidad/Foro",
-            "or-open-a": "o abrir un",
-            "github-issue": "Github Issue",
-            "english-only": "sólo en inglés"
-          }
-        }
-      },
-      mappings: {
-        cards: {
-          "add-mapping": {
-            actions: {
-              add: "Añadir grupo de sensores"
-            },
-            header: "Añadir grupos de sensores"
-          },
-          mapping: {
-            aggregates: {
-              average: "Promedio",
-              first: "Primero",
-              last: "Último",
-              maximum: "Máximo",
-              median: "Mediana",
-              minimum: "Mínimo",
-              sum: "Suma",
-              riemannsum: "Riemann sum",
-              delta: "Delta"
-            },
-            errors: {
-              "cannot-delete-mapping-because-zones-use-it": "No puedes eliminar este grupo de sensores porque hay al menos una zona que lo está usando.",
-              invalid_source: "Invalid source",
-              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
-            },
-            items: {
-              dewpoint: "Punto de rocío",
-              evapotranspiration: "Evapotranspiración",
-              humidity: "Humedad",
-              "maximum temperature": "Temperatura máxima",
-              "minimum temperature": "Temperatura mínima",
-              precipitation: "Precipitación total",
-              pressure: "Presión",
-              "solar radiation": "Radiación solar",
-              temperature: "Temperatura",
-              windspeed: "Velocidad del viento",
-              "current precipitation": "Current precipitation"
-            },
-            "sensor-aggregate-of-sensor-values-to-calculate": "de los valores de los sensores para calcular la duración",
-            "sensor-aggregate-use-the": "Usar la",
-            "sensor-entity": "Entidad de sensor",
-            static_value: "Valor estático",
-            "input-units": "Unidades de entrada",
-            source: "Fuente",
-            sources: {
-              none: "Ninguno",
-              weather_service: "Weather service",
-              sensor: "Sensor",
-              static: "Valor estático"
-            },
-            pressure_types: {
-              absolute: "absolute",
-              relative: "relative"
-            },
-            "pressure-type": "Pressure is"
-          }
-        },
-        description: "Añada uno o más grupos de sensores que recuperen datos meteorológicos de Weather service, de sensores o de una combinación de éstos. Puede asignar cada grupo de sensores a una o más zonas",
-        labels: {
-          "mapping-name": "Nombre del grupo de sensores"
-        },
-        no_items: "Aún no hay grupos de sensores definidos.",
-        title: "Grupos de sensores",
-        "weather-records": {
-          title: "Weather Records (Last 10)",
-          timestamp: "Time",
-          temperature: "Temp",
-          humidity: "Humidity",
-          precipitation: "Precip",
-          "retrieval-time": "Retrieved",
-          "no-data": "No weather data available for this sensor group"
-        }
-      },
-      modules: {
-        cards: {
-          "add-module": {
-            actions: {
-              add: "Añadir módulo"
-            },
-            header: "Añadir módulo"
-          },
-          module: {
-            errors: {
-              "cannot-delete-module-because-zones-use-it": "No puedes eliminar este módulo porque hay al menos una zona que lo está usando."
-            },
-            labels: {
-              configuration: "Configuración",
-              required: "Requerido"
-            },
-            "translated-options": {
-              DontEstimate: "No estimar",
-              EstimateFromSunHours: "Estimar desde horas de sol",
-              EstimateFromTemp: "Estimar desde temperatura",
-              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
-            }
-          }
-        },
-        description: "Añada uno o varios módulos que calculen la duración del riego. Cada módulo tiene su propia configuración y puede utilizarse para calcular la duración de una o varias zonas.",
-        no_items: "Aún no hay módulos definidos.",
-        title: "Módulos"
-      },
-      zones: {
-        actions: {
-          add: "Añadir",
-          calculate: "Calcular",
-          information: "Información",
-          update: "Actualizar",
-          "reset-bucket": "Resetear cubo",
-          "view-weather-info": "Ver datos meteorológicos",
-          "view-weather-info-message": "Weather data available for",
-          "view-watering-calendar": "Calendario de riego"
-        },
-        cards: {
-          "add-zone": {
-            actions: {
-              add: "Añadir zona"
-            },
-            header: "Añadir zona"
-          },
-          "zone-actions": {
-            actions: {
-              "calculate-all": "Calcular todas las zonas",
-              "update-all": "Actualizar todas las zonas",
-              "reset-all-buckets": "Resetear todos los cubos",
-              "clear-all-weatherdata": "Clear all weather data"
-            },
-            header: "Acciones en todas las zonas"
-          }
-        },
-        description: "Especifique aquí una o varias zonas de riego. La duración del riego se calcula por zona, en función del tamaño, el rendimiento, el estado, el módulo y el grupo de sensores.",
-        labels: {
-          bucket: "Cubo",
-          duration: "Duración",
-          "lead-time": "Tiempo de espera",
-          mapping: "Grupo de sensores",
-          "maximum-duration": "Duración máxima",
-          multiplier: "Multiplicador",
-          name: "Nombre",
-          size: "Tamaño",
-          state: "Estado",
-          states: {
-            automatic: "Automático",
-            disabled: "Desactivado",
-            manual: "Manual"
-          },
-          throughput: "Rendimiento",
-          "maximum-bucket": "Cubo máximo",
-          last_calculated: "Last calculated",
-          "data-last-updated": "Data last updated",
-          "data-number-of-data-points": "Number of data points",
-          drainage_rate: "Drainage rate",
-          linked_entity: "Entidad de interruptor/válvula vinculada",
-          linked_entity_placeholder: "p.ej. switch.valvula_jardin",
-          irrigate_now: "Regar ahora",
-          bucket_threshold: "Déficit mínimo para regar"
-        },
-        no_items: "Aún no hay zonas definidas.",
-        title: "Zonas"
-      },
-      schedules: {
-        title: "Programas",
-        description: "Cree programas recurrentes para calcular, actualizar o regar automáticamente — sin automatizaciones.",
-        add: "Añadir programa",
-        no_items: "Aún no hay programas configurados. Haga clic en 'Añadir programa'.",
-        zones_all: "Todas las zonas",
-        zones_specific: "Zonas específicas",
-        hours: "horas",
-        minutes: "min",
-        types: {
-          daily: "Diario",
-          weekly: "Semanal",
-          monthly: "Mensual",
-          interval: "Cada N horas",
-          sunrise: "Amanecer",
-          sunset: "Atardecer",
-          solar_azimuth: "Azimut solar"
-        },
-        actions: {
-          calculate: "Calcular (actualizar duración de riego)",
-          update: "Actualizar (recopilar datos meteorológicos)",
-          irrigate: "Regar (controlar válvulas directamente)"
-        },
-        days: {
-          monday: "Lu",
-          tuesday: "Ma",
-          wednesday: "Mi",
-          thursday: "Ju",
-          friday: "Vi",
-          saturday: "Sá",
-          sunday: "Do"
-        },
-        fields: {
-          name: "Nombre",
-          type: "Tipo de programa",
-          enabled: "Activado",
-          time: "Hora (HH:MM)",
-          days_of_week: "Días de la semana",
-          day_of_month: "Día del mes",
-          interval_hours: "Intervalo",
-          action: "Acción",
-          zones: "Zonas",
-          start_date: "Fecha de inicio (opcional)",
-          end_date: "Fecha de fin (opcional)",
-          offset_minutes: "Desplazamiento desde amanecer/atardecer",
-          account_for_duration: "Iniciar antes para que el riego termine a la hora objetivo",
-          azimuth_angle: "Ángulo de azimut solar"
-        },
-        dialog: {
-          add_title: "Añadir programa",
-          edit_title: "Editar programa"
-        }
-      },
-      adjustments: {
-        title: "Ajustes estacionales",
-        description: "Ajustes mensuales de multiplicador o umbral para condiciones estacionales.",
-        add: "Añadir ajuste",
-        no_items: "Aún no hay ajustes estacionales configurados.",
-        zones_all: "Todas las zonas",
-        zones_specific: "Zonas específicas",
-        multiplier_hint: "1,0 = sin cambio, 1,5 = 50% más riego, 0,5 = 50% menos",
-        threshold_hint: "Se añade al depósito de la zona. Positivo = más agua necesaria, negativo = menos.",
-        fields: {
-          name: "Nombre",
-          enabled: "Activado",
-          month_start: "Desde mes",
-          month_end: "Hasta mes",
-          multiplier_adjustment: "Ajuste de multiplicador",
-          threshold_adjustment: "Ajuste de umbral (mm)",
-          zones: "Zonas"
-        },
-        dialog: {
-          add_title: "Añadir ajuste estacional",
-          edit_title: "Editar ajuste estacional"
-        }
-      },
-      info: {
-        title: "Info",
-        description: "Ver información sobre el próximo riego y el estado del sistema.",
-        "configuration-not-available": "Configuración no disponible.",
-        cards: {
-          "zone-bucket-values": {
-            title: "Valores de depósito y duración",
-            labels: {
-              bucket: "Depósito",
-              duration: "Duración"
-            },
-            "no-zones": "No hay zonas configuradas"
-          },
-          "next-irrigation": {
-            title: "Próximo riego",
-            labels: {
-              "next-start": "Próximo inicio",
-              duration: "Duración",
-              zones: "Zonas"
-            },
-            "no-data": "No hay datos disponibles"
-          },
-          "irrigation-reason": {
-            title: "Motivo del riego",
-            labels: {
-              reason: "Razón",
-              sunrise: "Amanecer",
-              "total-duration": "Duración total",
-              explanation: "Explicación"
-            },
-            "no-data": "No hay datos disponibles"
-          },
-          irrigate_now: {
-            title: "Regar ahora",
-            description: "Iniciar riego inmediatamente para todas las zonas con entidad vinculada. Las condiciones de omisión se ignoran.",
-            button_all: "Iniciar todas las zonas ahora",
-            no_linked_zones: "Ninguna zona tiene una entidad de interruptor/válvula vinculada con duración calculada."
-          }
-        }
-      }
-    },
-    da = "Smart Irrigation",
-    ua = {
-      title: "Coordenadas de Ubicación",
-      description: "Configure las coordenadas de ubicación para obtener datos meteorológicos. Puede usar coordenadas manuales diferentes a la ubicación de Home Assistant si es necesario.",
-      manual_enabled: "Usar coordenadas manuales",
-      use_ha_location: "Usar ubicación de Home Assistant",
-      latitude: "Latitud (grados decimales)",
-      longitude: "Longitud (grados decimales)",
-      elevation: "Elevación (metros sobre el nivel del mar)",
-      current_ha_coords: "Coordenadas actuales de Home Assistant"
-    },
-    ca = {
-      title: "Días entre riegos",
-      description: "Configure el número mínimo de días entre eventos de riego.",
-      label: "Días mínimos entre riegos",
-      help_text: "Establezca 0 para desactivar. Se admiten valores de 1 a 365 días."
-    },
-    ha = {
-      title: "Irrigation Start Triggers",
-      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
-      add_trigger: "Add Trigger",
-      edit_trigger: "Edit Trigger",
-      delete_trigger: "Delete Trigger",
-      trigger_types: {
-        sunrise: "Sunrise",
-        sunset: "Sunset",
-        solar_azimuth: "Solar Azimuth"
-      },
-      fields: {
-        name: {
-          name: "Trigger Name",
-          description: "A descriptive name to identify this trigger"
-        },
-        type: {
-          name: "Trigger Type",
-          description: "The type of solar event to trigger on"
-        },
-        enabled: {
-          name: "Enabled",
-          description: "Whether this trigger is currently active"
-        },
-        offset_minutes: {
-          name: "Offset (minutes)",
-          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
-        },
-        azimuth_angle: {
-          name: "Azimuth Angle (degrees)",
-          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
-        },
-        account_for_duration: {
-          name: "Account for Duration",
-          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
-        }
-      },
-      dialog: {
-        add_title: "Add Irrigation Start Trigger",
-        edit_title: "Edit Irrigation Start Trigger",
-        cancel: "Cancel",
-        save: "Save",
-        delete: "Delete"
-      },
-      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
-      offset_auto: "Auto (calculated from total zone duration)",
-      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
-      validation: {
-        name_required: "Trigger name is required",
-        azimuth_invalid: "Azimuth angle must be a valid number"
-      },
-      help: {
-        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
-        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
-        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
-        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
-      }
-    },
-    pa = {
-      title: "Condiciones de omisión",
-      description: "Omitir automáticamente el riego cuando las condiciones sean desfavorables. Las comprobaciones de precipitación, temperatura y viento requieren un servicio meteorológico.",
-      threshold_label: "Umbral de precipitación",
-      threshold_description: "Cantidad mínima de precipitación pronosticada (en mm) para hoy y mañana para omitir el riego.",
-      temp_section_title: "Omitir por temperatura baja",
-      temp_threshold_label: "Omitir si temperatura por debajo de",
-      wind_section_title: "Omitir por viento fuerte",
-      wind_threshold_label: "Omitir si velocidad del viento superior a",
-      rain_sensor_section_title: "Condición del sensor de lluvia",
-      rain_sensor_label: "Entidad del sensor de lluvia (opcional)",
-      rain_sensor_placeholder: "p.ej. binary_sensor.lluvia"
-    },
-    ga = {
-      title: "Secuencia de zonas",
-      description: "Cuando varias zonas necesitan riego, elija si se ejecutan al mismo tiempo o una tras otra. En modo secuencial, el sistema espera a que cada zona termine antes de iniciar la siguiente.",
-      parallel: "Paralelo (todas las zonas a la vez)",
-      sequential: "Secuencial (una zona a la vez)"
-    },
-    ma = {
-      common: na,
-      defaults: sa,
-      module: ra,
-      calcmodules: oa,
-      panels: la,
-      title: da,
-      coordinate_config: ua,
-      days_between_irrigation: ca,
-      irrigation_start_triggers: ha,
-      weather_skip: pa,
-      zone_sequencing: ga
-    },
-    fa = Object.freeze({
-      __proto__: null,
-      common: na,
-      defaults: sa,
-      module: ra,
-      calcmodules: oa,
-      panels: la,
-      title: da,
-      coordinate_config: ua,
-      days_between_irrigation: ca,
-      irrigation_start_triggers: ha,
-      weather_skip: pa,
-      zone_sequencing: ga,
-      default: ma
-    }),
-    va = {
-      actions: {
-        delete: "Suppression",
-        edit: "Modifier",
-        save: "Enregistrer",
-        cancel: "Annuler"
-      },
-      labels: {
-        module: "Module",
-        no: "Non",
-        select: "Sélectionner",
-        yes: "Oui",
-        enabled: "Activé",
-        disabled: "Désactivé",
-        before: "avant",
-        after: "après"
-      },
-      attributes: {
-        size: "taille",
-        throughput: "débit",
-        state: "état",
-        bucket: "réservoir",
-        last_updated: "dernière mise à jour",
-        last_calculated: "dernier calcul",
-        number_of_data_points: "nombre de points de données"
-      },
-      loading: "Chargement",
-      saving: "Enregistrement",
-      units: {
-        seconds: "secondes"
-      },
-      "loading-messages": {
-        configuration: "Chargement de la configuration...",
-        modules: "Chargement des modules...",
-        general: "Chargement..."
-      },
-      "saving-messages": {
-        adding: "Ajout...",
-        saving: "Enregistrement..."
-      }
-    },
-    ba = {
-      "default-zone": "Zone par défaut",
-      "default-mapping": "Groupe de capteurs par défaut"
-    },
-    _a = {
-      calculation: {
-        explanation: {
-          "module-returned-evapotranspiration-deficiency": "NB: cette explication utilise '.' comme séparateur décimal, et affiche des valeurs arrondies. Le module a donné un manque d'Évapotranspiration de",
-          "bucket-was": "Le seau (bucket) était de",
-          "new-bucket-values-is": "La nouvelle valeur du seau (bucket) est",
-          "old-bucket-variable": "ancien_bucket",
-          delta: "delta",
-          "bucket-less-than-zero-irrigation-necessary": "Puisque le seau (bucket) est < 0, l'irrigation est nécessaire",
-          "steps-taken-to-calculate-duration": "Pour calculer la durée d'irrigation, les étapes suivantes ont été réalisées",
-          "precipitation-rate-defined-as": "Le taux de précipitation est défini comme",
-          "duration-is-calculated-as": "La durée d'irrigation est calculée avec",
-          bucket: "seau (bucket)",
-          "precipitation-rate-variable": "taux_precipitation",
-          "multiplier-is-applied": "Le multiplicateur est appliqué. Le multiplicateur est",
-          "duration-after-multiplier-is": "donc la durée d'irrigation est de",
-          "maximum-duration-is-applied": "Ensuite la durée maximale est appliquée. La durée maximale est de",
-          "duration-after-maximum-duration-is": "donc la durée d'irrigation est de",
-          "lead-time-is-applied": "Enfin, le délai est appliqué. Le délai est de",
-          "duration-after-lead-time-is": "et donc la durée finale est de",
-          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Puisque le seau (bucket) est >= 0, l'irrigation n'est pas nécessaire, et la durée est réglée à",
-          "maximum-bucket-is": "la taille du seau (bucket) maximale est",
-          "max-bucket-variable": "max_bucket",
-          drainage: "drainage",
-          "drainage-rate": "drainage_rate",
-          hours: "hours",
-          "drainage-rate-is": "Le taux de drainage à saturation (réservoir au maximum) est",
-          "current-drainage-is": "Le drainage actuel est calculé comme",
-          "no-drainage": "Le drainage actuel est 0 parce que"
-        }
-      }
-    },
-    ya = {
-      pyeto: {
-        description: "Le calcul de durée est basée sur le calcul FAO56 de la bibliothèque PyETO"
-      },
-      static: {
-        description: "Module 'Dummy' avec un delta statique configurable"
-      },
-      passthrough: {
-        description: "Module passerelle qui renvoie la valeur d'un capteur d'Évapotranspiration comme delta"
-      }
-    },
-    wa = {
-      general: {
-        cards: {
-          "automatic-duration-calculation": {
-            header: "Calcul automatique de la durée",
-            labels: {
-              "auto-calc-enabled": "Calcule automatiquement la durée par zone",
-              "auto-calc-time": "Calcule à",
-              "calc-time": "Calculer à"
-            },
-            description: "Le calcul prend en compte les données météo jusqu'à ce point et met à jour le seau (bucket) pour chaque zone automatique. Ensuite, la durée est ajustée par la nouvelle valeur de seau (bucket) et les données météo sont supprimées."
-          },
-          "automatic-update": {
-            errors: {
-              "warning-update-time-on-or-after-calc-time": "Attention: mise à jour des données météo au moment du, ou après le, calcul"
-            },
-            header: "Mise à jour automatique des données météo",
-            labels: {
-              "auto-update-enabled": "Met à jour les données météo automatiquement",
-              "auto-update-first-update": "(Première) Mise à jour à",
-              "auto-update-interval": "Mettre à jour les données des capteurs toutes les",
-              "auto-update-delay": "Délai de mise à jour",
-              "auto-update-schedule": "Planning de mise à jour",
-              "auto-update-time": "Mettre à jour à"
-            },
-            options: {
-              days: "jours",
-              hours: "heures",
-              minutes: "minutes"
-            },
-            description: "Récupère et stocke les données météo automatiquement. Des données météo sont nécessaires pour calculer les seaux (buckets) par zone et les durées."
-          },
-          "automatic-clear": {
-            header: "Délestage automatique des données météo",
-            description: "Suppression automatique des données météo collectées à une heure données. Utilisez ceci pour être sûr qu'il n'y ait plus de restes des données météo des jours précédents. Ne supprimez pas les données météo avant le calcul et n'utilisez cette option que si vous vous attendez à ce que les données météo soient récupérées après le calcul du jour. Idéalement, vous voudrez \"élaguer\" les données les plus tard possible dans la journée.",
-            labels: {
-              "automatic-clear-enabled": "Suppression automatique des données météo collectées",
-              "automatic-clear-time": "Supprimer les données météo à"
-            }
-          },
-          continuousupdates: {
-            header: "Mises à jour continues des capteurs (expérimental)",
-            description: "Fonction expérimentale pour des données météo plus granulaires.",
-            labels: {
-              continuousupdates: "Enable continuous updates",
-              sensor_debounce: "Sensor debounce",
-              "sensor-debounce": "Temps d'antirebond du capteur (ms)"
-            }
-          }
-        },
-        description: "Cette page fournit les réglages globaux.",
-        title: "Général"
-      },
-      help: {
-        title: "Aide",
-        cards: {
-          "how-to-get-help": {
-            title: "Comment obtenir de l'aide",
-            "first-read-the": "Premièrement, lisez ",
-            wiki: "Documentation",
-            "if-you-still-need-help": "Si vous avez toujours besoin d'aide, adressez vous sur le",
-            "community-forum": "forum communautaire",
-            "or-open-a": "ou ouvrez un",
-            "github-issue": "problème Github",
-            "english-only": "en Anglais uniquement"
-          }
-        }
-      },
-      mappings: {
-        cards: {
-          "add-mapping": {
-            actions: {
-              add: "Ajouter un groupe de capteurs"
-            },
-            header: "Ajouter des groupes de capteurs"
-          },
-          mapping: {
-            aggregates: {
-              average: "Moyenne",
-              first: "Premier",
-              last: "Dernier",
-              maximum: "Maximum",
-              median: "Médian",
-              minimum: "Minimum",
-              sum: "Somme",
-              riemannsum: "Riemann sum",
-              delta: "Delta"
-            },
-            errors: {
-              "cannot-delete-mapping-because-zones-use-it": "Vous ne pouvez pas supprimer ce groupe de capteurs car au moins une zone l'utilise.",
-              invalid_source: "Invalid source",
-              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
-            },
-            items: {
-              dewpoint: "Point de rosée",
-              evapotranspiration: "Évapotranspiration",
-              humidity: "Humidité",
-              "maximum temperature": "Température maximale",
-              "minimum temperature": "Température minimale",
-              precipitation: "Précipitation totale",
-              pressure: "Pression",
-              "solar radiation": "Rayonnement solaire",
-              temperature: "Température",
-              windspeed: "Vitesse du vent",
-              "current precipitation": "Current precipitation"
-            },
-            "sensor-aggregate-of-sensor-values-to-calculate": "des valeurs des capteurs pour calculer la durée",
-            "sensor-aggregate-use-the": "Utiliser les",
-            "sensor-entity": "Entité capteur",
-            static_value: "Valeur",
-            "input-units": "L'entité fournit des entrées en",
-            source: "Source",
-            sources: {
-              none: "Aucun",
-              weather_service: "Weather service",
-              sensor: "Capteur",
-              static: "Valeur statique"
-            },
-            pressure_types: {
-              relative: "relative",
-              absolute: "absolue"
-            },
-            "pressure-type": "La pression est",
-            "sensor-units": "Le capteur fournit les valeurs en"
-          }
-        },
-        description: "Ajouter un ou plusieurs groupes de capteurs qui récupèrent les données météo de Weather service, de capteurs locaux ou d'une combinaison de tous ceux-ci. Vous pouvez associer chaque groupe de capteurs avec une ou plusieurs zones",
-        labels: {
-          "mapping-name": "Nom"
-        },
-        no_items: "Il n'y a pas encore de groupe de capteurs définis.",
-        title: "Groupes de capteurs",
-        "weather-records": {
-          title: "Weather Records (Last 10)",
-          timestamp: "Time",
-          temperature: "Temp",
-          humidity: "Humidity",
-          precipitation: "Precip",
-          "retrieval-time": "Retrieved",
-          "no-data": "No weather data available for this sensor group"
-        }
-      },
-      modules: {
-        cards: {
-          "add-module": {
-            actions: {
-              add: "Ajouter un module"
-            },
-            header: "Ajout d'un module"
-          },
-          module: {
-            errors: {
-              "cannot-delete-module-because-zones-use-it": "Vous ne pouvez pas supprimer ce module car au moins une zone l'utilise."
-            },
-            labels: {
-              configuration: "Configuration",
-              required: "indique un champ requis"
-            },
-            "translated-options": {
-              DontEstimate: "Ne fait pas d'estimation",
-              EstimateFromSunHours: "Estimation à partir des heures d'ensoleillement",
-              EstimateFromTemp: "Estimation à partir de la température",
-              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
-            }
-          }
-        },
-        description: "Ajouter un ou plusieurs modules qui calcule la durée d'irrigation. Chaque module vient avec sa propre configuration et peut être utilisé pour calculer la durée d'irrigation d'une ou plusieurs zones.",
-        no_items: "Il n'y a aucun module défini pour l'instant.",
-        title: "Modules"
-      },
-      zones: {
-        actions: {
-          add: "Ajouter",
-          calculate: "Calculer",
-          information: "Information",
-          update: "Mise à jour",
-          "reset-bucket": "Mise à zéro du seau (bucket)",
-          "view-weather-info": "Voir données météo",
-          "view-weather-info-message": "Weather data available for",
-          "view-watering-calendar": "Calendrier d'arrosage"
-        },
-        cards: {
-          "add-zone": {
-            actions: {
-              add: "Ajouter une zone"
-            },
-            header: "Ajout d'une zone"
-          },
-          "zone-actions": {
-            actions: {
-              "calculate-all": "Calculer pour toutes les zones",
-              "update-all": "Mise à jour de toutes les zones",
-              "reset-all-buckets": "Mise à zéro de tous les seaux (buckets)",
-              "clear-all-weatherdata": "Mise à zéro de toutes les données météo"
-            },
-            header: "Actions sur toutes les zones"
-          }
-        },
-        description: "Spécifiez une ou plusieurs zones d'irrigation ici. La durée d'irrigation est calculée par zone, en fonction de la taille, du débit, état, module et groupe de capteurs.",
-        labels: {
-          bucket: "Seau",
-          duration: "Durée",
-          "lead-time": "Délai",
-          mapping: "Groupe de capteurs",
-          "maximum-duration": "Durée maximale",
-          multiplier: "Multiplicateur",
-          name: "Nom",
-          size: "Taille",
-          state: "État",
-          states: {
-            automatic: "Automatique",
-            disabled: "Désactivé",
-            manual: "Manuel"
-          },
-          throughput: "Débit",
-          "maximum-bucket": "Seau (bucket) maximum",
-          last_calculated: "Dernier calcul",
-          "data-last-updated": "Dernière mise à jour",
-          "data-number-of-data-points": "Nombre de points de données",
-          drainage_rate: "Drainage rate",
-          linked_entity: "Entité interrupteur/vanne liée",
-          linked_entity_placeholder: "ex. switch.vanne_jardin",
-          irrigate_now: "Irriguer maintenant",
-          bucket_threshold: "Déficit minimum pour irriguer"
-        },
-        no_items: "Il n'y a pas encore de zone définie.",
-        title: "Zones"
-      },
-      schedules: {
-        title: "Planifications",
-        description: "Créez des planifications récurrentes pour calculer, mettre à jour ou irriguer automatiquement — sans automatisations.",
-        add: "Ajouter une planification",
-        no_items: "Aucune planification configurée. Cliquez sur 'Ajouter une planification'.",
-        zones_all: "Toutes les zones",
-        zones_specific: "Zones spécifiques",
-        hours: "heures",
-        minutes: "min",
-        types: {
-          daily: "Quotidien",
-          weekly: "Hebdomadaire",
-          monthly: "Mensuel",
-          interval: "Toutes les N heures",
-          sunrise: "Lever du soleil",
-          sunset: "Coucher du soleil",
-          solar_azimuth: "Azimut solaire"
-        },
-        actions: {
-          calculate: "Calculer (mettre à jour la durée d'irrigation)",
-          update: "Mettre à jour (collecter données météo)",
-          irrigate: "Irriguer (contrôler les vannes directement)"
-        },
-        days: {
-          monday: "Lu",
-          tuesday: "Ma",
-          wednesday: "Me",
-          thursday: "Je",
-          friday: "Ve",
-          saturday: "Sa",
-          sunday: "Di"
-        },
-        fields: {
-          name: "Nom",
-          type: "Type de planification",
-          enabled: "Activé",
-          time: "Heure (HH:MM)",
-          days_of_week: "Jours de la semaine",
-          day_of_month: "Jour du mois",
-          interval_hours: "Intervalle",
-          action: "Action",
-          zones: "Zones",
-          start_date: "Date de début (optionnel)",
-          end_date: "Date de fin (optionnel)",
-          offset_minutes: "Décalage par rapport au lever/coucher du soleil",
-          account_for_duration: "Démarrer tôt pour que l'irrigation se termine à l'heure cible",
-          azimuth_angle: "Angle d'azimut solaire"
-        },
-        dialog: {
-          add_title: "Ajouter une planification",
-          edit_title: "Modifier la planification"
-        }
-      },
-      adjustments: {
-        title: "Ajustements saisonniers",
-        description: "Ajustements mensuels de multiplicateur ou seuil pour les conditions saisonnières.",
-        add: "Ajouter un ajustement",
-        no_items: "Aucun ajustement saisonnier configuré.",
-        zones_all: "Toutes les zones",
-        zones_specific: "Zones spécifiques",
-        multiplier_hint: "1,0 = pas de changement, 1,5 = 50% d'irrigation en plus, 0,5 = 50% en moins",
-        threshold_hint: "Ajouté au réservoir de la zone. Positif = plus d'eau nécessaire, négatif = moins.",
-        fields: {
-          name: "Nom",
-          enabled: "Activé",
-          month_start: "Depuis le mois",
-          month_end: "Jusqu'au mois",
-          multiplier_adjustment: "Ajustement du multiplicateur",
-          threshold_adjustment: "Ajustement du seuil (mm)",
-          zones: "Zones"
-        },
-        dialog: {
-          add_title: "Ajouter un ajustement saisonnier",
-          edit_title: "Modifier l'ajustement saisonnier"
-        }
-      },
-      info: {
-        title: "Info",
-        description: "Afficher les informations sur la prochaine irrigation et l'état du système.",
-        "configuration-not-available": "Configuration non disponible.",
-        cards: {
-          "zone-bucket-values": {
-            title: "Valeurs de réservoir et durée",
-            labels: {
-              bucket: "Réservoir",
-              duration: "Durée"
-            },
-            "no-zones": "Aucune zone configurée"
-          },
-          "next-irrigation": {
-            title: "Prochaine irrigation",
-            labels: {
-              "next-start": "Prochain démarrage",
-              duration: "Durée",
-              zones: "Zones"
-            },
-            "no-data": "Aucune donnée disponible"
-          },
-          "irrigation-reason": {
-            title: "Raison d'irrigation",
-            labels: {
-              reason: "Raison",
-              sunrise: "Lever du soleil",
-              "total-duration": "Durée totale",
-              explanation: "Explication"
-            },
-            "no-data": "Aucune donnée disponible"
-          },
-          irrigate_now: {
-            title: "Irriguer maintenant",
-            description: "Démarrer immédiatement l'irrigation pour toutes les zones avec une entité liée. Les conditions d'exclusion sont ignorées.",
-            button_all: "Démarrer toutes les zones maintenant",
-            no_linked_zones: "Aucune zone n'a d'entité interrupteur/vanne liée avec une durée calculée."
-          }
-        }
-      }
-    },
-    ka = "Smart Irrigation",
-    za = {
-      title: "Coordonnées de Localisation",
-      description: "Configurez les coordonnées de localisation pour la récupération des données météo. Vous pouvez utiliser des coordonnées manuelles différentes de votre emplacement Home Assistant si nécessaire.",
-      manual_enabled: "Utiliser des coordonnées manuelles",
-      use_ha_location: "Utiliser l'emplacement Home Assistant",
-      latitude: "Latitude (degrés décimaux)",
-      longitude: "Longitude (degrés décimaux)",
-      elevation: "Élévation (mètres au-dessus du niveau de la mer)",
-      current_ha_coords: "Coordonnées actuelles de Home Assistant"
-    },
-    Sa = {
-      title: "Jours entre irrigations",
-      description: "Configurez le nombre minimum de jours entre les événements d'irrigation.",
-      label: "Jours minimum entre irrigations",
-      help_text: "Définissez 0 pour désactiver. Les valeurs de 1 à 365 jours sont supportées."
-    },
-    $a = {
-      title: "Irrigation Start Triggers",
-      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
-      add_trigger: "Add Trigger",
-      edit_trigger: "Edit Trigger",
-      delete_trigger: "Delete Trigger",
-      trigger_types: {
-        sunrise: "Sunrise",
-        sunset: "Sunset",
-        solar_azimuth: "Solar Azimuth"
-      },
-      fields: {
-        name: {
-          name: "Trigger Name",
-          description: "A descriptive name to identify this trigger"
-        },
-        type: {
-          name: "Trigger Type",
-          description: "The type of solar event to trigger on"
-        },
-        enabled: {
-          name: "Enabled",
-          description: "Whether this trigger is currently active"
-        },
-        offset_minutes: {
-          name: "Offset (minutes)",
-          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
-        },
-        azimuth_angle: {
-          name: "Azimuth Angle (degrees)",
-          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
-        },
-        account_for_duration: {
-          name: "Account for Duration",
-          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
-        }
-      },
-      dialog: {
-        add_title: "Add Irrigation Start Trigger",
-        edit_title: "Edit Irrigation Start Trigger",
-        cancel: "Cancel",
-        save: "Save",
-        delete: "Delete"
-      },
-      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
-      offset_auto: "Auto (calculated from total zone duration)",
-      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
-      validation: {
-        name_required: "Trigger name is required",
-        azimuth_invalid: "Azimuth angle must be a valid number"
-      },
-      help: {
-        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
-        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
-        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
-        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
-      }
-    },
-    xa = {
-      title: "Conditions d'exclusion",
-      description: "Ignorer automatiquement l'irrigation quand les conditions sont défavorables. Les vérifications de précipitations, température et vent nécessitent un service météo.",
-      threshold_label: "Seuil de précipitations",
-      threshold_description: "Quantité minimale de précipitations prévues (en mm) pour aujourd'hui et demain pour ignorer l'irrigation.",
-      temp_section_title: "Ignorer par basse température",
-      temp_threshold_label: "Ignorer si température en dessous de",
-      wind_section_title: "Ignorer par vent fort",
-      wind_threshold_label: "Ignorer si vitesse du vent supérieure à",
-      rain_sensor_section_title: "Condition du capteur de pluie",
-      rain_sensor_label: "Entité capteur de pluie (optionnel)",
-      rain_sensor_placeholder: "ex. binary_sensor.pluie"
-    },
-    Aa = {
-      title: "Séquençage des zones",
-      description: "Lorsque plusieurs zones ont besoin d'irrigation, choisissez si elles fonctionnent simultanément ou l'une après l'autre. En mode séquentiel, le système attend que chaque zone se termine avant de démarrer la suivante.",
-      parallel: "Parallèle (toutes les zones simultanément)",
-      sequential: "Séquentiel (une zone à la fois)"
-    },
-    Ea = {
-      common: va,
-      defaults: ba,
-      module: _a,
-      calcmodules: ya,
-      panels: wa,
-      title: ka,
-      coordinate_config: za,
-      days_between_irrigation: Sa,
-      irrigation_start_triggers: $a,
-      weather_skip: xa,
-      zone_sequencing: Aa
-    },
-    Ta = Object.freeze({
-      __proto__: null,
-      common: va,
-      defaults: ba,
-      module: _a,
-      calcmodules: ya,
-      panels: wa,
-      title: ka,
-      coordinate_config: za,
-      days_between_irrigation: Sa,
-      irrigation_start_triggers: $a,
-      weather_skip: xa,
-      zone_sequencing: Aa,
-      default: Ea
-    }),
-    Ma = {
-      actions: {
-        delete: "Cancella",
-        edit: "Modifica",
-        save: "Salva",
-        cancel: "Annulla"
-      },
-      labels: {
-        module: "Modulo",
-        no: "No",
-        select: "Seleziona",
-        yes: "Si",
-        enabled: "Abilitato",
-        disabled: "Disabilitato",
-        before: "prima",
-        after: "dopo"
-      },
-      units: {
-        seconds: "secondi"
-      },
-      attributes: {
-        size: "size",
-        throughput: "throughput",
-        state: "state",
-        bucket: "serbatoio",
-        last_updated: "ultimo aggiornamento",
-        last_calculated: "ultimo calcolo",
-        number_of_data_points: "numero di punti dati"
-      },
-      loading: "Caricamento",
-      saving: "Salvataggio",
-      "loading-messages": {
-        configuration: "Caricamento configurazione...",
-        modules: "Caricamento moduli...",
-        general: "Caricamento..."
-      },
-      "saving-messages": {
-        adding: "Aggiungendo...",
-        saving: "Salvataggio..."
-      }
-    },
-    Da = {
-      "default-zone": "Zona predefinita",
-      "default-mapping": "Mappatura predefinita"
-    },
-    Ca = {
-      calculation: {
-        explanation: {
-          "module-returned-evapotranspiration-deficiency": "Il modulo ha restituito un deficit di evapotraspirazione del",
-          "bucket-was": "Il secchio era",
-          "new-bucket-values-is": "Il nuovo valore del secchio è",
-          bucket: "secchio",
-          "old-bucket-variable": "old_bucket",
-          "max-bucket-variable": "max_bucket",
-          delta: "delta",
-          "bucket-less-than-zero-irrigation-necessary": "Poiché secchio < 0, è necessaria l'irrigazione",
-          "steps-taken-to-calculate-duration": "Per calcolare la durata esatta, sono stati eseguiti i seguenti passaggi",
-          "precipitation-rate-defined-as": "Il tasso di precipitazione è definito come",
-          "duration-is-calculated-as": "La durata viene calcolata come",
-          drainage: "drenaggio",
-          "drainage-rate": "tasso_di_drenaggio",
-          hours: "ore",
-          "precipitation-rate-variable": "tasso_di_precipitazione",
-          "multiplier-is-applied": "Ora viene applicato il moltiplicatore. Il moltiplicatore è",
-          "duration-after-multiplier-is": "quindi la durata è",
-          "maximum-duration-is-applied": "Quindi, viene applicata la durata massima. La durata massima è",
-          "duration-after-maximum-duration-is": "quindi la durata è",
-          "lead-time-is-applied": "Infine, viene applicato il lead time. Il tempo di consegna è",
-          "duration-after-lead-time-is": "quindi la durata finale è",
-          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Poiché secchio >= 0, non è necessaria alcuna irrigazione e la durata è impostata su",
-          "maximum-bucket-is": "la dimensione massima del secchio è",
-          "drainage-rate-is": "Il tasso di drenaggio a saturazione (serbatoio al massimo) è",
-          "current-drainage-is": "Il drenaggio attuale è calcolato come",
-          "no-drainage": "Il drenaggio attuale è 0 perché"
-        }
-      }
-    },
-    Na = {
-      pyeto: {
-        description: "Calcola la durata in base al calcolo FAO56 dalla libreria PyETO"
-      },
-      static: {
-        description: "Modulo 'fittizio' con un delta configurabile statico"
-      },
-      passthrough: {
-        description: "Modulo passthrough che restituisce il valore di un sensore di Evapotraspirazione sotto forma di delta"
-      }
-    },
-    Oa = {
-      general: {
-        cards: {
-          "automatic-duration-calculation": {
-            header: "Calcolo automatico della durata",
-            description: "Il calcolo prende i dati meteorologici raccolti fino a quel momento e aggiorna il bucket per ciascuna zona automatica. Quindi, la durata viene regolata in base al nuovo valore del segmento e i dati meteorologici raccolti vengono rimossi.",
-            labels: {
-              "auto-calc-enabled": "Calcola automaticamente la durata delle zone",
-              "auto-calc-time": "Calcola a",
-              "calc-time": "Calcola alle"
-            }
-          },
-          "automatic-update": {
-            errors: {
-              "warning-update-time-on-or-after-calc-time": "Attenzione: ora di aggiornamento dei dati meteorologici in corrispondenza o dopo l'ora di calcolo"
-            },
-            header: "Aggiornamento automatico dei dati meteorologici",
-            description: "Raccogli e archivia automaticamente i dati meteorologici. I dati meteorologici sono necessari per calcolare gli intervalli e le durate delle zone.",
-            labels: {
-              "auto-update-enabled": "Aggiorna automaticamente i dati meteorologici",
-              "auto-update-first-update": "(Primo) aggiornamento alle",
-              "auto-update-interval": "Aggiorna i dati del sensore ogni",
-              "auto-update-schedule": "Pianificazione aggiornamento",
-              "auto-update-time": "Aggiorna alle",
-              "auto-update-delay": "Update delay"
-            },
-            options: {
-              days: "giorni",
-              hours: "ore",
-              minutes: "minuti"
-            }
-          },
-          "automatic-clear": {
-            header: "Eliminazione automatica dei dati meteo",
-            description: "Rimuovi automaticamente i dati meteo raccolti a un orario configurato. Usa questa opzione per assicurarti che non vi siano dati meteo residui dei giorni precedenti. Non rimuovere i dati meteo prima di effettuare il calcolo e utilizza questa opzione solo se prevedi che l'aggiornamento automatico raccolga i dati meteo dopo aver effettuato il calcolo giornaliero. Idealmente, la rimozione dei dati meteo dovrebbe avvenire il più tardi possibile.",
-            labels: {
-              "automatic-clear-enabled": "Cancella automaticamente i dati meteorologici raccolti",
-              "automatic-clear-time": "Cancella dati meteo a"
-            }
-          },
-          continuousupdates: {
-            header: "Aggiornamenti continui sensori (sperimentale)",
-            description: "Funzione sperimentale per dati meteo più granulari.",
-            labels: {
-              continuousupdates: "Abilita gli aggiornamenti continui",
-              sensor_debounce: "Rimbalzo del sensore",
-              "sensor-debounce": "Tempo anti-rimbalzo sensore (ms)"
-            }
-          }
-        },
-        description: "Questa pagina fornisce le impostazioni globali.",
-        title: "Generale"
-      },
-      help: {
-        title: "Aiuto",
-        cards: {
-          "how-to-get-help": {
-            title: "Come ottenere aiuto",
-            "first-read-the": "Per prima cosa, leggi il",
-            wiki: "Documentation",
-            "if-you-still-need-help": "Se hai ancora bisogno di aiuto, contatta il",
-            "community-forum": "Forum della Comunità",
-            "or-open-a": "oppure apri un",
-            "github-issue": "Problema su Github",
-            "english-only": "soltanto in Inglese"
-          }
-        }
-      },
-      info: {
-        title: "Info",
-        description: "Visualizza informazioni sulla prossima irrigazione e lo stato del sistema.",
-        cards: {
-          "next-irrigation": {
-            title: "Prossima irrigazione",
-            labels: {
-              "next-start": "Prossimo avvio",
-              duration: "Durata",
-              zones: "Zone"
-            },
-            "no-data": "Nessun dato disponibile",
-            "backend-todo": "TODO: API di backend necessaria per le informazioni sull'irrigazione"
-          },
-          "irrigation-reason": {
-            title: "Motivo irrigazione",
-            labels: {
-              reason: "Ragione",
-              sunrise: "Alba",
-              "total-duration": "Durata totale",
-              explanation: "Spiegazione"
-            },
-            "no-data": "Nessun dato disponibile",
-            "backend-todo": "TODO: API di backend necessaria per le informazioni sull'irrigazione"
-          },
-          "zone-bucket-values": {
-            title: "Valori serbatoio e durata",
-            labels: {
-              bucket: "Serbatoio",
-              duration: "Durata"
-            },
-            "no-zones": "Nessuna zona configurata"
-          },
-          irrigate_now: {
-            title: "Irriga ora",
-            description: "Avvia immediatamente l'irrigazione per tutte le zone con entità collegata. Le condizioni di esclusione vengono ignorate.",
-            button_all: "Avvia tutte le zone ora",
-            no_linked_zones: "Nessuna zona ha un'entità interruttore/valvola collegata con durata calcolata."
-          }
-        },
-        "configuration-not-available": "Configurazione non disponibile."
-      },
-      mappings: {
-        cards: {
-          "add-mapping": {
-            actions: {
-              add: "Aggiungi gruppo di sensori"
-            },
-            header: "Aggiungi gruppo di sensori"
-          },
-          mapping: {
-            aggregates: {
-              average: "Media",
-              first: "Primo",
-              last: "Ultimo",
-              maximum: "Massimo",
-              median: "Mediana",
-              minimum: "Minimo",
-              riemannsum: "Somma di Riemann",
-              sum: "Somma",
-              delta: "Delta"
-            },
-            errors: {
-              "cannot-delete-mapping-because-zones-use-it": "Non è possibile eliminare questo gruppo di sensori perché almeno una zona lo utilizza.",
-              invalid_source: "Fonte non valida",
-              source_does_not_exist: "La fonte non esiste. Inserire una fonte valida, ad esempio 'sensor.mysensor'."
-            },
-            items: {
-              dewpoint: "Punto di rugiada",
-              evapotranspiration: "Evapotraspirazione",
-              humidity: "Umidità",
-              "maximum temperature": "Temperatura massima",
-              "minimum temperature": "Temperatura minima",
-              precipitation: "Precipitazione",
-              "current precipitation": "Precipitazioni attuali",
-              pressure: "Pressione",
-              "solar radiation": "Irradiamento solare",
-              temperature: "Temperatura",
-              windspeed: "Velocità del vento"
-            },
-            pressure_types: {
-              absolute: "assoluta",
-              relative: "relativa"
-            },
-            "pressure-type": "La pressione è",
-            "sensor-aggregate-of-sensor-values-to-calculate": "dei valori del sensore per calcolare la durata",
-            "sensor-aggregate-use-the": "Usa il",
-            "sensor-entity": "Entità sensore",
-            static_value: "Valore",
-            "input-units": "L'input fornisce valori in",
-            source: "Fonte",
-            sources: {
-              none: "Nessuna",
-              weather_service: "Weather service",
-              sensor: "Sensore",
-              static: "Valore statico"
-            }
-          }
-        },
-        description: "Aggiungi uno o più gruppi di sensori che recuperano i dati meteorologici da Weather service, da sensori o da una combinazione di questi. È possibile mappare ciascun gruppo di sensori su una o più zone",
-        labels: {
-          "mapping-name": "Nome"
-        },
-        no_items: "Non è ancora stato definito alcun gruppo di sensori.",
-        title: "Gruppi di sensori",
-        "weather-records": {
-          title: "Record meteo (ultimi 10)",
-          timestamp: "Tempo",
-          temperature: "Temp",
-          humidity: "Umidità",
-          precipitation: "Precip",
-          "retrieval-time": "Recuperato",
-          "no-data": "Non sono disponibili dati meteo per questo gruppo di sensori"
-        }
-      },
-      modules: {
-        cards: {
-          "add-module": {
-            actions: {
-              add: "Aggiungi modulo"
-            },
-            header: "Aggiungi modulo"
-          },
-          module: {
-            errors: {
-              "cannot-delete-module-because-zones-use-it": "Non puoi eliminare questo modulo perché almeno una zona lo utilizza."
-            },
-            labels: {
-              configuration: "Configurazione",
-              required: "indica un campo richiesto"
-            },
-            "translated-options": {
-              DontEstimate: "Non stimare",
-              EstimateFromSunHours: "Stima dalle ore solari",
-              EstimateFromTemp: "Stima dalla temperatura",
-              EstimateFromSunHoursAndTemperature: "Stima dalla media delle ore di sole e della temperatura"
-            }
-          }
-        },
-        description: "Aggiungi uno o più moduli che calcolano la durata dell'irrigazione. Ogni modulo viene fornito con la propria configurazione e può essere utilizzato per calcolare la durata di una o più zone.",
-        no_items: "Non ci sono ancora moduli definiti.",
-        title: "Moduli"
-      },
-      zones: {
-        actions: {
-          add: "Aggiungi",
-          calculate: "Calcola",
-          information: "Informazioni",
-          update: "Aggiorna",
-          "reset-bucket": "Reimposta il secchio",
-          "view-weather-info": "Visualizza dati meteo",
-          "view-weather-info-message": "Informazioni meteo disponibili per",
-          "view-weather-info-todo": "TODO: Implementare la navigazione ai dettagli del gruppo di sensori",
-          "view-watering-calendar": "Calendario irrigazione"
-        },
-        cards: {
-          "add-zone": {
-            actions: {
-              add: "Aggiungi zona"
-            },
-            header: "Aggiungi zona"
-          },
-          "zone-actions": {
-            actions: {
-              "calculate-all": "Calcola tutte le zone",
-              "update-all": "Aggiorna tutte le zone",
-              "reset-all-buckets": "Reimposta tutte le zone",
-              "clear-all-weatherdata": "Cancella tutti i dati meteo"
-            },
-            header: "Azioni su tutte le zone"
-          }
-        },
-        description: "Specificare qui una o più zone di irrigazione. La durata dell'irrigazione viene calcolata per zona, a seconda delle dimensioni, della produttività, dello stato, del modulo e del gruppo di sensori.",
-        labels: {
-          bucket: "Secchio",
-          duration: "Durata",
-          "lead-time": "Tempi di esecuzione",
-          mapping: "Gruppo di sensori",
-          "maximum-duration": "Durata massima",
-          multiplier: "Moltiplicatore",
-          name: "Nome",
-          size: "Misura",
-          state: "Stato",
-          states: {
-            automatic: "Automatico",
-            disabled: "Disabilitato",
-            manual: "Manuale"
-          },
-          throughput: "Portata",
-          "maximum-bucket": "Secchio massimo",
-          last_calculated: "Ultimo calcolo",
-          "data-last-updated": "Ultimo aggiornamento dei dati",
-          "data-number-of-data-points": "Numero di dati",
-          tasso_di_drenaggio: "tasso di drenaggio",
-          drainage_rate: "Drainage rate",
-          linked_entity: "Entità interruttore/valvola collegata",
-          linked_entity_placeholder: "es. switch.valvola_giardino",
-          irrigate_now: "Irriga ora",
-          bucket_threshold: "Deficit minimo per irrigare"
-        },
-        no_items: "Non ci sono ancora zone definite.",
-        title: "Zone"
-      },
-      schedules: {
-        title: "Pianificazioni",
-        description: "Crea pianificazioni ricorrenti per calcolare, aggiornare o irrigare automaticamente — senza automazioni.",
-        add: "Aggiungi pianificazione",
-        no_items: "Nessuna pianificazione configurata. Fare clic su 'Aggiungi pianificazione'.",
-        zones_all: "Tutte le zone",
-        zones_specific: "Zone specifiche",
-        hours: "ore",
-        minutes: "min",
-        types: {
-          daily: "Giornaliero",
-          weekly: "Settimanale",
-          monthly: "Mensile",
-          interval: "Ogni N ore",
-          sunrise: "Alba",
-          sunset: "Tramonto",
-          solar_azimuth: "Azimut solare"
-        },
-        actions: {
-          calculate: "Calcola (aggiorna durata irrigazione)",
-          update: "Aggiorna (raccogliere dati meteo)",
-          irrigate: "Irriga (controllare valvole direttamente)"
-        },
-        days: {
-          monday: "Lu",
-          tuesday: "Ma",
-          wednesday: "Me",
-          thursday: "Gi",
-          friday: "Ve",
-          saturday: "Sa",
-          sunday: "Do"
-        },
-        fields: {
-          name: "Nome",
-          type: "Tipo di pianificazione",
-          enabled: "Abilitato",
-          time: "Ora (HH:MM)",
-          days_of_week: "Giorni della settimana",
-          day_of_month: "Giorno del mese",
-          interval_hours: "Intervallo",
-          action: "Azione",
-          zones: "Zone",
-          start_date: "Data di inizio (opzionale)",
-          end_date: "Data di fine (opzionale)",
-          offset_minutes: "Offset dall'alba/tramonto",
-          account_for_duration: "Iniziare prima affinché l'irrigazione finisca all'orario target",
-          azimuth_angle: "Angolo di azimut solare"
-        },
-        dialog: {
-          add_title: "Aggiungi pianificazione",
-          edit_title: "Modifica pianificazione"
-        }
-      },
-      adjustments: {
-        title: "Aggiustamenti stagionali",
-        description: "Aggiustamenti mensili di moltiplicatore o soglia per condizioni stagionali.",
-        add: "Aggiungi aggiustamento",
-        no_items: "Nessun aggiustamento stagionale configurato.",
-        zones_all: "Tutte le zone",
-        zones_specific: "Zone specifiche",
-        multiplier_hint: "1,0 = nessuna modifica, 1,5 = 50% più irrigazione, 0,5 = 50% meno",
-        threshold_hint: "Aggiunto al serbatoio della zona. Positivo = più acqua necessaria, negativo = meno.",
-        fields: {
-          name: "Nome",
-          enabled: "Abilitato",
-          month_start: "Dal mese",
-          month_end: "Al mese",
-          multiplier_adjustment: "Aggiustamento moltiplicatore",
-          threshold_adjustment: "Aggiustamento soglia (mm)",
-          zones: "Zone"
-        },
-        dialog: {
-          add_title: "Aggiungi aggiustamento stagionale",
-          edit_title: "Modifica aggiustamento stagionale"
-        }
-      }
-    },
-    ja = "Smart Irrigation",
-    Ha = {
-      title: "Coordinate di Posizione",
-      description: "Configura le coordinate di posizione per il recupero dei dati meteorologici. Puoi usare coordinate manuali diverse dalla tua posizione Home Assistant se necessario.",
-      manual_enabled: "Usa coordinate manuali",
-      use_ha_location: "Usa posizione di Home Assistant",
-      latitude: "Latitudine (gradi decimali)",
-      longitude: "Longitudine (gradi decimali)",
-      elevation: "Elevazione (metri sul livello del mare)",
-      current_ha_coords: "Coordinate attuali di Home Assistant"
-    },
-    Pa = {
-      title: "Giorni tra irrigazioni",
-      description: "Configura il numero minimo di giorni tra gli eventi di irrigazione.",
-      label: "Giorni minimi tra irrigazioni",
-      help_text: "Impostare 0 per disabilitare. Sono supportati valori da 1 a 365 giorni."
-    },
-    La = {
-      title: "Irrigation Start Triggers",
-      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
-      add_trigger: "Add Trigger",
-      edit_trigger: "Edit Trigger",
-      delete_trigger: "Delete Trigger",
-      trigger_types: {
-        sunrise: "Sunrise",
-        sunset: "Sunset",
-        solar_azimuth: "Solar Azimuth"
-      },
-      fields: {
-        name: {
-          name: "Trigger Name",
-          description: "A descriptive name to identify this trigger"
-        },
-        type: {
-          name: "Trigger Type",
-          description: "The type of solar event to trigger on"
-        },
-        enabled: {
-          name: "Enabled",
-          description: "Whether this trigger is currently active"
-        },
-        offset_minutes: {
-          name: "Offset (minutes)",
-          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
-        },
-        azimuth_angle: {
-          name: "Azimuth Angle (degrees)",
-          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
-        },
-        account_for_duration: {
-          name: "Account for Duration",
-          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
-        }
-      },
-      dialog: {
-        add_title: "Add Irrigation Start Trigger",
-        edit_title: "Edit Irrigation Start Trigger",
-        cancel: "Cancel",
-        save: "Save",
-        delete: "Delete"
-      },
-      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
-      offset_auto: "Auto (calculated from total zone duration)",
-      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
-      validation: {
-        name_required: "Trigger name is required",
-        azimuth_invalid: "Azimuth angle must be a valid number"
-      },
-      help: {
-        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
-        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
-        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
-        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
-      }
-    },
-    Ia = {
-      title: "Condizioni di esclusione",
-      description: "Salta automaticamente l'irrigazione quando le condizioni sono sfavorevoli. I controlli di precipitazioni, temperatura e vento richiedono un servizio meteo.",
-      threshold_label: "Soglia di precipitazioni",
-      threshold_description: "Quantità minima di precipitazioni previste (in mm) per oggi e domani per saltare l'irrigazione.",
-      temp_section_title: "Salta per bassa temperatura",
-      temp_threshold_label: "Salta se temperatura sotto",
-      wind_section_title: "Salta per vento forte",
-      wind_threshold_label: "Salta se velocità del vento superiore a",
-      rain_sensor_section_title: "Condizione sensore pioggia",
-      rain_sensor_label: "Entità sensore pioggia (opzionale)",
-      rain_sensor_placeholder: "es. binary_sensor.pioggia"
-    },
-    Ua = {
-      title: "Sequenza zone",
-      description: "Quando più zone necessitano di irrigazione, scegliere se funzionano contemporaneamente o una dopo l'altra. In modalità sequenziale, il sistema attende che ogni zona finisca prima di avviare la successiva.",
-      parallel: "Parallelo (tutte le zone insieme)",
-      sequential: "Sequenziale (una zona alla volta)"
-    },
-    Ba = {
-      common: Ma,
-      defaults: Da,
-      module: Ca,
-      calcmodules: Na,
-      panels: Oa,
-      title: ja,
-      coordinate_config: Ha,
-      days_between_irrigation: Pa,
-      irrigation_start_triggers: La,
-      weather_skip: Ia,
-      zone_sequencing: Ua
-    },
-    Ra = Object.freeze({
-      __proto__: null,
-      common: Ma,
-      defaults: Da,
-      module: Ca,
-      calcmodules: Na,
-      panels: Oa,
-      title: ja,
-      coordinate_config: Ha,
-      days_between_irrigation: Pa,
-      irrigation_start_triggers: La,
-      weather_skip: Ia,
-      zone_sequencing: Ua,
-      default: Ba
-    }),
-    Fa = {
-      actions: {
-        delete: "Verwijderen",
-        edit: "Bewerken",
-        save: "Opslaan",
-        cancel: "Annuleren"
-      },
-      labels: {
-        module: "Module",
-        no: "Nee",
-        select: "Kies",
-        yes: "Ja",
-        enabled: "Ingeschakeld",
-        disabled: "Uitgeschakeld",
-        before: "voor",
-        after: "na"
-      },
-      attributes: {
-        size: "afmeting",
-        throughput: "doorvoer",
-        state: "status",
-        bucket: "emmer",
-        last_updated: "laatste update",
-        last_calculated: "laatste berekening",
-        number_of_data_points: "aantal datapunten"
-      },
-      loading: "Laden",
-      saving: "Opslaan",
-      units: {
-        seconds: "seconden"
-      },
-      "loading-messages": {
-        configuration: "Configuratie laden...",
-        modules: "Modules laden...",
-        general: "Laden..."
-      },
-      "saving-messages": {
-        adding: "Toevoegen...",
-        saving: "Opslaan..."
-      }
-    },
-    Ya = {
-      "default-zone": "Standaard zone",
-      "default-mapping": "Standaard sensorgroep"
-    },
-    Wa = {
-      calculation: {
-        explanation: {
-          "module-returned-evapotranspiration-deficiency": "NB: in deze uitleg wordt de '.' as decimaalscheidingsteken gebruikt, worden afgeronde en metrische getallen getoond. Module berekende ET waarde van",
-          "bucket-was": "Voorraad was",
-          "new-bucket-values-is": "Nieuwe voorraad is",
-          "old-bucket-variable": "oude_voorraad",
-          delta: "verandering",
-          "bucket-less-than-zero-irrigation-necessary": "Omdat de voorraad < 0 is, is irrigatie nodig",
-          "steps-taken-to-calculate-duration": "On de exacte duur te berekenen werd het volgende gedaan",
-          "precipitation-rate-defined-as": "De neerslag is",
-          "duration-is-calculated-as": "De duur is",
-          bucket: "voorraad",
-          "precipitation-rate-variable": "neerslag",
-          "multiplier-is-applied": "De vermenigvuldiger wordt toegepast. Deze is",
-          "duration-after-multiplier-is": "dus de duur is",
-          "maximum-duration-is-applied": "De maximum duur wordt toegepast. Deze is",
-          "duration-after-maximum-duration-is": "dus de duur is",
-          "lead-time-is-applied": "As laatste wordt de aanlooptijd toegepast. Deze is",
-          "duration-after-lead-time-is": "dus de uiteindelijke duur is",
-          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Omdat de voorraad >= 0 is er geen irrigatie nodig en is de duur gelijk aan",
-          "maximum-bucket-is": "maximale voorraad grootte is",
-          "max-bucket-variable": "max_bucket",
-          drainage: "drainage",
-          "drainage-rate": "drainage_rate",
-          hours: "hours",
-          "drainage-rate-is": "Drainagesnelheid bij verzadiging (emmer op maximum) is",
-          "current-drainage-is": "Huidige drainage berekend als",
-          "no-drainage": "Huidige drainage is 0 omdat"
-        }
-      }
-    },
-    Va = {
-      pyeto: {
-        description: "Bereken duur op basis van de FAU56 formule en de PyETO library"
-      },
-      static: {
-        description: "Module met instelbare verandering"
-      },
-      passthrough: {
-        description: "Geeft waarde van ET sensor as verandering terug"
-      }
-    },
-    Za = {
-      general: {
-        cards: {
-          "automatic-duration-calculation": {
-            header: "Automatische berekening van irrigatietijd",
-            description: "Bij het berekenen wordt de verzamelde weersinformatie gebruikt om the voorraad en irrigatieduur per zone aan te passen. Daarna wordt de verzamelde weersinformatie verwijderd.",
-            labels: {
-              "auto-calc-enabled": "Automatisch irrigatietijd berekening voor elke zone",
-              "auto-calc-time": "Berekenen op",
-              "calc-time": "Berekenen om"
-            }
-          },
-          "automatic-update": {
-            errors: {
-              "warning-update-time-on-or-after-calc-time": "Let op: het automatisch bijwerken van weersinformatie vind plaats op of na de automatische berekening van irrigatietijd"
-            },
-            header: "Automatisch bijwerken van weersinformatie",
-            description: "Verzamel en bewaar weersinformatie automatisch. Weersinformatie is nodig om vorraad en irrigatieduur per zone te berekenen.",
-            labels: {
-              "auto-update-enabled": "Automatisch weersinformatie bijwerken",
-              "auto-update-delay": "Vertraging",
-              "auto-update-interval": "Sensor data bijwerken elke",
-              "auto-update-schedule": "Updateschema",
-              "auto-update-time": "Bijwerken om"
-            },
-            options: {
-              days: "dagen",
-              hours: "uren",
-              minutes: "minuten"
-            }
-          },
-          "automatic-clear": {
-            header: "Automatisch weersinformatie opruimen",
-            description: "Verwijder weersinformatie op het ingestelde moment. Dit zorgt ervoor dat er geen weersinformatie van de vorige dag gebruikt kan worden voor berekeningen. Let op: verwijder geen weersinformatie voordat de berekening heeft plaatsgevonden. Gebruik deze optie als je verwacht dat er weersinformatie zal worden verzameld nadat de berekeningen voor de dag gedaan zijn. Verwijder weersinformatie zo laat mogelijk op de dag.",
-            labels: {
-              "automatic-clear-enabled": "Automatisch weersinformatie verwijderen",
-              "automatic-clear-time": "Verwijder weersinformatie om"
-            }
-          },
-          continuousupdates: {
-            header: "Continue sensorupdates (experimenteel)",
-            description: "Experimentele functie voor gedetailleerdere weergegevens.",
-            labels: {
-              continuousupdates: "Enable continuous updates",
-              sensor_debounce: "Sensor debounce",
-              "sensor-debounce": "Sensor-debouncetijd (ms)"
-            }
-          }
-        },
-        description: "Dit zijn de algemene instellingen.",
-        title: "Algemeen"
-      },
-      help: {
-        title: "Hulp",
-        cards: {
-          "how-to-get-help": {
-            title: "Hulp vragen",
-            "first-read-the": "Allereerst, lees de",
-            wiki: "Documentation",
-            "if-you-still-need-help": "Als je hierna nog steeds hulp nodig hebt, laat een bericht achter op het",
-            "community-forum": "Community forum",
-            "or-open-a": "of open een",
-            "github-issue": "Github Issue",
-            "english-only": "alleen Engels"
-          }
-        }
-      },
-      mappings: {
-        cards: {
-          "add-mapping": {
-            actions: {
-              add: "Toevoegen"
-            },
-            header: "Voeg sensorgroep toe"
-          },
-          mapping: {
-            aggregates: {
-              average: "Gemiddelde",
-              first: "Eerste",
-              last: "Laatste",
-              maximum: "Maximum",
-              median: "Mediaan",
-              minimum: "Minimum",
-              sum: "Totaal",
-              riemannsum: "Riemann sum",
-              delta: "Delta"
-            },
-            errors: {
-              "cannot-delete-mapping-because-zones-use-it": "Deze sensorgroep kan niet worden verwijderd omdat er minimaal een zone gebruik van maakt.",
-              invalid_source: "Invalid source",
-              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
-            },
-            items: {
-              dewpoint: "Dauwpunt",
-              evapotranspiration: "Verdamping",
-              humidity: "Vochtigheid",
-              "maximum temperature": "Maximum temperatuur",
-              "minimum temperature": "Minimum temperatuur",
-              precipitation: "Totale neerslag",
-              pressure: "Druk",
-              "solar radiation": "Zonnestraling",
-              temperature: "Temperatuur",
-              windspeed: "Wind snelheid",
-              "current precipitation": "Current precipitation"
-            },
-            pressure_types: {
-              absolute: "absoluut",
-              relative: "relatief"
-            },
-            "pressure-type": "Druk is",
-            "sensor-aggregate-of-sensor-values-to-calculate": "van de sensor waardes om irrigatietijd te berekenen",
-            "sensor-aggregate-use-the": "Gebruik de/het",
-            "sensor-entity": "Sensor entiteit",
-            "input-units": "Invoer geeft waardes in",
-            static_value: "Waarde",
-            source: "Bron",
-            sources: {
-              none: "Geen",
-              weather_service: "Weather service",
-              sensor: "Sensor",
-              static: "Vaste waarde"
-            }
-          }
-        },
-        description: "Voeg een of meer sensorgroepen toe die weergegevens ophalen van Weather service, van sensoren of een combinatie. Elke sensorgroep kan worden gebruikt voor een of meerdere zones",
-        labels: {
-          "mapping-name": "Name"
-        },
-        no_items: "Er zijn nog geen sensorgroepen.",
-        title: "Sensorgroepen",
-        "weather-records": {
-          title: "Weather Records (Last 10)",
-          timestamp: "Time",
-          temperature: "Temp",
-          humidity: "Humidity",
-          precipitation: "Precip",
-          "retrieval-time": "Retrieved",
-          "no-data": "No weather data available for this sensor group"
-        }
-      },
-      modules: {
-        cards: {
-          "add-module": {
-            actions: {
-              add: "Toevoegen"
-            },
-            header: "Voeg module toe"
-          },
-          module: {
-            errors: {
-              "cannot-delete-module-because-zones-use-it": "Deze module kan niet worden verwijderd omdat er minimaal een zone gebruik van maakt."
-            },
-            labels: {
-              configuration: "Instellingen",
-              required: "verplicht veld"
-            },
-            "translated-options": {
-              DontEstimate: "Niet berekenen",
-              EstimateFromSunHours: "Gebaseerd op zon uren",
-              EstimateFromTemp: "Gebaseerd op temperatuur",
-              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
-            }
-          }
-        },
-        description: "Voeg een of meerdere modules toe. Modules berekenen irrigatietijd. Elke module heeft zijn eigen configuratie and kan worden gebruikt voor het berekening van irrigatietijd voor een of meerdere zones.",
-        no_items: "Er zijn nog geen modules.",
-        title: "Modules"
-      },
-      zones: {
-        actions: {
-          add: "Toevoegen",
-          calculate: "Bereken",
-          information: "Informatie",
-          update: "Bijwerken",
-          "reset-bucket": "Leeg voorraad",
-          "view-weather-info": "Weergegevens bekijken",
-          "view-weather-info-message": "Weather data available for",
-          "view-watering-calendar": "Bewateringskalender"
-        },
-        cards: {
-          "add-zone": {
-            actions: {
-              add: "Toevoegen"
-            },
-            header: "Voeg zone toe"
-          },
-          "zone-actions": {
-            actions: {
-              "calculate-all": "Bereken alle zones",
-              "update-all": "Werk alle zone data bij",
-              "reset-all-buckets": "Leeg alle voorraden",
-              "clear-all-weatherdata": "Verwijder alle weersinformatie"
-            },
-            header: "Acties voor alle zones"
-          }
-        },
-        description: "Voeg een of meerdere zones toe. Per zone wordt de irrigatietijd berekend, afhankelijk van de afmeting, doorvoer, status, module en sensorgroep.",
-        labels: {
-          bucket: "Voorraad",
-          duration: "Irrigatieduur",
-          "lead-time": "Aanlooptijd",
-          mapping: "Sensorgroep",
-          "maximum-duration": "Maximale duur",
-          multiplier: "Vermenigvuldiger",
-          name: "Naam",
-          size: "Afmeting",
-          state: "Status",
-          states: {
-            automatic: "Automatisch",
-            disabled: "Uit",
-            manual: "Manueel"
-          },
-          throughput: "Doorvoer",
-          "maximum-bucket": "Maximale voorraad",
-          last_calculated: "Berekend op",
-          "data-last-updated": "Bijgewerkt op",
-          "data-number-of-data-points": "Aantal datapunten",
-          drainage_rate: "Drainage rate",
-          linked_entity: "Gekoppelde schakelaar/klep-entiteit",
-          linked_entity_placeholder: "bijv. switch.tuin_klep",
-          irrigate_now: "Nu bewateren",
-          bucket_threshold: "Minimum tekort voor bewatering"
-        },
-        no_items: "Er zijn nog geen zones.",
-        title: "Zones"
-      },
-      schedules: {
-        title: "Schema's",
-        description: "Maak terugkerende schema's voor automatisch berekenen, bijwerken of bewateren — zonder automatiseringen.",
-        add: "Schema toevoegen",
-        no_items: "Nog geen schema's geconfigureerd. Klik op 'Schema toevoegen'.",
-        zones_all: "Alle zones",
-        zones_specific: "Specifieke zones",
-        hours: "uur",
-        minutes: "min",
-        types: {
-          daily: "Dagelijks",
-          weekly: "Wekelijks",
-          monthly: "Maandelijks",
-          interval: "Elke N uur",
-          sunrise: "Zonsopgang",
-          sunset: "Zonsondergang",
-          solar_azimuth: "Zonneazimut"
-        },
-        actions: {
-          calculate: "Berekenen (bewateringsduur bijwerken)",
-          update: "Bijwerken (weergegevens verzamelen)",
-          irrigate: "Bewateren (kleppen direct aansturen)"
-        },
-        days: {
-          monday: "Ma",
-          tuesday: "Di",
-          wednesday: "Wo",
-          thursday: "Do",
-          friday: "Vr",
-          saturday: "Za",
-          sunday: "Zo"
-        },
-        fields: {
-          name: "Naam",
-          type: "Schematype",
-          enabled: "Ingeschakeld",
-          time: "Tijd (HH:MM)",
-          days_of_week: "Weekdagen",
-          day_of_month: "Dag van de maand",
-          interval_hours: "Interval",
-          action: "Actie",
-          zones: "Zones",
-          start_date: "Startdatum (optioneel)",
-          end_date: "Einddatum (optioneel)",
-          offset_minutes: "Offset van zonsopgang/-ondergang",
-          account_for_duration: "Vroeg starten zodat bewatering eindigt op doeltijd",
-          azimuth_angle: "Zonneazimuthoek"
-        },
-        dialog: {
-          add_title: "Schema toevoegen",
-          edit_title: "Schema bewerken"
-        }
-      },
-      adjustments: {
-        title: "Seizoensaanpassingen",
-        description: "Maandelijkse aanpassingen van vermenigvuldiger of drempel voor seizoensomstandigheden.",
-        add: "Aanpassing toevoegen",
-        no_items: "Nog geen seizoensaanpassingen geconfigureerd.",
-        zones_all: "Alle zones",
-        zones_specific: "Specifieke zones",
-        multiplier_hint: "1,0 = geen wijziging, 1,5 = 50% meer bewatering, 0,5 = 50% minder",
-        threshold_hint: "Toegevoegd aan de zone-emmer. Positief = meer water nodig, negatief = minder.",
-        fields: {
-          name: "Naam",
-          enabled: "Ingeschakeld",
-          month_start: "Vanaf maand",
-          month_end: "Tot maand",
-          multiplier_adjustment: "Vermenigvuldigeraanpassing",
-          threshold_adjustment: "Drempelaanpassing (mm)",
-          zones: "Zones"
-        },
-        dialog: {
-          add_title: "Seizoensaanpassing toevoegen",
-          edit_title: "Seizoensaanpassing bewerken"
-        }
-      },
-      info: {
-        title: "Info",
-        description: "Informatie bekijken over de volgende bewatering en systeemstatus.",
-        "configuration-not-available": "Configuratie niet beschikbaar.",
-        cards: {
-          "zone-bucket-values": {
-            title: "Zone-emmerwaarden & duur",
-            labels: {
-              bucket: "Emmer",
-              duration: "Duur"
-            },
-            "no-zones": "Geen zones geconfigureerd"
-          },
-          "next-irrigation": {
-            title: "Volgende bewatering",
-            labels: {
-              "next-start": "Volgende start",
-              duration: "Duur",
-              zones: "Zones"
-            },
-            "no-data": "Geen gegevens beschikbaar"
-          },
-          "irrigation-reason": {
-            title: "Reden voor bewatering",
-            labels: {
-              reason: "Reden",
-              sunrise: "Zonsopgang",
-              "total-duration": "Totale duur",
-              explanation: "Uitleg"
-            },
-            "no-data": "Geen gegevens beschikbaar"
-          },
-          irrigate_now: {
-            title: "Nu bewateren",
-            description: "Start direct bewatering voor alle zones met een gekoppelde entiteit. Overslaanvoorwaarden worden genegeerd.",
-            button_all: "Alle zones nu starten",
-            no_linked_zones: "Geen zones hebben een gekoppelde schakelaar/klep-entiteit met berekende duur."
-          }
-        }
-      }
-    },
-    Ga = "Smart Irrigation",
-    qa = {
-      title: "Locatie Coördinaten",
-      description: "Configureer locatie coördinaten voor het ophalen van weergegevens. Je kunt handmatige coördinaten gebruiken die verschillen van je Home Assistant locatie indien nodig.",
-      manual_enabled: "Handmatige coördinaten gebruiken",
-      use_ha_location: "Home Assistant locatie gebruiken",
-      latitude: "Breedtegraad (decimale graden)",
-      longitude: "Lengtegraad (decimale graden)",
-      elevation: "Hoogte (meters boven zeeniveau)",
-      current_ha_coords: "Huidige Home Assistant coördinaten"
-    },
-    Ka = {
-      title: "Dagen tussen bewatering",
-      description: "Stel het minimum aantal dagen in tussen bewateringsgebeurtenissen.",
-      label: "Minimum dagen tussen bewatering",
-      help_text: "Stel in op 0 om uit te schakelen. Waarden van 1-365 dagen worden ondersteund."
-    },
-    Xa = {
-      title: "Irrigation Start Triggers",
-      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
-      add_trigger: "Add Trigger",
-      edit_trigger: "Edit Trigger",
-      delete_trigger: "Delete Trigger",
-      trigger_types: {
-        sunrise: "Sunrise",
-        sunset: "Sunset",
-        solar_azimuth: "Solar Azimuth"
-      },
-      fields: {
-        name: {
-          name: "Trigger Name",
-          description: "A descriptive name to identify this trigger"
-        },
-        type: {
-          name: "Trigger Type",
-          description: "The type of solar event to trigger on"
-        },
-        enabled: {
-          name: "Enabled",
-          description: "Whether this trigger is currently active"
-        },
-        offset_minutes: {
-          name: "Offset (minutes)",
-          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
-        },
-        azimuth_angle: {
-          name: "Azimuth Angle (degrees)",
-          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
-        },
-        account_for_duration: {
-          name: "Account for Duration",
-          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
-        }
-      },
-      dialog: {
-        add_title: "Add Irrigation Start Trigger",
-        edit_title: "Edit Irrigation Start Trigger",
-        cancel: "Cancel",
-        save: "Save",
-        delete: "Delete"
-      },
-      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
-      offset_auto: "Auto (calculated from total zone duration)",
-      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
-      validation: {
-        name_required: "Trigger name is required",
-        azimuth_invalid: "Azimuth angle must be a valid number"
-      },
-      help: {
-        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
-        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
-        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
-        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
-      }
-    },
-    Ja = {
-      title: "Overslaanvoorwaarden",
-      description: "Sla irrigatie automatisch over als de omstandigheden ongunstig zijn. Neerslag-, temperatuur- en windcontroles vereisen een weerdienst.",
-      threshold_label: "Neerslagdrempel",
-      threshold_description: "Minimale hoeveelheid verwachte neerslag (in mm) voor vandaag en morgen om irrigatie over te slaan.",
-      temp_section_title: "Overslaan bij lage temperatuur",
-      temp_threshold_label: "Overslaan als temperatuur onder",
-      wind_section_title: "Overslaan bij hoge windsnelheid",
-      wind_threshold_label: "Overslaan als windsnelheid boven",
-      rain_sensor_section_title: "Regensensorvoorwaarde",
-      rain_sensor_label: "Regensensor-entiteit (optioneel)",
-      rain_sensor_placeholder: "bijv. binary_sensor.regen"
-    },
-    Qa = {
-      title: "Zone-volgorde",
-      description: "Als meerdere zones irrigatie nodig hebben, kies of ze tegelijkertijd of na elkaar worden uitgevoerd. In sequentiële modus wacht het systeem tot elke zone klaar is voordat de volgende start.",
-      parallel: "Parallel (alle zones tegelijk)",
-      sequential: "Sequentieel (één zone tegelijk)"
-    },
-    ei = {
-      common: Fa,
-      defaults: Ya,
-      module: Wa,
-      calcmodules: Va,
-      panels: Za,
-      title: Ga,
-      coordinate_config: qa,
-      days_between_irrigation: Ka,
-      irrigation_start_triggers: Xa,
-      weather_skip: Ja,
-      zone_sequencing: Qa
-    },
-    ti = Object.freeze({
-      __proto__: null,
-      common: Fa,
-      defaults: Ya,
-      module: Wa,
-      calcmodules: Va,
-      panels: Za,
-      title: Ga,
-      coordinate_config: qa,
-      days_between_irrigation: Ka,
-      irrigation_start_triggers: Xa,
-      weather_skip: Ja,
-      zone_sequencing: Qa,
-      default: ei
-    }),
-    ai = {
-      actions: {
-        delete: "Slett",
-        edit: "Rediger",
-        save: "Lagre",
-        cancel: "Avbryt"
-      },
-      labels: {
-        module: "Modul",
-        no: "Nei",
-        select: "Velg",
-        yes: "Ja",
-        enabled: "Aktivert",
-        disabled: "Deaktivert",
-        before: "før",
-        after: "etter"
-      },
-      attributes: {
-        size: "størrelse",
-        throughput: "kapasitet",
-        state: "status",
-        bucket: "beholder",
-        last_updated: "sist oppdatert",
-        last_calculated: "sist beregnet",
-        number_of_data_points: "antall datapunkter"
-      },
-      loading: "Laster",
-      saving: "Lagrer",
-      units: {
-        seconds: "sekunder"
-      },
-      "loading-messages": {
-        configuration: "Laster konfigurasjon...",
-        modules: "Laster moduler...",
-        general: "Laster..."
-      },
-      "saving-messages": {
-        adding: "Legger til...",
-        saving: "Lagrer..."
-      }
-    },
-    ii = {
-      "default-zone": "Standard sone",
-      "default-mapping": "Standard sensorguppe"
-    },
-    ni = {
-      calculation: {
-        explanation: {
-          "module-returned-evapotranspiration-deficiency": "Merk: Denne forklaringen bruker '.' som desimaltegn og viser avrundede verdier. Modulen returnerte evapotranspirasjonsunderskudd på",
-          "bucket-was": "Bucket var",
-          "new-bucket-values-is": "Ny bucket verdien er",
-          "old-bucket-variable": "gammel_bucket",
-          delta: "delta",
-          "bucket-less-than-zero-irrigation-necessary": "Siden bucket < 0, Vanning er nødvendig.",
-          "steps-taken-to-calculate-duration": "For å beregne nøyaktig varighet, ble følgende trinn utført",
-          "precipitation-rate-defined-as": "Nedbørshastigheten er definert som",
-          "duration-is-calculated-as": "Varigheten beregnes som",
-          bucket: "bucket",
-          "precipitation-rate-variable": "nedbørshastighet",
-          "multiplier-is-applied": "Nå blir multiplikatoren brukt. Multiplikatoren er",
-          "duration-after-multiplier-is": "derfor er varigheten",
-          "maximum-duration-is-applied": "Deretter blir den maksimale varigheten brukt. Den maksimale varigheten er",
-          "duration-after-maximum-duration-is": "derfor er varigheten",
-          "lead-time-is-applied": "Til slutt blir ledetiden brukt. Ledetiden er",
-          "duration-after-lead-time-is": "derfor er den endelige varigheten",
-          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Siden bucket >= 0, Ingen vanning er nødvendig, og varigheten er satt til",
-          "maximum-bucket-is": "maksimum bucket stærrelse er",
-          "max-bucket-variable": "max_bucket",
-          drainage: "drainage",
-          "drainage-rate": "drainage_rate",
-          hours: "hours",
-          "drainage-rate-is": "Dreneringshastigheten ved metning (beholder på maks) er",
-          "current-drainage-is": "Gjeldende drenering beregnet som",
-          "no-drainage": "Gjeldende drenering er 0 fordi"
-        }
-      }
-    },
-    si = {
-      pyeto: {
-        description: "Beregn varigheten basert på FAO56-beregningen fra PyETO-biblioteket"
-      },
-      static: {
-        description: "'Dummy'-modul med en statisk konfigurerbar endring (delta)"
-      },
-      passthrough: {
-        description: "En 'Passthrough'-modul som returnerer verdien av en Evapotranspiration-sensor som delta"
-      }
-    },
-    ri = {
-      general: {
-        cards: {
-          "automatic-duration-calculation": {
-            header: "Automatisk varighetsberegning",
-            labels: {
-              "auto-calc-enabled": "Beregn sonevarigheter automatisk",
-              "auto-calc-time": "Beregn ved",
-              "calc-time": "Beregn kl."
-            },
-            description: "Calculation takes collected weather data up to that point and updates the bucket for each automatic zone. Then, the duration is adjusted based on the new bucket value and the collected weather data is removed."
-          },
-          "automatic-update": {
-            errors: {
-              "warning-update-time-on-or-after-calc-time": "Advarsel: Oppdateringstidspunkt for værdata på eller etter beregningstidspunktet"
-            },
-            header: "Automatisk oppdatering av værdata",
-            labels: {
-              "auto-update-enabled": "Oppdater værdata automatisk",
-              "auto-update-first-update": "(Første) Oppdatering kl",
-              "auto-update-interval": "Oppdater sensordata hvert",
-              "auto-update-schedule": "Oppdateringsplan",
-              "auto-update-time": "Oppdater kl.",
-              "auto-update-delay": "Update delay"
-            },
-            options: {
-              days: "dager",
-              hours: "timer",
-              minutes: "minutter"
-            },
-            description: "Collect and store weather data automatically. Weather data is required to calculate zone buckets and durations."
-          },
-          "automatic-clear": {
-            header: "Automatic weather data pruning",
-            description: "Automatically remove collected weather data at a configured time. Use this to make sure that there is no left over weather data from previous days. Don't remove the weather data before you calculate and only use this option if you expect the automatic update to collect weather data after you calculated for the day. Ideally, you want to prune as late in the day as possible.",
-            labels: {
-              "automatic-clear-enabled": "Automatically clear collected weather data",
-              "automatic-clear-time": "Clear weather data at"
-            }
-          },
-          continuousupdates: {
-            header: "Kontinuerlige sensoroppdateringer (eksperimentell)",
-            description: "Eksperimentell funksjon for mer granulære værdata.",
-            labels: {
-              continuousupdates: "Enable continuous updates",
-              sensor_debounce: "Sensor debounce",
-              "sensor-debounce": "Sensor-debouncetid (ms)"
-            }
-          }
-        },
-        description: "Denne siden gir globale innstillinger.",
-        title: "Generelt"
-      },
-      help: {
-        title: "Hjelp",
-        cards: {
-          "how-to-get-help": {
-            title: "Hvordan få hjelp",
-            "first-read-the": "Først, les",
-            wiki: "Dokumentasjon",
-            "if-you-still-need-help": "Hvis du fremdeles trenger hjelp, ta kontakt på",
-            "community-forum": "Fellesskapsforumet",
-            "or-open-a": "eller åpne en",
-            "github-issue": "Github-sak",
-            "english-only": "Kun på engelsk"
-          }
-        }
-      },
-      mappings: {
-        cards: {
-          "add-mapping": {
-            actions: {
-              add: "Legg til sensorguppe"
-            },
-            header: "Legg til sensorgupper"
-          },
-          mapping: {
-            aggregates: {
-              average: "Gjennomsnitt",
-              first: "Første",
-              last: "Siste",
-              maximum: "Maksimum",
-              median: "Median",
-              minimum: "Minimum",
-              sum: "Sum",
-              riemannsum: "Riemann sum",
-              delta: "Delta"
-            },
-            errors: {
-              "cannot-delete-mapping-because-zones-use-it": "Du kan ikke slette denne sensorguppen fordi minst én sone bruker den.",
-              invalid_source: "Invalid source",
-              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
-            },
-            items: {
-              dewpoint: "Duggpunkt",
-              evapotranspiration: "Evapotranspirasjon",
-              humidity: "Luftfuktighet",
-              "maximum temperature": "Maksimumstemperatur",
-              "minimum temperature": "Minimumstemperatur",
-              precipitation: "Total nedbør",
-              pressure: "Trykk",
-              "solar radiation": "Solstråling",
-              temperature: "Temperatur",
-              windspeed: "Vindhastighet",
-              "current precipitation": "Current precipitation"
-            },
-            "sensor-aggregate-of-sensor-values-to-calculate": "av sensordata for å beregne varighet",
-            "sensor-aggregate-use-the": "Bruk",
-            "sensor-entity": "Sensorenhet",
-            static_value: "Verdi",
-            "input-units": "Inndata gir verdier i",
-            source: "Kilde",
-            sources: {
-              none: "Ingen",
-              weather_service: "Weather service",
-              sensor: "Sensor",
-              static: "Statisk verdi"
-            },
-            pressure_types: {
-              absolute: "absolute",
-              relative: "relative"
-            },
-            "pressure-type": "Pressure is"
-          }
-        },
-        description: "Legg til en eller flere sensorgupper som henter værdata fra Weather service, fra sensorer eller en kombinasjon av disse. Du kan tilordne hver sensorguppe til en eller flere soner",
-        labels: {
-          "mapping-name": "Navn"
-        },
-        no_items: "Det er ingen definerte sensorgupper ennå.",
-        title: "Sensorgupper",
-        "weather-records": {
-          title: "Weather Records (Last 10)",
-          timestamp: "Time",
-          temperature: "Temp",
-          humidity: "Humidity",
-          precipitation: "Precip",
-          "retrieval-time": "Retrieved",
-          "no-data": "No weather data available for this sensor group"
-        }
-      },
-      modules: {
-        cards: {
-          "add-module": {
-            actions: {
-              add: "Legg til modul"
-            },
-            header: "Legg til modul"
-          },
-          module: {
-            errors: {
-              "cannot-delete-module-because-zones-use-it": "Du kan ikke slette denne modulen fordi minst én sone bruker den."
-            },
-            labels: {
-              configuration: "Konfigurasjon",
-              required: "indikerer et obligatorisk felt"
-            },
-            "translated-options": {
-              DontEstimate: "Ikke beregn",
-              EstimateFromSunHours: "Beregn fra soltimer",
-              EstimateFromTemp: "Beregn fra temperatur",
-              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
-            }
-          }
-        },
-        description: "Legg til en eller flere moduler som beregner vanningsvarighet. Hver modul har sin egen konfigurasjon og kan brukes til å beregne varighet for en eller flere soner.",
-        no_items: "Det er ingen definerte moduler ennå.",
-        title: "Moduler"
-      },
-      zones: {
-        actions: {
-          add: "Legg til",
-          calculate: "Beregn",
-          information: "Informasjon",
-          update: "Oppdater",
-          "reset-bucket": "Nullstill bøtte",
-          "view-weather-info": "Se værdata",
-          "view-weather-info-message": "Weather data available for",
-          "view-watering-calendar": "Vanningskalender"
-        },
-        cards: {
-          "add-zone": {
-            actions: {
-              add: "Legg til sone"
-            },
-            header: "Legg til sone"
-          },
-          "zone-actions": {
-            actions: {
-              "calculate-all": "Beregn alle soner",
-              "update-all": "Oppdater alle soner",
-              "reset-all-buckets": "Nullstill alle bøtter",
-              "clear-all-weatherdata": "Clear all weather data"
-            },
-            header: "Handlinger på alle soner"
-          }
-        },
-        description: "Spesifiser en eller flere vanningssoner her. Vanningens varighet beregnes per sone, avhengig av størrelse, gjennomstrømning, tilstand, modul og sensorguppe.",
-        labels: {
-          bucket: "Bøtte",
-          duration: "Varighet",
-          "lead-time": "Ledetid",
-          mapping: "Sensorguppe",
-          "maximum-duration": "Maksimal varighet",
-          multiplier: "Multiplikator",
-          name: "Navn",
-          size: "Størrelse",
-          state: "Tilstand",
-          states: {
-            automatic: "Automatisk",
-            disabled: "Deaktivert",
-            manual: "Manuell"
-          },
-          throughput: "Gjennomstrømning",
-          "maximum-bucket": "Maksimal bøtte",
-          last_calculated: "Last calculated",
-          "data-last-updated": "Data last updated",
-          "data-number-of-data-points": "Number of data points",
-          drainage_rate: "Drainage rate",
-          linked_entity: "Tilknyttet bryter/ventil-enhet",
-          linked_entity_placeholder: "f.eks. switch.hage_ventil",
-          irrigate_now: "Vann nå",
-          bucket_threshold: "Minimum underskudd for vanning"
-        },
-        no_items: "Det er ingen definerte soner ennå.",
-        title: "Soner"
-      },
-      title: "Smart vanning",
-      schedules: {
-        title: "Tidsplaner",
-        description: "Opprett gjentakende tidsplaner for automatisk beregning, oppdatering eller vanning — uten automatiseringer.",
-        add: "Legg til tidsplan",
-        no_items: "Ingen tidsplaner konfigurert ennå. Klikk på 'Legg til tidsplan'.",
-        zones_all: "Alle soner",
-        zones_specific: "Spesifikke soner",
-        hours: "timer",
-        minutes: "min",
-        types: {
-          daily: "Daglig",
-          weekly: "Ukentlig",
-          monthly: "Månedlig",
-          interval: "Hver N time",
-          sunrise: "Soloppgang",
-          sunset: "Solnedgang",
-          solar_azimuth: "Solazimutt"
-        },
-        actions: {
-          calculate: "Beregn (oppdater vanningsvarighet)",
-          update: "Oppdater (samle inn værdata)",
-          irrigate: "Vann (styr ventiler direkte)"
-        },
-        days: {
-          monday: "Ma",
-          tuesday: "Ti",
-          wednesday: "On",
-          thursday: "To",
-          friday: "Fr",
-          saturday: "Lø",
-          sunday: "Sø"
-        },
-        fields: {
-          name: "Navn",
-          type: "Tidsplantype",
-          enabled: "Aktivert",
-          time: "Tid (HH:MM)",
-          days_of_week: "Ukedager",
-          day_of_month: "Dag i måneden",
-          interval_hours: "Intervall",
-          action: "Handling",
-          zones: "Soner",
-          start_date: "Startdato (valgfritt)",
-          end_date: "Sluttdato (valgfritt)",
-          offset_minutes: "Forskyvning fra soloppgang/-nedgang",
-          account_for_duration: "Start tidlig slik at vanningen er ferdig til måltidspunktet",
-          azimuth_angle: "Solazimutt-vinkel"
-        },
-        dialog: {
-          add_title: "Legg til tidsplan",
-          edit_title: "Rediger tidsplan"
-        }
-      },
-      adjustments: {
-        title: "Sesongkorrigeringer",
-        description: "Månedlige multiplikator- eller terskelkorrigeringer for sesongtilstand.",
-        add: "Legg til korrigering",
-        no_items: "Ingen sesongkorrigeringer konfigurert.",
-        zones_all: "Alle soner",
-        zones_specific: "Spesifikke soner",
-        multiplier_hint: "1,0 = ingen endring, 1,5 = 50% mer vanning, 0,5 = 50% mindre",
-        threshold_hint: "Legges til sone-beholderen. Positivt = mer vann trengs, negativt = mindre.",
-        fields: {
-          name: "Navn",
-          enabled: "Aktivert",
-          month_start: "Fra måned",
-          month_end: "Til måned",
-          multiplier_adjustment: "Multiplikatorkorrigering",
-          threshold_adjustment: "Terskelkorrigering (mm)",
-          zones: "Soner"
-        },
-        dialog: {
-          add_title: "Legg til sesongkorrigering",
-          edit_title: "Rediger sesongkorrigering"
-        }
-      },
-      info: {
-        title: "Info",
-        description: "Vis informasjon om neste vanning og systemstatus.",
-        "configuration-not-available": "Konfigurasjon ikke tilgjengelig.",
-        cards: {
-          "zone-bucket-values": {
-            title: "Sone-beholderverdier og varighet",
-            labels: {
-              bucket: "Beholder",
-              duration: "Varighet"
-            },
-            "no-zones": "Ingen soner konfigurert"
-          },
-          "next-irrigation": {
-            title: "Neste vanning",
-            labels: {
-              "next-start": "Neste start",
-              duration: "Varighet",
-              zones: "Soner"
-            },
-            "no-data": "Ingen data tilgjengelig"
-          },
-          "irrigation-reason": {
-            title: "Årsak til vanning",
-            labels: {
-              reason: "Årsak",
-              sunrise: "Soloppgang",
-              "total-duration": "Total varighet",
-              explanation: "Forklaring"
-            },
-            "no-data": "Ingen data tilgjengelig"
-          },
-          irrigate_now: {
-            title: "Vann nå",
-            description: "Start vanning umiddelbart for alle soner med tilknyttet enhet. Hoppover-betingelser ignoreres.",
-            button_all: "Start alle soner nå",
-            no_linked_zones: "Ingen soner har en tilknyttet bryter/ventil-enhet med beregnet varighet."
-          }
-        }
-      }
-    },
-    oi = {
-      title: "Stedskoordinater",
-      description: "Konfigurer stedskoordinater for innhenting av værdata. Du kan bruke manuelle koordinater som er forskjellige fra din Home Assistant plassering om nødvendig.",
-      manual_enabled: "Bruk manuelle koordinater",
-      use_ha_location: "Bruk Home Assistant plassering",
-      latitude: "Breddegrad (desimalgrader)",
-      longitude: "Lengdegrad (desimalgrader)",
-      elevation: "Høyde (meter over havet)",
-      current_ha_coords: "Gjeldende Home Assistant koordinater"
-    },
-    li = {
-      title: "Dager mellom vanning",
-      description: "Konfigurer minimumsantall dager mellom vanningshendelser.",
-      label: "Minimum dager mellom vanning",
-      help_text: "Sett til 0 for å deaktivere. Verdier fra 1-365 dager støttes."
-    },
-    di = "Smart Irrigation",
-    ui = {
-      title: "Irrigation Start Triggers",
-      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
-      add_trigger: "Add Trigger",
-      edit_trigger: "Edit Trigger",
-      delete_trigger: "Delete Trigger",
-      trigger_types: {
-        sunrise: "Sunrise",
-        sunset: "Sunset",
-        solar_azimuth: "Solar Azimuth"
-      },
-      fields: {
-        name: {
-          name: "Trigger Name",
-          description: "A descriptive name to identify this trigger"
-        },
-        type: {
-          name: "Trigger Type",
-          description: "The type of solar event to trigger on"
-        },
-        enabled: {
-          name: "Enabled",
-          description: "Whether this trigger is currently active"
-        },
-        offset_minutes: {
-          name: "Offset (minutes)",
-          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
-        },
-        azimuth_angle: {
-          name: "Azimuth Angle (degrees)",
-          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
-        },
-        account_for_duration: {
-          name: "Account for Duration",
-          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
-        }
-      },
-      dialog: {
-        add_title: "Add Irrigation Start Trigger",
-        edit_title: "Edit Irrigation Start Trigger",
-        cancel: "Cancel",
-        save: "Save",
-        delete: "Delete"
-      },
-      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
-      offset_auto: "Auto (calculated from total zone duration)",
-      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
-      validation: {
-        name_required: "Trigger name is required",
-        azimuth_invalid: "Azimuth angle must be a valid number"
-      },
-      help: {
-        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
-        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
-        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
-        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
-      }
-    },
-    ci = {
-      title: "Hoppover-betingelser",
-      description: "Hopp automatisk over vanning når forholdene er ugunstige. Nedbørs-, temperatur- og vindsjekker krever en værtjeneste.",
-      threshold_label: "Nedbørsterskel",
-      threshold_description: "Minimum mengde forventet nedbør (i mm) for i dag og morgen for å hoppe over vanning.",
-      temp_section_title: "Hopp over ved lav temperatur",
-      temp_threshold_label: "Hopp over hvis temperatur under",
-      wind_section_title: "Hopp over ved sterk vind",
-      wind_threshold_label: "Hopp over hvis vindhastighet over",
-      rain_sensor_section_title: "Regnsensorbetingelse",
-      rain_sensor_label: "Regnsensor-enhet (valgfritt)",
-      rain_sensor_placeholder: "f.eks. binary_sensor.regn"
-    },
-    hi = {
-      title: "Sonesekvens",
-      description: "Når flere soner trenger vanning, velg om de kjører samtidig eller én etter én. I sekvensiell modus venter systemet til hver sone er ferdig før neste starter.",
-      parallel: "Parallell (alle soner samtidig)",
-      sequential: "Sekvensiell (én sone om gangen)"
-    },
-    pi = {
-      common: ai,
-      defaults: ii,
-      module: ni,
-      calcmodules: si,
-      panels: ri,
-      coordinate_config: oi,
-      days_between_irrigation: li,
-      title: di,
-      irrigation_start_triggers: ui,
-      weather_skip: ci,
-      zone_sequencing: hi
-    },
-    gi = Object.freeze({
-      __proto__: null,
-      common: ai,
-      defaults: ii,
-      module: ni,
-      calcmodules: si,
-      panels: ri,
-      coordinate_config: oi,
-      days_between_irrigation: li,
-      title: di,
-      irrigation_start_triggers: ui,
-      weather_skip: ci,
-      zone_sequencing: hi,
-      default: pi
-    }),
-    mi = {
-      actions: {
-        delete: "Zmazať",
-        edit: "Upraviť",
-        save: "Uložiť",
-        cancel: "Zrušiť"
-      },
-      labels: {
-        module: "Modul",
-        no: "Nie",
-        select: "Zvoliť",
-        yes: "Áno",
-        enabled: "Povolené",
-        disabled: "Zakázané",
-        before: "pred",
-        after: "po"
-      },
-      attributes: {
-        size: "size",
-        throughput: "priepustnosť",
-        state: "stav",
-        bucket: "zásobník",
-        last_updated: "posledná aktualizácia",
-        last_calculated: "posledný výpočet",
-        number_of_data_points: "počet dátových bodov"
-      },
-      loading: "Načítanie",
-      saving: "Ukladanie",
-      units: {
-        seconds: "sekúnd"
-      },
-      "loading-messages": {
-        configuration: "Načítanie konfigurácie...",
-        modules: "Načítanie modulov...",
-        general: "Načítanie..."
-      },
-      "saving-messages": {
-        adding: "Pridávanie...",
-        saving: "Ukladanie..."
-      }
-    },
-    fi = {
-      "default-zone": "Predvolená zóna",
-      "default-mapping": "Predvolená skupina snímačov"
-    },
-    vi = {
-      calculation: {
-        explanation: {
-          "module-returned-evapotranspiration-deficiency": "Poznámka: toto vysvetlenie používa '.' ako oddeľovač desatinných miest zobrazuje zaokrúhlené a metrické hodnoty. Modul vrátil nedostatok evapotranspirácie",
-          "bucket-was": "Vedro bolo",
-          "new-bucket-values-is": "Hodnota nového vedra je",
-          "old-bucket-variable": "staré_vedro",
-          delta: "delta",
-          "bucket-less-than-zero-irrigation-necessary": "Keďže vedro < 0, je potrebné zavlažovanie",
-          "steps-taken-to-calculate-duration": "Na výpočet presného trvania sa vykonali nasledujúce kroky",
-          "precipitation-rate-defined-as": "Miera zrážok je definovaná ako",
-          "duration-is-calculated-as": "Trvanie sa vypočíta ako",
-          bucket: "vedro",
-          "precipitation-rate-variable": "úhrn zrážok",
-          "multiplier-is-applied": "Teraz sa použije multiplikátor. Násobiteľ je",
-          "duration-after-multiplier-is": "teda trvanie je",
-          "maximum-duration-is-applied": "Potom sa použije maximálne trvanie. Maximálne trvanie je",
-          "duration-after-maximum-duration-is": "teda trvanie je",
-          "lead-time-is-applied": "Nakoniec sa použije dodacia lehota. Dodacia lehota je",
-          "duration-after-lead-time-is": "teda konečné trvanie je",
-          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Keďže vedro >= 0, nie je potrebné žiadne zavlažovanie a trvanie je nastavené na",
-          "maximum-bucket-is": "maximálna veľkosť vedra je",
-          "max-bucket-variable": "max_bucket",
-          drainage: "drainage",
-          "drainage-rate": "drainage_rate",
-          hours: "hours",
-          "drainage-rate-is": "Rýchlosť odtoku pri nasýtení (zásobník na maxime) je",
-          "current-drainage-is": "Aktuálna drenáž vypočítaná ako",
-          "no-drainage": "Aktuálna drenáž je 0, pretože"
-        }
-      }
-    },
-    bi = {
-      pyeto: {
-        description: "Vypočítajte trvanie na základe výpočtu FAO56 z knižnice PyETO"
-      },
-      static: {
-        description: "'Atrapa' modul so statickou konfigurovateľnou deltou"
-      },
-      passthrough: {
-        description: "Priechodný modul, ktorý vracia hodnotu evapotranspiračného senzora ako delta"
-      }
-    },
-    _i = {
-      general: {
-        cards: {
-          "automatic-duration-calculation": {
-            header: "Automatický výpočet trvania",
-            description: "Výpočet berie zhromaždené údaje o počasí až do tohto bodu a aktualizuje vedro pre každú automatickú zónu. Potom sa trvanie upraví na základe novej hodnoty segmentu a zhromaždené údaje o počasí sa odstránia.",
-            labels: {
-              "auto-calc-enabled": "Automaticky vypočítajte trvanie zón",
-              "auto-calc-time": "Vypočítajte pri",
-              "calc-time": "Vypočítať o"
-            }
-          },
-          "automatic-update": {
-            errors: {
-              "warning-update-time-on-or-after-calc-time": "Upozornenie: Čas aktualizácie údajov o počasí v čase výpočtu alebo po ňom"
-            },
-            header: "Automatic weather data update",
-            description: "Automaticky zbierajte a ukladajte údaje o počasí. Údaje o počasí sú potrebné na výpočet segmentov zón a trvania.",
-            labels: {
-              "auto-update-enabled": "Automaticky aktualizovať údaje o počasí",
-              "auto-update-delay": "Oneskorenie aktualizácie",
-              "auto-update-interval": "Aktualizujte údaje snímača každý",
-              "auto-update-schedule": "Plán aktualizácie",
-              "auto-update-time": "Aktualizovať o"
-            },
-            options: {
-              days: "dni",
-              hours: "hodiny",
-              minutes: "minúty"
-            }
-          },
-          "automatic-clear": {
-            header: "Automatické orezávanie údajov o počasí",
-            description: "Automaticky odstráňte zhromaždené údaje o počasí v nakonfigurovanom čase. Použite to, aby ste sa uistili, že nezostali žiadne údaje o počasí z predchádzajúcich dní. Neodstraňujte údaje o počasí pred výpočtom a túto možnosť použite iba vtedy, ak očakávate, že automatická aktualizácia bude zhromažďovať údaje o počasí až po výpočte na daný deň. V ideálnom prípade chcete prerezávať tak neskoro, ako je to možné.",
-            labels: {
-              "automatic-clear-enabled": "Automaticky vymazať zhromaždené údaje o počasí",
-              "automatic-clear-time": "Vymazať údaje o počasí o"
-            }
-          },
-          continuousupdates: {
-            header: "Priebežné aktualizácie senzorov (experimentálne)",
-            description: "Experimentálna funkcia pre podrobnejšie meteorologické dáta.",
-            labels: {
-              continuousupdates: "Enable continuous updates",
-              sensor_debounce: "Sensor debounce",
-              "sensor-debounce": "Čas odrazu senzora (ms)"
-            }
-          }
-        },
-        description: "Táto stránka poskytuje globálne nastavenia.",
-        title: "Všeobecné"
-      },
-      help: {
-        title: "Pomoc",
-        cards: {
-          "how-to-get-help": {
-            title: "Ako získať pomoc",
-            "first-read-the": "Najprv si prečítajte",
-            wiki: "Documentation",
-            "if-you-still-need-help": "Ak stále potrebujete pomoc, obráťte sa na",
-            "community-forum": "komunitné fórum",
-            "or-open-a": "alebo otvorte a",
-            "github-issue": "Problém Github",
-            "english-only": "len anglicky"
-          }
-        }
-      },
-      mappings: {
-        cards: {
-          "add-mapping": {
-            actions: {
-              add: "Pridať skupinu snímačov"
-            },
-            header: "Pridajte skupiny senzorov"
-          },
-          mapping: {
-            aggregates: {
-              average: "Priemer",
-              first: "Prvý",
-              last: "Posledný",
-              maximum: "Maximum",
-              median: "Medián",
-              minimum: "Minimum",
-              sum: "Sum",
-              riemannsum: "Riemann sum",
-              delta: "Delta"
-            },
-            errors: {
-              "cannot-delete-mapping-because-zones-use-it": "Túto skupinu senzorov nemôžete vymazať, pretože ju používa aspoň jedna zóna.",
-              invalid_source: "Invalid source",
-              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
-            },
-            items: {
-              dewpoint: "Rosný bod",
-              evapotranspiration: "Evapotranspirácia",
-              humidity: "Vlhkosť",
-              "maximum temperature": "Maximálna teplota",
-              "minimum temperature": "Minimálna teplota",
-              precipitation: "Úhrn zrážok",
-              pressure: "Tlak",
-              "solar radiation": "Slnečné žiarenie",
-              temperature: "Teplota",
-              windspeed: "Rýchlosť vetra",
-              "current precipitation": "Current precipitation"
-            },
-            pressure_types: {
-              absolute: "absolútne",
-              relative: "relatítne"
-            },
-            "pressure-type": "Tlak je",
-            "sensor-aggregate-of-sensor-values-to-calculate": "hodnôt snímača na výpočet trvania",
-            "sensor-aggregate-use-the": "Použiť",
-            "sensor-entity": "Entita snímača",
-            static_value: "Hodnota",
-            "input-units": "Vstup poskytuje hodnoty v",
-            source: "Zdroj",
-            sources: {
-              none: "Nie je",
-              weather_service: "Weather service",
-              sensor: "Snímač",
-              static: "Statická hodnota"
-            }
-          }
-        },
-        description: "Pridajte jednu alebo viac skupín senzorov, ktoré získavajú údaje o počasí z Weather service, zo senzorov alebo ich kombinácie. Každú skupinu senzorov môžete namapovať na jednu alebo viac zón",
-        labels: {
-          "mapping-name": "Názov"
-        },
-        no_items: "Zatiaľ nie je definovaná žiadna skupina senzorov.",
-        title: "Skupiny senzorov",
-        "weather-records": {
-          title: "Weather Records (Last 10)",
-          timestamp: "Time",
-          temperature: "Temp",
-          humidity: "Humidity",
-          precipitation: "Precip",
-          "retrieval-time": "Retrieved",
-          "no-data": "No weather data available for this sensor group"
-        }
-      },
-      modules: {
-        cards: {
-          "add-module": {
-            actions: {
-              add: "Pridať modul"
-            },
-            header: "Pridať modul"
-          },
-          module: {
-            errors: {
-              "cannot-delete-module-because-zones-use-it": "Tento modul nemôžete vymazať, pretože ho používa aspoň jedna zóna."
-            },
-            labels: {
-              configuration: "Konfigurácia",
-              required: "označuje povinné pole"
-            },
-            "translated-options": {
-              DontEstimate: "Bez odhadu",
-              EstimateFromSunHours: "Odhad zo slnečných hodín",
-              EstimateFromTemp: "Odhad z teploty",
-              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
-            }
-          }
-        },
-        description: "Pridajte jeden alebo viac modulov, ktoré vypočítavajú trvanie zavlažovania. Každý modul sa dodáva s vlastnou konfiguráciou a možno ho použiť na výpočet trvania pre jednu alebo viac zón.",
-        no_items: "Zatiaľ nie sú definované žiadne moduly.",
-        title: "Moduly"
-      },
-      zones: {
-        actions: {
-          add: "Pridať",
-          calculate: "Vypočítať",
-          information: "Informácia",
-          update: "Aktualizovať",
-          "reset-bucket": "Resetovať vedro",
-          "view-weather-info": "Zobraziť počasie",
-          "view-weather-info-message": "Weather data available for",
-          "view-watering-calendar": "Kalendár zavlažovania"
-        },
-        cards: {
-          "add-zone": {
-            actions: {
-              add: "Pridať zónu"
-            },
-            header: "Pridať zónu"
-          },
-          "zone-actions": {
-            actions: {
-              "calculate-all": "Vypočítajte všetky zóny",
-              "update-all": "Aktualizujte všetky zóny",
-              "reset-all-buckets": "Obnovte všetky vedrá",
-              "clear-all-weatherdata": "Vymazať všetky údaje o počasí"
-            },
-            header: "Akcie vo všetkých zónach"
-          }
-        },
-        description: "Tu špecifikujte jednu alebo viac zavlažovacích zón. Trvanie zavlažovania sa vypočíta pre zónu v závislosti od veľkosti, výkonu, stavu, modulu a skupiny senzorov.",
-        labels: {
-          bucket: "Vedro",
-          duration: "Trvanie",
-          "lead-time": "Dodacia lehota",
-          mapping: "Skupina senzorov",
-          "maximum-duration": "Maximálne trvanie",
-          multiplier: "Násobiteľ",
-          name: "Názov",
-          size: "Veľkosť",
-          state: "Stav",
-          states: {
-            automatic: "Automatický",
-            disabled: "Zakázaný",
-            manual: "Manuány"
-          },
-          throughput: "Priepustnosť",
-          "maximum-bucket": "Maximálne vedro",
-          last_calculated: "Naposledy vypočítané",
-          "data-last-updated": "Údaje boli naposledy aktualizované",
-          "data-number-of-data-points": "Počet údajových bodov",
-          drainage_rate: "Drainage rate",
-          linked_entity: "Prepojená entita prepínača/ventilu",
-          linked_entity_placeholder: "napr. switch.zahradny_ventil",
-          irrigate_now: "Zavlažiť teraz",
-          bucket_threshold: "Minimálny deficit pre závlahu"
-        },
-        no_items: "Zatiaľ nie sú definované žiadne zóny.",
-        title: "Zóny"
-      },
-      schedules: {
-        title: "Plány",
-        description: "Vytvorte opakujúce sa plány pre automatický výpočet, aktualizáciu alebo závlahu — bez automatizácií.",
-        add: "Pridať plán",
-        no_items: "Zatiaľ nie sú nakonfigurované žiadne plány. Kliknite na 'Pridať plán'.",
-        zones_all: "Všetky zóny",
-        zones_specific: "Konkrétne zóny",
-        hours: "hodín",
-        minutes: "min",
-        types: {
-          daily: "Denne",
-          weekly: "Týždenne",
-          monthly: "Mesačne",
-          interval: "Každých N hodín",
-          sunrise: "Východ slnka",
-          sunset: "Západ slnka",
-          solar_azimuth: "Slnečný azimut"
-        },
-        actions: {
-          calculate: "Vypočítať (aktualizovať dobu závlahy)",
-          update: "Aktualizovať (zbierať meteorologické dáta)",
-          irrigate: "Zavlažiť (priamo ovládať ventily)"
-        },
-        days: {
-          monday: "Po",
-          tuesday: "Ut",
-          wednesday: "St",
-          thursday: "Št",
-          friday: "Pi",
-          saturday: "So",
-          sunday: "Ne"
-        },
-        fields: {
-          name: "Názov",
-          type: "Typ plánu",
-          enabled: "Povolené",
-          time: "Čas (HH:MM)",
-          days_of_week: "Dni v týždni",
-          day_of_month: "Deň v mesiaci",
-          interval_hours: "Interval",
-          action: "Akcia",
-          zones: "Zóny",
-          start_date: "Dátum začiatku (voliteľné)",
-          end_date: "Dátum konca (voliteľné)",
-          offset_minutes: "Posun od východu/západu slnka",
-          account_for_duration: "Spustiť skoro, aby závlaha skončila v cieľovom čase",
-          azimuth_angle: "Uhol slnečného azimutu"
-        },
-        dialog: {
-          add_title: "Pridať plán",
-          edit_title: "Upraviť plán"
-        }
-      },
-      adjustments: {
-        title: "Sezónne úpravy",
-        description: "Mesačné úpravy multiplikátora alebo prahu pre sezónne podmienky.",
-        add: "Pridať úpravu",
-        no_items: "Žiadne sezónne úpravy nie sú nakonfigurované.",
-        zones_all: "Všetky zóny",
-        zones_specific: "Konkrétne zóny",
-        multiplier_hint: "1,0 = bez zmeny, 1,5 = 50% viac závlahy, 0,5 = 50% menej",
-        threshold_hint: "Pridané do zásobníka zóny. Kladné = viac vody potrebné, záporné = menej.",
-        fields: {
-          name: "Názov",
-          enabled: "Povolené",
-          month_start: "Od mesiaca",
-          month_end: "Do mesiaca",
-          multiplier_adjustment: "Úprava multiplikátora",
-          threshold_adjustment: "Úprava prahu (mm)",
-          zones: "Zóny"
-        },
-        dialog: {
-          add_title: "Pridať sezónnu úpravu",
-          edit_title: "Upraviť sezónnu úpravu"
-        }
-      },
-      info: {
-        title: "Info",
-        description: "Zobraziť informácie o ďalšej závlahe a stave systému.",
-        "configuration-not-available": "Konfigurácia nie je k dispozícii.",
-        cards: {
-          "zone-bucket-values": {
-            title: "Hodnoty zásobníka zóny a trvanie",
-            labels: {
-              bucket: "Zásobník",
-              duration: "Trvanie"
-            },
-            "no-zones": "Žiadne zóny nie sú nakonfigurované"
-          },
-          "next-irrigation": {
-            title: "Ďalšia závlaha",
-            labels: {
-              "next-start": "Ďalší štart",
-              duration: "Trvanie",
-              zones: "Zóny"
-            },
-            "no-data": "Žiadne dáta k dispozícii"
-          },
-          "irrigation-reason": {
-            title: "Dôvod závlahy",
-            labels: {
-              reason: "Dôvod",
-              sunrise: "Východ slnka",
-              "total-duration": "Celková doba",
-              explanation: "Vysvetlenie"
-            },
-            "no-data": "Žiadne dáta k dispozícii"
-          },
-          irrigate_now: {
-            title: "Zavlažiť teraz",
-            description: "Okamžite spustiť závlahu pre všetky zóny s prepojenou entitou. Podmienky preskočenia sú ignorované.",
-            button_all: "Spustiť všetky zóny teraz",
-            no_linked_zones: "Žiadna zóna nemá prepojenú entitu prepínača/ventilu s vypočítanou dobou."
-          }
-        }
-      }
-    },
-    yi = "Inteligentné zavlažovanie",
-    wi = {
-      title: "Súradnice Polohy",
-      description: "Nakonfigurujte súradnice polohy pre získavanie meteorologických údajov. Môžete použiť manuálne súradnice odlišné od vašej polohy Home Assistant ak je to potrebné.",
-      manual_enabled: "Použiť manuálne súradnice",
-      use_ha_location: "Použiť polohu Home Assistant",
-      latitude: "Zemepisná šírka (desatinné stupne)",
-      longitude: "Zemepisná dĺžka (desatinné stupne)",
-      elevation: "Nadmorská výška (metre nad morom)",
-      current_ha_coords: "Aktuálne súradnice Home Assistant"
-    },
-    ki = {
-      title: "Dni medzi závlahami",
-      description: "Nakonfigurujte minimálny počet dní medzi záhradnými udalosťami.",
-      label: "Minimálne dni medzi závlahami",
-      help_text: "Nastavte na 0 pre deaktiváciu. Podporované sú hodnoty 1-365 dní."
-    },
-    zi = {
-      title: "Irrigation Start Triggers",
-      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
-      add_trigger: "Add Trigger",
-      edit_trigger: "Edit Trigger",
-      delete_trigger: "Delete Trigger",
-      trigger_types: {
-        sunrise: "Sunrise",
-        sunset: "Sunset",
-        solar_azimuth: "Solar Azimuth"
-      },
-      fields: {
-        name: {
-          name: "Trigger Name",
-          description: "A descriptive name to identify this trigger"
-        },
-        type: {
-          name: "Trigger Type",
-          description: "The type of solar event to trigger on"
-        },
-        enabled: {
-          name: "Enabled",
-          description: "Whether this trigger is currently active"
-        },
-        offset_minutes: {
-          name: "Offset (minutes)",
-          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
-        },
-        azimuth_angle: {
-          name: "Azimuth Angle (degrees)",
-          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
-        },
-        account_for_duration: {
-          name: "Account for Duration",
-          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
-        }
-      },
-      dialog: {
-        add_title: "Add Irrigation Start Trigger",
-        edit_title: "Edit Irrigation Start Trigger",
-        cancel: "Cancel",
-        save: "Save",
-        delete: "Delete"
-      },
-      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
-      offset_auto: "Auto (calculated from total zone duration)",
-      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
-      validation: {
-        name_required: "Trigger name is required",
-        azimuth_invalid: "Azimuth angle must be a valid number"
-      },
-      help: {
-        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
-        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
-        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
-        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
-      }
-    },
-    Si = {
-      title: "Podmienky preskočenia",
-      description: "Automaticky preskočiť závlahu pri nepriaznivých podmienkach. Kontroly zrážok, teploty a vetra vyžadujú počasiovú službu.",
-      threshold_label: "Prah zrážok",
-      threshold_description: "Minimálne množstvo predpokladaných zrážok (v mm) pre dnešok a zajtrajšok na preskočenie závlahy.",
-      temp_section_title: "Preskočiť pri nízkej teplote",
-      temp_threshold_label: "Preskočiť ak teplota pod",
-      wind_section_title: "Preskočiť pri silnom vetre",
-      wind_threshold_label: "Preskočiť ak rýchlosť vetra nad",
-      rain_sensor_section_title: "Podmienka dažďového senzora",
-      rain_sensor_label: "Entita dažďového senzora (voliteľné)",
-      rain_sensor_placeholder: "napr. binary_sensor.dazd"
-    },
-    $i = {
-      title: "Poradie zón",
-      description: "Keď viacero zón potrebuje závlahu, vyberte, či prebiehajú súčasne alebo jedna po druhej. V sekvenčnom režime systém čaká, kým každá zóna skončí, pred spustením ďalšej.",
-      parallel: "Paralelne (všetky zóny súčasne)",
-      sequential: "Sekvenčne (jedna zóna naraz)"
-    },
-    xi = {
-      common: mi,
-      defaults: fi,
-      module: vi,
-      calcmodules: bi,
-      panels: _i,
-      title: yi,
-      coordinate_config: wi,
-      days_between_irrigation: ki,
-      irrigation_start_triggers: zi,
-      weather_skip: Si,
-      zone_sequencing: $i
-    },
-    Ai = Object.freeze({
-      __proto__: null,
-      common: mi,
-      defaults: fi,
-      module: vi,
-      calcmodules: bi,
-      panels: _i,
-      title: yi,
-      coordinate_config: wi,
-      days_between_irrigation: ki,
-      irrigation_start_triggers: zi,
-      weather_skip: Si,
-      zone_sequencing: $i,
-      default: xi
-    });
-  function Ei(e, t) {
-    var a = t && t.cache ? t.cache : Li,
-      i = t && t.serializer ? t.serializer : Ni;
-    return (t && t.strategy ? t.strategy : Ci)(e, {
-      cache: a,
-      serializer: i
-    });
-  }
-  function Ti(e, t, a, i) {
-    var n,
-      s = null == (n = i) || "number" == typeof n || "boolean" == typeof n ? i : a(i),
-      r = t.get(s);
-    return void 0 === r && (r = e.call(this, i), t.set(s, r)), r;
-  }
-  function Mi(e, t, a) {
-    var i = Array.prototype.slice.call(arguments, 3),
-      n = a(i),
-      s = t.get(n);
-    return void 0 === s && (s = e.apply(this, i), t.set(n, s)), s;
-  }
-  function Di(e, t, a, i, n) {
-    return a.bind(t, e, i, n);
-  }
-  function Ci(e, t) {
-    return Di(e, this, 1 === e.length ? Ti : Mi, t.cache.create(), t.serializer);
-  }
-  var Ni = function () {
-    return JSON.stringify(arguments);
-  };
-  function Oi() {
-    this.cache = Object.create(null);
-  }
-  Oi.prototype.get = function (e) {
-    return this.cache[e];
-  }, Oi.prototype.set = function (e, t) {
-    this.cache[e] = t;
-  };
-  var ji,
-    Hi,
-    Pi,
-    Li = {
-      create: function () {
-        return new Oi();
-      }
-    },
-    Ii = {
-      variadic: function (e, t) {
-        return Di(e, this, Mi, t.cache.create(), t.serializer);
-      },
-      monadic: function (e, t) {
-        return Di(e, this, Ti, t.cache.create(), t.serializer);
-      }
-    };
-  function Ui(e) {
-    return e.type === Hi.literal;
-  }
-  function Bi(e) {
-    return e.type === Hi.argument;
-  }
-  function Ri(e) {
-    return e.type === Hi.number;
-  }
-  function Fi(e) {
-    return e.type === Hi.date;
-  }
-  function Yi(e) {
-    return e.type === Hi.time;
-  }
-  function Wi(e) {
-    return e.type === Hi.select;
-  }
-  function Vi(e) {
-    return e.type === Hi.plural;
-  }
-  function Zi(e) {
-    return e.type === Hi.pound;
-  }
-  function Gi(e) {
-    return e.type === Hi.tag;
-  }
-  function qi(e) {
-    return !(!e || "object" != typeof e || e.type !== Pi.number);
-  }
-  function Ki(e) {
-    return !(!e || "object" != typeof e || e.type !== Pi.dateTime);
-  }
+  var Ht, Pt;
   !function (e) {
-    e[e.EXPECT_ARGUMENT_CLOSING_BRACE = 1] = "EXPECT_ARGUMENT_CLOSING_BRACE", e[e.EMPTY_ARGUMENT = 2] = "EMPTY_ARGUMENT", e[e.MALFORMED_ARGUMENT = 3] = "MALFORMED_ARGUMENT", e[e.EXPECT_ARGUMENT_TYPE = 4] = "EXPECT_ARGUMENT_TYPE", e[e.INVALID_ARGUMENT_TYPE = 5] = "INVALID_ARGUMENT_TYPE", e[e.EXPECT_ARGUMENT_STYLE = 6] = "EXPECT_ARGUMENT_STYLE", e[e.INVALID_NUMBER_SKELETON = 7] = "INVALID_NUMBER_SKELETON", e[e.INVALID_DATE_TIME_SKELETON = 8] = "INVALID_DATE_TIME_SKELETON", e[e.EXPECT_NUMBER_SKELETON = 9] = "EXPECT_NUMBER_SKELETON", e[e.EXPECT_DATE_TIME_SKELETON = 10] = "EXPECT_DATE_TIME_SKELETON", e[e.UNCLOSED_QUOTE_IN_ARGUMENT_STYLE = 11] = "UNCLOSED_QUOTE_IN_ARGUMENT_STYLE", e[e.EXPECT_SELECT_ARGUMENT_OPTIONS = 12] = "EXPECT_SELECT_ARGUMENT_OPTIONS", e[e.EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE = 13] = "EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE", e[e.INVALID_PLURAL_ARGUMENT_OFFSET_VALUE = 14] = "INVALID_PLURAL_ARGUMENT_OFFSET_VALUE", e[e.EXPECT_SELECT_ARGUMENT_SELECTOR = 15] = "EXPECT_SELECT_ARGUMENT_SELECTOR", e[e.EXPECT_PLURAL_ARGUMENT_SELECTOR = 16] = "EXPECT_PLURAL_ARGUMENT_SELECTOR", e[e.EXPECT_SELECT_ARGUMENT_SELECTOR_FRAGMENT = 17] = "EXPECT_SELECT_ARGUMENT_SELECTOR_FRAGMENT", e[e.EXPECT_PLURAL_ARGUMENT_SELECTOR_FRAGMENT = 18] = "EXPECT_PLURAL_ARGUMENT_SELECTOR_FRAGMENT", e[e.INVALID_PLURAL_ARGUMENT_SELECTOR = 19] = "INVALID_PLURAL_ARGUMENT_SELECTOR", e[e.DUPLICATE_PLURAL_ARGUMENT_SELECTOR = 20] = "DUPLICATE_PLURAL_ARGUMENT_SELECTOR", e[e.DUPLICATE_SELECT_ARGUMENT_SELECTOR = 21] = "DUPLICATE_SELECT_ARGUMENT_SELECTOR", e[e.MISSING_OTHER_CLAUSE = 22] = "MISSING_OTHER_CLAUSE", e[e.INVALID_TAG = 23] = "INVALID_TAG", e[e.INVALID_TAG_NAME = 25] = "INVALID_TAG_NAME", e[e.UNMATCHED_CLOSING_TAG = 26] = "UNMATCHED_CLOSING_TAG", e[e.UNCLOSED_TAG = 27] = "UNCLOSED_TAG";
-  }(ji || (ji = {})), function (e) {
-    e[e.literal = 0] = "literal", e[e.argument = 1] = "argument", e[e.number = 2] = "number", e[e.date = 3] = "date", e[e.time = 4] = "time", e[e.select = 5] = "select", e[e.plural = 6] = "plural", e[e.pound = 7] = "pound", e[e.tag = 8] = "tag";
-  }(Hi || (Hi = {})), function (e) {
-    e[e.number = 0] = "number", e[e.dateTime = 1] = "dateTime";
-  }(Pi || (Pi = {}));
-  var Xi = /[ \xA0\u1680\u2000-\u200A\u202F\u205F\u3000]/,
-    Ji = /(?:[Eec]{1,6}|G{1,5}|[Qq]{1,5}|(?:[yYur]+|U{1,5})|[ML]{1,5}|d{1,2}|D{1,3}|F{1}|[abB]{1,5}|[hkHK]{1,2}|w{1,2}|W{1}|m{1,2}|s{1,2}|[zZOvVxX]{1,4})(?=([^']*'[^']*')*[^']*$)/g;
-  function Qi(e) {
-    var t = {};
-    return e.replace(Ji, function (e) {
-      var a = e.length;
-      switch (e[0]) {
-        case "G":
-          t.era = 4 === a ? "long" : 5 === a ? "narrow" : "short";
-          break;
-        case "y":
-          t.year = 2 === a ? "2-digit" : "numeric";
-          break;
-        case "Y":
-        case "u":
-        case "U":
-        case "r":
-          throw new RangeError("`Y/u/U/r` (year) patterns are not supported, use `y` instead");
-        case "q":
-        case "Q":
-          throw new RangeError("`q/Q` (quarter) patterns are not supported");
-        case "M":
-        case "L":
-          t.month = ["numeric", "2-digit", "short", "long", "narrow"][a - 1];
-          break;
-        case "w":
-        case "W":
-          throw new RangeError("`w/W` (week) patterns are not supported");
-        case "d":
-          t.day = ["numeric", "2-digit"][a - 1];
-          break;
-        case "D":
-        case "F":
-        case "g":
-          throw new RangeError("`D/F/g` (day) patterns are not supported, use `d` instead");
-        case "E":
-          t.weekday = 4 === a ? "long" : 5 === a ? "narrow" : "short";
-          break;
-        case "e":
-          if (a < 4) throw new RangeError("`e..eee` (weekday) patterns are not supported");
-          t.weekday = ["short", "long", "narrow", "short"][a - 4];
-          break;
-        case "c":
-          if (a < 4) throw new RangeError("`c..ccc` (weekday) patterns are not supported");
-          t.weekday = ["short", "long", "narrow", "short"][a - 4];
-          break;
-        case "a":
-          t.hour12 = !0;
-          break;
-        case "b":
-        case "B":
-          throw new RangeError("`b/B` (period) patterns are not supported, use `a` instead");
-        case "h":
-          t.hourCycle = "h12", t.hour = ["numeric", "2-digit"][a - 1];
-          break;
-        case "H":
-          t.hourCycle = "h23", t.hour = ["numeric", "2-digit"][a - 1];
-          break;
-        case "K":
-          t.hourCycle = "h11", t.hour = ["numeric", "2-digit"][a - 1];
-          break;
-        case "k":
-          t.hourCycle = "h24", t.hour = ["numeric", "2-digit"][a - 1];
-          break;
-        case "j":
-        case "J":
-        case "C":
-          throw new RangeError("`j/J/C` (hour) patterns are not supported, use `h/H/K/k` instead");
-        case "m":
-          t.minute = ["numeric", "2-digit"][a - 1];
-          break;
-        case "s":
-          t.second = ["numeric", "2-digit"][a - 1];
-          break;
-        case "S":
-        case "A":
-          throw new RangeError("`S/A` (second) patterns are not supported, use `s` instead");
-        case "z":
-          t.timeZoneName = a < 4 ? "short" : "long";
-          break;
-        case "Z":
-        case "O":
-        case "v":
-        case "V":
-        case "X":
-        case "x":
-          throw new RangeError("`Z/O/v/V/X/x` (timeZone) patterns are not supported, use `z` instead");
-      }
-      return "";
-    }), t;
-  }
-  var en = /[\t-\r \x85\u200E\u200F\u2028\u2029]/i;
-  var tn = /^\.(?:(0+)(\*)?|(#+)|(0+)(#+))$/g,
-    an = /^(@+)?(\+|#+)?[rs]?$/g,
-    nn = /(\*)(0+)|(#+)(0+)|(0+)/g,
-    sn = /^(0+)$/;
-  function rn(e) {
-    var t = {};
-    return "r" === e[e.length - 1] ? t.roundingPriority = "morePrecision" : "s" === e[e.length - 1] && (t.roundingPriority = "lessPrecision"), e.replace(an, function (e, a, i) {
-      return "string" != typeof i ? (t.minimumSignificantDigits = a.length, t.maximumSignificantDigits = a.length) : "+" === i ? t.minimumSignificantDigits = a.length : "#" === a[0] ? t.maximumSignificantDigits = a.length : (t.minimumSignificantDigits = a.length, t.maximumSignificantDigits = a.length + ("string" == typeof i ? i.length : 0)), "";
-    }), t;
-  }
-  function on(e) {
-    switch (e) {
-      case "sign-auto":
-        return {
-          signDisplay: "auto"
-        };
-      case "sign-accounting":
-      case "()":
-        return {
-          currencySign: "accounting"
-        };
-      case "sign-always":
-      case "+!":
-        return {
-          signDisplay: "always"
-        };
-      case "sign-accounting-always":
-      case "()!":
-        return {
-          signDisplay: "always",
-          currencySign: "accounting"
-        };
-      case "sign-except-zero":
-      case "+?":
-        return {
-          signDisplay: "exceptZero"
-        };
-      case "sign-accounting-except-zero":
-      case "()?":
-        return {
-          signDisplay: "exceptZero",
-          currencySign: "accounting"
-        };
-      case "sign-never":
-      case "+_":
-        return {
-          signDisplay: "never"
-        };
-    }
-  }
-  function ln(e) {
-    var t;
-    if ("E" === e[0] && "E" === e[1] ? (t = {
-      notation: "engineering"
-    }, e = e.slice(2)) : "E" === e[0] && (t = {
-      notation: "scientific"
-    }, e = e.slice(1)), t) {
-      var a = e.slice(0, 2);
-      if ("+!" === a ? (t.signDisplay = "always", e = e.slice(2)) : "+?" === a && (t.signDisplay = "exceptZero", e = e.slice(2)), !sn.test(e)) throw new Error("Malformed concise eng/scientific notation");
-      t.minimumIntegerDigits = e.length;
-    }
-    return t;
-  }
-  function dn(e) {
-    var t = on(e);
-    return t || {};
-  }
-  function un(e) {
-    for (var t = {}, a = 0, n = e; a < n.length; a++) {
-      var s = n[a];
-      switch (s.stem) {
-        case "percent":
-        case "%":
-          t.style = "percent";
-          continue;
-        case "%x100":
-          t.style = "percent", t.scale = 100;
-          continue;
-        case "currency":
-          t.style = "currency", t.currency = s.options[0];
-          continue;
-        case "group-off":
-        case ",_":
-          t.useGrouping = !1;
-          continue;
-        case "precision-integer":
-        case ".":
-          t.maximumFractionDigits = 0;
-          continue;
-        case "measure-unit":
-        case "unit":
-          t.style = "unit", t.unit = s.options[0].replace(/^(.*?)-/, "");
-          continue;
-        case "compact-short":
-        case "K":
-          t.notation = "compact", t.compactDisplay = "short";
-          continue;
-        case "compact-long":
-        case "KK":
-          t.notation = "compact", t.compactDisplay = "long";
-          continue;
-        case "scientific":
-          t = i(i(i({}, t), {
-            notation: "scientific"
-          }), s.options.reduce(function (e, t) {
-            return i(i({}, e), dn(t));
-          }, {}));
-          continue;
-        case "engineering":
-          t = i(i(i({}, t), {
-            notation: "engineering"
-          }), s.options.reduce(function (e, t) {
-            return i(i({}, e), dn(t));
-          }, {}));
-          continue;
-        case "notation-simple":
-          t.notation = "standard";
-          continue;
-        case "unit-width-narrow":
-          t.currencyDisplay = "narrowSymbol", t.unitDisplay = "narrow";
-          continue;
-        case "unit-width-short":
-          t.currencyDisplay = "code", t.unitDisplay = "short";
-          continue;
-        case "unit-width-full-name":
-          t.currencyDisplay = "name", t.unitDisplay = "long";
-          continue;
-        case "unit-width-iso-code":
-          t.currencyDisplay = "symbol";
-          continue;
-        case "scale":
-          t.scale = parseFloat(s.options[0]);
-          continue;
-        case "rounding-mode-floor":
-          t.roundingMode = "floor";
-          continue;
-        case "rounding-mode-ceiling":
-          t.roundingMode = "ceil";
-          continue;
-        case "rounding-mode-down":
-          t.roundingMode = "trunc";
-          continue;
-        case "rounding-mode-up":
-          t.roundingMode = "expand";
-          continue;
-        case "rounding-mode-half-even":
-          t.roundingMode = "halfEven";
-          continue;
-        case "rounding-mode-half-down":
-          t.roundingMode = "halfTrunc";
-          continue;
-        case "rounding-mode-half-up":
-          t.roundingMode = "halfExpand";
-          continue;
-        case "integer-width":
-          if (s.options.length > 1) throw new RangeError("integer-width stems only accept a single optional option");
-          s.options[0].replace(nn, function (e, a, i, n, s, r) {
-            if (a) t.minimumIntegerDigits = i.length;else {
-              if (n && s) throw new Error("We currently do not support maximum integer digits");
-              if (r) throw new Error("We currently do not support exact integer digits");
-            }
-            return "";
-          });
-          continue;
-      }
-      if (sn.test(s.stem)) t.minimumIntegerDigits = s.stem.length;else if (tn.test(s.stem)) {
-        if (s.options.length > 1) throw new RangeError("Fraction-precision stems only accept a single optional option");
-        s.stem.replace(tn, function (e, a, i, n, s, r) {
-          return "*" === i ? t.minimumFractionDigits = a.length : n && "#" === n[0] ? t.maximumFractionDigits = n.length : s && r ? (t.minimumFractionDigits = s.length, t.maximumFractionDigits = s.length + r.length) : (t.minimumFractionDigits = a.length, t.maximumFractionDigits = a.length), "";
-        });
-        var r = s.options[0];
-        "w" === r ? t = i(i({}, t), {
-          trailingZeroDisplay: "stripIfInteger"
-        }) : r && (t = i(i({}, t), rn(r)));
-      } else if (an.test(s.stem)) t = i(i({}, t), rn(s.stem));else {
-        var o = on(s.stem);
-        o && (t = i(i({}, t), o));
-        var l = ln(s.stem);
-        l && (t = i(i({}, t), l));
-      }
-    }
-    return t;
-  }
-  var cn,
-    hn = {
-      "001": ["H", "h"],
-      419: ["h", "H", "hB", "hb"],
-      AC: ["H", "h", "hb", "hB"],
-      AD: ["H", "hB"],
-      AE: ["h", "hB", "hb", "H"],
-      AF: ["H", "hb", "hB", "h"],
-      AG: ["h", "hb", "H", "hB"],
-      AI: ["H", "h", "hb", "hB"],
-      AL: ["h", "H", "hB"],
-      AM: ["H", "hB"],
-      AO: ["H", "hB"],
-      AR: ["h", "H", "hB", "hb"],
-      AS: ["h", "H"],
-      AT: ["H", "hB"],
-      AU: ["h", "hb", "H", "hB"],
-      AW: ["H", "hB"],
-      AX: ["H"],
-      AZ: ["H", "hB", "h"],
-      BA: ["H", "hB", "h"],
-      BB: ["h", "hb", "H", "hB"],
-      BD: ["h", "hB", "H"],
-      BE: ["H", "hB"],
-      BF: ["H", "hB"],
-      BG: ["H", "hB", "h"],
-      BH: ["h", "hB", "hb", "H"],
-      BI: ["H", "h"],
-      BJ: ["H", "hB"],
-      BL: ["H", "hB"],
-      BM: ["h", "hb", "H", "hB"],
-      BN: ["hb", "hB", "h", "H"],
-      BO: ["h", "H", "hB", "hb"],
-      BQ: ["H"],
-      BR: ["H", "hB"],
-      BS: ["h", "hb", "H", "hB"],
-      BT: ["h", "H"],
-      BW: ["H", "h", "hb", "hB"],
-      BY: ["H", "h"],
-      BZ: ["H", "h", "hb", "hB"],
-      CA: ["h", "hb", "H", "hB"],
-      CC: ["H", "h", "hb", "hB"],
-      CD: ["hB", "H"],
-      CF: ["H", "h", "hB"],
-      CG: ["H", "hB"],
-      CH: ["H", "hB", "h"],
-      CI: ["H", "hB"],
-      CK: ["H", "h", "hb", "hB"],
-      CL: ["h", "H", "hB", "hb"],
-      CM: ["H", "h", "hB"],
-      CN: ["H", "hB", "hb", "h"],
-      CO: ["h", "H", "hB", "hb"],
-      CP: ["H"],
-      CR: ["h", "H", "hB", "hb"],
-      CU: ["h", "H", "hB", "hb"],
-      CV: ["H", "hB"],
-      CW: ["H", "hB"],
-      CX: ["H", "h", "hb", "hB"],
-      CY: ["h", "H", "hb", "hB"],
-      CZ: ["H"],
-      DE: ["H", "hB"],
-      DG: ["H", "h", "hb", "hB"],
-      DJ: ["h", "H"],
-      DK: ["H"],
-      DM: ["h", "hb", "H", "hB"],
-      DO: ["h", "H", "hB", "hb"],
-      DZ: ["h", "hB", "hb", "H"],
-      EA: ["H", "h", "hB", "hb"],
-      EC: ["h", "H", "hB", "hb"],
-      EE: ["H", "hB"],
-      EG: ["h", "hB", "hb", "H"],
-      EH: ["h", "hB", "hb", "H"],
-      ER: ["h", "H"],
-      ES: ["H", "hB", "h", "hb"],
-      ET: ["hB", "hb", "h", "H"],
-      FI: ["H"],
-      FJ: ["h", "hb", "H", "hB"],
-      FK: ["H", "h", "hb", "hB"],
-      FM: ["h", "hb", "H", "hB"],
-      FO: ["H", "h"],
-      FR: ["H", "hB"],
-      GA: ["H", "hB"],
-      GB: ["H", "h", "hb", "hB"],
-      GD: ["h", "hb", "H", "hB"],
-      GE: ["H", "hB", "h"],
-      GF: ["H", "hB"],
-      GG: ["H", "h", "hb", "hB"],
-      GH: ["h", "H"],
-      GI: ["H", "h", "hb", "hB"],
-      GL: ["H", "h"],
-      GM: ["h", "hb", "H", "hB"],
-      GN: ["H", "hB"],
-      GP: ["H", "hB"],
-      GQ: ["H", "hB", "h", "hb"],
-      GR: ["h", "H", "hb", "hB"],
-      GT: ["h", "H", "hB", "hb"],
-      GU: ["h", "hb", "H", "hB"],
-      GW: ["H", "hB"],
-      GY: ["h", "hb", "H", "hB"],
-      HK: ["h", "hB", "hb", "H"],
-      HN: ["h", "H", "hB", "hb"],
-      HR: ["H", "hB"],
-      HU: ["H", "h"],
-      IC: ["H", "h", "hB", "hb"],
-      ID: ["H"],
-      IE: ["H", "h", "hb", "hB"],
-      IL: ["H", "hB"],
-      IM: ["H", "h", "hb", "hB"],
-      IN: ["h", "H"],
-      IO: ["H", "h", "hb", "hB"],
-      IQ: ["h", "hB", "hb", "H"],
-      IR: ["hB", "H"],
-      IS: ["H"],
-      IT: ["H", "hB"],
-      JE: ["H", "h", "hb", "hB"],
-      JM: ["h", "hb", "H", "hB"],
-      JO: ["h", "hB", "hb", "H"],
-      JP: ["H", "K", "h"],
-      KE: ["hB", "hb", "H", "h"],
-      KG: ["H", "h", "hB", "hb"],
-      KH: ["hB", "h", "H", "hb"],
-      KI: ["h", "hb", "H", "hB"],
-      KM: ["H", "h", "hB", "hb"],
-      KN: ["h", "hb", "H", "hB"],
-      KP: ["h", "H", "hB", "hb"],
-      KR: ["h", "H", "hB", "hb"],
-      KW: ["h", "hB", "hb", "H"],
-      KY: ["h", "hb", "H", "hB"],
-      KZ: ["H", "hB"],
-      LA: ["H", "hb", "hB", "h"],
-      LB: ["h", "hB", "hb", "H"],
-      LC: ["h", "hb", "H", "hB"],
-      LI: ["H", "hB", "h"],
-      LK: ["H", "h", "hB", "hb"],
-      LR: ["h", "hb", "H", "hB"],
-      LS: ["h", "H"],
-      LT: ["H", "h", "hb", "hB"],
-      LU: ["H", "h", "hB"],
-      LV: ["H", "hB", "hb", "h"],
-      LY: ["h", "hB", "hb", "H"],
-      MA: ["H", "h", "hB", "hb"],
-      MC: ["H", "hB"],
-      MD: ["H", "hB"],
-      ME: ["H", "hB", "h"],
-      MF: ["H", "hB"],
-      MG: ["H", "h"],
-      MH: ["h", "hb", "H", "hB"],
-      MK: ["H", "h", "hb", "hB"],
-      ML: ["H"],
-      MM: ["hB", "hb", "H", "h"],
-      MN: ["H", "h", "hb", "hB"],
-      MO: ["h", "hB", "hb", "H"],
-      MP: ["h", "hb", "H", "hB"],
-      MQ: ["H", "hB"],
-      MR: ["h", "hB", "hb", "H"],
-      MS: ["H", "h", "hb", "hB"],
-      MT: ["H", "h"],
-      MU: ["H", "h"],
-      MV: ["H", "h"],
-      MW: ["h", "hb", "H", "hB"],
-      MX: ["h", "H", "hB", "hb"],
-      MY: ["hb", "hB", "h", "H"],
-      MZ: ["H", "hB"],
-      NA: ["h", "H", "hB", "hb"],
-      NC: ["H", "hB"],
-      NE: ["H"],
-      NF: ["H", "h", "hb", "hB"],
-      NG: ["H", "h", "hb", "hB"],
-      NI: ["h", "H", "hB", "hb"],
-      NL: ["H", "hB"],
-      NO: ["H", "h"],
-      NP: ["H", "h", "hB"],
-      NR: ["H", "h", "hb", "hB"],
-      NU: ["H", "h", "hb", "hB"],
-      NZ: ["h", "hb", "H", "hB"],
-      OM: ["h", "hB", "hb", "H"],
-      PA: ["h", "H", "hB", "hb"],
-      PE: ["h", "H", "hB", "hb"],
-      PF: ["H", "h", "hB"],
-      PG: ["h", "H"],
-      PH: ["h", "hB", "hb", "H"],
-      PK: ["h", "hB", "H"],
-      PL: ["H", "h"],
-      PM: ["H", "hB"],
-      PN: ["H", "h", "hb", "hB"],
-      PR: ["h", "H", "hB", "hb"],
-      PS: ["h", "hB", "hb", "H"],
-      PT: ["H", "hB"],
-      PW: ["h", "H"],
-      PY: ["h", "H", "hB", "hb"],
-      QA: ["h", "hB", "hb", "H"],
-      RE: ["H", "hB"],
-      RO: ["H", "hB"],
-      RS: ["H", "hB", "h"],
-      RU: ["H"],
-      RW: ["H", "h"],
-      SA: ["h", "hB", "hb", "H"],
-      SB: ["h", "hb", "H", "hB"],
-      SC: ["H", "h", "hB"],
-      SD: ["h", "hB", "hb", "H"],
-      SE: ["H"],
-      SG: ["h", "hb", "H", "hB"],
-      SH: ["H", "h", "hb", "hB"],
-      SI: ["H", "hB"],
-      SJ: ["H"],
-      SK: ["H"],
-      SL: ["h", "hb", "H", "hB"],
-      SM: ["H", "h", "hB"],
-      SN: ["H", "h", "hB"],
-      SO: ["h", "H"],
-      SR: ["H", "hB"],
-      SS: ["h", "hb", "H", "hB"],
-      ST: ["H", "hB"],
-      SV: ["h", "H", "hB", "hb"],
-      SX: ["H", "h", "hb", "hB"],
-      SY: ["h", "hB", "hb", "H"],
-      SZ: ["h", "hb", "H", "hB"],
-      TA: ["H", "h", "hb", "hB"],
-      TC: ["h", "hb", "H", "hB"],
-      TD: ["h", "H", "hB"],
-      TF: ["H", "h", "hB"],
-      TG: ["H", "hB"],
-      TH: ["H", "h"],
-      TJ: ["H", "h"],
-      TL: ["H", "hB", "hb", "h"],
-      TM: ["H", "h"],
-      TN: ["h", "hB", "hb", "H"],
-      TO: ["h", "H"],
-      TR: ["H", "hB"],
-      TT: ["h", "hb", "H", "hB"],
-      TW: ["hB", "hb", "h", "H"],
-      TZ: ["hB", "hb", "H", "h"],
-      UA: ["H", "hB", "h"],
-      UG: ["hB", "hb", "H", "h"],
-      UM: ["h", "hb", "H", "hB"],
-      US: ["h", "hb", "H", "hB"],
-      UY: ["h", "H", "hB", "hb"],
-      UZ: ["H", "hB", "h"],
-      VA: ["H", "h", "hB"],
-      VC: ["h", "hb", "H", "hB"],
-      VE: ["h", "H", "hB", "hb"],
-      VG: ["h", "hb", "H", "hB"],
-      VI: ["h", "hb", "H", "hB"],
-      VN: ["H", "h"],
-      VU: ["h", "H"],
-      WF: ["H", "hB"],
-      WS: ["h", "H"],
-      XK: ["H", "hB", "h"],
-      YE: ["h", "hB", "hb", "H"],
-      YT: ["H", "hB"],
-      ZA: ["H", "h", "hb", "hB"],
-      ZM: ["h", "hb", "H", "hB"],
-      ZW: ["H", "h"],
-      "af-ZA": ["H", "h", "hB", "hb"],
-      "ar-001": ["h", "hB", "hb", "H"],
-      "ca-ES": ["H", "h", "hB"],
-      "en-001": ["h", "hb", "H", "hB"],
-      "en-HK": ["h", "hb", "H", "hB"],
-      "en-IL": ["H", "h", "hb", "hB"],
-      "en-MY": ["h", "hb", "H", "hB"],
-      "es-BR": ["H", "h", "hB", "hb"],
-      "es-ES": ["H", "h", "hB", "hb"],
-      "es-GQ": ["H", "h", "hB", "hb"],
-      "fr-CA": ["H", "h", "hB"],
-      "gl-ES": ["H", "h", "hB"],
-      "gu-IN": ["hB", "hb", "h", "H"],
-      "hi-IN": ["hB", "h", "H"],
-      "it-CH": ["H", "h", "hB"],
-      "it-IT": ["H", "h", "hB"],
-      "kn-IN": ["hB", "h", "H"],
-      "ml-IN": ["hB", "h", "H"],
-      "mr-IN": ["hB", "hb", "h", "H"],
-      "pa-IN": ["hB", "hb", "h", "H"],
-      "ta-IN": ["hB", "h", "hb", "H"],
-      "te-IN": ["hB", "h", "H"],
-      "zu-ZA": ["H", "hB", "hb", "h"]
-    };
-  function pn(e) {
-    var t = e.hourCycle;
-    if (void 0 === t && e.hourCycles && e.hourCycles.length && (t = e.hourCycles[0]), t) switch (t) {
-      case "h24":
-        return "k";
-      case "h23":
-        return "H";
-      case "h12":
-        return "h";
-      case "h11":
-        return "K";
-      default:
-        throw new Error("Invalid hourCycle");
-    }
-    var a,
-      i = e.language;
-    return "root" !== i && (a = e.maximize().region), (hn[a || ""] || hn[i || ""] || hn["".concat(i, "-001")] || hn["001"])[0];
-  }
-  var gn = new RegExp("^".concat(Xi.source, "*")),
-    mn = new RegExp("".concat(Xi.source, "*$"));
-  function fn(e, t) {
-    return {
-      start: e,
-      end: t
-    };
-  }
-  var vn = !!String.prototype.startsWith && "_a".startsWith("a", 1),
-    bn = !!String.fromCodePoint,
-    _n = !!Object.fromEntries,
-    yn = !!String.prototype.codePointAt,
-    wn = !!String.prototype.trimStart,
-    kn = !!String.prototype.trimEnd,
-    zn = !!Number.isSafeInteger ? Number.isSafeInteger : function (e) {
-      return "number" == typeof e && isFinite(e) && Math.floor(e) === e && Math.abs(e) <= 9007199254740991;
-    },
-    Sn = !0;
-  try {
-    Sn = "a" === (null === (cn = Cn("([^\\p{White_Space}\\p{Pattern_Syntax}]*)", "yu").exec("a")) || void 0 === cn ? void 0 : cn[0]);
-  } catch (P) {
-    Sn = !1;
-  }
-  var $n,
-    xn = vn ? function (e, t, a) {
-      return e.startsWith(t, a);
-    } : function (e, t, a) {
-      return e.slice(a, a + t.length) === t;
-    },
-    An = bn ? String.fromCodePoint : function () {
-      for (var e = [], t = 0; t < arguments.length; t++) e[t] = arguments[t];
-      for (var a, i = "", n = e.length, s = 0; n > s;) {
-        if ((a = e[s++]) > 1114111) throw RangeError(a + " is not a valid code point");
-        i += a < 65536 ? String.fromCharCode(a) : String.fromCharCode(55296 + ((a -= 65536) >> 10), a % 1024 + 56320);
-      }
-      return i;
-    },
-    En = _n ? Object.fromEntries : function (e) {
-      for (var t = {}, a = 0, i = e; a < i.length; a++) {
-        var n = i[a],
-          s = n[0],
-          r = n[1];
-        t[s] = r;
-      }
-      return t;
-    },
-    Tn = yn ? function (e, t) {
-      return e.codePointAt(t);
-    } : function (e, t) {
-      var a = e.length;
-      if (!(t < 0 || t >= a)) {
-        var i,
-          n = e.charCodeAt(t);
-        return n < 55296 || n > 56319 || t + 1 === a || (i = e.charCodeAt(t + 1)) < 56320 || i > 57343 ? n : i - 56320 + (n - 55296 << 10) + 65536;
-      }
-    },
-    Mn = wn ? function (e) {
-      return e.trimStart();
-    } : function (e) {
-      return e.replace(gn, "");
-    },
-    Dn = kn ? function (e) {
-      return e.trimEnd();
-    } : function (e) {
-      return e.replace(mn, "");
-    };
-  function Cn(e, t) {
-    return new RegExp(e, t);
-  }
-  if (Sn) {
-    var Nn = Cn("([^\\p{White_Space}\\p{Pattern_Syntax}]*)", "yu");
-    $n = function (e, t) {
-      var a;
-      return Nn.lastIndex = t, null !== (a = Nn.exec(e)[1]) && void 0 !== a ? a : "";
-    };
-  } else $n = function (e, t) {
-    for (var a = [];;) {
-      var i = Tn(e, t);
-      if (void 0 === i || Ln(i) || In(i)) break;
-      a.push(i), t += i >= 65536 ? 2 : 1;
-    }
-    return An.apply(void 0, a);
-  };
-  var On,
-    jn = function () {
-      function e(e, t) {
-        void 0 === t && (t = {}), this.message = e, this.position = {
-          offset: 0,
-          line: 1,
-          column: 1
-        }, this.ignoreTag = !!t.ignoreTag, this.locale = t.locale, this.requiresOtherClause = !!t.requiresOtherClause, this.shouldParseSkeletons = !!t.shouldParseSkeletons;
-      }
-      return e.prototype.parse = function () {
-        if (0 !== this.offset()) throw Error("parser can only be used once");
-        return this.parseMessage(0, "", !1);
-      }, e.prototype.parseMessage = function (e, t, a) {
-        for (var i = []; !this.isEOF();) {
-          var n = this.char();
-          if (123 === n) {
-            if ((s = this.parseArgument(e, a)).err) return s;
-            i.push(s.val);
-          } else {
-            if (125 === n && e > 0) break;
-            if (35 !== n || "plural" !== t && "selectordinal" !== t) {
-              if (60 === n && !this.ignoreTag && 47 === this.peek()) {
-                if (a) break;
-                return this.error(ji.UNMATCHED_CLOSING_TAG, fn(this.clonePosition(), this.clonePosition()));
-              }
-              if (60 === n && !this.ignoreTag && Hn(this.peek() || 0)) {
-                if ((s = this.parseTag(e, t)).err) return s;
-                i.push(s.val);
-              } else {
-                var s;
-                if ((s = this.parseLiteral(e, t)).err) return s;
-                i.push(s.val);
-              }
-            } else {
-              var r = this.clonePosition();
-              this.bump(), i.push({
-                type: Hi.pound,
-                location: fn(r, this.clonePosition())
-              });
-            }
-          }
-        }
-        return {
-          val: i,
-          err: null
-        };
-      }, e.prototype.parseTag = function (e, t) {
-        var a = this.clonePosition();
-        this.bump();
-        var i = this.parseTagName();
-        if (this.bumpSpace(), this.bumpIf("/>")) return {
-          val: {
-            type: Hi.literal,
-            value: "<".concat(i, "/>"),
-            location: fn(a, this.clonePosition())
-          },
-          err: null
-        };
-        if (this.bumpIf(">")) {
-          var n = this.parseMessage(e + 1, t, !0);
-          if (n.err) return n;
-          var s = n.val,
-            r = this.clonePosition();
-          if (this.bumpIf("</")) {
-            if (this.isEOF() || !Hn(this.char())) return this.error(ji.INVALID_TAG, fn(r, this.clonePosition()));
-            var o = this.clonePosition();
-            return i !== this.parseTagName() ? this.error(ji.UNMATCHED_CLOSING_TAG, fn(o, this.clonePosition())) : (this.bumpSpace(), this.bumpIf(">") ? {
-              val: {
-                type: Hi.tag,
-                value: i,
-                children: s,
-                location: fn(a, this.clonePosition())
-              },
-              err: null
-            } : this.error(ji.INVALID_TAG, fn(r, this.clonePosition())));
-          }
-          return this.error(ji.UNCLOSED_TAG, fn(a, this.clonePosition()));
-        }
-        return this.error(ji.INVALID_TAG, fn(a, this.clonePosition()));
-      }, e.prototype.parseTagName = function () {
-        var e = this.offset();
-        for (this.bump(); !this.isEOF() && Pn(this.char());) this.bump();
-        return this.message.slice(e, this.offset());
-      }, e.prototype.parseLiteral = function (e, t) {
-        for (var a = this.clonePosition(), i = "";;) {
-          var n = this.tryParseQuote(t);
-          if (n) i += n;else {
-            var s = this.tryParseUnquoted(e, t);
-            if (s) i += s;else {
-              var r = this.tryParseLeftAngleBracket();
-              if (!r) break;
-              i += r;
-            }
-          }
-        }
-        var o = fn(a, this.clonePosition());
-        return {
-          val: {
-            type: Hi.literal,
-            value: i,
-            location: o
-          },
-          err: null
-        };
-      }, e.prototype.tryParseLeftAngleBracket = function () {
-        return this.isEOF() || 60 !== this.char() || !this.ignoreTag && (Hn(e = this.peek() || 0) || 47 === e) ? null : (this.bump(), "<");
-        var e;
-      }, e.prototype.tryParseQuote = function (e) {
-        if (this.isEOF() || 39 !== this.char()) return null;
-        switch (this.peek()) {
-          case 39:
-            return this.bump(), this.bump(), "'";
-          case 123:
-          case 60:
-          case 62:
-          case 125:
-            break;
-          case 35:
-            if ("plural" === e || "selectordinal" === e) break;
-            return null;
-          default:
-            return null;
-        }
-        this.bump();
-        var t = [this.char()];
-        for (this.bump(); !this.isEOF();) {
-          var a = this.char();
-          if (39 === a) {
-            if (39 !== this.peek()) {
-              this.bump();
-              break;
-            }
-            t.push(39), this.bump();
-          } else t.push(a);
-          this.bump();
-        }
-        return An.apply(void 0, t);
-      }, e.prototype.tryParseUnquoted = function (e, t) {
-        if (this.isEOF()) return null;
-        var a = this.char();
-        return 60 === a || 123 === a || 35 === a && ("plural" === t || "selectordinal" === t) || 125 === a && e > 0 ? null : (this.bump(), An(a));
-      }, e.prototype.parseArgument = function (e, t) {
-        var a = this.clonePosition();
-        if (this.bump(), this.bumpSpace(), this.isEOF()) return this.error(ji.EXPECT_ARGUMENT_CLOSING_BRACE, fn(a, this.clonePosition()));
-        if (125 === this.char()) return this.bump(), this.error(ji.EMPTY_ARGUMENT, fn(a, this.clonePosition()));
-        var i = this.parseIdentifierIfPossible().value;
-        if (!i) return this.error(ji.MALFORMED_ARGUMENT, fn(a, this.clonePosition()));
-        if (this.bumpSpace(), this.isEOF()) return this.error(ji.EXPECT_ARGUMENT_CLOSING_BRACE, fn(a, this.clonePosition()));
-        switch (this.char()) {
-          case 125:
-            return this.bump(), {
-              val: {
-                type: Hi.argument,
-                value: i,
-                location: fn(a, this.clonePosition())
-              },
-              err: null
-            };
-          case 44:
-            return this.bump(), this.bumpSpace(), this.isEOF() ? this.error(ji.EXPECT_ARGUMENT_CLOSING_BRACE, fn(a, this.clonePosition())) : this.parseArgumentOptions(e, t, i, a);
-          default:
-            return this.error(ji.MALFORMED_ARGUMENT, fn(a, this.clonePosition()));
-        }
-      }, e.prototype.parseIdentifierIfPossible = function () {
-        var e = this.clonePosition(),
-          t = this.offset(),
-          a = $n(this.message, t),
-          i = t + a.length;
-        return this.bumpTo(i), {
-          value: a,
-          location: fn(e, this.clonePosition())
-        };
-      }, e.prototype.parseArgumentOptions = function (e, t, a, n) {
-        var s,
-          r = this.clonePosition(),
-          o = this.parseIdentifierIfPossible().value,
-          l = this.clonePosition();
-        switch (o) {
-          case "":
-            return this.error(ji.EXPECT_ARGUMENT_TYPE, fn(r, l));
-          case "number":
-          case "date":
-          case "time":
-            this.bumpSpace();
-            var d = null;
-            if (this.bumpIf(",")) {
-              this.bumpSpace();
-              var u = this.clonePosition();
-              if ((b = this.parseSimpleArgStyleIfPossible()).err) return b;
-              if (0 === (g = Dn(b.val)).length) return this.error(ji.EXPECT_ARGUMENT_STYLE, fn(this.clonePosition(), this.clonePosition()));
-              d = {
-                style: g,
-                styleLocation: fn(u, this.clonePosition())
-              };
-            }
-            if ((_ = this.tryParseArgumentClose(n)).err) return _;
-            var c = fn(n, this.clonePosition());
-            if (d && xn(null == d ? void 0 : d.style, "::", 0)) {
-              var h = Mn(d.style.slice(2));
-              if ("number" === o) return (b = this.parseNumberSkeletonFromString(h, d.styleLocation)).err ? b : {
-                val: {
-                  type: Hi.number,
-                  value: a,
-                  location: c,
-                  style: b.val
-                },
-                err: null
-              };
-              if (0 === h.length) return this.error(ji.EXPECT_DATE_TIME_SKELETON, c);
-              var p = h;
-              this.locale && (p = function (e, t) {
-                for (var a = "", i = 0; i < e.length; i++) {
-                  var n = e.charAt(i);
-                  if ("j" === n) {
-                    for (var s = 0; i + 1 < e.length && e.charAt(i + 1) === n;) s++, i++;
-                    var r = 1 + (1 & s),
-                      o = s < 2 ? 1 : 3 + (s >> 1),
-                      l = pn(t);
-                    for ("H" != l && "k" != l || (o = 0); o-- > 0;) a += "a";
-                    for (; r-- > 0;) a = l + a;
-                  } else a += "J" === n ? "H" : n;
-                }
-                return a;
-              }(h, this.locale));
-              var g = {
-                type: Pi.dateTime,
-                pattern: p,
-                location: d.styleLocation,
-                parsedOptions: this.shouldParseSkeletons ? Qi(p) : {}
-              };
-              return {
-                val: {
-                  type: "date" === o ? Hi.date : Hi.time,
-                  value: a,
-                  location: c,
-                  style: g
-                },
-                err: null
-              };
-            }
-            return {
-              val: {
-                type: "number" === o ? Hi.number : "date" === o ? Hi.date : Hi.time,
-                value: a,
-                location: c,
-                style: null !== (s = null == d ? void 0 : d.style) && void 0 !== s ? s : null
-              },
-              err: null
-            };
-          case "plural":
-          case "selectordinal":
-          case "select":
-            var m = this.clonePosition();
-            if (this.bumpSpace(), !this.bumpIf(",")) return this.error(ji.EXPECT_SELECT_ARGUMENT_OPTIONS, fn(m, i({}, m)));
-            this.bumpSpace();
-            var f = this.parseIdentifierIfPossible(),
-              v = 0;
-            if ("select" !== o && "offset" === f.value) {
-              if (!this.bumpIf(":")) return this.error(ji.EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE, fn(this.clonePosition(), this.clonePosition()));
-              var b;
-              if (this.bumpSpace(), (b = this.tryParseDecimalInteger(ji.EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE, ji.INVALID_PLURAL_ARGUMENT_OFFSET_VALUE)).err) return b;
-              this.bumpSpace(), f = this.parseIdentifierIfPossible(), v = b.val;
-            }
-            var _,
-              y = this.tryParsePluralOrSelectOptions(e, o, t, f);
-            if (y.err) return y;
-            if ((_ = this.tryParseArgumentClose(n)).err) return _;
-            var w = fn(n, this.clonePosition());
-            return "select" === o ? {
-              val: {
-                type: Hi.select,
-                value: a,
-                options: En(y.val),
-                location: w
-              },
-              err: null
-            } : {
-              val: {
-                type: Hi.plural,
-                value: a,
-                options: En(y.val),
-                offset: v,
-                pluralType: "plural" === o ? "cardinal" : "ordinal",
-                location: w
-              },
-              err: null
-            };
-          default:
-            return this.error(ji.INVALID_ARGUMENT_TYPE, fn(r, l));
-        }
-      }, e.prototype.tryParseArgumentClose = function (e) {
-        return this.isEOF() || 125 !== this.char() ? this.error(ji.EXPECT_ARGUMENT_CLOSING_BRACE, fn(e, this.clonePosition())) : (this.bump(), {
-          val: !0,
-          err: null
-        });
-      }, e.prototype.parseSimpleArgStyleIfPossible = function () {
-        for (var e = 0, t = this.clonePosition(); !this.isEOF();) {
-          switch (this.char()) {
-            case 39:
-              this.bump();
-              var a = this.clonePosition();
-              if (!this.bumpUntil("'")) return this.error(ji.UNCLOSED_QUOTE_IN_ARGUMENT_STYLE, fn(a, this.clonePosition()));
-              this.bump();
-              break;
-            case 123:
-              e += 1, this.bump();
-              break;
-            case 125:
-              if (!(e > 0)) return {
-                val: this.message.slice(t.offset, this.offset()),
-                err: null
-              };
-              e -= 1;
-              break;
-            default:
-              this.bump();
-          }
-        }
-        return {
-          val: this.message.slice(t.offset, this.offset()),
-          err: null
-        };
-      }, e.prototype.parseNumberSkeletonFromString = function (e, t) {
-        var a = [];
-        try {
-          a = function (e) {
-            if (0 === e.length) throw new Error("Number skeleton cannot be empty");
-            for (var t = e.split(en).filter(function (e) {
-                return e.length > 0;
-              }), a = [], i = 0, n = t; i < n.length; i++) {
-              var s = n[i].split("/");
-              if (0 === s.length) throw new Error("Invalid number skeleton");
-              for (var r = s[0], o = s.slice(1), l = 0, d = o; l < d.length; l++) if (0 === d[l].length) throw new Error("Invalid number skeleton");
-              a.push({
-                stem: r,
-                options: o
-              });
-            }
-            return a;
-          }(e);
-        } catch (e) {
-          return this.error(ji.INVALID_NUMBER_SKELETON, t);
-        }
-        return {
-          val: {
-            type: Pi.number,
-            tokens: a,
-            location: t,
-            parsedOptions: this.shouldParseSkeletons ? un(a) : {}
-          },
-          err: null
-        };
-      }, e.prototype.tryParsePluralOrSelectOptions = function (e, t, a, i) {
-        for (var n, s = !1, r = [], o = new Set(), l = i.value, d = i.location;;) {
-          if (0 === l.length) {
-            var u = this.clonePosition();
-            if ("select" === t || !this.bumpIf("=")) break;
-            var c = this.tryParseDecimalInteger(ji.EXPECT_PLURAL_ARGUMENT_SELECTOR, ji.INVALID_PLURAL_ARGUMENT_SELECTOR);
-            if (c.err) return c;
-            d = fn(u, this.clonePosition()), l = this.message.slice(u.offset, this.offset());
-          }
-          if (o.has(l)) return this.error("select" === t ? ji.DUPLICATE_SELECT_ARGUMENT_SELECTOR : ji.DUPLICATE_PLURAL_ARGUMENT_SELECTOR, d);
-          "other" === l && (s = !0), this.bumpSpace();
-          var h = this.clonePosition();
-          if (!this.bumpIf("{")) return this.error("select" === t ? ji.EXPECT_SELECT_ARGUMENT_SELECTOR_FRAGMENT : ji.EXPECT_PLURAL_ARGUMENT_SELECTOR_FRAGMENT, fn(this.clonePosition(), this.clonePosition()));
-          var p = this.parseMessage(e + 1, t, a);
-          if (p.err) return p;
-          var g = this.tryParseArgumentClose(h);
-          if (g.err) return g;
-          r.push([l, {
-            value: p.val,
-            location: fn(h, this.clonePosition())
-          }]), o.add(l), this.bumpSpace(), l = (n = this.parseIdentifierIfPossible()).value, d = n.location;
-        }
-        return 0 === r.length ? this.error("select" === t ? ji.EXPECT_SELECT_ARGUMENT_SELECTOR : ji.EXPECT_PLURAL_ARGUMENT_SELECTOR, fn(this.clonePosition(), this.clonePosition())) : this.requiresOtherClause && !s ? this.error(ji.MISSING_OTHER_CLAUSE, fn(this.clonePosition(), this.clonePosition())) : {
-          val: r,
-          err: null
-        };
-      }, e.prototype.tryParseDecimalInteger = function (e, t) {
-        var a = 1,
-          i = this.clonePosition();
-        this.bumpIf("+") || this.bumpIf("-") && (a = -1);
-        for (var n = !1, s = 0; !this.isEOF();) {
-          var r = this.char();
-          if (!(r >= 48 && r <= 57)) break;
-          n = !0, s = 10 * s + (r - 48), this.bump();
-        }
-        var o = fn(i, this.clonePosition());
-        return n ? zn(s *= a) ? {
-          val: s,
-          err: null
-        } : this.error(t, o) : this.error(e, o);
-      }, e.prototype.offset = function () {
-        return this.position.offset;
-      }, e.prototype.isEOF = function () {
-        return this.offset() === this.message.length;
-      }, e.prototype.clonePosition = function () {
-        return {
-          offset: this.position.offset,
-          line: this.position.line,
-          column: this.position.column
-        };
-      }, e.prototype.char = function () {
-        var e = this.position.offset;
-        if (e >= this.message.length) throw Error("out of bound");
-        var t = Tn(this.message, e);
-        if (void 0 === t) throw Error("Offset ".concat(e, " is at invalid UTF-16 code unit boundary"));
-        return t;
-      }, e.prototype.error = function (e, t) {
-        return {
-          val: null,
-          err: {
-            kind: e,
-            message: this.message,
-            location: t
-          }
-        };
-      }, e.prototype.bump = function () {
-        if (!this.isEOF()) {
-          var e = this.char();
-          10 === e ? (this.position.line += 1, this.position.column = 1, this.position.offset += 1) : (this.position.column += 1, this.position.offset += e < 65536 ? 1 : 2);
-        }
-      }, e.prototype.bumpIf = function (e) {
-        if (xn(this.message, e, this.offset())) {
-          for (var t = 0; t < e.length; t++) this.bump();
-          return !0;
-        }
-        return !1;
-      }, e.prototype.bumpUntil = function (e) {
-        var t = this.offset(),
-          a = this.message.indexOf(e, t);
-        return a >= 0 ? (this.bumpTo(a), !0) : (this.bumpTo(this.message.length), !1);
-      }, e.prototype.bumpTo = function (e) {
-        if (this.offset() > e) throw Error("targetOffset ".concat(e, " must be greater than or equal to the current offset ").concat(this.offset()));
-        for (e = Math.min(e, this.message.length);;) {
-          var t = this.offset();
-          if (t === e) break;
-          if (t > e) throw Error("targetOffset ".concat(e, " is at invalid UTF-16 code unit boundary"));
-          if (this.bump(), this.isEOF()) break;
-        }
-      }, e.prototype.bumpSpace = function () {
-        for (; !this.isEOF() && Ln(this.char());) this.bump();
-      }, e.prototype.peek = function () {
-        if (this.isEOF()) return null;
-        var e = this.char(),
-          t = this.offset(),
-          a = this.message.charCodeAt(t + (e >= 65536 ? 2 : 1));
-        return null != a ? a : null;
-      }, e;
-    }();
-  function Hn(e) {
-    return e >= 97 && e <= 122 || e >= 65 && e <= 90;
-  }
-  function Pn(e) {
-    return 45 === e || 46 === e || e >= 48 && e <= 57 || 95 === e || e >= 97 && e <= 122 || e >= 65 && e <= 90 || 183 == e || e >= 192 && e <= 214 || e >= 216 && e <= 246 || e >= 248 && e <= 893 || e >= 895 && e <= 8191 || e >= 8204 && e <= 8205 || e >= 8255 && e <= 8256 || e >= 8304 && e <= 8591 || e >= 11264 && e <= 12271 || e >= 12289 && e <= 55295 || e >= 63744 && e <= 64975 || e >= 65008 && e <= 65533 || e >= 65536 && e <= 983039;
-  }
-  function Ln(e) {
-    return e >= 9 && e <= 13 || 32 === e || 133 === e || e >= 8206 && e <= 8207 || 8232 === e || 8233 === e;
-  }
-  function In(e) {
-    return e >= 33 && e <= 35 || 36 === e || e >= 37 && e <= 39 || 40 === e || 41 === e || 42 === e || 43 === e || 44 === e || 45 === e || e >= 46 && e <= 47 || e >= 58 && e <= 59 || e >= 60 && e <= 62 || e >= 63 && e <= 64 || 91 === e || 92 === e || 93 === e || 94 === e || 96 === e || 123 === e || 124 === e || 125 === e || 126 === e || 161 === e || e >= 162 && e <= 165 || 166 === e || 167 === e || 169 === e || 171 === e || 172 === e || 174 === e || 176 === e || 177 === e || 182 === e || 187 === e || 191 === e || 215 === e || 247 === e || e >= 8208 && e <= 8213 || e >= 8214 && e <= 8215 || 8216 === e || 8217 === e || 8218 === e || e >= 8219 && e <= 8220 || 8221 === e || 8222 === e || 8223 === e || e >= 8224 && e <= 8231 || e >= 8240 && e <= 8248 || 8249 === e || 8250 === e || e >= 8251 && e <= 8254 || e >= 8257 && e <= 8259 || 8260 === e || 8261 === e || 8262 === e || e >= 8263 && e <= 8273 || 8274 === e || 8275 === e || e >= 8277 && e <= 8286 || e >= 8592 && e <= 8596 || e >= 8597 && e <= 8601 || e >= 8602 && e <= 8603 || e >= 8604 && e <= 8607 || 8608 === e || e >= 8609 && e <= 8610 || 8611 === e || e >= 8612 && e <= 8613 || 8614 === e || e >= 8615 && e <= 8621 || 8622 === e || e >= 8623 && e <= 8653 || e >= 8654 && e <= 8655 || e >= 8656 && e <= 8657 || 8658 === e || 8659 === e || 8660 === e || e >= 8661 && e <= 8691 || e >= 8692 && e <= 8959 || e >= 8960 && e <= 8967 || 8968 === e || 8969 === e || 8970 === e || 8971 === e || e >= 8972 && e <= 8991 || e >= 8992 && e <= 8993 || e >= 8994 && e <= 9e3 || 9001 === e || 9002 === e || e >= 9003 && e <= 9083 || 9084 === e || e >= 9085 && e <= 9114 || e >= 9115 && e <= 9139 || e >= 9140 && e <= 9179 || e >= 9180 && e <= 9185 || e >= 9186 && e <= 9254 || e >= 9255 && e <= 9279 || e >= 9280 && e <= 9290 || e >= 9291 && e <= 9311 || e >= 9472 && e <= 9654 || 9655 === e || e >= 9656 && e <= 9664 || 9665 === e || e >= 9666 && e <= 9719 || e >= 9720 && e <= 9727 || e >= 9728 && e <= 9838 || 9839 === e || e >= 9840 && e <= 10087 || 10088 === e || 10089 === e || 10090 === e || 10091 === e || 10092 === e || 10093 === e || 10094 === e || 10095 === e || 10096 === e || 10097 === e || 10098 === e || 10099 === e || 10100 === e || 10101 === e || e >= 10132 && e <= 10175 || e >= 10176 && e <= 10180 || 10181 === e || 10182 === e || e >= 10183 && e <= 10213 || 10214 === e || 10215 === e || 10216 === e || 10217 === e || 10218 === e || 10219 === e || 10220 === e || 10221 === e || 10222 === e || 10223 === e || e >= 10224 && e <= 10239 || e >= 10240 && e <= 10495 || e >= 10496 && e <= 10626 || 10627 === e || 10628 === e || 10629 === e || 10630 === e || 10631 === e || 10632 === e || 10633 === e || 10634 === e || 10635 === e || 10636 === e || 10637 === e || 10638 === e || 10639 === e || 10640 === e || 10641 === e || 10642 === e || 10643 === e || 10644 === e || 10645 === e || 10646 === e || 10647 === e || 10648 === e || e >= 10649 && e <= 10711 || 10712 === e || 10713 === e || 10714 === e || 10715 === e || e >= 10716 && e <= 10747 || 10748 === e || 10749 === e || e >= 10750 && e <= 11007 || e >= 11008 && e <= 11055 || e >= 11056 && e <= 11076 || e >= 11077 && e <= 11078 || e >= 11079 && e <= 11084 || e >= 11085 && e <= 11123 || e >= 11124 && e <= 11125 || e >= 11126 && e <= 11157 || 11158 === e || e >= 11159 && e <= 11263 || e >= 11776 && e <= 11777 || 11778 === e || 11779 === e || 11780 === e || 11781 === e || e >= 11782 && e <= 11784 || 11785 === e || 11786 === e || 11787 === e || 11788 === e || 11789 === e || e >= 11790 && e <= 11798 || 11799 === e || e >= 11800 && e <= 11801 || 11802 === e || 11803 === e || 11804 === e || 11805 === e || e >= 11806 && e <= 11807 || 11808 === e || 11809 === e || 11810 === e || 11811 === e || 11812 === e || 11813 === e || 11814 === e || 11815 === e || 11816 === e || 11817 === e || e >= 11818 && e <= 11822 || 11823 === e || e >= 11824 && e <= 11833 || e >= 11834 && e <= 11835 || e >= 11836 && e <= 11839 || 11840 === e || 11841 === e || 11842 === e || e >= 11843 && e <= 11855 || e >= 11856 && e <= 11857 || 11858 === e || e >= 11859 && e <= 11903 || e >= 12289 && e <= 12291 || 12296 === e || 12297 === e || 12298 === e || 12299 === e || 12300 === e || 12301 === e || 12302 === e || 12303 === e || 12304 === e || 12305 === e || e >= 12306 && e <= 12307 || 12308 === e || 12309 === e || 12310 === e || 12311 === e || 12312 === e || 12313 === e || 12314 === e || 12315 === e || 12316 === e || 12317 === e || e >= 12318 && e <= 12319 || 12320 === e || 12336 === e || 64830 === e || 64831 === e || e >= 65093 && e <= 65094;
-  }
-  function Un(e) {
-    e.forEach(function (e) {
-      if (delete e.location, Wi(e) || Vi(e)) for (var t in e.options) delete e.options[t].location, Un(e.options[t].value);else Ri(e) && qi(e.style) || (Fi(e) || Yi(e)) && Ki(e.style) ? delete e.style.location : Gi(e) && Un(e.children);
-    });
-  }
-  function Bn(e, t) {
-    void 0 === t && (t = {}), t = i({
-      shouldParseSkeletons: !0,
-      requiresOtherClause: !0
-    }, t);
-    var a = new jn(e, t).parse();
-    if (a.err) {
-      var n = SyntaxError(ji[a.err.kind]);
-      throw n.location = a.err.location, n.originalMessage = a.err.message, n;
-    }
-    return (null == t ? void 0 : t.captureLocation) || Un(a.val), a.val;
-  }
-  !function (e) {
-    e.MISSING_VALUE = "MISSING_VALUE", e.INVALID_VALUE = "INVALID_VALUE", e.MISSING_INTL_API = "MISSING_INTL_API";
-  }(On || (On = {}));
-  var Rn,
-    Fn = function (e) {
-      function t(t, a, i) {
-        var n = e.call(this, t) || this;
-        return n.code = a, n.originalMessage = i, n;
-      }
-      return a(t, e), t.prototype.toString = function () {
-        return "[formatjs Error: ".concat(this.code, "] ").concat(this.message);
-      }, t;
-    }(Error),
-    Yn = function (e) {
-      function t(t, a, i, n) {
-        return e.call(this, 'Invalid values for "'.concat(t, '": "').concat(a, '". Options are "').concat(Object.keys(i).join('", "'), '"'), On.INVALID_VALUE, n) || this;
-      }
-      return a(t, e), t;
-    }(Fn),
-    Wn = function (e) {
-      function t(t, a, i) {
-        return e.call(this, 'Value for "'.concat(t, '" must be of type ').concat(a), On.INVALID_VALUE, i) || this;
-      }
-      return a(t, e), t;
-    }(Fn),
-    Vn = function (e) {
-      function t(t, a) {
-        return e.call(this, 'The intl string context variable "'.concat(t, '" was not provided to the string "').concat(a, '"'), On.MISSING_VALUE, a) || this;
-      }
-      return a(t, e), t;
-    }(Fn);
-  function Zn(e) {
-    return "function" == typeof e;
-  }
-  function Gn(e, t, a, i, n, s, r) {
-    if (1 === e.length && Ui(e[0])) return [{
-      type: Rn.literal,
-      value: e[0].value
-    }];
-    for (var o = [], l = 0, d = e; l < d.length; l++) {
-      var u = d[l];
-      if (Ui(u)) o.push({
-        type: Rn.literal,
-        value: u.value
-      });else if (Zi(u)) "number" == typeof s && o.push({
-        type: Rn.literal,
-        value: a.getNumberFormat(t).format(s)
-      });else {
-        var c = u.value;
-        if (!n || !(c in n)) throw new Vn(c, r);
-        var h = n[c];
-        if (Bi(u)) h && "string" != typeof h && "number" != typeof h || (h = "string" == typeof h || "number" == typeof h ? String(h) : ""), o.push({
-          type: "string" == typeof h ? Rn.literal : Rn.object,
-          value: h
-        });else if (Fi(u)) {
-          var p = "string" == typeof u.style ? i.date[u.style] : Ki(u.style) ? u.style.parsedOptions : void 0;
-          o.push({
-            type: Rn.literal,
-            value: a.getDateTimeFormat(t, p).format(h)
-          });
-        } else if (Yi(u)) {
-          p = "string" == typeof u.style ? i.time[u.style] : Ki(u.style) ? u.style.parsedOptions : i.time.medium;
-          o.push({
-            type: Rn.literal,
-            value: a.getDateTimeFormat(t, p).format(h)
-          });
-        } else if (Ri(u)) {
-          (p = "string" == typeof u.style ? i.number[u.style] : qi(u.style) ? u.style.parsedOptions : void 0) && p.scale && (h *= p.scale || 1), o.push({
-            type: Rn.literal,
-            value: a.getNumberFormat(t, p).format(h)
-          });
-        } else {
-          if (Gi(u)) {
-            var g = u.children,
-              m = u.value,
-              f = n[m];
-            if (!Zn(f)) throw new Wn(m, "function", r);
-            var v = f(Gn(g, t, a, i, n, s).map(function (e) {
-              return e.value;
-            }));
-            Array.isArray(v) || (v = [v]), o.push.apply(o, v.map(function (e) {
-              return {
-                type: "string" == typeof e ? Rn.literal : Rn.object,
-                value: e
-              };
-            }));
-          }
-          if (Wi(u)) {
-            if (!(b = u.options[h] || u.options.other)) throw new Yn(u.value, h, Object.keys(u.options), r);
-            o.push.apply(o, Gn(b.value, t, a, i, n));
-          } else if (Vi(u)) {
-            var b;
-            if (!(b = u.options["=".concat(h)])) {
-              if (!Intl.PluralRules) throw new Fn('Intl.PluralRules is not available in this environment.\nTry polyfilling it using "@formatjs/intl-pluralrules"\n', On.MISSING_INTL_API, r);
-              var _ = a.getPluralRules(t, {
-                type: u.pluralType
-              }).select(h - (u.offset || 0));
-              b = u.options[_] || u.options.other;
-            }
-            if (!b) throw new Yn(u.value, h, Object.keys(u.options), r);
-            o.push.apply(o, Gn(b.value, t, a, i, n, h - (u.offset || 0)));
-          } else ;
-        }
-      }
-    }
-    return function (e) {
-      return e.length < 2 ? e : e.reduce(function (e, t) {
-        var a = e[e.length - 1];
-        return a && a.type === Rn.literal && t.type === Rn.literal ? a.value += t.value : e.push(t), e;
-      }, []);
-    }(o);
-  }
-  function qn(e, t) {
-    return t ? Object.keys(e).reduce(function (a, n) {
-      var s, r;
-      return a[n] = (s = e[n], (r = t[n]) ? i(i(i({}, s || {}), r || {}), Object.keys(s).reduce(function (e, t) {
-        return e[t] = i(i({}, s[t]), r[t] || {}), e;
-      }, {})) : s), a;
-    }, i({}, e)) : e;
-  }
-  function Kn(e) {
-    return {
-      create: function () {
-        return {
-          get: function (t) {
-            return e[t];
-          },
-          set: function (t, a) {
-            e[t] = a;
-          }
-        };
-      }
-    };
-  }
-  !function (e) {
-    e[e.literal = 0] = "literal", e[e.object = 1] = "object";
-  }(Rn || (Rn = {}));
-  var Xn = function () {
-      function e(t, a, n, r) {
-        void 0 === a && (a = e.defaultLocale);
-        var o,
-          l = this;
-        if (this.formatterCache = {
-          number: {},
-          dateTime: {},
-          pluralRules: {}
-        }, this.format = function (e) {
-          var t = l.formatToParts(e);
-          if (1 === t.length) return t[0].value;
-          var a = t.reduce(function (e, t) {
-            return e.length && t.type === Rn.literal && "string" == typeof e[e.length - 1] ? e[e.length - 1] += t.value : e.push(t.value), e;
-          }, []);
-          return a.length <= 1 ? a[0] || "" : a;
-        }, this.formatToParts = function (e) {
-          return Gn(l.ast, l.locales, l.formatters, l.formats, e, void 0, l.message);
-        }, this.resolvedOptions = function () {
-          var e;
-          return {
-            locale: (null === (e = l.resolvedLocale) || void 0 === e ? void 0 : e.toString()) || Intl.NumberFormat.supportedLocalesOf(l.locales)[0]
-          };
-        }, this.getAst = function () {
-          return l.ast;
-        }, this.locales = a, this.resolvedLocale = e.resolveLocale(a), "string" == typeof t) {
-          if (this.message = t, !e.__parse) throw new TypeError("IntlMessageFormat.__parse must be set to process `message` of type `string`");
-          var d = r || {};
-          d.formatters;
-          var u = function (e, t) {
-            var a = {};
-            for (var i in e) Object.prototype.hasOwnProperty.call(e, i) && t.indexOf(i) < 0 && (a[i] = e[i]);
-            if (null != e && "function" == typeof Object.getOwnPropertySymbols) {
-              var n = 0;
-              for (i = Object.getOwnPropertySymbols(e); n < i.length; n++) t.indexOf(i[n]) < 0 && Object.prototype.propertyIsEnumerable.call(e, i[n]) && (a[i[n]] = e[i[n]]);
-            }
-            return a;
-          }(d, ["formatters"]);
-          this.ast = e.__parse(t, i(i({}, u), {
-            locale: this.resolvedLocale
-          }));
-        } else this.ast = t;
-        if (!Array.isArray(this.ast)) throw new TypeError("A message must be provided as a String or AST.");
-        this.formats = qn(e.formats, n), this.formatters = r && r.formatters || (void 0 === (o = this.formatterCache) && (o = {
-          number: {},
-          dateTime: {},
-          pluralRules: {}
-        }), {
-          getNumberFormat: Ei(function () {
-            for (var e, t = [], a = 0; a < arguments.length; a++) t[a] = arguments[a];
-            return new ((e = Intl.NumberFormat).bind.apply(e, s([void 0], t, !1)))();
-          }, {
-            cache: Kn(o.number),
-            strategy: Ii.variadic
-          }),
-          getDateTimeFormat: Ei(function () {
-            for (var e, t = [], a = 0; a < arguments.length; a++) t[a] = arguments[a];
-            return new ((e = Intl.DateTimeFormat).bind.apply(e, s([void 0], t, !1)))();
-          }, {
-            cache: Kn(o.dateTime),
-            strategy: Ii.variadic
-          }),
-          getPluralRules: Ei(function () {
-            for (var e, t = [], a = 0; a < arguments.length; a++) t[a] = arguments[a];
-            return new ((e = Intl.PluralRules).bind.apply(e, s([void 0], t, !1)))();
-          }, {
-            cache: Kn(o.pluralRules),
-            strategy: Ii.variadic
-          })
-        });
-      }
-      return Object.defineProperty(e, "defaultLocale", {
-        get: function () {
-          return e.memoizedDefaultLocale || (e.memoizedDefaultLocale = new Intl.NumberFormat().resolvedOptions().locale), e.memoizedDefaultLocale;
-        },
-        enumerable: !1,
-        configurable: !0
-      }), e.memoizedDefaultLocale = null, e.resolveLocale = function (e) {
-        if (void 0 !== Intl.Locale) {
-          var t = Intl.NumberFormat.supportedLocalesOf(e);
-          return t.length > 0 ? new Intl.Locale(t[0]) : new Intl.Locale("string" == typeof e ? e : e[0]);
-        }
-      }, e.__parse = Bn, e.formats = {
-        number: {
-          integer: {
-            maximumFractionDigits: 0
-          },
-          currency: {
-            style: "currency"
-          },
-          percent: {
-            style: "percent"
-          }
-        },
-        date: {
-          short: {
-            month: "numeric",
-            day: "numeric",
-            year: "2-digit"
-          },
-          medium: {
-            month: "short",
-            day: "numeric",
-            year: "numeric"
-          },
-          long: {
-            month: "long",
-            day: "numeric",
-            year: "numeric"
-          },
-          full: {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            year: "numeric"
-          }
-        },
-        time: {
-          short: {
-            hour: "numeric",
-            minute: "numeric"
-          },
-          medium: {
-            hour: "numeric",
-            minute: "numeric",
-            second: "numeric"
-          },
-          long: {
-            hour: "numeric",
-            minute: "numeric",
-            second: "numeric",
-            timeZoneName: "short"
-          },
-          full: {
-            hour: "numeric",
-            minute: "numeric",
-            second: "numeric",
-            timeZoneName: "short"
-          }
-        }
-      }, e;
-    }(),
-    Jn = Xn;
-  const Qn = {
-    de: Yt,
-    en: ia,
-    es: fa,
-    fr: Ta,
-    it: Ra,
-    nl: ti,
-    no: gi,
-    sk: Ai
-  };
-  function es(e, t, ...a) {
-    const i = t.replace(/['"]+/g, "");
-    let n;
-    try {
-      n = e.split(".").reduce((e, t) => e[t], Qn[i]);
-    } catch (t) {
-      n = e.split(".").reduce((e, t) => e[t], Qn.en);
-    }
-    if (void 0 === n && (n = e.split(".").reduce((e, t) => e[t], Qn.en)), !a.length) return n;
-    const s = {};
-    for (let e = 0; e < a.length; e += 2) {
-      let t = a[e];
-      t = t.replace(/^{([^}]+)?}$/, "$1"), s[t] = a[e + 1];
-    }
-    try {
-      return new Jn(n, t).format(s);
-    } catch (e) {
-      return "Translation " + e;
-    }
-  }
-  const ts = c`
+    e.Sunrise = "sunrise", e.Sunset = "sunset", e.SolarAzimuth = "solar_azimuth";
+  }(Ht || (Ht = {})), function (e) {
+    e.Disabled = "disabled", e.Manual = "manual", e.Automatic = "automatic";
+  }(Pt || (Pt = {}));
+  const Lt = c`
   /* Existing common styles */
   ha-card {
     display: flex;
@@ -7494,716 +1531,6012 @@
     margin-bottom: 10px;
   }
 `;
-  let as = class extends Dt(de) {
-    constructor() {
-      super(...arguments), this.isLoading = !0, this.isSaving = !1, this._updateScheduled = !1, this.debouncedSave = (() => {
-        let e = null;
-        return t => {
-          e && clearTimeout(e), e = window.setTimeout(() => {
-            this.saveData(t), e = null;
-          }, 500);
-        };
-      })();
-    }
-    _scheduleUpdate() {
-      this._updateScheduled || (this._updateScheduled = !0, requestAnimationFrame(() => {
-        this._updateScheduled = !1, this.requestUpdate();
-      }));
-    }
-    hassSubscribe() {
-      return this._fetchData().catch(e => {
-        console.error("Failed to fetch initial data:", e);
-      }), [this.hass.connection.subscribeMessage(() => {
-        this._fetchData().catch(e => {
-          console.error("Failed to fetch data on config update:", e);
-        });
-      }, {
-        type: Se + "_config_updated"
-      })];
-    }
-    async _fetchData() {
-      if (this.hass) {
-        this.isLoading = !0, this._scheduleUpdate();
-        try {
-          this.config = await $t(this.hass), this.data = (e = this.config, t = ["calctime", "autocalcenabled", "autoupdateenabled", "autoupdateschedule", "autoupdatefirsttime", "autoupdateinterval", "autoclearenabled", "cleardatatime", "continuousupdates", "sensor_debounce", "manual_coordinates_enabled", "manual_latitude", "manual_longitude", "manual_elevation", "days_between_irrigation"], e ? Object.entries(e).filter(([e]) => t.includes(e)).reduce((e, [t, a]) => Object.assign(e, {
-            [t]: a
-          }), {}) : {});
-        } catch (e) {
-          console.error("Error fetching data:", e);
-        } finally {
-          this.isLoading = !1, this._scheduleUpdate();
+  var It = {
+      actions: {
+        delete: "Lösche",
+        edit: "Bearbeiten",
+        save: "Speichern",
+        cancel: "Abbrechen"
+      },
+      labels: {
+        module: "Modul",
+        no: "Nein",
+        select: "Wähle",
+        yes: "Ja",
+        enabled: "Aktiviert",
+        disabled: "Deaktiviert",
+        before: "vor",
+        after: "nach"
+      },
+      attributes: {
+        size: "Größe",
+        throughput: "Durchfluss",
+        state: "Zustand",
+        bucket: "Eimer",
+        last_updated: "zuletzt aktualisiert",
+        last_calculated: "zuletzt berechnet",
+        number_of_data_points: "Anzahl Datenpunkte"
+      },
+      loading: "Laden",
+      saving: "Speichern",
+      units: {
+        seconds: "Sekunden"
+      },
+      "loading-messages": {
+        configuration: "Konfiguration wird geladen...",
+        modules: "Module werden geladen...",
+        general: "Laden..."
+      },
+      "saving-messages": {
+        adding: "Hinzufügen...",
+        saving: "Speichern..."
+      }
+    },
+    Ut = {
+      "default-zone": "Standard Zone",
+      "default-mapping": "Standard Sensorgruppe"
+    },
+    Bt = {
+      calculation: {
+        explanation: {
+          "module-returned-evapotranspiration-deficiency": "Beachte: Diese Beschreibung nutzt '.' als Dezimalzeichen und zeigt gerundete Werte. Das Modul berechnete einen Evapotranspirationsmangel von",
+          "bucket-was": "Der alte Vorrat war",
+          "new-bucket-values-is": "Der neue Vorrat ist",
+          "old-bucket-variable": "alter_Vorrat",
+          delta: "Veränderung",
+          "bucket-less-than-zero-irrigation-necessary": "Wenn der Vorrat < 0 ist, ist eine Bewässerung nötig.",
+          "steps-taken-to-calculate-duration": "Für eine exakte Berechnung der Dauer, wurden folgende Schritte durchgeführt",
+          "precipitation-rate-defined-as": "Der Niederschlag ist",
+          "duration-is-calculated-as": "Die Dauer ist",
+          bucket: "Vorrat",
+          "precipitation-rate-variable": "Niederschlag",
+          "multiplier-is-applied": "Der Multiplikator wird angewendet. Der Multiplikator ist",
+          "duration-after-multiplier-is": "also ist die Dauer",
+          "maximum-duration-is-applied": "Die maximale Dauer wird angewendet. Diese ist",
+          "duration-after-maximum-duration-is": "also ist die Dauer",
+          "lead-time-is-applied": "Zuletzt wird die Vorlaufzeit angewendet. Die Vorlaufzeit ist",
+          "duration-after-lead-time-is": "also ist die Dauer",
+          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Wenn der Vorrat >= 0 ist, ist keine Bewässerung nötig und die Dauer ist gleich",
+          "maximum-bucket-is": "Der maximale Vorrat ist",
+          "max-bucket-variable": "max_bucket",
+          drainage: "drainage",
+          "drainage-rate": "drainage_rate",
+          hours: "hours",
+          "drainage-rate-is": "Drainagerate bei Sättigung (Eimer am Maximum) beträgt",
+          "current-drainage-is": "Aktuelle Drainage berechnet als",
+          "no-drainage": "Aktuelle Drainage ist 0, weil"
         }
-        var e, t;
       }
-    }
-    firstUpdated() {
-      _e().then(() => this._scheduleUpdate()).catch(e => {
-        console.error("Failed to load HA form:", e), this._scheduleUpdate();
-      });
-    }
-    render() {
-      var e, t;
-      return this.hass && this.config && this.data ? this.isLoading ? F`<div class="loading-indicator">
-        ${es("common.loading-messages.general", this.hass.language)}
-      </div>` : F`
-      <ha-card header="${es("panels.general.title", this.hass.language)}">
-        <div class="card-content">
-          ${es("panels.general.description", this.hass.language)}
-        </div>
-      </ha-card>
-      ${this._renderAutoUpdateCard()} ${this._renderAutoCalcCard()}
-      ${this._renderAutoClearCard()} ${this._renderContinuousUpdatesCard()}
-      ${this._renderWeatherSkipCard()} ${this._renderCoordinateCard()}
-      ${this._renderDaysBetweenIrrigationCard()}
-      ${this._renderZoneSequencingCard()}
-    ` : F`<div class="loading-indicator">
-        ${es("common.loading-messages.configuration", null !== (t = null === (e = this.hass) || void 0 === e ? void 0 : e.language) && void 0 !== t ? t : "en")}
-      </div>`;
-    }
-    _renderAutoUpdateCard() {
-      var e, t;
-      return this.hass && this.config && this.data ? F`
-      <ha-card
-        header="${es("panels.general.cards.automatic-update.header", this.hass.language)}"
-      >
-        <div class="card-content description-text">
-          ${es("panels.general.cards.automatic-update.description", this.hass.language)}
-        </div>
-        <div class="card-content">
-          <div class="setting-row">
-            <label>
-              ${es("panels.general.cards.automatic-update.labels.auto-update-enabled", this.hass.language)}
-            </label>
-            <ha-switch
-              .checked="${this.config.autoupdateenabled}"
-              @change="${e => this.handleConfigChange({
-        autoupdateenabled: e.target.checked
-      })}"
-            ></ha-switch>
-          </div>
-          ${this.data.autoupdateenabled ? F`
-                <div class="setting-row">
-                  <label>
-                    ${es("panels.general.cards.automatic-update.labels.auto-update-interval", this.hass.language)}
-                  </label>
-                  <div class="inline-row">
-                    <input
-                      type="number"
-                      class="settings-input shortfield"
-                      min="1"
-                      step="1"
-                      inputmode="numeric"
-                      .value="${null !== (e = this.data.autoupdateinterval) && void 0 !== e ? e : 1}"
-                      @input="${e => {
-        const t = parseInt(e.target.value);
-        isNaN(t) || this.handleConfigChange({
-          autoupdateinterval: t
-        });
-      }}"
-                    />
-                    <ha-select
-                      .value="${this.data.autoupdateschedule || xe}"
-                      @selected="${e => this.handleConfigChange({
-        autoupdateschedule: e.detail.value
-      })}"
-                      @closed="${e => e.stopPropagation()}"
-                    >
-                      <mwc-list-item value="${"minutes"}">
-                        ${es("panels.general.cards.automatic-update.options.minutes", this.hass.language)}
-                      </mwc-list-item>
-                      <mwc-list-item value="${xe}">
-                        ${es("panels.general.cards.automatic-update.options.hours", this.hass.language)}
-                      </mwc-list-item>
-                      <mwc-list-item value="${"days"}">
-                        ${es("panels.general.cards.automatic-update.options.days", this.hass.language)}
-                      </mwc-list-item>
-                    </ha-select>
-                  </div>
-                </div>
-                <div class="setting-row">
-                  <label>
-                    ${es("panels.general.cards.automatic-update.labels.auto-update-delay", this.hass.language)}
-                    (s)
-                  </label>
-                  <input
-                    type="number"
-                    class="settings-input shortfield"
-                    min="0"
-                    step="1"
-                    inputmode="numeric"
-                    .value="${null !== (t = this.config.autoupdatedelay) && void 0 !== t ? t : 0}"
-                    @input="${e => {
-        const t = parseInt(e.target.value);
-        isNaN(t) || this.handleConfigChange({
-          autoupdatedelay: t
-        });
-      }}"
-                  />
-                </div>
-              ` : ""}
-        </div>
-      </ha-card>
-    ` : F``;
-    }
-    _renderAutoCalcCard() {
-      return this.hass && this.config && this.data ? F`
-      <ha-card
-        header="${es("panels.general.cards.automatic-duration-calculation.header", this.hass.language)}"
-      >
-        <div class="card-content description-text">
-          ${es("panels.general.cards.automatic-duration-calculation.description", this.hass.language)}
-        </div>
-        <div class="card-content">
-          <div class="setting-row">
-            <label>
-              ${es("panels.general.cards.automatic-duration-calculation.labels.auto-calc-enabled", this.hass.language)}
-            </label>
-            <ha-switch
-              .checked="${this.config.autocalcenabled}"
-              @change="${e => this.handleConfigChange({
-        autocalcenabled: e.target.checked
-      })}"
-            ></ha-switch>
-          </div>
-          ${this.data.autocalcenabled ? F`
-                <div class="setting-row">
-                  <label>
-                    ${es("panels.general.cards.automatic-duration-calculation.labels.calc-time", this.hass.language)}
-                  </label>
-                  <input
-                    type="text"
-                    class="settings-input shortfield"
-                    .value="${this.config.calctime}"
-                    @input="${e => this.handleConfigChange({
-        calctime: e.target.value
-      })}"
-                  />
-                </div>
-              ` : ""}
-        </div>
-      </ha-card>
-    ` : F``;
-    }
-    _renderAutoClearCard() {
-      return this.hass && this.config && this.data ? F`
-      <ha-card
-        header="${es("panels.general.cards.automatic-clear.header", this.hass.language)}"
-      >
-        <div class="card-content description-text">
-          ${es("panels.general.cards.automatic-clear.description", this.hass.language)}
-        </div>
-        <div class="card-content">
-          <div class="setting-row">
-            <label>
-              ${es("panels.general.cards.automatic-clear.labels.automatic-clear-enabled", this.hass.language)}
-            </label>
-            <ha-switch
-              .checked="${this.config.autoclearenabled}"
-              @change="${e => this.handleConfigChange({
-        autoclearenabled: e.target.checked
-      })}"
-            ></ha-switch>
-          </div>
-          ${this.data.autoclearenabled ? F`
-                <div class="setting-row">
-                  <label>
-                    ${es("panels.general.cards.automatic-clear.labels.automatic-clear-time", this.hass.language)}
-                  </label>
-                  <input
-                    type="text"
-                    class="settings-input shortfield"
-                    .value="${this.config.cleardatatime}"
-                    @input="${e => this.handleConfigChange({
-        cleardatatime: e.target.value
-      })}"
-                  />
-                </div>
-              ` : ""}
-        </div>
-      </ha-card>
-    ` : F``;
-    }
-    _renderContinuousUpdatesCard() {
-      var e;
-      return this.hass && this.config && this.data ? F`
-      <ha-card
-        header="${es("panels.general.cards.continuousupdates.header", this.hass.language)}"
-      >
-        <div class="card-content description-text">
-          ${es("panels.general.cards.continuousupdates.description", this.hass.language)}
-        </div>
-        <div class="card-content">
-          <div class="setting-row">
-            <label>
-              ${es("panels.general.cards.continuousupdates.labels.continuousupdates", this.hass.language)}
-            </label>
-            <ha-switch
-              .checked="${this.config.continuousupdates}"
-              @change="${e => this.handleConfigChange({
-        continuousupdates: e.target.checked
-      })}"
-            ></ha-switch>
-          </div>
-          ${this.data.continuousupdates ? F`
-                <div class="setting-row">
-                  <label>
-                    ${es("panels.general.cards.continuousupdates.labels.sensor_debounce", this.hass.language)}
-                    (ms)
-                  </label>
-                  <input
-                    type="number"
-                    class="settings-input shortfield"
-                    min="0"
-                    step="1"
-                    inputmode="numeric"
-                    .value="${null !== (e = this.config.sensor_debounce) && void 0 !== e ? e : 100}"
-                    @input="${e => {
-        const t = parseInt(e.target.value);
-        isNaN(t) || this.handleConfigChange({
-          sensor_debounce: t
-        });
-      }}"
-                  />
-                </div>
-              ` : ""}
-        </div>
-      </ha-card>
-    ` : F``;
-    }
-    _renderWeatherSkipCard() {
-      var e, t, a;
-      return this.hass && this.config && this.data ? F`
-      <ha-card header="${es("weather_skip.title", this.hass.language)}">
-        <div class="card-content description-text">
-          ${es("weather_skip.description", this.hass.language)}
-        </div>
-        <div class="card-content">
-          <div class="setting-row">
-            <label>
-              ${es("weather_skip.threshold_label", this.hass.language)}
-            </label>
-            <ha-switch
-              .checked="${this.config.skip_irrigation_on_precipitation}"
-              @change="${e => this.handleConfigChange({
-        skip_irrigation_on_precipitation: e.target.checked
-      })}"
-            ></ha-switch>
-          </div>
-          ${this.config.skip_irrigation_on_precipitation ? F`
-                <div class="setting-row">
-                  <label>
-                    ${es("weather_skip.threshold_label", this.hass.language)}
-                    (${kt(this.config, $e)})
-                  </label>
-                  <input
-                    type="number"
-                    class="settings-input shortfield"
-                    min="0"
-                    step="0.1"
-                    inputmode="decimal"
-                    .value="${null !== (e = this.config.precipitation_threshold_mm) && void 0 !== e ? e : 2}"
-                    @input="${e => {
-        const t = parseFloat(e.target.value);
-        isNaN(t) || this.handleConfigChange({
-          precipitation_threshold_mm: t
-        });
-      }}"
-                  />
-                </div>
-              ` : ""}
-
-          <div class="section-divider">
-            ${es("weather_skip.temp_section_title", this.hass.language)}
-          </div>
-          <div class="setting-row">
-            <label>
-              ${es("weather_skip.temp_section_title", this.hass.language)}
-            </label>
-            <ha-switch
-              .checked="${this.config.skip_on_temp_enabled}"
-              @change="${e => this.handleConfigChange({
-        skip_on_temp_enabled: e.target.checked
-      })}"
-            ></ha-switch>
-          </div>
-          ${this.config.skip_on_temp_enabled ? F`
-                <div class="setting-row">
-                  <label>
-                    ${es("weather_skip.temp_threshold_label", this.hass.language)}
-                    (°C)
-                  </label>
-                  <input
-                    type="number"
-                    class="settings-input shortfield"
-                    step="0.5"
-                    .value="${null !== (t = this.config.temp_threshold) && void 0 !== t ? t : 5}"
-                    @input="${e => {
-        const t = parseFloat(e.target.value);
-        isNaN(t) || this.handleConfigChange({
-          temp_threshold: t
-        });
-      }}"
-                  />
-                </div>
-              ` : ""}
-
-          <div class="section-divider">
-            ${es("weather_skip.wind_section_title", this.hass.language)}
-          </div>
-          <div class="setting-row">
-            <label>
-              ${es("weather_skip.wind_section_title", this.hass.language)}
-            </label>
-            <ha-switch
-              .checked="${this.config.skip_on_wind_enabled}"
-              @change="${e => this.handleConfigChange({
-        skip_on_wind_enabled: e.target.checked
-      })}"
-            ></ha-switch>
-          </div>
-          ${this.config.skip_on_wind_enabled ? F`
-                <div class="setting-row">
-                  <label>
-                    ${es("weather_skip.wind_threshold_label", this.hass.language)}
-                    (m/s)
-                  </label>
-                  <input
-                    type="number"
-                    class="settings-input shortfield"
-                    min="0"
-                    step="0.1"
-                    inputmode="decimal"
-                    .value="${null !== (a = this.config.wind_threshold) && void 0 !== a ? a : 6.9}"
-                    @input="${e => {
-        const t = parseFloat(e.target.value);
-        isNaN(t) || this.handleConfigChange({
-          wind_threshold: t
-        });
-      }}"
-                  />
-                </div>
-              ` : ""}
-
-          <div class="section-divider">
-            ${es("weather_skip.rain_sensor_section_title", this.hass.language)}
-          </div>
-          <div class="setting-row">
-            <label>
-              ${es("weather_skip.rain_sensor_label", this.hass.language)}
-            </label>
-            <ha-entity-picker
-              .hass="${this.hass}"
-              .value="${this.config.rain_sensor || ""}"
-              .includeDomains="${["binary_sensor"]}"
-              allow-custom-entity
-              @value-changed="${e => this.handleConfigChange({
-        rain_sensor: e.detail.value || null
-      })}"
-            ></ha-entity-picker>
-          </div>
-        </div>
-      </ha-card>
-    ` : F``;
-    }
-    _renderCoordinateCard() {
-      var e, t, a;
-      if (!this.hass || !this.config || !this.data) return F``;
-      const i = this.hass.config,
-        n = (null == i ? void 0 : i.latitude) || 0,
-        s = (null == i ? void 0 : i.longitude) || 0,
-        r = (null == i ? void 0 : i.elevation) || 0;
-      return F`
-      <ha-card
-        header="${es("coordinate_config.title", this.hass.language)}"
-      >
-        <div class="card-content description-text">
-          ${es("coordinate_config.description", this.hass.language)}
-        </div>
-        <div class="card-content">
-          <div class="setting-row">
-            <label>
-              ${es("coordinate_config.manual_enabled", this.hass.language)}
-            </label>
-            <ha-switch
-              .checked="${this.config.manual_coordinates_enabled}"
-              @change="${e => this.handleConfigChange({
-        manual_coordinates_enabled: e.target.checked
-      })}"
-            ></ha-switch>
-          </div>
-          ${this.config.manual_coordinates_enabled ? F`
-                <div class="setting-row">
-                  <label>
-                    ${es("coordinate_config.latitude", this.hass.language)}
-                  </label>
-                  <input
-                    type="number"
-                    class="settings-input shortfield"
-                    min="-90"
-                    max="90"
-                    step="0.000001"
-                    inputmode="decimal"
-                    .value="${null !== (e = this.config.manual_latitude) && void 0 !== e ? e : n}"
-                    @input="${e => {
-        const t = parseFloat(e.target.value);
-        isNaN(t) || this.handleConfigChange({
-          manual_latitude: t
-        });
-      }}"
-                  />
-                </div>
-                <div class="setting-row">
-                  <label>
-                    ${es("coordinate_config.longitude", this.hass.language)}
-                  </label>
-                  <input
-                    type="number"
-                    class="settings-input shortfield"
-                    min="-180"
-                    max="180"
-                    step="0.000001"
-                    inputmode="decimal"
-                    .value="${null !== (t = this.config.manual_longitude) && void 0 !== t ? t : s}"
-                    @input="${e => {
-        const t = parseFloat(e.target.value);
-        isNaN(t) || this.handleConfigChange({
-          manual_longitude: t
-        });
-      }}"
-                  />
-                </div>
-                <div class="setting-row">
-                  <label>
-                    ${es("coordinate_config.elevation", this.hass.language)}
-                  </label>
-                  <input
-                    type="number"
-                    class="settings-input shortfield"
-                    min="-1000"
-                    max="9000"
-                    step="1"
-                    inputmode="numeric"
-                    .value="${null !== (a = this.config.manual_elevation) && void 0 !== a ? a : r}"
-                    @input="${e => {
-        const t = parseFloat(e.target.value);
-        isNaN(t) || this.handleConfigChange({
-          manual_elevation: t
-        });
-      }}"
-                  />
-                </div>
-              ` : F`
-                <div
-                  class="card-content"
-                  style="color: var(--secondary-text-color); font-style: italic;"
-                >
-                  ${es("coordinate_config.current_ha_coords", this.hass.language)}:
-                  ${es("coordinate_config.latitude", this.hass.language)}:
-                  ${n},
-                  ${es("coordinate_config.longitude", this.hass.language)}:
-                  ${s},
-                  ${es("coordinate_config.elevation", this.hass.language)}:
-                  ${r}m
-                </div>
-              `}
-        </div>
-      </ha-card>
-    `;
-    }
-    _renderDaysBetweenIrrigationCard() {
-      var e;
-      return this.hass && this.config && this.data ? F`
-      <ha-card
-        header="${es("days_between_irrigation.title", this.hass.language)}"
-      >
-        <div class="card-content description-text">
-          ${es("days_between_irrigation.description", this.hass.language)}
-        </div>
-        <div class="card-content">
-          <div class="setting-row">
-            <label>
-              ${es("days_between_irrigation.label", this.hass.language)}
-              <div class="setting-description">
-                ${es("days_between_irrigation.help_text", this.hass.language)}
-              </div>
-            </label>
-            <input
-              type="number"
-              class="settings-input shortfield"
-              min="0"
-              max="365"
-              step="1"
-              inputmode="numeric"
-              .value="${null !== (e = this.config.days_between_irrigation) && void 0 !== e ? e : 0}"
-              @input="${e => {
-        const t = e.target.valueAsNumber;
-        isNaN(t) || this.handleConfigChange({
-          days_between_irrigation: Math.round(t)
-        });
-      }}"
-            />
-          </div>
-        </div>
-      </ha-card>
-    ` : F``;
-    }
-    _renderZoneSequencingCard() {
-      return this.hass && this.config && this.data ? F`
-      <ha-card
-        header="${es("zone_sequencing.title", this.hass.language)}"
-      >
-        <div class="card-content description-text">
-          ${es("zone_sequencing.description", this.hass.language)}
-        </div>
-        <div class="card-content">
-          <div class="setting-row">
-            <label>
-              ${es("zone_sequencing.title", this.hass.language)}
-            </label>
-            <ha-select
-              .value="${this.config.zone_sequencing || ft}"
-              @selected="${e => this.handleConfigChange({
-        [mt]: e.detail.value
-      })}"
-              @closed="${e => e.stopPropagation()}"
-            >
-              <mwc-list-item value="${ft}">
-                ${es("zone_sequencing.parallel", this.hass.language)}
-              </mwc-list-item>
-              <mwc-list-item value="${"sequential"}">
-                ${es("zone_sequencing.sequential", this.hass.language)}
-              </mwc-list-item>
-            </ha-select>
-          </div>
-        </div>
-      </ha-card>
-    ` : F``;
-    }
-    async saveData(e) {
-      if (this.hass && this.data) {
-        this.isSaving = !0, this._scheduleUpdate();
-        try {
-          this.data = Object.assign(Object.assign({}, this.data), e), this._scheduleUpdate(), await (t = this.hass, a = this.data, t.callApi("POST", Se + "/config", a));
-        } catch (e) {
-          console.error("Error saving config:", e), zt(e, this.shadowRoot.querySelector("ha-card")), await this._fetchData();
-        } finally {
-          this.isSaving = !1, this._scheduleUpdate();
+    },
+    Rt = {
+      pyeto: {
+        description: "Die Berechnung der Verunstungsrate basiert auf der FAO56-Formel aus der PyETO-Bibliothek"
+      },
+      static: {
+        description: "Modul mit einer statisch konfigurierbaren Verdunstungsrate."
+      },
+      passthrough: {
+        description: "Pass Through übernimmt den Evapotranspirationssensor und gibt seinen Wert zurück. Auf diese Weise werden alle Berechnungen der Verdunstung umgangen, außer der Anwendung von Aggregaten wie Summe, Durchschnitt etc)."
+      }
+    },
+    Ft = {
+      general: {
+        cards: {
+          "automatic-duration-calculation": {
+            header: "Automatische Berechnung der Bewässerungsdauer",
+            description: "Die Berechnung berücksichtigt die bis zu diesem Zeitpunkt gesammelten Wetterdaten und aktualisiert den Vorrat für jede automatische Zone. Anschließend wird die Dauer basierend auf dem neuen Vorrat angepasst und die gesammelten Wetterdaten entfernt.",
+            labels: {
+              "auto-calc-enabled": "Automatische Berechnung der Dauer pro Zone",
+              "auto-calc-time": "Berechne um",
+              "calc-time": "Berechnen um"
+            }
+          },
+          "automatic-update": {
+            errors: {
+              "warning-update-time-on-or-after-calc-time": "Hinweis: Die automatische Aktualisierung der Wetterdaten erfolgt bei oder nach der automatischen Berechnung der Bewässerungsdauer"
+            },
+            header: "Automatische Aktualisierung der Wetterdaten",
+            description: "Die Wetterdaten werden automatisch gesammelt und gespeichert. Zur Berechnung der Zonen und Bewässerungsdauer sind Wetterdaten erforderlich.",
+            labels: {
+              "auto-update-enabled": "Automatisches Update der Wetterdaten",
+              "auto-update-delay": "Update Verzögerung",
+              "auto-update-interval": "Update der Sensordaten alle",
+              "auto-update-schedule": "Aktualisierungsplan",
+              "auto-update-time": "Aktualisieren um"
+            },
+            options: {
+              days: "Tage",
+              hours: "Stunden",
+              minutes: "Minuten"
+            }
+          },
+          "automatic-clear": {
+            header: "Automatisches Löschen der Wetterdaten",
+            description: "Gesammelte Wetterdaten zu einem bestimmten Zeitpunkt automatisch entfernen. Damit wird sicher gestellt, dass keine Wetterdaten von vergangenen Tagen übrig bleiben. Entferne die Wetterdaten nicht vor der Berechnung und verwende diese Option nur, wenn du erwartest, dass das automatische Update Wetterdaten erfasst hat, nachdem der Tag berechnet wurde. Idealerweise sollte dieser Schnitt so spät wie möglich Tag durchgeführt werden.",
+            labels: {
+              "automatic-clear-enabled": "Automatisches Löschen der Wetterdaten",
+              "automatic-clear-time": "Löschen der Wetterdaten um"
+            }
+          },
+          continuousupdates: {
+            header: "Kontinuierliche Sensoraktualisierungen (experimentell)",
+            description: "Experimentelle Funktion für granularere Wetterdaten.",
+            labels: {
+              continuousupdates: "Enable continuous updates",
+              sensor_debounce: "Sensor debounce",
+              "sensor-debounce": "Sensor-Entprellzeit (ms)"
+            }
+          }
+        },
+        description: "Diese Seite ist für allgemeine Einstellungen.",
+        title: "Allgemein"
+      },
+      help: {
+        title: "Hilfe",
+        cards: {
+          "how-to-get-help": {
+            title: "Hilfe bekommen",
+            "first-read-the": "Lies zuerst im",
+            wiki: "Documentation",
+            "if-you-still-need-help": "Benötigst du weiterhin Hilfe, wende dich an das",
+            "community-forum": "Community Forum",
+            "or-open-a": "oder eröffne einen",
+            "github-issue": "Github Issue",
+            "english-only": "nur Englisch"
+          }
         }
-        var t, a;
+      },
+      mappings: {
+        cards: {
+          "add-mapping": {
+            actions: {
+              add: "Hinzufügen"
+            },
+            header: "Sensorgruppe hinzufügen"
+          },
+          mapping: {
+            aggregates: {
+              average: "Durchschnitt",
+              first: "Erster",
+              last: "Letzter",
+              maximum: "Maximum",
+              median: "Median",
+              minimum: "Minimum",
+              sum: "Summe",
+              riemannsum: "Riemann sum",
+              delta: "Delta"
+            },
+            errors: {
+              "cannot-delete-mapping-because-zones-use-it": "Diese Sensorgruppe kann nicht entfernt werden, da sie von mindestens einer Zone verwendet wird.",
+              invalid_source: "Invalid source",
+              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
+            },
+            items: {
+              dewpoint: "Taupunkt",
+              evapotranspiration: "Verdunstung",
+              humidity: "Feuchtigkeit",
+              "maximum temperature": "Maximum-Temperatur",
+              "minimum temperature": "Minimum-Temperatur",
+              precipitation: "Gesamtniederschlag",
+              pressure: "Luftdruck",
+              "solar radiation": "Sonnenstrahlung",
+              temperature: "Temperatur",
+              windspeed: "Windgeschwindigkeit",
+              "current precipitation": "Current precipitation"
+            },
+            pressure_types: {
+              absolute: "absolut",
+              relative: "relativ"
+            },
+            "pressure-type": "Der Luftdruck ist",
+            "sensor-aggregate-of-sensor-values-to-calculate": "des Sensors für die Berechnung.",
+            "sensor-aggregate-use-the": "Nutze den/die/das",
+            "sensor-entity": "Sensor Entität",
+            static_value: "Wert",
+            "input-units": "Sensor Werte in",
+            source: "Quelle",
+            sources: {
+              none: "Keine",
+              weather_service: "Weather service",
+              sensor: "Sensor",
+              static: "Fester Wert"
+            }
+          }
+        },
+        description: "Füge eine oder mehrere Sensorgruppen hinzu, die Wetterdaten von Weather service, Sensoren oder einer Kombination daraus abrufen. Jede Sensorgruppe kann für eine oder mehrere Zonen verwendet werden",
+        labels: {
+          "mapping-name": "Name"
+        },
+        no_items: "Es ist noch keine Sensorgruppe angelegt.",
+        title: "Sensorgruppen",
+        "weather-records": {
+          title: "Weather Records (Last 10)",
+          timestamp: "Time",
+          temperature: "Temp",
+          humidity: "Humidity",
+          precipitation: "Precip",
+          "retrieval-time": "Retrieved",
+          "no-data": "No weather data available for this sensor group"
+        }
+      },
+      modules: {
+        cards: {
+          "add-module": {
+            actions: {
+              add: "Hinzufügen"
+            },
+            header: "Modul hinzufügen"
+          },
+          module: {
+            errors: {
+              "cannot-delete-module-because-zones-use-it": "Dieses Modul kann nicht entfernt werden, da es von mindestens einer Zone verwendet wird."
+            },
+            labels: {
+              configuration: "Konfiguration",
+              required: "Feld ist erforderlich"
+            },
+            "translated-options": {
+              DontEstimate: "Nicht berechnen",
+              EstimateFromSunHours: "Basierend auf den Sonnenstunden",
+              EstimateFromTemp: "Basierend auf der Temperatur",
+              EstimateFromSunHoursAndTemperature: "Basierend auf dem Durchschnitt von Sonnenstunden und Temperatur"
+            }
+          }
+        },
+        description: "Füge ein oder mehrere Module hinzu. Module berechnen die Bewässerungsdauer. Jedes Modul hat seine eigene Konfiguration und kann zur Berechnung der Bewässerungsdauer für eine oder mehrere Zonen verwendet werden.",
+        no_items: "Es ist noch kein Module angelegt.",
+        title: "Module"
+      },
+      zones: {
+        actions: {
+          add: "Hinzufügen",
+          calculate: "Bewässerungsdauer berechnen.",
+          information: "Information",
+          update: "Wetterdaten aktualisieren.",
+          "reset-bucket": "Vorrat zurücksetzen",
+          "view-weather-info": "Wetterdaten anzeigen",
+          "view-weather-info-message": "Weather data available for",
+          "view-watering-calendar": "Bewässerungskalender"
+        },
+        cards: {
+          "add-zone": {
+            actions: {
+              add: "Hinzufügen"
+            },
+            header: "Zone hinzufügen"
+          },
+          "zone-actions": {
+            actions: {
+              "calculate-all": "Alle Zonen berechnen",
+              "update-all": "Alle Zonen aktualisieren",
+              "reset-all-buckets": "Alle Vorräte zurücksetzen",
+              "clear-all-weatherdata": "Alle Wetterdaten löschen"
+            },
+            header: "Aktionen für alle Zonen"
+          }
+        },
+        description: "Füge eine oder mehrere Zonen hinzu. Die Bewässerungsdauer wird pro Zone, abhängig von Größe, Durchsatz, Status, Modul und Sensorgruppe berechnet.",
+        labels: {
+          bucket: "Vorrat",
+          duration: "Dauer",
+          "lead-time": "Vorlaufzeit",
+          mapping: "Sensorgruppe",
+          "maximum-duration": "Maximale Dauer",
+          multiplier: "Multiplikator",
+          name: "Name",
+          size: "Größe",
+          state: "Berechnung",
+          states: {
+            automatic: "Automatisch",
+            disabled: "Aus",
+            manual: "Manuell"
+          },
+          throughput: "Durchfluss",
+          "maximum-bucket": "Maximaler Vorrat",
+          last_calculated: "Zuletzt berechnet",
+          "data-last-updated": "Daten zuletzt aktualisiert",
+          "data-number-of-data-points": "Anzahl der Messungen",
+          drainage_rate: "Drainage rate",
+          linked_entity: "Verknüpfte Schalter/Ventil-Entität",
+          linked_entity_placeholder: "z.B. switch.garten_ventil",
+          irrigate_now: "Jetzt bewässern",
+          bucket_threshold: "Mindestdefizit für Bewässerung"
+        },
+        no_items: "Es ist noch keine Zone vorhanden.",
+        title: "Zonen"
+      },
+      schedules: {
+        title: "Zeitpläne",
+        description: "Erstellen Sie wiederkehrende Zeitpläne für automatische Berechnung, Aktualisierung oder Bewässerung – ohne Automationen.",
+        add: "Zeitplan hinzufügen",
+        no_items: "Noch keine Zeitpläne konfiguriert. Klicken Sie auf 'Zeitplan hinzufügen'.",
+        zones_all: "Alle Zonen",
+        zones_specific: "Bestimmte Zonen",
+        hours: "Stunden",
+        minutes: "Min",
+        types: {
+          daily: "Täglich",
+          weekly: "Wöchentlich",
+          monthly: "Monatlich",
+          interval: "Alle N Stunden",
+          sunrise: "Sonnenaufgang",
+          sunset: "Sonnenuntergang",
+          solar_azimuth: "Sonnenazimut"
+        },
+        actions: {
+          calculate: "Berechnen (Bewässerungsdauer aktualisieren)",
+          update: "Aktualisieren (Wetterdaten sammeln)",
+          irrigate: "Bewässern (Ventile direkt steuern)"
+        },
+        days: {
+          monday: "Mo",
+          tuesday: "Di",
+          wednesday: "Mi",
+          thursday: "Do",
+          friday: "Fr",
+          saturday: "Sa",
+          sunday: "So"
+        },
+        fields: {
+          name: "Name",
+          type: "Zeitplantyp",
+          enabled: "Aktiviert",
+          time: "Uhrzeit (HH:MM)",
+          days_of_week: "Wochentage",
+          day_of_month: "Tag des Monats",
+          interval_hours: "Intervall",
+          action: "Aktion",
+          zones: "Zonen",
+          start_date: "Startdatum (optional)",
+          end_date: "Enddatum (optional)",
+          offset_minutes: "Versatz von Sonnenaufgang/-untergang",
+          account_for_duration: "Früh starten, damit Bewässerung zur Zielzeit endet",
+          azimuth_angle: "Sonnenazimutwinkel"
+        },
+        dialog: {
+          add_title: "Zeitplan hinzufügen",
+          edit_title: "Zeitplan bearbeiten"
+        }
+      },
+      adjustments: {
+        title: "Saisonale Anpassungen",
+        description: "Monatsbasierte Multiplikator- oder Schwellenwertanpassungen für saisonale Bedingungen.",
+        add: "Anpassung hinzufügen",
+        no_items: "Noch keine saisonalen Anpassungen konfiguriert.",
+        zones_all: "Alle Zonen",
+        zones_specific: "Bestimmte Zonen",
+        multiplier_hint: "1,0 = keine Änderung, 1,5 = 50% mehr Bewässerung, 0,5 = 50% weniger",
+        threshold_hint: "Wird zum Zoneneimer addiert. Positiv = mehr Wasser nötig, negativ = weniger.",
+        fields: {
+          name: "Name",
+          enabled: "Aktiviert",
+          month_start: "Von Monat",
+          month_end: "Bis Monat",
+          multiplier_adjustment: "Multiplikatoranpassung",
+          threshold_adjustment: "Schwellenwertanpassung (mm)",
+          zones: "Zonen"
+        },
+        dialog: {
+          add_title: "Saisonale Anpassung hinzufügen",
+          edit_title: "Saisonale Anpassung bearbeiten"
+        }
+      },
+      info: {
+        title: "Info",
+        description: "Nächste Bewässerung und Systemstatus anzeigen.",
+        "configuration-not-available": "Konfiguration nicht verfügbar.",
+        cards: {
+          "zone-bucket-values": {
+            title: "Zoneneimerstand & Dauer",
+            labels: {
+              bucket: "Eimer",
+              duration: "Dauer"
+            },
+            "no-zones": "Keine Zonen konfiguriert"
+          },
+          "next-irrigation": {
+            title: "Nächste Bewässerung",
+            labels: {
+              "next-start": "Nächster Start",
+              duration: "Dauer",
+              zones: "Zonen"
+            },
+            "no-data": "Keine Daten verfügbar"
+          },
+          "irrigation-reason": {
+            title: "Bewässerungsgrund",
+            labels: {
+              reason: "Grund",
+              sunrise: "Sonnenaufgang",
+              "total-duration": "Gesamtdauer",
+              explanation: "Erklärung"
+            },
+            "no-data": "Keine Daten verfügbar"
+          },
+          irrigate_now: {
+            title: "Jetzt bewässern",
+            description: "Bewässerung sofort für alle Zonen mit verknüpfter Entität starten. Übersprungbedingungen werden ignoriert.",
+            button_all: "Alle Zonen jetzt starten",
+            no_linked_zones: "Keine Zonen haben eine verknüpfte Schalter/Ventil-Entität mit berechneter Dauer."
+          }
+        }
       }
-    }
-    handleConfigChange(e) {
-      this.debouncedSave(e);
-    }
-    disconnectedCallback() {
-      super.disconnectedCallback();
-    }
-    static get styles() {
-      return c`
-      ${ts}
-
-      .description-text {
-        font-size: 0.875rem;
-        color: var(--secondary-text-color);
-        padding-bottom: 4px;
+    },
+    Wt = "Smart Irrigation",
+    Yt = {
+      title: "Standortkoordinaten",
+      description: "Konfigurieren Sie Standortkoordinaten für den Abruf von Wetterdaten. Sie können manuelle Koordinaten verwenden, die sich von Ihrem Home Assistant Standort unterscheiden.",
+      manual_enabled: "Manuelle Koordinaten verwenden",
+      use_ha_location: "Home Assistant Standort verwenden",
+      latitude: "Breitengrad (Dezimalgrad)",
+      longitude: "Längengrad (Dezimalgrad)",
+      elevation: "Höhe (Meter über dem Meeresspiegel)",
+      current_ha_coords: "Aktuelle Home Assistant Koordinaten"
+    },
+    Vt = {
+      title: "Tage zwischen Bewässerungen",
+      description: "Konfigurieren Sie die Mindestanzahl an Tagen zwischen Bewässerungsereignissen.",
+      label: "Minimale Tage zwischen Bewässerungen",
+      help_text: "Auf 0 setzen zum Deaktivieren. Werte von 1–365 Tagen werden unterstützt."
+    },
+    Zt = {
+      title: "Irrigation Start Triggers",
+      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
+      add_trigger: "Add Trigger",
+      edit_trigger: "Edit Trigger",
+      delete_trigger: "Delete Trigger",
+      trigger_types: {
+        sunrise: "Sunrise",
+        sunset: "Sunset",
+        solar_azimuth: "Solar Azimuth"
+      },
+      fields: {
+        name: {
+          name: "Trigger Name",
+          description: "A descriptive name to identify this trigger"
+        },
+        type: {
+          name: "Trigger Type",
+          description: "The type of solar event to trigger on"
+        },
+        enabled: {
+          name: "Enabled",
+          description: "Whether this trigger is currently active"
+        },
+        offset_minutes: {
+          name: "Offset (minutes)",
+          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
+        },
+        azimuth_angle: {
+          name: "Azimuth Angle (degrees)",
+          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
+        },
+        account_for_duration: {
+          name: "Account for Duration",
+          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
+        }
+      },
+      dialog: {
+        add_title: "Add Irrigation Start Trigger",
+        edit_title: "Edit Irrigation Start Trigger",
+        cancel: "Cancel",
+        save: "Save",
+        delete: "Delete"
+      },
+      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
+      offset_auto: "Auto (calculated from total zone duration)",
+      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
+      validation: {
+        name_required: "Trigger name is required",
+        azimuth_invalid: "Azimuth angle must be a valid number"
+      },
+      help: {
+        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
+        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
+        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
+        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
       }
-
-      .setting-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 0;
-        border-bottom: 1px solid var(--divider-color);
-        gap: 16px;
+    },
+    Gt = {
+      title: "Übersprungbedingungen",
+      description: "Bewässerung automatisch überspringen, wenn die Bedingungen ungünstig sind. Niederschlagsprüfung, Temperatur und Wind erfordern einen Wetterdienst.",
+      threshold_label: "Niederschlagsschwelle",
+      threshold_description: "Mindestmenge an prognostiziertem Niederschlag (in mm) für heute und morgen, um die Bewässerung zu überspringen.",
+      temp_section_title: "Bei niedriger Temperatur überspringen",
+      temp_threshold_label: "Überspringen wenn Temperatur unter",
+      wind_section_title: "Bei hoher Windgeschwindigkeit überspringen",
+      wind_threshold_label: "Überspringen wenn Windgeschwindigkeit über",
+      rain_sensor_section_title: "Regenmelder-Bedingung",
+      rain_sensor_label: "Regenmelder-Entität (optional)",
+      rain_sensor_placeholder: "z.B. binary_sensor.regen"
+    },
+    qt = {
+      title: "Zonenreihenfolge",
+      description: "Wenn mehrere Zonen bewässert werden müssen, legen Sie fest, ob alle gleichzeitig oder nacheinander laufen. Im sequenziellen Modus wartet das System, bis jede Zone fertig ist, bevor die nächste beginnt.",
+      parallel: "Parallel (alle Zonen gleichzeitig)",
+      sequential: "Sequenziell (eine Zone nach der anderen)"
+    },
+    Kt = {
+      common: It,
+      defaults: Ut,
+      module: Bt,
+      calcmodules: Rt,
+      panels: Ft,
+      title: Wt,
+      coordinate_config: Yt,
+      days_between_irrigation: Vt,
+      irrigation_start_triggers: Zt,
+      weather_skip: Gt,
+      zone_sequencing: qt
+    },
+    Xt = Object.freeze({
+      __proto__: null,
+      common: It,
+      defaults: Ut,
+      module: Bt,
+      calcmodules: Rt,
+      panels: Ft,
+      title: Wt,
+      coordinate_config: Yt,
+      days_between_irrigation: Vt,
+      irrigation_start_triggers: Zt,
+      weather_skip: Gt,
+      zone_sequencing: qt,
+      default: Kt
+    }),
+    Jt = {
+      loading: "Loading",
+      saving: "Saving",
+      actions: {
+        delete: "Delete",
+        edit: "Edit",
+        save: "Save",
+        cancel: "Cancel",
+        confirm_delete: "Confirm Delete",
+        confirm_delete_zone: "Are you sure you want to delete this zone?"
+      },
+      labels: {
+        module: "Module",
+        no: "No",
+        select: "Select",
+        yes: "Yes",
+        enabled: "Enabled",
+        disabled: "Disabled",
+        before: "before",
+        after: "after",
+        settings: "Settings",
+        bulk_actions: "Bulk Actions"
+      },
+      units: {
+        seconds: "seconds"
+      },
+      attributes: {
+        size: "size",
+        throughput: "throughput",
+        state: "state",
+        bucket: "bucket",
+        last_updated: "last updated",
+        last_calculated: "last calculated",
+        number_of_data_points: "number of data points"
+      },
+      "loading-messages": {
+        configuration: "Loading configuration...",
+        modules: "Loading modules...",
+        general: "Loading..."
+      },
+      "saving-messages": {
+        adding: "Adding...",
+        saving: "Saving..."
       }
-
-      .setting-row:last-child {
-        border-bottom: none;
+    },
+    Qt = {
+      "default-zone": "Default zone",
+      "default-mapping": "Default sensor group"
+    },
+    ea = {
+      calculation: {
+        explanation: {
+          "module-returned-evapotranspiration-deficiency": "Note: this explanation uses '.' as decimal separator, shows rounded and metric values. Module returned Evapotranspiration deficiency ( = et0 * hour_multiplier + precipitation) of",
+          "bucket-was": "Bucket was",
+          "new-bucket-values-is": "New bucket value is",
+          bucket: "bucket",
+          "old-bucket-variable": "old_bucket",
+          "max-bucket-variable": "max_bucket",
+          delta: "delta",
+          "bucket-less-than-zero-irrigation-necessary": "Since bucket < 0, irrigation is necessary",
+          "steps-taken-to-calculate-duration": "To calculate the exact duration, the following steps were taken",
+          "precipitation-rate-defined-as": "The precipitation rate is defined as",
+          "duration-is-calculated-as": "The duration is calculated as",
+          drainage: "drainage",
+          "drainage-rate": "drainage_rate",
+          hours: "hours",
+          "precipitation-rate-variable": "precipitation_rate",
+          "multiplier-is-applied": "Now, the multiplier is applied. The multiplier is",
+          "duration-after-multiplier-is": "hence the duration is",
+          "maximum-duration-is-applied": "Then, the maximum duration is applied. The maximum duration is",
+          "duration-after-maximum-duration-is": "hence the duration is",
+          "lead-time-is-applied": "Finally, the lead time is applied. The lead time is",
+          "duration-after-lead-time-is": "hence the final duration is",
+          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Since bucket >= 0, no irrigation is necessary and duration is set to",
+          "maximum-bucket-is": "Maximum bucket size is",
+          "drainage-rate-is": "Drainage rate when saturated (bucket at max) is",
+          "current-drainage-is": "Current drainage is calculated as",
+          "no-drainage": "Current drainage is 0 because"
+        }
       }
-
-      .setting-row label {
-        flex: 1;
-        color: var(--primary-text-color);
-        font-size: 0.9375rem;
+    },
+    ta = {
+      pyeto: {
+        description: "Calculate duration based on the FAO56 calculation from the PyETO library"
+      },
+      static: {
+        description: "'Dummy' module with a static configurable delta"
+      },
+      passthrough: {
+        description: "Passthrough module that returns the value of an Evapotranspiration sensor as delta"
       }
-
-      .setting-description {
-        font-size: 0.8125rem;
-        color: var(--secondary-text-color);
-        margin-top: 2px;
+    },
+    aa = {
+      general: {
+        cards: {
+          "automatic-duration-calculation": {
+            header: "Automatic duration calculation",
+            description: "Calculation takes collected weather data up to that point and updates the bucket for each automatic zone. Then, the duration is adjusted based on the new bucket value and the collected weather data is removed.",
+            labels: {
+              "auto-calc-enabled": "Automatically calculate irrigation durations",
+              "calc-time": "Calculate at"
+            }
+          },
+          "automatic-update": {
+            errors: {
+              "warning-update-time-on-or-after-calc-time": "Warning: weather data update time on or after calculation time"
+            },
+            header: "Automatic weather data update",
+            description: "Collect and store weather data automatically. Weather data is required to calculate zone buckets and durations.",
+            labels: {
+              "auto-update-enabled": "Automatically update weather data",
+              "auto-update-schedule": "Update schedule",
+              "auto-update-time": "Update at",
+              "auto-update-interval": "Update sensor data every",
+              "auto-update-delay": "Update delay"
+            },
+            options: {
+              minutes: "minutes",
+              hours: "hours",
+              days: "days"
+            }
+          },
+          "automatic-clear": {
+            header: "Automatic weather data pruning",
+            description: "Automatically remove collected weather data at a configured time. Use this to make sure that there is no left over weather data from previous days. Don't remove the weather data before you calculate and only use this option if you expect the automatic update to collect weather data after you calculated for the day. Ideally, you want to prune as late in the day as possible.",
+            labels: {
+              "automatic-clear-enabled": "Automatically clear collected weather data",
+              "automatic-clear-time": "Clear weather data at"
+            }
+          },
+          continuousupdates: {
+            header: "Continuous updates for sensors (experimental)",
+            description: "This experimental feature will continuously update the sensor data. This is useful for sensor groups that use sources that provide continuous data, such as weather stations. This feature cannot be used for sensor groups that at least partly rely on weather services as continous polling of APIs will incur costs. Keep in mind that this is experimental and may not work as expected. Use at your own risk.",
+            labels: {
+              continuousupdates: "Enable continuous updates",
+              sensor_debounce: "Sensor debounce"
+            }
+          }
+        },
+        description: "This page provides global settings.",
+        title: "General"
+      },
+      schedules: {
+        title: "Schedules",
+        description: "Create recurring schedules to automatically calculate, update, or irrigate your zones. No automations needed.",
+        add: "Add Schedule",
+        no_items: "No schedules configured yet. Click 'Add Schedule' to get started.",
+        zones_all: "All zones",
+        zones_specific: "Specific zones",
+        hours: "hours",
+        minutes: "min",
+        types: {
+          daily: "Daily",
+          weekly: "Weekly",
+          monthly: "Monthly",
+          interval: "Every N hours",
+          sunrise: "Sunrise",
+          sunset: "Sunset",
+          solar_azimuth: "Solar azimuth"
+        },
+        actions: {
+          calculate: "Calculate (update irrigation duration)",
+          update: "Update (collect weather data)",
+          irrigate: "Irrigate (run valves directly)"
+        },
+        days: {
+          monday: "Mon",
+          tuesday: "Tue",
+          wednesday: "Wed",
+          thursday: "Thu",
+          friday: "Fri",
+          saturday: "Sat",
+          sunday: "Sun"
+        },
+        fields: {
+          name: "Name",
+          type: "Schedule type",
+          enabled: "Enabled",
+          time: "Time (HH:MM)",
+          days_of_week: "Days of week",
+          day_of_month: "Day of month",
+          interval_hours: "Interval",
+          action: "Action",
+          zones: "Zones",
+          start_date: "Start date (optional)",
+          end_date: "End date (optional)",
+          offset_minutes: "Offset from sunrise/sunset",
+          account_for_duration: "Start early so irrigation finishes at trigger time",
+          azimuth_angle: "Solar azimuth angle"
+        },
+        dialog: {
+          add_title: "Add Schedule",
+          edit_title: "Edit Schedule"
+        }
+      },
+      adjustments: {
+        title: "Seasonal Adjustments",
+        description: "Apply month-based multiplier or bucket adjustments to automatically adapt irrigation for seasonal conditions.",
+        add: "Add Adjustment",
+        no_items: "No seasonal adjustments configured yet. Click 'Add Adjustment' to get started.",
+        zones_all: "All zones",
+        zones_specific: "Specific zones",
+        multiplier_hint: "1.0 = no change, 1.5 = 50% more irrigation, 0.5 = 50% less",
+        threshold_hint: "Added to the zone bucket. Positive = more water needed, negative = less.",
+        fields: {
+          name: "Name",
+          enabled: "Enabled",
+          month_start: "From month",
+          month_end: "To month",
+          multiplier_adjustment: "Multiplier adjustment",
+          threshold_adjustment: "Bucket threshold adjustment (mm)",
+          zones: "Zones"
+        },
+        dialog: {
+          add_title: "Add Seasonal Adjustment",
+          edit_title: "Edit Seasonal Adjustment"
+        }
+      },
+      setup: {
+        title: "Setup"
+      },
+      help: {
+        title: "Help",
+        cards: {
+          "how-to-get-help": {
+            title: "How to get help",
+            "first-read-the": "First, read the",
+            wiki: "Documentation",
+            "if-you-still-need-help": "If you still need help reach out on the",
+            "community-forum": "Community forum",
+            "or-open-a": "or open a",
+            "github-issue": "Github Issue",
+            "english-only": "English only"
+          }
+        }
+      },
+      info: {
+        title: "Info",
+        description: "View information about next irrigation and system status.",
+        "configuration-not-available": "Configuration not available.",
+        cards: {
+          "zone-bucket-values": {
+            title: "Zone Bucket Values & Duration",
+            labels: {
+              bucket: "Bucket",
+              duration: "Duration"
+            },
+            "no-zones": "No zones configured"
+          },
+          "next-irrigation": {
+            title: "Next Irrigation",
+            labels: {
+              "next-start": "Next start",
+              duration: "Duration",
+              zones: "Zones"
+            },
+            "no-data": "No data available"
+          },
+          "irrigation-reason": {
+            title: "Irrigation Reason",
+            labels: {
+              reason: "Reason",
+              sunrise: "Sunrise",
+              "total-duration": "Total duration",
+              explanation: "Explanation"
+            },
+            "no-data": "No data available"
+          },
+          irrigate_now: {
+            title: "Irrigate Now",
+            description: "Immediately start irrigation for all zones that have a linked entity. Skip conditions are ignored.",
+            button_all: "Run all zones now",
+            no_linked_zones: "No zones have a linked switch/valve entity with a calculated duration."
+          }
+        }
+      },
+      mappings: {
+        cards: {
+          "add-mapping": {
+            actions: {
+              add: "Add sensor group"
+            },
+            header: "Add sensor groups"
+          },
+          mapping: {
+            aggregates: {
+              average: "Average",
+              first: "First",
+              last: "Last",
+              maximum: "Maximum",
+              median: "Median",
+              minimum: "Minimum",
+              riemannsum: "Riemann sum",
+              sum: "Sum",
+              delta: "Delta"
+            },
+            errors: {
+              "cannot-delete-mapping-because-zones-use-it": "You cannot delete this sensor group because there is at least one zone using it.",
+              invalid_source: "Invalid source",
+              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
+            },
+            items: {
+              dewpoint: "Dewpoint",
+              evapotranspiration: "Evapotranspiration",
+              humidity: "Humidity",
+              "maximum temperature": "Maximum temperature",
+              "minimum temperature": "Minimum temperature",
+              precipitation: "Total precipitation",
+              "current precipitation": "Current precipitation",
+              pressure: "Pressure",
+              "solar radiation": "Solar radiation",
+              temperature: "Temperature",
+              windspeed: "Wind speed"
+            },
+            pressure_types: {
+              absolute: "absolute",
+              relative: "relative"
+            },
+            "pressure-type": "Pressure is",
+            "sensor-aggregate-of-sensor-values-to-calculate": "of sensor values to calculate duration",
+            "sensor-aggregate-use-the": "Use the",
+            "sensor-entity": "Sensor entity",
+            static_value: "Value",
+            "input-units": "Input provides values in",
+            source: "Source",
+            sources: {
+              none: "None",
+              weather_service: "Weather service",
+              sensor: "Sensor",
+              static: "Static value"
+            }
+          }
+        },
+        description: "Add one or more sensor groups that retrieve weather data from Weather service, from sensors or a combination of these. You can map each sensor group to one or more zones",
+        labels: {
+          "mapping-name": "Name"
+        },
+        no_items: "There are no sensor group defined yet.",
+        title: "Sensor Groups",
+        "weather-records": {
+          title: "Weather Records (Last 10)",
+          timestamp: "Time",
+          temperature: "Temp",
+          humidity: "Humidity",
+          precipitation: "Precip",
+          "retrieval-time": "Retrieved",
+          "no-data": "No weather data available for this sensor group"
+        }
+      },
+      modules: {
+        cards: {
+          "add-module": {
+            actions: {
+              add: "Add module"
+            },
+            header: "Add module"
+          },
+          module: {
+            errors: {
+              "cannot-delete-module-because-zones-use-it": "You cannot delete this module because there is at least one zone using it."
+            },
+            labels: {
+              configuration: "Configuration",
+              required: "indicates a required field"
+            },
+            "translated-options": {
+              DontEstimate: "Do not estimate",
+              EstimateFromSunHours: "Estimate from sun hours",
+              EstimateFromTemp: "Estimate from temperature",
+              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
+            }
+          }
+        },
+        description: "Add one or more modules that calculate irrigation duration. Each module comes with its own configuration and can be used to calculate duration for one or more zones.",
+        no_items: "There are no modules defined yet.",
+        title: "Modules"
+      },
+      zones: {
+        actions: {
+          add: "Add",
+          calculate: "Calculate",
+          information: "Information",
+          update: "Update",
+          "reset-bucket": "Reset bucket",
+          "view-weather-info": "View weather data",
+          "view-weather-info-message": "Weather data available for",
+          "view-watering-calendar": "View watering calendar",
+          irrigate_all: "Run All Zones Now"
+        },
+        cards: {
+          "add-zone": {
+            actions: {
+              add: "Add zone"
+            },
+            header: "Add zone"
+          },
+          "zone-actions": {
+            actions: {
+              "calculate-all": "Calculate all zones",
+              "update-all": "Update all zones",
+              "reset-all-buckets": "Reset all buckets",
+              "clear-all-weatherdata": "Clear all weather data"
+            },
+            header: "Actions on all zones"
+          }
+        },
+        description: "Specify one or more irrigation zones here. The irrigation duration is calculated per zone, depending on size, throughput, state, module and sensor group.",
+        labels: {
+          bucket: "Bucket",
+          duration: "Duration",
+          "lead-time": "Lead time",
+          mapping: "Sensor Group",
+          "maximum-duration": "Maximum duration",
+          multiplier: "Multiplier",
+          name: "Name",
+          size: "Size",
+          state: "State",
+          states: {
+            automatic: "Automatic",
+            disabled: "Disabled",
+            manual: "Manual"
+          },
+          throughput: "Throughput",
+          "maximum-bucket": "Maximum bucket",
+          last_calculated: "Last calculated",
+          "data-last-updated": "Data last updated",
+          "data-number-of-data-points": "Number of data points",
+          drainage_rate: "Drainage rate",
+          linked_entity: "Linked switch/valve entity",
+          linked_entity_placeholder: "e.g. switch.garden_valve",
+          flow_sensor: "Flow meter sensor (optional)",
+          flow_sensor_placeholder: "e.g. sensor.zone_flow_rate",
+          irrigate_now: "Irrigate Now",
+          bucket_threshold: "Minimum deficit to irrigate"
+        },
+        no_items: "There are no zones defined yet.",
+        title: "Zones"
       }
-
-      .inline-row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
+    },
+    ia = "Smart Irrigation",
+    na = {
+      title: "Weather Service",
+      description: "Configure which weather service to use for ET calculations and skip conditions.",
+      enabled_label: "Enable weather service",
+      service_label: "Weather service",
+      api_key_label: "API key",
+      api_key_placeholder: "Leave blank to keep existing key",
+      api_key_configured: "API key is configured",
+      api_key_not_configured: "No API key configured",
+      no_api_key_needed: "Open-Meteo is a free service and requires no API key.",
+      save_button: "Save weather settings",
+      saved: "Weather settings saved",
+      owm: "OpenWeatherMap",
+      pw: "Pirate Weather",
+      openmeteo: "Open-Meteo (free, no key needed)"
+    },
+    sa = {
+      title: "Irrigation Start Triggers",
+      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
+      add_trigger: "Add Trigger",
+      edit_trigger: "Edit Trigger",
+      delete_trigger: "Delete Trigger",
+      trigger_types: {
+        sunrise: "Sunrise",
+        sunset: "Sunset",
+        solar_azimuth: "Solar Azimuth"
+      },
+      fields: {
+        name: {
+          name: "Trigger Name",
+          description: "A descriptive name to identify this trigger"
+        },
+        type: {
+          name: "Trigger Type",
+          description: "The type of solar event to trigger on"
+        },
+        enabled: {
+          name: "Enabled",
+          description: "Whether this trigger is currently active"
+        },
+        offset_minutes: {
+          name: "Offset (minutes)",
+          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
+        },
+        azimuth_angle: {
+          name: "Azimuth Angle (degrees)",
+          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
+        },
+        account_for_duration: {
+          name: "Account for Duration",
+          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
+        }
+      },
+      dialog: {
+        add_title: "Add Irrigation Start Trigger",
+        edit_title: "Edit Irrigation Start Trigger",
+        cancel: "Cancel",
+        save: "Save",
+        delete: "Delete"
+      },
+      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
+      offset_auto: "Auto (calculated from total zone duration)",
+      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
+      validation: {
+        name_required: "Trigger name is required",
+        azimuth_invalid: "Azimuth angle must be a valid number"
+      },
+      help: {
+        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
+        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
+        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
+        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
       }
-
-      .section-divider {
-        padding: 12px 0 4px;
-        font-weight: 500;
-        font-size: 0.8125rem;
-        color: var(--secondary-text-color);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        border-top: 1px solid var(--divider-color);
-        margin-top: 8px;
+    },
+    ra = {
+      title: "Skip Conditions",
+      description: "Automatically skip irrigation when conditions are unfavorable. Precipitation check requires a weather service. Temperature and wind checks also require a weather service.",
+      threshold_label: "Precipitation Threshold",
+      threshold_description: "Minimum amount of precipitation (in mm) forecasted for today and tomorrow to skip irrigation.",
+      temp_section_title: "Skip on low temperature",
+      temp_threshold_label: "Skip if temperature is below",
+      wind_section_title: "Skip on high wind speed",
+      wind_threshold_label: "Skip if wind speed is above",
+      rain_sensor_section_title: "Skip on rain sensor",
+      rain_sensor_label: "Rain sensor entity (optional)",
+      rain_sensor_placeholder: "e.g. binary_sensor.rain"
+    },
+    oa = {
+      title: "Location Coordinates",
+      description: "Configure location coordinates for weather data retrieval. You can use manual coordinates different from your Home Assistant location if needed.",
+      manual_enabled: "Use manual coordinates",
+      use_ha_location: "Use Home Assistant location",
+      latitude: "Latitude (decimal degrees)",
+      longitude: "Longitude (decimal degrees)",
+      elevation: "Elevation (meters above sea level)",
+      current_ha_coords: "Current Home Assistant coordinates"
+    },
+    la = {
+      title: "Days Between Irrigation",
+      description: "Configure the minimum number of days that must pass between irrigation events. This helps control watering frequency for water conservation and plant health management.\n\nTypical real-world use cases:\n• Lawn care: 1-2 day intervals prevent overwatering\n• Drought restrictions: 6+ day intervals for weekly watering\n• Deep-rooted plants: 3-7 day intervals for less frequent watering\n• Water conservation: Customizable based on climate and soil conditions",
+      label: "Minimum days between irrigation",
+      help_text: "Set to 0 to disable this feature. Values from 1-365 days are supported. This setting works alongside existing precipitation forecasting logic."
+    },
+    da = {
+      title: "Zone Sequencing",
+      description: "When multiple zones need irrigation, choose whether they run at the same time or one after another. Sequential mode waits for each zone to finish before starting the next.",
+      parallel: "Parallel (all zones at once)",
+      sequential: "Sequential (one zone at a time)"
+    },
+    ua = {
+      common: Jt,
+      defaults: Qt,
+      module: ea,
+      calcmodules: ta,
+      panels: aa,
+      title: ia,
+      weather_service_config: na,
+      irrigation_start_triggers: sa,
+      weather_skip: ra,
+      coordinate_config: oa,
+      days_between_irrigation: la,
+      zone_sequencing: da
+    },
+    ca = Object.freeze({
+      __proto__: null,
+      common: Jt,
+      defaults: Qt,
+      module: ea,
+      calcmodules: ta,
+      panels: aa,
+      title: ia,
+      weather_service_config: na,
+      irrigation_start_triggers: sa,
+      weather_skip: ra,
+      coordinate_config: oa,
+      days_between_irrigation: la,
+      zone_sequencing: da,
+      default: ua
+    }),
+    ha = {
+      actions: {
+        delete: "Eliminar",
+        edit: "Editar",
+        save: "Guardar",
+        cancel: "Cancelar"
+      },
+      labels: {
+        module: "Módulo",
+        no: "No",
+        select: "Seleccionar",
+        yes: "Sí",
+        enabled: "Activado",
+        disabled: "Desactivado",
+        before: "antes",
+        after: "después"
+      },
+      attributes: {
+        size: "Tamaño",
+        throughput: "Rendimiento",
+        state: "Estado",
+        bucket: "depósito",
+        last_updated: "última actualización",
+        last_calculated: "último cálculo",
+        number_of_data_points: "número de puntos de datos"
+      },
+      loading: "Cargando",
+      saving: "Guardando",
+      units: {
+        seconds: "segundos"
+      },
+      "loading-messages": {
+        configuration: "Cargando configuración...",
+        modules: "Cargando módulos...",
+        general: "Cargando..."
+      },
+      "saving-messages": {
+        adding: "Añadiendo...",
+        saving: "Guardando..."
       }
-
-      /* Native input styled to match HA */
-      .settings-input {
-        background: var(--input-fill-color, var(--secondary-background-color));
-        border: 1px solid var(--input-ink-color, var(--secondary-text-color));
-        border-radius: 4px;
-        color: var(--primary-text-color);
-        padding: 6px 10px;
-        font-family: var(
-          --mdc-typography-body1-font-family,
-          Roboto,
-          sans-serif
-        );
-        font-size: 0.9375rem;
-        box-sizing: border-box;
-        height: 36px;
+    },
+    pa = {
+      "default-zone": "Zona de riego predeterminada",
+      "default-mapping": "Grupo de sensores predeterminado"
+    },
+    ga = {
+      calculation: {
+        explanation: {
+          "module-returned-evapotranspiration-deficiency": "Nota: esta explicación utiliza '.' como separador decimal y muestra valores redondeados. El módulo devuelve una deficiencia de evapotranspiración de",
+          "bucket-was": "El cubo era",
+          "new-bucket-values-is": "El nuevo valor del cubo es",
+          "old-bucket-variable": "old_bucket",
+          delta: "delta",
+          "bucket-less-than-zero-irrigation-necessary": "Dado que cubo < 0, el riego es necesario",
+          "steps-taken-to-calculate-duration": "Para calcular la duración exacta, se siguieron los siguientes pasos",
+          "precipitation-rate-defined-as": "La tasa de precipitación se define como",
+          "duration-is-calculated-as": "La duración se calcula como",
+          bucket: "cubo",
+          "precipitation-rate-variable": "precipitation_rate",
+          "multiplier-is-applied": "A continuación, se aplica el multiplicador. El multiplicador es",
+          "duration-after-multiplier-is": "por lo que la duración es",
+          "maximum-duration-is-applied": "A continuación, se aplica la duración máxima. La duración máxima es",
+          "duration-after-maximum-duration-is": "por lo que la duración es",
+          "lead-time-is-applied": "Por último, se aplica el plazo de entrega. El plazo de entrega es",
+          "duration-after-lead-time-is": "por lo que la duración final es",
+          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Como cubo >= 0, no es necesario regar y la duración se fija en",
+          "maximum-bucket-is": "El tamaño máximo de cubo es",
+          "max-bucket-variable": "max_bucket",
+          drainage: "drainage",
+          "drainage-rate": "drainage_rate",
+          hours: "hours",
+          "drainage-rate-is": "La tasa de drenaje cuando está saturado (depósito al máximo) es",
+          "current-drainage-is": "El drenaje actual se calcula como",
+          "no-drainage": "El drenaje actual es 0 porque"
+        }
       }
-
-      .settings-input:focus {
-        border-color: var(--primary-color);
-        outline: none;
+    },
+    ma = {
+      pyeto: {
+        description: "Calcular la duración a partir del cálculo FAO56 de la biblioteca PyETO"
+      },
+      static: {
+        description: "Módulo 'de prueba' con un delta estático configurable"
+      },
+      passthrough: {
+        description: "Módulo de paso que devuelve el valor de un sensor de evapotranspiración como delta"
       }
-
-      .settings-input.shortfield {
-        width: 110px;
+    },
+    fa = {
+      general: {
+        cards: {
+          "automatic-duration-calculation": {
+            header: "Cálculo automático de la duración",
+            labels: {
+              "auto-calc-enabled": "Cálculo automático de la duración de las zonas",
+              "auto-calc-time": "Calcular en",
+              "calc-time": "Calcular a las"
+            },
+            description: "Calculation takes collected weather data up to that point and updates the bucket for each automatic zone. Then, the duration is adjusted based on the new bucket value and the collected weather data is removed."
+          },
+          "automatic-update": {
+            errors: {
+              "warning-update-time-on-or-after-calc-time": "Advertencia: la hora de actualización de los datos meteorológicos es igual o posterior a la hora de cálculo"
+            },
+            header: "Actualización automática de los datos meteorológicos",
+            labels: {
+              "auto-update-enabled": "Actualizar automáticamente los datos meteorológicos",
+              "auto-update-first-update": "(Primer) Actualización a las",
+              "auto-update-interval": "Actualizar datos del sensor cada",
+              "auto-update-schedule": "Programa de actualización",
+              "auto-update-time": "Actualizar a las",
+              "auto-update-delay": "Update delay"
+            },
+            options: {
+              days: "días",
+              hours: "horas",
+              minutes: "minutos"
+            },
+            description: "Collect and store weather data automatically. Weather data is required to calculate zone buckets and durations."
+          },
+          "automatic-clear": {
+            header: "Automatic weather data pruning",
+            description: "Automatically remove collected weather data at a configured time. Use this to make sure that there is no left over weather data from previous days. Don't remove the weather data before you calculate and only use this option if you expect the automatic update to collect weather data after you calculated for the day. Ideally, you want to prune as late in the day as possible.",
+            labels: {
+              "automatic-clear-enabled": "Automatically clear collected weather data",
+              "automatic-clear-time": "Clear weather data at"
+            }
+          },
+          continuousupdates: {
+            header: "Actualizaciones continuas de sensores (experimental)",
+            description: "Función experimental para datos meteorológicos más detallados.",
+            labels: {
+              continuousupdates: "Enable continuous updates",
+              sensor_debounce: "Sensor debounce",
+              "sensor-debounce": "Tiempo de antirrebote del sensor (ms)"
+            }
+          }
+        },
+        description: "Esta página provee configuraciones globales.",
+        title: "General"
+      },
+      help: {
+        title: "Ayuda",
+        cards: {
+          "how-to-get-help": {
+            title: "Cómo obtener ayuda",
+            "first-read-the": "Primero lee la",
+            wiki: "Documentation",
+            "if-you-still-need-help": "Si aún necesitas ayuda, puedes:",
+            "community-forum": "Comunidad/Foro",
+            "or-open-a": "o abrir un",
+            "github-issue": "Github Issue",
+            "english-only": "sólo en inglés"
+          }
+        }
+      },
+      mappings: {
+        cards: {
+          "add-mapping": {
+            actions: {
+              add: "Añadir grupo de sensores"
+            },
+            header: "Añadir grupos de sensores"
+          },
+          mapping: {
+            aggregates: {
+              average: "Promedio",
+              first: "Primero",
+              last: "Último",
+              maximum: "Máximo",
+              median: "Mediana",
+              minimum: "Mínimo",
+              sum: "Suma",
+              riemannsum: "Riemann sum",
+              delta: "Delta"
+            },
+            errors: {
+              "cannot-delete-mapping-because-zones-use-it": "No puedes eliminar este grupo de sensores porque hay al menos una zona que lo está usando.",
+              invalid_source: "Invalid source",
+              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
+            },
+            items: {
+              dewpoint: "Punto de rocío",
+              evapotranspiration: "Evapotranspiración",
+              humidity: "Humedad",
+              "maximum temperature": "Temperatura máxima",
+              "minimum temperature": "Temperatura mínima",
+              precipitation: "Precipitación total",
+              pressure: "Presión",
+              "solar radiation": "Radiación solar",
+              temperature: "Temperatura",
+              windspeed: "Velocidad del viento",
+              "current precipitation": "Current precipitation"
+            },
+            "sensor-aggregate-of-sensor-values-to-calculate": "de los valores de los sensores para calcular la duración",
+            "sensor-aggregate-use-the": "Usar la",
+            "sensor-entity": "Entidad de sensor",
+            static_value: "Valor estático",
+            "input-units": "Unidades de entrada",
+            source: "Fuente",
+            sources: {
+              none: "Ninguno",
+              weather_service: "Weather service",
+              sensor: "Sensor",
+              static: "Valor estático"
+            },
+            pressure_types: {
+              absolute: "absolute",
+              relative: "relative"
+            },
+            "pressure-type": "Pressure is"
+          }
+        },
+        description: "Añada uno o más grupos de sensores que recuperen datos meteorológicos de Weather service, de sensores o de una combinación de éstos. Puede asignar cada grupo de sensores a una o más zonas",
+        labels: {
+          "mapping-name": "Nombre del grupo de sensores"
+        },
+        no_items: "Aún no hay grupos de sensores definidos.",
+        title: "Grupos de sensores",
+        "weather-records": {
+          title: "Weather Records (Last 10)",
+          timestamp: "Time",
+          temperature: "Temp",
+          humidity: "Humidity",
+          precipitation: "Precip",
+          "retrieval-time": "Retrieved",
+          "no-data": "No weather data available for this sensor group"
+        }
+      },
+      modules: {
+        cards: {
+          "add-module": {
+            actions: {
+              add: "Añadir módulo"
+            },
+            header: "Añadir módulo"
+          },
+          module: {
+            errors: {
+              "cannot-delete-module-because-zones-use-it": "No puedes eliminar este módulo porque hay al menos una zona que lo está usando."
+            },
+            labels: {
+              configuration: "Configuración",
+              required: "Requerido"
+            },
+            "translated-options": {
+              DontEstimate: "No estimar",
+              EstimateFromSunHours: "Estimar desde horas de sol",
+              EstimateFromTemp: "Estimar desde temperatura",
+              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
+            }
+          }
+        },
+        description: "Añada uno o varios módulos que calculen la duración del riego. Cada módulo tiene su propia configuración y puede utilizarse para calcular la duración de una o varias zonas.",
+        no_items: "Aún no hay módulos definidos.",
+        title: "Módulos"
+      },
+      zones: {
+        actions: {
+          add: "Añadir",
+          calculate: "Calcular",
+          information: "Información",
+          update: "Actualizar",
+          "reset-bucket": "Resetear cubo",
+          "view-weather-info": "Ver datos meteorológicos",
+          "view-weather-info-message": "Weather data available for",
+          "view-watering-calendar": "Calendario de riego"
+        },
+        cards: {
+          "add-zone": {
+            actions: {
+              add: "Añadir zona"
+            },
+            header: "Añadir zona"
+          },
+          "zone-actions": {
+            actions: {
+              "calculate-all": "Calcular todas las zonas",
+              "update-all": "Actualizar todas las zonas",
+              "reset-all-buckets": "Resetear todos los cubos",
+              "clear-all-weatherdata": "Clear all weather data"
+            },
+            header: "Acciones en todas las zonas"
+          }
+        },
+        description: "Especifique aquí una o varias zonas de riego. La duración del riego se calcula por zona, en función del tamaño, el rendimiento, el estado, el módulo y el grupo de sensores.",
+        labels: {
+          bucket: "Cubo",
+          duration: "Duración",
+          "lead-time": "Tiempo de espera",
+          mapping: "Grupo de sensores",
+          "maximum-duration": "Duración máxima",
+          multiplier: "Multiplicador",
+          name: "Nombre",
+          size: "Tamaño",
+          state: "Estado",
+          states: {
+            automatic: "Automático",
+            disabled: "Desactivado",
+            manual: "Manual"
+          },
+          throughput: "Rendimiento",
+          "maximum-bucket": "Cubo máximo",
+          last_calculated: "Last calculated",
+          "data-last-updated": "Data last updated",
+          "data-number-of-data-points": "Number of data points",
+          drainage_rate: "Drainage rate",
+          linked_entity: "Entidad de interruptor/válvula vinculada",
+          linked_entity_placeholder: "p.ej. switch.valvula_jardin",
+          irrigate_now: "Regar ahora",
+          bucket_threshold: "Déficit mínimo para regar"
+        },
+        no_items: "Aún no hay zonas definidas.",
+        title: "Zonas"
+      },
+      schedules: {
+        title: "Programas",
+        description: "Cree programas recurrentes para calcular, actualizar o regar automáticamente — sin automatizaciones.",
+        add: "Añadir programa",
+        no_items: "Aún no hay programas configurados. Haga clic en 'Añadir programa'.",
+        zones_all: "Todas las zonas",
+        zones_specific: "Zonas específicas",
+        hours: "horas",
+        minutes: "min",
+        types: {
+          daily: "Diario",
+          weekly: "Semanal",
+          monthly: "Mensual",
+          interval: "Cada N horas",
+          sunrise: "Amanecer",
+          sunset: "Atardecer",
+          solar_azimuth: "Azimut solar"
+        },
+        actions: {
+          calculate: "Calcular (actualizar duración de riego)",
+          update: "Actualizar (recopilar datos meteorológicos)",
+          irrigate: "Regar (controlar válvulas directamente)"
+        },
+        days: {
+          monday: "Lu",
+          tuesday: "Ma",
+          wednesday: "Mi",
+          thursday: "Ju",
+          friday: "Vi",
+          saturday: "Sá",
+          sunday: "Do"
+        },
+        fields: {
+          name: "Nombre",
+          type: "Tipo de programa",
+          enabled: "Activado",
+          time: "Hora (HH:MM)",
+          days_of_week: "Días de la semana",
+          day_of_month: "Día del mes",
+          interval_hours: "Intervalo",
+          action: "Acción",
+          zones: "Zonas",
+          start_date: "Fecha de inicio (opcional)",
+          end_date: "Fecha de fin (opcional)",
+          offset_minutes: "Desplazamiento desde amanecer/atardecer",
+          account_for_duration: "Iniciar antes para que el riego termine a la hora objetivo",
+          azimuth_angle: "Ángulo de azimut solar"
+        },
+        dialog: {
+          add_title: "Añadir programa",
+          edit_title: "Editar programa"
+        }
+      },
+      adjustments: {
+        title: "Ajustes estacionales",
+        description: "Ajustes mensuales de multiplicador o umbral para condiciones estacionales.",
+        add: "Añadir ajuste",
+        no_items: "Aún no hay ajustes estacionales configurados.",
+        zones_all: "Todas las zonas",
+        zones_specific: "Zonas específicas",
+        multiplier_hint: "1,0 = sin cambio, 1,5 = 50% más riego, 0,5 = 50% menos",
+        threshold_hint: "Se añade al depósito de la zona. Positivo = más agua necesaria, negativo = menos.",
+        fields: {
+          name: "Nombre",
+          enabled: "Activado",
+          month_start: "Desde mes",
+          month_end: "Hasta mes",
+          multiplier_adjustment: "Ajuste de multiplicador",
+          threshold_adjustment: "Ajuste de umbral (mm)",
+          zones: "Zonas"
+        },
+        dialog: {
+          add_title: "Añadir ajuste estacional",
+          edit_title: "Editar ajuste estacional"
+        }
+      },
+      info: {
+        title: "Info",
+        description: "Ver información sobre el próximo riego y el estado del sistema.",
+        "configuration-not-available": "Configuración no disponible.",
+        cards: {
+          "zone-bucket-values": {
+            title: "Valores de depósito y duración",
+            labels: {
+              bucket: "Depósito",
+              duration: "Duración"
+            },
+            "no-zones": "No hay zonas configuradas"
+          },
+          "next-irrigation": {
+            title: "Próximo riego",
+            labels: {
+              "next-start": "Próximo inicio",
+              duration: "Duración",
+              zones: "Zonas"
+            },
+            "no-data": "No hay datos disponibles"
+          },
+          "irrigation-reason": {
+            title: "Motivo del riego",
+            labels: {
+              reason: "Razón",
+              sunrise: "Amanecer",
+              "total-duration": "Duración total",
+              explanation: "Explicación"
+            },
+            "no-data": "No hay datos disponibles"
+          },
+          irrigate_now: {
+            title: "Regar ahora",
+            description: "Iniciar riego inmediatamente para todas las zonas con entidad vinculada. Las condiciones de omisión se ignoran.",
+            button_all: "Iniciar todas las zonas ahora",
+            no_linked_zones: "Ninguna zona tiene una entidad de interruptor/válvula vinculada con duración calculada."
+          }
+        }
       }
-    `;
-    }
-  };
-  n([pe()], as.prototype, "narrow", void 0), n([pe()], as.prototype, "path", void 0), n([pe()], as.prototype, "data", void 0), n([pe()], as.prototype, "config", void 0), n([pe({
-    type: Boolean
-  })], as.prototype, "isLoading", void 0), n([pe({
-    type: Boolean
-  })], as.prototype, "isSaving", void 0), as = n([ce("smart-irrigation-view-general")], as);
-  var is,
-    ns,
-    ss = "M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z",
-    rs = "M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z",
-    os = "M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z";
-  function ls(e) {
-    return e && e.__esModule && Object.prototype.hasOwnProperty.call(e, "default") ? e.default : e;
+    },
+    va = "Smart Irrigation",
+    _a = {
+      title: "Coordenadas de Ubicación",
+      description: "Configure las coordenadas de ubicación para obtener datos meteorológicos. Puede usar coordenadas manuales diferentes a la ubicación de Home Assistant si es necesario.",
+      manual_enabled: "Usar coordenadas manuales",
+      use_ha_location: "Usar ubicación de Home Assistant",
+      latitude: "Latitud (grados decimales)",
+      longitude: "Longitud (grados decimales)",
+      elevation: "Elevación (metros sobre el nivel del mar)",
+      current_ha_coords: "Coordenadas actuales de Home Assistant"
+    },
+    ba = {
+      title: "Días entre riegos",
+      description: "Configure el número mínimo de días entre eventos de riego.",
+      label: "Días mínimos entre riegos",
+      help_text: "Establezca 0 para desactivar. Se admiten valores de 1 a 365 días."
+    },
+    ya = {
+      title: "Irrigation Start Triggers",
+      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
+      add_trigger: "Add Trigger",
+      edit_trigger: "Edit Trigger",
+      delete_trigger: "Delete Trigger",
+      trigger_types: {
+        sunrise: "Sunrise",
+        sunset: "Sunset",
+        solar_azimuth: "Solar Azimuth"
+      },
+      fields: {
+        name: {
+          name: "Trigger Name",
+          description: "A descriptive name to identify this trigger"
+        },
+        type: {
+          name: "Trigger Type",
+          description: "The type of solar event to trigger on"
+        },
+        enabled: {
+          name: "Enabled",
+          description: "Whether this trigger is currently active"
+        },
+        offset_minutes: {
+          name: "Offset (minutes)",
+          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
+        },
+        azimuth_angle: {
+          name: "Azimuth Angle (degrees)",
+          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
+        },
+        account_for_duration: {
+          name: "Account for Duration",
+          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
+        }
+      },
+      dialog: {
+        add_title: "Add Irrigation Start Trigger",
+        edit_title: "Edit Irrigation Start Trigger",
+        cancel: "Cancel",
+        save: "Save",
+        delete: "Delete"
+      },
+      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
+      offset_auto: "Auto (calculated from total zone duration)",
+      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
+      validation: {
+        name_required: "Trigger name is required",
+        azimuth_invalid: "Azimuth angle must be a valid number"
+      },
+      help: {
+        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
+        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
+        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
+        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
+      }
+    },
+    wa = {
+      title: "Condiciones de omisión",
+      description: "Omitir automáticamente el riego cuando las condiciones sean desfavorables. Las comprobaciones de precipitación, temperatura y viento requieren un servicio meteorológico.",
+      threshold_label: "Umbral de precipitación",
+      threshold_description: "Cantidad mínima de precipitación pronosticada (en mm) para hoy y mañana para omitir el riego.",
+      temp_section_title: "Omitir por temperatura baja",
+      temp_threshold_label: "Omitir si temperatura por debajo de",
+      wind_section_title: "Omitir por viento fuerte",
+      wind_threshold_label: "Omitir si velocidad del viento superior a",
+      rain_sensor_section_title: "Condición del sensor de lluvia",
+      rain_sensor_label: "Entidad del sensor de lluvia (opcional)",
+      rain_sensor_placeholder: "p.ej. binary_sensor.lluvia"
+    },
+    ka = {
+      title: "Secuencia de zonas",
+      description: "Cuando varias zonas necesitan riego, elija si se ejecutan al mismo tiempo o una tras otra. En modo secuencial, el sistema espera a que cada zona termine antes de iniciar la siguiente.",
+      parallel: "Paralelo (todas las zonas a la vez)",
+      sequential: "Secuencial (una zona a la vez)"
+    },
+    za = {
+      common: ha,
+      defaults: pa,
+      module: ga,
+      calcmodules: ma,
+      panels: fa,
+      title: va,
+      coordinate_config: _a,
+      days_between_irrigation: ba,
+      irrigation_start_triggers: ya,
+      weather_skip: wa,
+      zone_sequencing: ka
+    },
+    Sa = Object.freeze({
+      __proto__: null,
+      common: ha,
+      defaults: pa,
+      module: ga,
+      calcmodules: ma,
+      panels: fa,
+      title: va,
+      coordinate_config: _a,
+      days_between_irrigation: ba,
+      irrigation_start_triggers: ya,
+      weather_skip: wa,
+      zone_sequencing: ka,
+      default: za
+    }),
+    $a = {
+      actions: {
+        delete: "Suppression",
+        edit: "Modifier",
+        save: "Enregistrer",
+        cancel: "Annuler"
+      },
+      labels: {
+        module: "Module",
+        no: "Non",
+        select: "Sélectionner",
+        yes: "Oui",
+        enabled: "Activé",
+        disabled: "Désactivé",
+        before: "avant",
+        after: "après"
+      },
+      attributes: {
+        size: "taille",
+        throughput: "débit",
+        state: "état",
+        bucket: "réservoir",
+        last_updated: "dernière mise à jour",
+        last_calculated: "dernier calcul",
+        number_of_data_points: "nombre de points de données"
+      },
+      loading: "Chargement",
+      saving: "Enregistrement",
+      units: {
+        seconds: "secondes"
+      },
+      "loading-messages": {
+        configuration: "Chargement de la configuration...",
+        modules: "Chargement des modules...",
+        general: "Chargement..."
+      },
+      "saving-messages": {
+        adding: "Ajout...",
+        saving: "Enregistrement..."
+      }
+    },
+    xa = {
+      "default-zone": "Zone par défaut",
+      "default-mapping": "Groupe de capteurs par défaut"
+    },
+    Aa = {
+      calculation: {
+        explanation: {
+          "module-returned-evapotranspiration-deficiency": "NB: cette explication utilise '.' comme séparateur décimal, et affiche des valeurs arrondies. Le module a donné un manque d'Évapotranspiration de",
+          "bucket-was": "Le seau (bucket) était de",
+          "new-bucket-values-is": "La nouvelle valeur du seau (bucket) est",
+          "old-bucket-variable": "ancien_bucket",
+          delta: "delta",
+          "bucket-less-than-zero-irrigation-necessary": "Puisque le seau (bucket) est < 0, l'irrigation est nécessaire",
+          "steps-taken-to-calculate-duration": "Pour calculer la durée d'irrigation, les étapes suivantes ont été réalisées",
+          "precipitation-rate-defined-as": "Le taux de précipitation est défini comme",
+          "duration-is-calculated-as": "La durée d'irrigation est calculée avec",
+          bucket: "seau (bucket)",
+          "precipitation-rate-variable": "taux_precipitation",
+          "multiplier-is-applied": "Le multiplicateur est appliqué. Le multiplicateur est",
+          "duration-after-multiplier-is": "donc la durée d'irrigation est de",
+          "maximum-duration-is-applied": "Ensuite la durée maximale est appliquée. La durée maximale est de",
+          "duration-after-maximum-duration-is": "donc la durée d'irrigation est de",
+          "lead-time-is-applied": "Enfin, le délai est appliqué. Le délai est de",
+          "duration-after-lead-time-is": "et donc la durée finale est de",
+          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Puisque le seau (bucket) est >= 0, l'irrigation n'est pas nécessaire, et la durée est réglée à",
+          "maximum-bucket-is": "la taille du seau (bucket) maximale est",
+          "max-bucket-variable": "max_bucket",
+          drainage: "drainage",
+          "drainage-rate": "drainage_rate",
+          hours: "hours",
+          "drainage-rate-is": "Le taux de drainage à saturation (réservoir au maximum) est",
+          "current-drainage-is": "Le drainage actuel est calculé comme",
+          "no-drainage": "Le drainage actuel est 0 parce que"
+        }
+      }
+    },
+    Ea = {
+      pyeto: {
+        description: "Le calcul de durée est basée sur le calcul FAO56 de la bibliothèque PyETO"
+      },
+      static: {
+        description: "Module 'Dummy' avec un delta statique configurable"
+      },
+      passthrough: {
+        description: "Module passerelle qui renvoie la valeur d'un capteur d'Évapotranspiration comme delta"
+      }
+    },
+    Ta = {
+      general: {
+        cards: {
+          "automatic-duration-calculation": {
+            header: "Calcul automatique de la durée",
+            labels: {
+              "auto-calc-enabled": "Calcule automatiquement la durée par zone",
+              "auto-calc-time": "Calcule à",
+              "calc-time": "Calculer à"
+            },
+            description: "Le calcul prend en compte les données météo jusqu'à ce point et met à jour le seau (bucket) pour chaque zone automatique. Ensuite, la durée est ajustée par la nouvelle valeur de seau (bucket) et les données météo sont supprimées."
+          },
+          "automatic-update": {
+            errors: {
+              "warning-update-time-on-or-after-calc-time": "Attention: mise à jour des données météo au moment du, ou après le, calcul"
+            },
+            header: "Mise à jour automatique des données météo",
+            labels: {
+              "auto-update-enabled": "Met à jour les données météo automatiquement",
+              "auto-update-first-update": "(Première) Mise à jour à",
+              "auto-update-interval": "Mettre à jour les données des capteurs toutes les",
+              "auto-update-delay": "Délai de mise à jour",
+              "auto-update-schedule": "Planning de mise à jour",
+              "auto-update-time": "Mettre à jour à"
+            },
+            options: {
+              days: "jours",
+              hours: "heures",
+              minutes: "minutes"
+            },
+            description: "Récupère et stocke les données météo automatiquement. Des données météo sont nécessaires pour calculer les seaux (buckets) par zone et les durées."
+          },
+          "automatic-clear": {
+            header: "Délestage automatique des données météo",
+            description: "Suppression automatique des données météo collectées à une heure données. Utilisez ceci pour être sûr qu'il n'y ait plus de restes des données météo des jours précédents. Ne supprimez pas les données météo avant le calcul et n'utilisez cette option que si vous vous attendez à ce que les données météo soient récupérées après le calcul du jour. Idéalement, vous voudrez \"élaguer\" les données les plus tard possible dans la journée.",
+            labels: {
+              "automatic-clear-enabled": "Suppression automatique des données météo collectées",
+              "automatic-clear-time": "Supprimer les données météo à"
+            }
+          },
+          continuousupdates: {
+            header: "Mises à jour continues des capteurs (expérimental)",
+            description: "Fonction expérimentale pour des données météo plus granulaires.",
+            labels: {
+              continuousupdates: "Enable continuous updates",
+              sensor_debounce: "Sensor debounce",
+              "sensor-debounce": "Temps d'antirebond du capteur (ms)"
+            }
+          }
+        },
+        description: "Cette page fournit les réglages globaux.",
+        title: "Général"
+      },
+      help: {
+        title: "Aide",
+        cards: {
+          "how-to-get-help": {
+            title: "Comment obtenir de l'aide",
+            "first-read-the": "Premièrement, lisez ",
+            wiki: "Documentation",
+            "if-you-still-need-help": "Si vous avez toujours besoin d'aide, adressez vous sur le",
+            "community-forum": "forum communautaire",
+            "or-open-a": "ou ouvrez un",
+            "github-issue": "problème Github",
+            "english-only": "en Anglais uniquement"
+          }
+        }
+      },
+      mappings: {
+        cards: {
+          "add-mapping": {
+            actions: {
+              add: "Ajouter un groupe de capteurs"
+            },
+            header: "Ajouter des groupes de capteurs"
+          },
+          mapping: {
+            aggregates: {
+              average: "Moyenne",
+              first: "Premier",
+              last: "Dernier",
+              maximum: "Maximum",
+              median: "Médian",
+              minimum: "Minimum",
+              sum: "Somme",
+              riemannsum: "Riemann sum",
+              delta: "Delta"
+            },
+            errors: {
+              "cannot-delete-mapping-because-zones-use-it": "Vous ne pouvez pas supprimer ce groupe de capteurs car au moins une zone l'utilise.",
+              invalid_source: "Invalid source",
+              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
+            },
+            items: {
+              dewpoint: "Point de rosée",
+              evapotranspiration: "Évapotranspiration",
+              humidity: "Humidité",
+              "maximum temperature": "Température maximale",
+              "minimum temperature": "Température minimale",
+              precipitation: "Précipitation totale",
+              pressure: "Pression",
+              "solar radiation": "Rayonnement solaire",
+              temperature: "Température",
+              windspeed: "Vitesse du vent",
+              "current precipitation": "Current precipitation"
+            },
+            "sensor-aggregate-of-sensor-values-to-calculate": "des valeurs des capteurs pour calculer la durée",
+            "sensor-aggregate-use-the": "Utiliser les",
+            "sensor-entity": "Entité capteur",
+            static_value: "Valeur",
+            "input-units": "L'entité fournit des entrées en",
+            source: "Source",
+            sources: {
+              none: "Aucun",
+              weather_service: "Weather service",
+              sensor: "Capteur",
+              static: "Valeur statique"
+            },
+            pressure_types: {
+              relative: "relative",
+              absolute: "absolue"
+            },
+            "pressure-type": "La pression est",
+            "sensor-units": "Le capteur fournit les valeurs en"
+          }
+        },
+        description: "Ajouter un ou plusieurs groupes de capteurs qui récupèrent les données météo de Weather service, de capteurs locaux ou d'une combinaison de tous ceux-ci. Vous pouvez associer chaque groupe de capteurs avec une ou plusieurs zones",
+        labels: {
+          "mapping-name": "Nom"
+        },
+        no_items: "Il n'y a pas encore de groupe de capteurs définis.",
+        title: "Groupes de capteurs",
+        "weather-records": {
+          title: "Weather Records (Last 10)",
+          timestamp: "Time",
+          temperature: "Temp",
+          humidity: "Humidity",
+          precipitation: "Precip",
+          "retrieval-time": "Retrieved",
+          "no-data": "No weather data available for this sensor group"
+        }
+      },
+      modules: {
+        cards: {
+          "add-module": {
+            actions: {
+              add: "Ajouter un module"
+            },
+            header: "Ajout d'un module"
+          },
+          module: {
+            errors: {
+              "cannot-delete-module-because-zones-use-it": "Vous ne pouvez pas supprimer ce module car au moins une zone l'utilise."
+            },
+            labels: {
+              configuration: "Configuration",
+              required: "indique un champ requis"
+            },
+            "translated-options": {
+              DontEstimate: "Ne fait pas d'estimation",
+              EstimateFromSunHours: "Estimation à partir des heures d'ensoleillement",
+              EstimateFromTemp: "Estimation à partir de la température",
+              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
+            }
+          }
+        },
+        description: "Ajouter un ou plusieurs modules qui calcule la durée d'irrigation. Chaque module vient avec sa propre configuration et peut être utilisé pour calculer la durée d'irrigation d'une ou plusieurs zones.",
+        no_items: "Il n'y a aucun module défini pour l'instant.",
+        title: "Modules"
+      },
+      zones: {
+        actions: {
+          add: "Ajouter",
+          calculate: "Calculer",
+          information: "Information",
+          update: "Mise à jour",
+          "reset-bucket": "Mise à zéro du seau (bucket)",
+          "view-weather-info": "Voir données météo",
+          "view-weather-info-message": "Weather data available for",
+          "view-watering-calendar": "Calendrier d'arrosage"
+        },
+        cards: {
+          "add-zone": {
+            actions: {
+              add: "Ajouter une zone"
+            },
+            header: "Ajout d'une zone"
+          },
+          "zone-actions": {
+            actions: {
+              "calculate-all": "Calculer pour toutes les zones",
+              "update-all": "Mise à jour de toutes les zones",
+              "reset-all-buckets": "Mise à zéro de tous les seaux (buckets)",
+              "clear-all-weatherdata": "Mise à zéro de toutes les données météo"
+            },
+            header: "Actions sur toutes les zones"
+          }
+        },
+        description: "Spécifiez une ou plusieurs zones d'irrigation ici. La durée d'irrigation est calculée par zone, en fonction de la taille, du débit, état, module et groupe de capteurs.",
+        labels: {
+          bucket: "Seau",
+          duration: "Durée",
+          "lead-time": "Délai",
+          mapping: "Groupe de capteurs",
+          "maximum-duration": "Durée maximale",
+          multiplier: "Multiplicateur",
+          name: "Nom",
+          size: "Taille",
+          state: "État",
+          states: {
+            automatic: "Automatique",
+            disabled: "Désactivé",
+            manual: "Manuel"
+          },
+          throughput: "Débit",
+          "maximum-bucket": "Seau (bucket) maximum",
+          last_calculated: "Dernier calcul",
+          "data-last-updated": "Dernière mise à jour",
+          "data-number-of-data-points": "Nombre de points de données",
+          drainage_rate: "Drainage rate",
+          linked_entity: "Entité interrupteur/vanne liée",
+          linked_entity_placeholder: "ex. switch.vanne_jardin",
+          irrigate_now: "Irriguer maintenant",
+          bucket_threshold: "Déficit minimum pour irriguer"
+        },
+        no_items: "Il n'y a pas encore de zone définie.",
+        title: "Zones"
+      },
+      schedules: {
+        title: "Planifications",
+        description: "Créez des planifications récurrentes pour calculer, mettre à jour ou irriguer automatiquement — sans automatisations.",
+        add: "Ajouter une planification",
+        no_items: "Aucune planification configurée. Cliquez sur 'Ajouter une planification'.",
+        zones_all: "Toutes les zones",
+        zones_specific: "Zones spécifiques",
+        hours: "heures",
+        minutes: "min",
+        types: {
+          daily: "Quotidien",
+          weekly: "Hebdomadaire",
+          monthly: "Mensuel",
+          interval: "Toutes les N heures",
+          sunrise: "Lever du soleil",
+          sunset: "Coucher du soleil",
+          solar_azimuth: "Azimut solaire"
+        },
+        actions: {
+          calculate: "Calculer (mettre à jour la durée d'irrigation)",
+          update: "Mettre à jour (collecter données météo)",
+          irrigate: "Irriguer (contrôler les vannes directement)"
+        },
+        days: {
+          monday: "Lu",
+          tuesday: "Ma",
+          wednesday: "Me",
+          thursday: "Je",
+          friday: "Ve",
+          saturday: "Sa",
+          sunday: "Di"
+        },
+        fields: {
+          name: "Nom",
+          type: "Type de planification",
+          enabled: "Activé",
+          time: "Heure (HH:MM)",
+          days_of_week: "Jours de la semaine",
+          day_of_month: "Jour du mois",
+          interval_hours: "Intervalle",
+          action: "Action",
+          zones: "Zones",
+          start_date: "Date de début (optionnel)",
+          end_date: "Date de fin (optionnel)",
+          offset_minutes: "Décalage par rapport au lever/coucher du soleil",
+          account_for_duration: "Démarrer tôt pour que l'irrigation se termine à l'heure cible",
+          azimuth_angle: "Angle d'azimut solaire"
+        },
+        dialog: {
+          add_title: "Ajouter une planification",
+          edit_title: "Modifier la planification"
+        }
+      },
+      adjustments: {
+        title: "Ajustements saisonniers",
+        description: "Ajustements mensuels de multiplicateur ou seuil pour les conditions saisonnières.",
+        add: "Ajouter un ajustement",
+        no_items: "Aucun ajustement saisonnier configuré.",
+        zones_all: "Toutes les zones",
+        zones_specific: "Zones spécifiques",
+        multiplier_hint: "1,0 = pas de changement, 1,5 = 50% d'irrigation en plus, 0,5 = 50% en moins",
+        threshold_hint: "Ajouté au réservoir de la zone. Positif = plus d'eau nécessaire, négatif = moins.",
+        fields: {
+          name: "Nom",
+          enabled: "Activé",
+          month_start: "Depuis le mois",
+          month_end: "Jusqu'au mois",
+          multiplier_adjustment: "Ajustement du multiplicateur",
+          threshold_adjustment: "Ajustement du seuil (mm)",
+          zones: "Zones"
+        },
+        dialog: {
+          add_title: "Ajouter un ajustement saisonnier",
+          edit_title: "Modifier l'ajustement saisonnier"
+        }
+      },
+      info: {
+        title: "Info",
+        description: "Afficher les informations sur la prochaine irrigation et l'état du système.",
+        "configuration-not-available": "Configuration non disponible.",
+        cards: {
+          "zone-bucket-values": {
+            title: "Valeurs de réservoir et durée",
+            labels: {
+              bucket: "Réservoir",
+              duration: "Durée"
+            },
+            "no-zones": "Aucune zone configurée"
+          },
+          "next-irrigation": {
+            title: "Prochaine irrigation",
+            labels: {
+              "next-start": "Prochain démarrage",
+              duration: "Durée",
+              zones: "Zones"
+            },
+            "no-data": "Aucune donnée disponible"
+          },
+          "irrigation-reason": {
+            title: "Raison d'irrigation",
+            labels: {
+              reason: "Raison",
+              sunrise: "Lever du soleil",
+              "total-duration": "Durée totale",
+              explanation: "Explication"
+            },
+            "no-data": "Aucune donnée disponible"
+          },
+          irrigate_now: {
+            title: "Irriguer maintenant",
+            description: "Démarrer immédiatement l'irrigation pour toutes les zones avec une entité liée. Les conditions d'exclusion sont ignorées.",
+            button_all: "Démarrer toutes les zones maintenant",
+            no_linked_zones: "Aucune zone n'a d'entité interrupteur/vanne liée avec une durée calculée."
+          }
+        }
+      }
+    },
+    Ma = "Smart Irrigation",
+    Da = {
+      title: "Coordonnées de Localisation",
+      description: "Configurez les coordonnées de localisation pour la récupération des données météo. Vous pouvez utiliser des coordonnées manuelles différentes de votre emplacement Home Assistant si nécessaire.",
+      manual_enabled: "Utiliser des coordonnées manuelles",
+      use_ha_location: "Utiliser l'emplacement Home Assistant",
+      latitude: "Latitude (degrés décimaux)",
+      longitude: "Longitude (degrés décimaux)",
+      elevation: "Élévation (mètres au-dessus du niveau de la mer)",
+      current_ha_coords: "Coordonnées actuelles de Home Assistant"
+    },
+    Ca = {
+      title: "Jours entre irrigations",
+      description: "Configurez le nombre minimum de jours entre les événements d'irrigation.",
+      label: "Jours minimum entre irrigations",
+      help_text: "Définissez 0 pour désactiver. Les valeurs de 1 à 365 jours sont supportées."
+    },
+    Oa = {
+      title: "Irrigation Start Triggers",
+      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
+      add_trigger: "Add Trigger",
+      edit_trigger: "Edit Trigger",
+      delete_trigger: "Delete Trigger",
+      trigger_types: {
+        sunrise: "Sunrise",
+        sunset: "Sunset",
+        solar_azimuth: "Solar Azimuth"
+      },
+      fields: {
+        name: {
+          name: "Trigger Name",
+          description: "A descriptive name to identify this trigger"
+        },
+        type: {
+          name: "Trigger Type",
+          description: "The type of solar event to trigger on"
+        },
+        enabled: {
+          name: "Enabled",
+          description: "Whether this trigger is currently active"
+        },
+        offset_minutes: {
+          name: "Offset (minutes)",
+          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
+        },
+        azimuth_angle: {
+          name: "Azimuth Angle (degrees)",
+          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
+        },
+        account_for_duration: {
+          name: "Account for Duration",
+          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
+        }
+      },
+      dialog: {
+        add_title: "Add Irrigation Start Trigger",
+        edit_title: "Edit Irrigation Start Trigger",
+        cancel: "Cancel",
+        save: "Save",
+        delete: "Delete"
+      },
+      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
+      offset_auto: "Auto (calculated from total zone duration)",
+      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
+      validation: {
+        name_required: "Trigger name is required",
+        azimuth_invalid: "Azimuth angle must be a valid number"
+      },
+      help: {
+        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
+        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
+        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
+        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
+      }
+    },
+    Na = {
+      title: "Conditions d'exclusion",
+      description: "Ignorer automatiquement l'irrigation quand les conditions sont défavorables. Les vérifications de précipitations, température et vent nécessitent un service météo.",
+      threshold_label: "Seuil de précipitations",
+      threshold_description: "Quantité minimale de précipitations prévues (en mm) pour aujourd'hui et demain pour ignorer l'irrigation.",
+      temp_section_title: "Ignorer par basse température",
+      temp_threshold_label: "Ignorer si température en dessous de",
+      wind_section_title: "Ignorer par vent fort",
+      wind_threshold_label: "Ignorer si vitesse du vent supérieure à",
+      rain_sensor_section_title: "Condition du capteur de pluie",
+      rain_sensor_label: "Entité capteur de pluie (optionnel)",
+      rain_sensor_placeholder: "ex. binary_sensor.pluie"
+    },
+    ja = {
+      title: "Séquençage des zones",
+      description: "Lorsque plusieurs zones ont besoin d'irrigation, choisissez si elles fonctionnent simultanément ou l'une après l'autre. En mode séquentiel, le système attend que chaque zone se termine avant de démarrer la suivante.",
+      parallel: "Parallèle (toutes les zones simultanément)",
+      sequential: "Séquentiel (une zone à la fois)"
+    },
+    Ha = {
+      common: $a,
+      defaults: xa,
+      module: Aa,
+      calcmodules: Ea,
+      panels: Ta,
+      title: Ma,
+      coordinate_config: Da,
+      days_between_irrigation: Ca,
+      irrigation_start_triggers: Oa,
+      weather_skip: Na,
+      zone_sequencing: ja
+    },
+    Pa = Object.freeze({
+      __proto__: null,
+      common: $a,
+      defaults: xa,
+      module: Aa,
+      calcmodules: Ea,
+      panels: Ta,
+      title: Ma,
+      coordinate_config: Da,
+      days_between_irrigation: Ca,
+      irrigation_start_triggers: Oa,
+      weather_skip: Na,
+      zone_sequencing: ja,
+      default: Ha
+    }),
+    La = {
+      actions: {
+        delete: "Cancella",
+        edit: "Modifica",
+        save: "Salva",
+        cancel: "Annulla"
+      },
+      labels: {
+        module: "Modulo",
+        no: "No",
+        select: "Seleziona",
+        yes: "Si",
+        enabled: "Abilitato",
+        disabled: "Disabilitato",
+        before: "prima",
+        after: "dopo"
+      },
+      units: {
+        seconds: "secondi"
+      },
+      attributes: {
+        size: "size",
+        throughput: "throughput",
+        state: "state",
+        bucket: "serbatoio",
+        last_updated: "ultimo aggiornamento",
+        last_calculated: "ultimo calcolo",
+        number_of_data_points: "numero di punti dati"
+      },
+      loading: "Caricamento",
+      saving: "Salvataggio",
+      "loading-messages": {
+        configuration: "Caricamento configurazione...",
+        modules: "Caricamento moduli...",
+        general: "Caricamento..."
+      },
+      "saving-messages": {
+        adding: "Aggiungendo...",
+        saving: "Salvataggio..."
+      }
+    },
+    Ia = {
+      "default-zone": "Zona predefinita",
+      "default-mapping": "Mappatura predefinita"
+    },
+    Ua = {
+      calculation: {
+        explanation: {
+          "module-returned-evapotranspiration-deficiency": "Il modulo ha restituito un deficit di evapotraspirazione del",
+          "bucket-was": "Il secchio era",
+          "new-bucket-values-is": "Il nuovo valore del secchio è",
+          bucket: "secchio",
+          "old-bucket-variable": "old_bucket",
+          "max-bucket-variable": "max_bucket",
+          delta: "delta",
+          "bucket-less-than-zero-irrigation-necessary": "Poiché secchio < 0, è necessaria l'irrigazione",
+          "steps-taken-to-calculate-duration": "Per calcolare la durata esatta, sono stati eseguiti i seguenti passaggi",
+          "precipitation-rate-defined-as": "Il tasso di precipitazione è definito come",
+          "duration-is-calculated-as": "La durata viene calcolata come",
+          drainage: "drenaggio",
+          "drainage-rate": "tasso_di_drenaggio",
+          hours: "ore",
+          "precipitation-rate-variable": "tasso_di_precipitazione",
+          "multiplier-is-applied": "Ora viene applicato il moltiplicatore. Il moltiplicatore è",
+          "duration-after-multiplier-is": "quindi la durata è",
+          "maximum-duration-is-applied": "Quindi, viene applicata la durata massima. La durata massima è",
+          "duration-after-maximum-duration-is": "quindi la durata è",
+          "lead-time-is-applied": "Infine, viene applicato il lead time. Il tempo di consegna è",
+          "duration-after-lead-time-is": "quindi la durata finale è",
+          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Poiché secchio >= 0, non è necessaria alcuna irrigazione e la durata è impostata su",
+          "maximum-bucket-is": "la dimensione massima del secchio è",
+          "drainage-rate-is": "Il tasso di drenaggio a saturazione (serbatoio al massimo) è",
+          "current-drainage-is": "Il drenaggio attuale è calcolato come",
+          "no-drainage": "Il drenaggio attuale è 0 perché"
+        }
+      }
+    },
+    Ba = {
+      pyeto: {
+        description: "Calcola la durata in base al calcolo FAO56 dalla libreria PyETO"
+      },
+      static: {
+        description: "Modulo 'fittizio' con un delta configurabile statico"
+      },
+      passthrough: {
+        description: "Modulo passthrough che restituisce il valore di un sensore di Evapotraspirazione sotto forma di delta"
+      }
+    },
+    Ra = {
+      general: {
+        cards: {
+          "automatic-duration-calculation": {
+            header: "Calcolo automatico della durata",
+            description: "Il calcolo prende i dati meteorologici raccolti fino a quel momento e aggiorna il bucket per ciascuna zona automatica. Quindi, la durata viene regolata in base al nuovo valore del segmento e i dati meteorologici raccolti vengono rimossi.",
+            labels: {
+              "auto-calc-enabled": "Calcola automaticamente la durata delle zone",
+              "auto-calc-time": "Calcola a",
+              "calc-time": "Calcola alle"
+            }
+          },
+          "automatic-update": {
+            errors: {
+              "warning-update-time-on-or-after-calc-time": "Attenzione: ora di aggiornamento dei dati meteorologici in corrispondenza o dopo l'ora di calcolo"
+            },
+            header: "Aggiornamento automatico dei dati meteorologici",
+            description: "Raccogli e archivia automaticamente i dati meteorologici. I dati meteorologici sono necessari per calcolare gli intervalli e le durate delle zone.",
+            labels: {
+              "auto-update-enabled": "Aggiorna automaticamente i dati meteorologici",
+              "auto-update-first-update": "(Primo) aggiornamento alle",
+              "auto-update-interval": "Aggiorna i dati del sensore ogni",
+              "auto-update-schedule": "Pianificazione aggiornamento",
+              "auto-update-time": "Aggiorna alle",
+              "auto-update-delay": "Update delay"
+            },
+            options: {
+              days: "giorni",
+              hours: "ore",
+              minutes: "minuti"
+            }
+          },
+          "automatic-clear": {
+            header: "Eliminazione automatica dei dati meteo",
+            description: "Rimuovi automaticamente i dati meteo raccolti a un orario configurato. Usa questa opzione per assicurarti che non vi siano dati meteo residui dei giorni precedenti. Non rimuovere i dati meteo prima di effettuare il calcolo e utilizza questa opzione solo se prevedi che l'aggiornamento automatico raccolga i dati meteo dopo aver effettuato il calcolo giornaliero. Idealmente, la rimozione dei dati meteo dovrebbe avvenire il più tardi possibile.",
+            labels: {
+              "automatic-clear-enabled": "Cancella automaticamente i dati meteorologici raccolti",
+              "automatic-clear-time": "Cancella dati meteo a"
+            }
+          },
+          continuousupdates: {
+            header: "Aggiornamenti continui sensori (sperimentale)",
+            description: "Funzione sperimentale per dati meteo più granulari.",
+            labels: {
+              continuousupdates: "Abilita gli aggiornamenti continui",
+              sensor_debounce: "Rimbalzo del sensore",
+              "sensor-debounce": "Tempo anti-rimbalzo sensore (ms)"
+            }
+          }
+        },
+        description: "Questa pagina fornisce le impostazioni globali.",
+        title: "Generale"
+      },
+      help: {
+        title: "Aiuto",
+        cards: {
+          "how-to-get-help": {
+            title: "Come ottenere aiuto",
+            "first-read-the": "Per prima cosa, leggi il",
+            wiki: "Documentation",
+            "if-you-still-need-help": "Se hai ancora bisogno di aiuto, contatta il",
+            "community-forum": "Forum della Comunità",
+            "or-open-a": "oppure apri un",
+            "github-issue": "Problema su Github",
+            "english-only": "soltanto in Inglese"
+          }
+        }
+      },
+      info: {
+        title: "Info",
+        description: "Visualizza informazioni sulla prossima irrigazione e lo stato del sistema.",
+        cards: {
+          "next-irrigation": {
+            title: "Prossima irrigazione",
+            labels: {
+              "next-start": "Prossimo avvio",
+              duration: "Durata",
+              zones: "Zone"
+            },
+            "no-data": "Nessun dato disponibile",
+            "backend-todo": "TODO: API di backend necessaria per le informazioni sull'irrigazione"
+          },
+          "irrigation-reason": {
+            title: "Motivo irrigazione",
+            labels: {
+              reason: "Ragione",
+              sunrise: "Alba",
+              "total-duration": "Durata totale",
+              explanation: "Spiegazione"
+            },
+            "no-data": "Nessun dato disponibile",
+            "backend-todo": "TODO: API di backend necessaria per le informazioni sull'irrigazione"
+          },
+          "zone-bucket-values": {
+            title: "Valori serbatoio e durata",
+            labels: {
+              bucket: "Serbatoio",
+              duration: "Durata"
+            },
+            "no-zones": "Nessuna zona configurata"
+          },
+          irrigate_now: {
+            title: "Irriga ora",
+            description: "Avvia immediatamente l'irrigazione per tutte le zone con entità collegata. Le condizioni di esclusione vengono ignorate.",
+            button_all: "Avvia tutte le zone ora",
+            no_linked_zones: "Nessuna zona ha un'entità interruttore/valvola collegata con durata calcolata."
+          }
+        },
+        "configuration-not-available": "Configurazione non disponibile."
+      },
+      mappings: {
+        cards: {
+          "add-mapping": {
+            actions: {
+              add: "Aggiungi gruppo di sensori"
+            },
+            header: "Aggiungi gruppo di sensori"
+          },
+          mapping: {
+            aggregates: {
+              average: "Media",
+              first: "Primo",
+              last: "Ultimo",
+              maximum: "Massimo",
+              median: "Mediana",
+              minimum: "Minimo",
+              riemannsum: "Somma di Riemann",
+              sum: "Somma",
+              delta: "Delta"
+            },
+            errors: {
+              "cannot-delete-mapping-because-zones-use-it": "Non è possibile eliminare questo gruppo di sensori perché almeno una zona lo utilizza.",
+              invalid_source: "Fonte non valida",
+              source_does_not_exist: "La fonte non esiste. Inserire una fonte valida, ad esempio 'sensor.mysensor'."
+            },
+            items: {
+              dewpoint: "Punto di rugiada",
+              evapotranspiration: "Evapotraspirazione",
+              humidity: "Umidità",
+              "maximum temperature": "Temperatura massima",
+              "minimum temperature": "Temperatura minima",
+              precipitation: "Precipitazione",
+              "current precipitation": "Precipitazioni attuali",
+              pressure: "Pressione",
+              "solar radiation": "Irradiamento solare",
+              temperature: "Temperatura",
+              windspeed: "Velocità del vento"
+            },
+            pressure_types: {
+              absolute: "assoluta",
+              relative: "relativa"
+            },
+            "pressure-type": "La pressione è",
+            "sensor-aggregate-of-sensor-values-to-calculate": "dei valori del sensore per calcolare la durata",
+            "sensor-aggregate-use-the": "Usa il",
+            "sensor-entity": "Entità sensore",
+            static_value: "Valore",
+            "input-units": "L'input fornisce valori in",
+            source: "Fonte",
+            sources: {
+              none: "Nessuna",
+              weather_service: "Weather service",
+              sensor: "Sensore",
+              static: "Valore statico"
+            }
+          }
+        },
+        description: "Aggiungi uno o più gruppi di sensori che recuperano i dati meteorologici da Weather service, da sensori o da una combinazione di questi. È possibile mappare ciascun gruppo di sensori su una o più zone",
+        labels: {
+          "mapping-name": "Nome"
+        },
+        no_items: "Non è ancora stato definito alcun gruppo di sensori.",
+        title: "Gruppi di sensori",
+        "weather-records": {
+          title: "Record meteo (ultimi 10)",
+          timestamp: "Tempo",
+          temperature: "Temp",
+          humidity: "Umidità",
+          precipitation: "Precip",
+          "retrieval-time": "Recuperato",
+          "no-data": "Non sono disponibili dati meteo per questo gruppo di sensori"
+        }
+      },
+      modules: {
+        cards: {
+          "add-module": {
+            actions: {
+              add: "Aggiungi modulo"
+            },
+            header: "Aggiungi modulo"
+          },
+          module: {
+            errors: {
+              "cannot-delete-module-because-zones-use-it": "Non puoi eliminare questo modulo perché almeno una zona lo utilizza."
+            },
+            labels: {
+              configuration: "Configurazione",
+              required: "indica un campo richiesto"
+            },
+            "translated-options": {
+              DontEstimate: "Non stimare",
+              EstimateFromSunHours: "Stima dalle ore solari",
+              EstimateFromTemp: "Stima dalla temperatura",
+              EstimateFromSunHoursAndTemperature: "Stima dalla media delle ore di sole e della temperatura"
+            }
+          }
+        },
+        description: "Aggiungi uno o più moduli che calcolano la durata dell'irrigazione. Ogni modulo viene fornito con la propria configurazione e può essere utilizzato per calcolare la durata di una o più zone.",
+        no_items: "Non ci sono ancora moduli definiti.",
+        title: "Moduli"
+      },
+      zones: {
+        actions: {
+          add: "Aggiungi",
+          calculate: "Calcola",
+          information: "Informazioni",
+          update: "Aggiorna",
+          "reset-bucket": "Reimposta il secchio",
+          "view-weather-info": "Visualizza dati meteo",
+          "view-weather-info-message": "Informazioni meteo disponibili per",
+          "view-weather-info-todo": "TODO: Implementare la navigazione ai dettagli del gruppo di sensori",
+          "view-watering-calendar": "Calendario irrigazione"
+        },
+        cards: {
+          "add-zone": {
+            actions: {
+              add: "Aggiungi zona"
+            },
+            header: "Aggiungi zona"
+          },
+          "zone-actions": {
+            actions: {
+              "calculate-all": "Calcola tutte le zone",
+              "update-all": "Aggiorna tutte le zone",
+              "reset-all-buckets": "Reimposta tutte le zone",
+              "clear-all-weatherdata": "Cancella tutti i dati meteo"
+            },
+            header: "Azioni su tutte le zone"
+          }
+        },
+        description: "Specificare qui una o più zone di irrigazione. La durata dell'irrigazione viene calcolata per zona, a seconda delle dimensioni, della produttività, dello stato, del modulo e del gruppo di sensori.",
+        labels: {
+          bucket: "Secchio",
+          duration: "Durata",
+          "lead-time": "Tempi di esecuzione",
+          mapping: "Gruppo di sensori",
+          "maximum-duration": "Durata massima",
+          multiplier: "Moltiplicatore",
+          name: "Nome",
+          size: "Misura",
+          state: "Stato",
+          states: {
+            automatic: "Automatico",
+            disabled: "Disabilitato",
+            manual: "Manuale"
+          },
+          throughput: "Portata",
+          "maximum-bucket": "Secchio massimo",
+          last_calculated: "Ultimo calcolo",
+          "data-last-updated": "Ultimo aggiornamento dei dati",
+          "data-number-of-data-points": "Numero di dati",
+          tasso_di_drenaggio: "tasso di drenaggio",
+          drainage_rate: "Drainage rate",
+          linked_entity: "Entità interruttore/valvola collegata",
+          linked_entity_placeholder: "es. switch.valvola_giardino",
+          irrigate_now: "Irriga ora",
+          bucket_threshold: "Deficit minimo per irrigare"
+        },
+        no_items: "Non ci sono ancora zone definite.",
+        title: "Zone"
+      },
+      schedules: {
+        title: "Pianificazioni",
+        description: "Crea pianificazioni ricorrenti per calcolare, aggiornare o irrigare automaticamente — senza automazioni.",
+        add: "Aggiungi pianificazione",
+        no_items: "Nessuna pianificazione configurata. Fare clic su 'Aggiungi pianificazione'.",
+        zones_all: "Tutte le zone",
+        zones_specific: "Zone specifiche",
+        hours: "ore",
+        minutes: "min",
+        types: {
+          daily: "Giornaliero",
+          weekly: "Settimanale",
+          monthly: "Mensile",
+          interval: "Ogni N ore",
+          sunrise: "Alba",
+          sunset: "Tramonto",
+          solar_azimuth: "Azimut solare"
+        },
+        actions: {
+          calculate: "Calcola (aggiorna durata irrigazione)",
+          update: "Aggiorna (raccogliere dati meteo)",
+          irrigate: "Irriga (controllare valvole direttamente)"
+        },
+        days: {
+          monday: "Lu",
+          tuesday: "Ma",
+          wednesday: "Me",
+          thursday: "Gi",
+          friday: "Ve",
+          saturday: "Sa",
+          sunday: "Do"
+        },
+        fields: {
+          name: "Nome",
+          type: "Tipo di pianificazione",
+          enabled: "Abilitato",
+          time: "Ora (HH:MM)",
+          days_of_week: "Giorni della settimana",
+          day_of_month: "Giorno del mese",
+          interval_hours: "Intervallo",
+          action: "Azione",
+          zones: "Zone",
+          start_date: "Data di inizio (opzionale)",
+          end_date: "Data di fine (opzionale)",
+          offset_minutes: "Offset dall'alba/tramonto",
+          account_for_duration: "Iniziare prima affinché l'irrigazione finisca all'orario target",
+          azimuth_angle: "Angolo di azimut solare"
+        },
+        dialog: {
+          add_title: "Aggiungi pianificazione",
+          edit_title: "Modifica pianificazione"
+        }
+      },
+      adjustments: {
+        title: "Aggiustamenti stagionali",
+        description: "Aggiustamenti mensili di moltiplicatore o soglia per condizioni stagionali.",
+        add: "Aggiungi aggiustamento",
+        no_items: "Nessun aggiustamento stagionale configurato.",
+        zones_all: "Tutte le zone",
+        zones_specific: "Zone specifiche",
+        multiplier_hint: "1,0 = nessuna modifica, 1,5 = 50% più irrigazione, 0,5 = 50% meno",
+        threshold_hint: "Aggiunto al serbatoio della zona. Positivo = più acqua necessaria, negativo = meno.",
+        fields: {
+          name: "Nome",
+          enabled: "Abilitato",
+          month_start: "Dal mese",
+          month_end: "Al mese",
+          multiplier_adjustment: "Aggiustamento moltiplicatore",
+          threshold_adjustment: "Aggiustamento soglia (mm)",
+          zones: "Zone"
+        },
+        dialog: {
+          add_title: "Aggiungi aggiustamento stagionale",
+          edit_title: "Modifica aggiustamento stagionale"
+        }
+      }
+    },
+    Fa = "Smart Irrigation",
+    Wa = {
+      title: "Coordinate di Posizione",
+      description: "Configura le coordinate di posizione per il recupero dei dati meteorologici. Puoi usare coordinate manuali diverse dalla tua posizione Home Assistant se necessario.",
+      manual_enabled: "Usa coordinate manuali",
+      use_ha_location: "Usa posizione di Home Assistant",
+      latitude: "Latitudine (gradi decimali)",
+      longitude: "Longitudine (gradi decimali)",
+      elevation: "Elevazione (metri sul livello del mare)",
+      current_ha_coords: "Coordinate attuali di Home Assistant"
+    },
+    Ya = {
+      title: "Giorni tra irrigazioni",
+      description: "Configura il numero minimo di giorni tra gli eventi di irrigazione.",
+      label: "Giorni minimi tra irrigazioni",
+      help_text: "Impostare 0 per disabilitare. Sono supportati valori da 1 a 365 giorni."
+    },
+    Va = {
+      title: "Irrigation Start Triggers",
+      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
+      add_trigger: "Add Trigger",
+      edit_trigger: "Edit Trigger",
+      delete_trigger: "Delete Trigger",
+      trigger_types: {
+        sunrise: "Sunrise",
+        sunset: "Sunset",
+        solar_azimuth: "Solar Azimuth"
+      },
+      fields: {
+        name: {
+          name: "Trigger Name",
+          description: "A descriptive name to identify this trigger"
+        },
+        type: {
+          name: "Trigger Type",
+          description: "The type of solar event to trigger on"
+        },
+        enabled: {
+          name: "Enabled",
+          description: "Whether this trigger is currently active"
+        },
+        offset_minutes: {
+          name: "Offset (minutes)",
+          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
+        },
+        azimuth_angle: {
+          name: "Azimuth Angle (degrees)",
+          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
+        },
+        account_for_duration: {
+          name: "Account for Duration",
+          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
+        }
+      },
+      dialog: {
+        add_title: "Add Irrigation Start Trigger",
+        edit_title: "Edit Irrigation Start Trigger",
+        cancel: "Cancel",
+        save: "Save",
+        delete: "Delete"
+      },
+      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
+      offset_auto: "Auto (calculated from total zone duration)",
+      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
+      validation: {
+        name_required: "Trigger name is required",
+        azimuth_invalid: "Azimuth angle must be a valid number"
+      },
+      help: {
+        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
+        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
+        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
+        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
+      }
+    },
+    Za = {
+      title: "Condizioni di esclusione",
+      description: "Salta automaticamente l'irrigazione quando le condizioni sono sfavorevoli. I controlli di precipitazioni, temperatura e vento richiedono un servizio meteo.",
+      threshold_label: "Soglia di precipitazioni",
+      threshold_description: "Quantità minima di precipitazioni previste (in mm) per oggi e domani per saltare l'irrigazione.",
+      temp_section_title: "Salta per bassa temperatura",
+      temp_threshold_label: "Salta se temperatura sotto",
+      wind_section_title: "Salta per vento forte",
+      wind_threshold_label: "Salta se velocità del vento superiore a",
+      rain_sensor_section_title: "Condizione sensore pioggia",
+      rain_sensor_label: "Entità sensore pioggia (opzionale)",
+      rain_sensor_placeholder: "es. binary_sensor.pioggia"
+    },
+    Ga = {
+      title: "Sequenza zone",
+      description: "Quando più zone necessitano di irrigazione, scegliere se funzionano contemporaneamente o una dopo l'altra. In modalità sequenziale, il sistema attende che ogni zona finisca prima di avviare la successiva.",
+      parallel: "Parallelo (tutte le zone insieme)",
+      sequential: "Sequenziale (una zona alla volta)"
+    },
+    qa = {
+      common: La,
+      defaults: Ia,
+      module: Ua,
+      calcmodules: Ba,
+      panels: Ra,
+      title: Fa,
+      coordinate_config: Wa,
+      days_between_irrigation: Ya,
+      irrigation_start_triggers: Va,
+      weather_skip: Za,
+      zone_sequencing: Ga
+    },
+    Ka = Object.freeze({
+      __proto__: null,
+      common: La,
+      defaults: Ia,
+      module: Ua,
+      calcmodules: Ba,
+      panels: Ra,
+      title: Fa,
+      coordinate_config: Wa,
+      days_between_irrigation: Ya,
+      irrigation_start_triggers: Va,
+      weather_skip: Za,
+      zone_sequencing: Ga,
+      default: qa
+    }),
+    Xa = {
+      actions: {
+        delete: "Verwijderen",
+        edit: "Bewerken",
+        save: "Opslaan",
+        cancel: "Annuleren"
+      },
+      labels: {
+        module: "Module",
+        no: "Nee",
+        select: "Kies",
+        yes: "Ja",
+        enabled: "Ingeschakeld",
+        disabled: "Uitgeschakeld",
+        before: "voor",
+        after: "na"
+      },
+      attributes: {
+        size: "afmeting",
+        throughput: "doorvoer",
+        state: "status",
+        bucket: "emmer",
+        last_updated: "laatste update",
+        last_calculated: "laatste berekening",
+        number_of_data_points: "aantal datapunten"
+      },
+      loading: "Laden",
+      saving: "Opslaan",
+      units: {
+        seconds: "seconden"
+      },
+      "loading-messages": {
+        configuration: "Configuratie laden...",
+        modules: "Modules laden...",
+        general: "Laden..."
+      },
+      "saving-messages": {
+        adding: "Toevoegen...",
+        saving: "Opslaan..."
+      }
+    },
+    Ja = {
+      "default-zone": "Standaard zone",
+      "default-mapping": "Standaard sensorgroep"
+    },
+    Qa = {
+      calculation: {
+        explanation: {
+          "module-returned-evapotranspiration-deficiency": "NB: in deze uitleg wordt de '.' as decimaalscheidingsteken gebruikt, worden afgeronde en metrische getallen getoond. Module berekende ET waarde van",
+          "bucket-was": "Voorraad was",
+          "new-bucket-values-is": "Nieuwe voorraad is",
+          "old-bucket-variable": "oude_voorraad",
+          delta: "verandering",
+          "bucket-less-than-zero-irrigation-necessary": "Omdat de voorraad < 0 is, is irrigatie nodig",
+          "steps-taken-to-calculate-duration": "On de exacte duur te berekenen werd het volgende gedaan",
+          "precipitation-rate-defined-as": "De neerslag is",
+          "duration-is-calculated-as": "De duur is",
+          bucket: "voorraad",
+          "precipitation-rate-variable": "neerslag",
+          "multiplier-is-applied": "De vermenigvuldiger wordt toegepast. Deze is",
+          "duration-after-multiplier-is": "dus de duur is",
+          "maximum-duration-is-applied": "De maximum duur wordt toegepast. Deze is",
+          "duration-after-maximum-duration-is": "dus de duur is",
+          "lead-time-is-applied": "As laatste wordt de aanlooptijd toegepast. Deze is",
+          "duration-after-lead-time-is": "dus de uiteindelijke duur is",
+          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Omdat de voorraad >= 0 is er geen irrigatie nodig en is de duur gelijk aan",
+          "maximum-bucket-is": "maximale voorraad grootte is",
+          "max-bucket-variable": "max_bucket",
+          drainage: "drainage",
+          "drainage-rate": "drainage_rate",
+          hours: "hours",
+          "drainage-rate-is": "Drainagesnelheid bij verzadiging (emmer op maximum) is",
+          "current-drainage-is": "Huidige drainage berekend als",
+          "no-drainage": "Huidige drainage is 0 omdat"
+        }
+      }
+    },
+    ei = {
+      pyeto: {
+        description: "Bereken duur op basis van de FAU56 formule en de PyETO library"
+      },
+      static: {
+        description: "Module met instelbare verandering"
+      },
+      passthrough: {
+        description: "Geeft waarde van ET sensor as verandering terug"
+      }
+    },
+    ti = {
+      general: {
+        cards: {
+          "automatic-duration-calculation": {
+            header: "Automatische berekening van irrigatietijd",
+            description: "Bij het berekenen wordt de verzamelde weersinformatie gebruikt om the voorraad en irrigatieduur per zone aan te passen. Daarna wordt de verzamelde weersinformatie verwijderd.",
+            labels: {
+              "auto-calc-enabled": "Automatisch irrigatietijd berekening voor elke zone",
+              "auto-calc-time": "Berekenen op",
+              "calc-time": "Berekenen om"
+            }
+          },
+          "automatic-update": {
+            errors: {
+              "warning-update-time-on-or-after-calc-time": "Let op: het automatisch bijwerken van weersinformatie vind plaats op of na de automatische berekening van irrigatietijd"
+            },
+            header: "Automatisch bijwerken van weersinformatie",
+            description: "Verzamel en bewaar weersinformatie automatisch. Weersinformatie is nodig om vorraad en irrigatieduur per zone te berekenen.",
+            labels: {
+              "auto-update-enabled": "Automatisch weersinformatie bijwerken",
+              "auto-update-delay": "Vertraging",
+              "auto-update-interval": "Sensor data bijwerken elke",
+              "auto-update-schedule": "Updateschema",
+              "auto-update-time": "Bijwerken om"
+            },
+            options: {
+              days: "dagen",
+              hours: "uren",
+              minutes: "minuten"
+            }
+          },
+          "automatic-clear": {
+            header: "Automatisch weersinformatie opruimen",
+            description: "Verwijder weersinformatie op het ingestelde moment. Dit zorgt ervoor dat er geen weersinformatie van de vorige dag gebruikt kan worden voor berekeningen. Let op: verwijder geen weersinformatie voordat de berekening heeft plaatsgevonden. Gebruik deze optie als je verwacht dat er weersinformatie zal worden verzameld nadat de berekeningen voor de dag gedaan zijn. Verwijder weersinformatie zo laat mogelijk op de dag.",
+            labels: {
+              "automatic-clear-enabled": "Automatisch weersinformatie verwijderen",
+              "automatic-clear-time": "Verwijder weersinformatie om"
+            }
+          },
+          continuousupdates: {
+            header: "Continue sensorupdates (experimenteel)",
+            description: "Experimentele functie voor gedetailleerdere weergegevens.",
+            labels: {
+              continuousupdates: "Enable continuous updates",
+              sensor_debounce: "Sensor debounce",
+              "sensor-debounce": "Sensor-debouncetijd (ms)"
+            }
+          }
+        },
+        description: "Dit zijn de algemene instellingen.",
+        title: "Algemeen"
+      },
+      help: {
+        title: "Hulp",
+        cards: {
+          "how-to-get-help": {
+            title: "Hulp vragen",
+            "first-read-the": "Allereerst, lees de",
+            wiki: "Documentation",
+            "if-you-still-need-help": "Als je hierna nog steeds hulp nodig hebt, laat een bericht achter op het",
+            "community-forum": "Community forum",
+            "or-open-a": "of open een",
+            "github-issue": "Github Issue",
+            "english-only": "alleen Engels"
+          }
+        }
+      },
+      mappings: {
+        cards: {
+          "add-mapping": {
+            actions: {
+              add: "Toevoegen"
+            },
+            header: "Voeg sensorgroep toe"
+          },
+          mapping: {
+            aggregates: {
+              average: "Gemiddelde",
+              first: "Eerste",
+              last: "Laatste",
+              maximum: "Maximum",
+              median: "Mediaan",
+              minimum: "Minimum",
+              sum: "Totaal",
+              riemannsum: "Riemann sum",
+              delta: "Delta"
+            },
+            errors: {
+              "cannot-delete-mapping-because-zones-use-it": "Deze sensorgroep kan niet worden verwijderd omdat er minimaal een zone gebruik van maakt.",
+              invalid_source: "Invalid source",
+              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
+            },
+            items: {
+              dewpoint: "Dauwpunt",
+              evapotranspiration: "Verdamping",
+              humidity: "Vochtigheid",
+              "maximum temperature": "Maximum temperatuur",
+              "minimum temperature": "Minimum temperatuur",
+              precipitation: "Totale neerslag",
+              pressure: "Druk",
+              "solar radiation": "Zonnestraling",
+              temperature: "Temperatuur",
+              windspeed: "Wind snelheid",
+              "current precipitation": "Current precipitation"
+            },
+            pressure_types: {
+              absolute: "absoluut",
+              relative: "relatief"
+            },
+            "pressure-type": "Druk is",
+            "sensor-aggregate-of-sensor-values-to-calculate": "van de sensor waardes om irrigatietijd te berekenen",
+            "sensor-aggregate-use-the": "Gebruik de/het",
+            "sensor-entity": "Sensor entiteit",
+            "input-units": "Invoer geeft waardes in",
+            static_value: "Waarde",
+            source: "Bron",
+            sources: {
+              none: "Geen",
+              weather_service: "Weather service",
+              sensor: "Sensor",
+              static: "Vaste waarde"
+            }
+          }
+        },
+        description: "Voeg een of meer sensorgroepen toe die weergegevens ophalen van Weather service, van sensoren of een combinatie. Elke sensorgroep kan worden gebruikt voor een of meerdere zones",
+        labels: {
+          "mapping-name": "Name"
+        },
+        no_items: "Er zijn nog geen sensorgroepen.",
+        title: "Sensorgroepen",
+        "weather-records": {
+          title: "Weather Records (Last 10)",
+          timestamp: "Time",
+          temperature: "Temp",
+          humidity: "Humidity",
+          precipitation: "Precip",
+          "retrieval-time": "Retrieved",
+          "no-data": "No weather data available for this sensor group"
+        }
+      },
+      modules: {
+        cards: {
+          "add-module": {
+            actions: {
+              add: "Toevoegen"
+            },
+            header: "Voeg module toe"
+          },
+          module: {
+            errors: {
+              "cannot-delete-module-because-zones-use-it": "Deze module kan niet worden verwijderd omdat er minimaal een zone gebruik van maakt."
+            },
+            labels: {
+              configuration: "Instellingen",
+              required: "verplicht veld"
+            },
+            "translated-options": {
+              DontEstimate: "Niet berekenen",
+              EstimateFromSunHours: "Gebaseerd op zon uren",
+              EstimateFromTemp: "Gebaseerd op temperatuur",
+              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
+            }
+          }
+        },
+        description: "Voeg een of meerdere modules toe. Modules berekenen irrigatietijd. Elke module heeft zijn eigen configuratie and kan worden gebruikt voor het berekening van irrigatietijd voor een of meerdere zones.",
+        no_items: "Er zijn nog geen modules.",
+        title: "Modules"
+      },
+      zones: {
+        actions: {
+          add: "Toevoegen",
+          calculate: "Bereken",
+          information: "Informatie",
+          update: "Bijwerken",
+          "reset-bucket": "Leeg voorraad",
+          "view-weather-info": "Weergegevens bekijken",
+          "view-weather-info-message": "Weather data available for",
+          "view-watering-calendar": "Bewateringskalender"
+        },
+        cards: {
+          "add-zone": {
+            actions: {
+              add: "Toevoegen"
+            },
+            header: "Voeg zone toe"
+          },
+          "zone-actions": {
+            actions: {
+              "calculate-all": "Bereken alle zones",
+              "update-all": "Werk alle zone data bij",
+              "reset-all-buckets": "Leeg alle voorraden",
+              "clear-all-weatherdata": "Verwijder alle weersinformatie"
+            },
+            header: "Acties voor alle zones"
+          }
+        },
+        description: "Voeg een of meerdere zones toe. Per zone wordt de irrigatietijd berekend, afhankelijk van de afmeting, doorvoer, status, module en sensorgroep.",
+        labels: {
+          bucket: "Voorraad",
+          duration: "Irrigatieduur",
+          "lead-time": "Aanlooptijd",
+          mapping: "Sensorgroep",
+          "maximum-duration": "Maximale duur",
+          multiplier: "Vermenigvuldiger",
+          name: "Naam",
+          size: "Afmeting",
+          state: "Status",
+          states: {
+            automatic: "Automatisch",
+            disabled: "Uit",
+            manual: "Manueel"
+          },
+          throughput: "Doorvoer",
+          "maximum-bucket": "Maximale voorraad",
+          last_calculated: "Berekend op",
+          "data-last-updated": "Bijgewerkt op",
+          "data-number-of-data-points": "Aantal datapunten",
+          drainage_rate: "Drainage rate",
+          linked_entity: "Gekoppelde schakelaar/klep-entiteit",
+          linked_entity_placeholder: "bijv. switch.tuin_klep",
+          irrigate_now: "Nu bewateren",
+          bucket_threshold: "Minimum tekort voor bewatering"
+        },
+        no_items: "Er zijn nog geen zones.",
+        title: "Zones"
+      },
+      schedules: {
+        title: "Schema's",
+        description: "Maak terugkerende schema's voor automatisch berekenen, bijwerken of bewateren — zonder automatiseringen.",
+        add: "Schema toevoegen",
+        no_items: "Nog geen schema's geconfigureerd. Klik op 'Schema toevoegen'.",
+        zones_all: "Alle zones",
+        zones_specific: "Specifieke zones",
+        hours: "uur",
+        minutes: "min",
+        types: {
+          daily: "Dagelijks",
+          weekly: "Wekelijks",
+          monthly: "Maandelijks",
+          interval: "Elke N uur",
+          sunrise: "Zonsopgang",
+          sunset: "Zonsondergang",
+          solar_azimuth: "Zonneazimut"
+        },
+        actions: {
+          calculate: "Berekenen (bewateringsduur bijwerken)",
+          update: "Bijwerken (weergegevens verzamelen)",
+          irrigate: "Bewateren (kleppen direct aansturen)"
+        },
+        days: {
+          monday: "Ma",
+          tuesday: "Di",
+          wednesday: "Wo",
+          thursday: "Do",
+          friday: "Vr",
+          saturday: "Za",
+          sunday: "Zo"
+        },
+        fields: {
+          name: "Naam",
+          type: "Schematype",
+          enabled: "Ingeschakeld",
+          time: "Tijd (HH:MM)",
+          days_of_week: "Weekdagen",
+          day_of_month: "Dag van de maand",
+          interval_hours: "Interval",
+          action: "Actie",
+          zones: "Zones",
+          start_date: "Startdatum (optioneel)",
+          end_date: "Einddatum (optioneel)",
+          offset_minutes: "Offset van zonsopgang/-ondergang",
+          account_for_duration: "Vroeg starten zodat bewatering eindigt op doeltijd",
+          azimuth_angle: "Zonneazimuthoek"
+        },
+        dialog: {
+          add_title: "Schema toevoegen",
+          edit_title: "Schema bewerken"
+        }
+      },
+      adjustments: {
+        title: "Seizoensaanpassingen",
+        description: "Maandelijkse aanpassingen van vermenigvuldiger of drempel voor seizoensomstandigheden.",
+        add: "Aanpassing toevoegen",
+        no_items: "Nog geen seizoensaanpassingen geconfigureerd.",
+        zones_all: "Alle zones",
+        zones_specific: "Specifieke zones",
+        multiplier_hint: "1,0 = geen wijziging, 1,5 = 50% meer bewatering, 0,5 = 50% minder",
+        threshold_hint: "Toegevoegd aan de zone-emmer. Positief = meer water nodig, negatief = minder.",
+        fields: {
+          name: "Naam",
+          enabled: "Ingeschakeld",
+          month_start: "Vanaf maand",
+          month_end: "Tot maand",
+          multiplier_adjustment: "Vermenigvuldigeraanpassing",
+          threshold_adjustment: "Drempelaanpassing (mm)",
+          zones: "Zones"
+        },
+        dialog: {
+          add_title: "Seizoensaanpassing toevoegen",
+          edit_title: "Seizoensaanpassing bewerken"
+        }
+      },
+      info: {
+        title: "Info",
+        description: "Informatie bekijken over de volgende bewatering en systeemstatus.",
+        "configuration-not-available": "Configuratie niet beschikbaar.",
+        cards: {
+          "zone-bucket-values": {
+            title: "Zone-emmerwaarden & duur",
+            labels: {
+              bucket: "Emmer",
+              duration: "Duur"
+            },
+            "no-zones": "Geen zones geconfigureerd"
+          },
+          "next-irrigation": {
+            title: "Volgende bewatering",
+            labels: {
+              "next-start": "Volgende start",
+              duration: "Duur",
+              zones: "Zones"
+            },
+            "no-data": "Geen gegevens beschikbaar"
+          },
+          "irrigation-reason": {
+            title: "Reden voor bewatering",
+            labels: {
+              reason: "Reden",
+              sunrise: "Zonsopgang",
+              "total-duration": "Totale duur",
+              explanation: "Uitleg"
+            },
+            "no-data": "Geen gegevens beschikbaar"
+          },
+          irrigate_now: {
+            title: "Nu bewateren",
+            description: "Start direct bewatering voor alle zones met een gekoppelde entiteit. Overslaanvoorwaarden worden genegeerd.",
+            button_all: "Alle zones nu starten",
+            no_linked_zones: "Geen zones hebben een gekoppelde schakelaar/klep-entiteit met berekende duur."
+          }
+        }
+      }
+    },
+    ai = "Smart Irrigation",
+    ii = {
+      title: "Locatie Coördinaten",
+      description: "Configureer locatie coördinaten voor het ophalen van weergegevens. Je kunt handmatige coördinaten gebruiken die verschillen van je Home Assistant locatie indien nodig.",
+      manual_enabled: "Handmatige coördinaten gebruiken",
+      use_ha_location: "Home Assistant locatie gebruiken",
+      latitude: "Breedtegraad (decimale graden)",
+      longitude: "Lengtegraad (decimale graden)",
+      elevation: "Hoogte (meters boven zeeniveau)",
+      current_ha_coords: "Huidige Home Assistant coördinaten"
+    },
+    ni = {
+      title: "Dagen tussen bewatering",
+      description: "Stel het minimum aantal dagen in tussen bewateringsgebeurtenissen.",
+      label: "Minimum dagen tussen bewatering",
+      help_text: "Stel in op 0 om uit te schakelen. Waarden van 1-365 dagen worden ondersteund."
+    },
+    si = {
+      title: "Irrigation Start Triggers",
+      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
+      add_trigger: "Add Trigger",
+      edit_trigger: "Edit Trigger",
+      delete_trigger: "Delete Trigger",
+      trigger_types: {
+        sunrise: "Sunrise",
+        sunset: "Sunset",
+        solar_azimuth: "Solar Azimuth"
+      },
+      fields: {
+        name: {
+          name: "Trigger Name",
+          description: "A descriptive name to identify this trigger"
+        },
+        type: {
+          name: "Trigger Type",
+          description: "The type of solar event to trigger on"
+        },
+        enabled: {
+          name: "Enabled",
+          description: "Whether this trigger is currently active"
+        },
+        offset_minutes: {
+          name: "Offset (minutes)",
+          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
+        },
+        azimuth_angle: {
+          name: "Azimuth Angle (degrees)",
+          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
+        },
+        account_for_duration: {
+          name: "Account for Duration",
+          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
+        }
+      },
+      dialog: {
+        add_title: "Add Irrigation Start Trigger",
+        edit_title: "Edit Irrigation Start Trigger",
+        cancel: "Cancel",
+        save: "Save",
+        delete: "Delete"
+      },
+      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
+      offset_auto: "Auto (calculated from total zone duration)",
+      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
+      validation: {
+        name_required: "Trigger name is required",
+        azimuth_invalid: "Azimuth angle must be a valid number"
+      },
+      help: {
+        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
+        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
+        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
+        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
+      }
+    },
+    ri = {
+      title: "Overslaanvoorwaarden",
+      description: "Sla irrigatie automatisch over als de omstandigheden ongunstig zijn. Neerslag-, temperatuur- en windcontroles vereisen een weerdienst.",
+      threshold_label: "Neerslagdrempel",
+      threshold_description: "Minimale hoeveelheid verwachte neerslag (in mm) voor vandaag en morgen om irrigatie over te slaan.",
+      temp_section_title: "Overslaan bij lage temperatuur",
+      temp_threshold_label: "Overslaan als temperatuur onder",
+      wind_section_title: "Overslaan bij hoge windsnelheid",
+      wind_threshold_label: "Overslaan als windsnelheid boven",
+      rain_sensor_section_title: "Regensensorvoorwaarde",
+      rain_sensor_label: "Regensensor-entiteit (optioneel)",
+      rain_sensor_placeholder: "bijv. binary_sensor.regen"
+    },
+    oi = {
+      title: "Zone-volgorde",
+      description: "Als meerdere zones irrigatie nodig hebben, kies of ze tegelijkertijd of na elkaar worden uitgevoerd. In sequentiële modus wacht het systeem tot elke zone klaar is voordat de volgende start.",
+      parallel: "Parallel (alle zones tegelijk)",
+      sequential: "Sequentieel (één zone tegelijk)"
+    },
+    li = {
+      common: Xa,
+      defaults: Ja,
+      module: Qa,
+      calcmodules: ei,
+      panels: ti,
+      title: ai,
+      coordinate_config: ii,
+      days_between_irrigation: ni,
+      irrigation_start_triggers: si,
+      weather_skip: ri,
+      zone_sequencing: oi
+    },
+    di = Object.freeze({
+      __proto__: null,
+      common: Xa,
+      defaults: Ja,
+      module: Qa,
+      calcmodules: ei,
+      panels: ti,
+      title: ai,
+      coordinate_config: ii,
+      days_between_irrigation: ni,
+      irrigation_start_triggers: si,
+      weather_skip: ri,
+      zone_sequencing: oi,
+      default: li
+    }),
+    ui = {
+      actions: {
+        delete: "Slett",
+        edit: "Rediger",
+        save: "Lagre",
+        cancel: "Avbryt"
+      },
+      labels: {
+        module: "Modul",
+        no: "Nei",
+        select: "Velg",
+        yes: "Ja",
+        enabled: "Aktivert",
+        disabled: "Deaktivert",
+        before: "før",
+        after: "etter"
+      },
+      attributes: {
+        size: "størrelse",
+        throughput: "kapasitet",
+        state: "status",
+        bucket: "beholder",
+        last_updated: "sist oppdatert",
+        last_calculated: "sist beregnet",
+        number_of_data_points: "antall datapunkter"
+      },
+      loading: "Laster",
+      saving: "Lagrer",
+      units: {
+        seconds: "sekunder"
+      },
+      "loading-messages": {
+        configuration: "Laster konfigurasjon...",
+        modules: "Laster moduler...",
+        general: "Laster..."
+      },
+      "saving-messages": {
+        adding: "Legger til...",
+        saving: "Lagrer..."
+      }
+    },
+    ci = {
+      "default-zone": "Standard sone",
+      "default-mapping": "Standard sensorguppe"
+    },
+    hi = {
+      calculation: {
+        explanation: {
+          "module-returned-evapotranspiration-deficiency": "Merk: Denne forklaringen bruker '.' som desimaltegn og viser avrundede verdier. Modulen returnerte evapotranspirasjonsunderskudd på",
+          "bucket-was": "Bucket var",
+          "new-bucket-values-is": "Ny bucket verdien er",
+          "old-bucket-variable": "gammel_bucket",
+          delta: "delta",
+          "bucket-less-than-zero-irrigation-necessary": "Siden bucket < 0, Vanning er nødvendig.",
+          "steps-taken-to-calculate-duration": "For å beregne nøyaktig varighet, ble følgende trinn utført",
+          "precipitation-rate-defined-as": "Nedbørshastigheten er definert som",
+          "duration-is-calculated-as": "Varigheten beregnes som",
+          bucket: "bucket",
+          "precipitation-rate-variable": "nedbørshastighet",
+          "multiplier-is-applied": "Nå blir multiplikatoren brukt. Multiplikatoren er",
+          "duration-after-multiplier-is": "derfor er varigheten",
+          "maximum-duration-is-applied": "Deretter blir den maksimale varigheten brukt. Den maksimale varigheten er",
+          "duration-after-maximum-duration-is": "derfor er varigheten",
+          "lead-time-is-applied": "Til slutt blir ledetiden brukt. Ledetiden er",
+          "duration-after-lead-time-is": "derfor er den endelige varigheten",
+          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Siden bucket >= 0, Ingen vanning er nødvendig, og varigheten er satt til",
+          "maximum-bucket-is": "maksimum bucket stærrelse er",
+          "max-bucket-variable": "max_bucket",
+          drainage: "drainage",
+          "drainage-rate": "drainage_rate",
+          hours: "hours",
+          "drainage-rate-is": "Dreneringshastigheten ved metning (beholder på maks) er",
+          "current-drainage-is": "Gjeldende drenering beregnet som",
+          "no-drainage": "Gjeldende drenering er 0 fordi"
+        }
+      }
+    },
+    pi = {
+      pyeto: {
+        description: "Beregn varigheten basert på FAO56-beregningen fra PyETO-biblioteket"
+      },
+      static: {
+        description: "'Dummy'-modul med en statisk konfigurerbar endring (delta)"
+      },
+      passthrough: {
+        description: "En 'Passthrough'-modul som returnerer verdien av en Evapotranspiration-sensor som delta"
+      }
+    },
+    gi = {
+      general: {
+        cards: {
+          "automatic-duration-calculation": {
+            header: "Automatisk varighetsberegning",
+            labels: {
+              "auto-calc-enabled": "Beregn sonevarigheter automatisk",
+              "auto-calc-time": "Beregn ved",
+              "calc-time": "Beregn kl."
+            },
+            description: "Calculation takes collected weather data up to that point and updates the bucket for each automatic zone. Then, the duration is adjusted based on the new bucket value and the collected weather data is removed."
+          },
+          "automatic-update": {
+            errors: {
+              "warning-update-time-on-or-after-calc-time": "Advarsel: Oppdateringstidspunkt for værdata på eller etter beregningstidspunktet"
+            },
+            header: "Automatisk oppdatering av værdata",
+            labels: {
+              "auto-update-enabled": "Oppdater værdata automatisk",
+              "auto-update-first-update": "(Første) Oppdatering kl",
+              "auto-update-interval": "Oppdater sensordata hvert",
+              "auto-update-schedule": "Oppdateringsplan",
+              "auto-update-time": "Oppdater kl.",
+              "auto-update-delay": "Update delay"
+            },
+            options: {
+              days: "dager",
+              hours: "timer",
+              minutes: "minutter"
+            },
+            description: "Collect and store weather data automatically. Weather data is required to calculate zone buckets and durations."
+          },
+          "automatic-clear": {
+            header: "Automatic weather data pruning",
+            description: "Automatically remove collected weather data at a configured time. Use this to make sure that there is no left over weather data from previous days. Don't remove the weather data before you calculate and only use this option if you expect the automatic update to collect weather data after you calculated for the day. Ideally, you want to prune as late in the day as possible.",
+            labels: {
+              "automatic-clear-enabled": "Automatically clear collected weather data",
+              "automatic-clear-time": "Clear weather data at"
+            }
+          },
+          continuousupdates: {
+            header: "Kontinuerlige sensoroppdateringer (eksperimentell)",
+            description: "Eksperimentell funksjon for mer granulære værdata.",
+            labels: {
+              continuousupdates: "Enable continuous updates",
+              sensor_debounce: "Sensor debounce",
+              "sensor-debounce": "Sensor-debouncetid (ms)"
+            }
+          }
+        },
+        description: "Denne siden gir globale innstillinger.",
+        title: "Generelt"
+      },
+      help: {
+        title: "Hjelp",
+        cards: {
+          "how-to-get-help": {
+            title: "Hvordan få hjelp",
+            "first-read-the": "Først, les",
+            wiki: "Dokumentasjon",
+            "if-you-still-need-help": "Hvis du fremdeles trenger hjelp, ta kontakt på",
+            "community-forum": "Fellesskapsforumet",
+            "or-open-a": "eller åpne en",
+            "github-issue": "Github-sak",
+            "english-only": "Kun på engelsk"
+          }
+        }
+      },
+      mappings: {
+        cards: {
+          "add-mapping": {
+            actions: {
+              add: "Legg til sensorguppe"
+            },
+            header: "Legg til sensorgupper"
+          },
+          mapping: {
+            aggregates: {
+              average: "Gjennomsnitt",
+              first: "Første",
+              last: "Siste",
+              maximum: "Maksimum",
+              median: "Median",
+              minimum: "Minimum",
+              sum: "Sum",
+              riemannsum: "Riemann sum",
+              delta: "Delta"
+            },
+            errors: {
+              "cannot-delete-mapping-because-zones-use-it": "Du kan ikke slette denne sensorguppen fordi minst én sone bruker den.",
+              invalid_source: "Invalid source",
+              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
+            },
+            items: {
+              dewpoint: "Duggpunkt",
+              evapotranspiration: "Evapotranspirasjon",
+              humidity: "Luftfuktighet",
+              "maximum temperature": "Maksimumstemperatur",
+              "minimum temperature": "Minimumstemperatur",
+              precipitation: "Total nedbør",
+              pressure: "Trykk",
+              "solar radiation": "Solstråling",
+              temperature: "Temperatur",
+              windspeed: "Vindhastighet",
+              "current precipitation": "Current precipitation"
+            },
+            "sensor-aggregate-of-sensor-values-to-calculate": "av sensordata for å beregne varighet",
+            "sensor-aggregate-use-the": "Bruk",
+            "sensor-entity": "Sensorenhet",
+            static_value: "Verdi",
+            "input-units": "Inndata gir verdier i",
+            source: "Kilde",
+            sources: {
+              none: "Ingen",
+              weather_service: "Weather service",
+              sensor: "Sensor",
+              static: "Statisk verdi"
+            },
+            pressure_types: {
+              absolute: "absolute",
+              relative: "relative"
+            },
+            "pressure-type": "Pressure is"
+          }
+        },
+        description: "Legg til en eller flere sensorgupper som henter værdata fra Weather service, fra sensorer eller en kombinasjon av disse. Du kan tilordne hver sensorguppe til en eller flere soner",
+        labels: {
+          "mapping-name": "Navn"
+        },
+        no_items: "Det er ingen definerte sensorgupper ennå.",
+        title: "Sensorgupper",
+        "weather-records": {
+          title: "Weather Records (Last 10)",
+          timestamp: "Time",
+          temperature: "Temp",
+          humidity: "Humidity",
+          precipitation: "Precip",
+          "retrieval-time": "Retrieved",
+          "no-data": "No weather data available for this sensor group"
+        }
+      },
+      modules: {
+        cards: {
+          "add-module": {
+            actions: {
+              add: "Legg til modul"
+            },
+            header: "Legg til modul"
+          },
+          module: {
+            errors: {
+              "cannot-delete-module-because-zones-use-it": "Du kan ikke slette denne modulen fordi minst én sone bruker den."
+            },
+            labels: {
+              configuration: "Konfigurasjon",
+              required: "indikerer et obligatorisk felt"
+            },
+            "translated-options": {
+              DontEstimate: "Ikke beregn",
+              EstimateFromSunHours: "Beregn fra soltimer",
+              EstimateFromTemp: "Beregn fra temperatur",
+              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
+            }
+          }
+        },
+        description: "Legg til en eller flere moduler som beregner vanningsvarighet. Hver modul har sin egen konfigurasjon og kan brukes til å beregne varighet for en eller flere soner.",
+        no_items: "Det er ingen definerte moduler ennå.",
+        title: "Moduler"
+      },
+      zones: {
+        actions: {
+          add: "Legg til",
+          calculate: "Beregn",
+          information: "Informasjon",
+          update: "Oppdater",
+          "reset-bucket": "Nullstill bøtte",
+          "view-weather-info": "Se værdata",
+          "view-weather-info-message": "Weather data available for",
+          "view-watering-calendar": "Vanningskalender"
+        },
+        cards: {
+          "add-zone": {
+            actions: {
+              add: "Legg til sone"
+            },
+            header: "Legg til sone"
+          },
+          "zone-actions": {
+            actions: {
+              "calculate-all": "Beregn alle soner",
+              "update-all": "Oppdater alle soner",
+              "reset-all-buckets": "Nullstill alle bøtter",
+              "clear-all-weatherdata": "Clear all weather data"
+            },
+            header: "Handlinger på alle soner"
+          }
+        },
+        description: "Spesifiser en eller flere vanningssoner her. Vanningens varighet beregnes per sone, avhengig av størrelse, gjennomstrømning, tilstand, modul og sensorguppe.",
+        labels: {
+          bucket: "Bøtte",
+          duration: "Varighet",
+          "lead-time": "Ledetid",
+          mapping: "Sensorguppe",
+          "maximum-duration": "Maksimal varighet",
+          multiplier: "Multiplikator",
+          name: "Navn",
+          size: "Størrelse",
+          state: "Tilstand",
+          states: {
+            automatic: "Automatisk",
+            disabled: "Deaktivert",
+            manual: "Manuell"
+          },
+          throughput: "Gjennomstrømning",
+          "maximum-bucket": "Maksimal bøtte",
+          last_calculated: "Last calculated",
+          "data-last-updated": "Data last updated",
+          "data-number-of-data-points": "Number of data points",
+          drainage_rate: "Drainage rate",
+          linked_entity: "Tilknyttet bryter/ventil-enhet",
+          linked_entity_placeholder: "f.eks. switch.hage_ventil",
+          irrigate_now: "Vann nå",
+          bucket_threshold: "Minimum underskudd for vanning"
+        },
+        no_items: "Det er ingen definerte soner ennå.",
+        title: "Soner"
+      },
+      title: "Smart vanning",
+      schedules: {
+        title: "Tidsplaner",
+        description: "Opprett gjentakende tidsplaner for automatisk beregning, oppdatering eller vanning — uten automatiseringer.",
+        add: "Legg til tidsplan",
+        no_items: "Ingen tidsplaner konfigurert ennå. Klikk på 'Legg til tidsplan'.",
+        zones_all: "Alle soner",
+        zones_specific: "Spesifikke soner",
+        hours: "timer",
+        minutes: "min",
+        types: {
+          daily: "Daglig",
+          weekly: "Ukentlig",
+          monthly: "Månedlig",
+          interval: "Hver N time",
+          sunrise: "Soloppgang",
+          sunset: "Solnedgang",
+          solar_azimuth: "Solazimutt"
+        },
+        actions: {
+          calculate: "Beregn (oppdater vanningsvarighet)",
+          update: "Oppdater (samle inn værdata)",
+          irrigate: "Vann (styr ventiler direkte)"
+        },
+        days: {
+          monday: "Ma",
+          tuesday: "Ti",
+          wednesday: "On",
+          thursday: "To",
+          friday: "Fr",
+          saturday: "Lø",
+          sunday: "Sø"
+        },
+        fields: {
+          name: "Navn",
+          type: "Tidsplantype",
+          enabled: "Aktivert",
+          time: "Tid (HH:MM)",
+          days_of_week: "Ukedager",
+          day_of_month: "Dag i måneden",
+          interval_hours: "Intervall",
+          action: "Handling",
+          zones: "Soner",
+          start_date: "Startdato (valgfritt)",
+          end_date: "Sluttdato (valgfritt)",
+          offset_minutes: "Forskyvning fra soloppgang/-nedgang",
+          account_for_duration: "Start tidlig slik at vanningen er ferdig til måltidspunktet",
+          azimuth_angle: "Solazimutt-vinkel"
+        },
+        dialog: {
+          add_title: "Legg til tidsplan",
+          edit_title: "Rediger tidsplan"
+        }
+      },
+      adjustments: {
+        title: "Sesongkorrigeringer",
+        description: "Månedlige multiplikator- eller terskelkorrigeringer for sesongtilstand.",
+        add: "Legg til korrigering",
+        no_items: "Ingen sesongkorrigeringer konfigurert.",
+        zones_all: "Alle soner",
+        zones_specific: "Spesifikke soner",
+        multiplier_hint: "1,0 = ingen endring, 1,5 = 50% mer vanning, 0,5 = 50% mindre",
+        threshold_hint: "Legges til sone-beholderen. Positivt = mer vann trengs, negativt = mindre.",
+        fields: {
+          name: "Navn",
+          enabled: "Aktivert",
+          month_start: "Fra måned",
+          month_end: "Til måned",
+          multiplier_adjustment: "Multiplikatorkorrigering",
+          threshold_adjustment: "Terskelkorrigering (mm)",
+          zones: "Soner"
+        },
+        dialog: {
+          add_title: "Legg til sesongkorrigering",
+          edit_title: "Rediger sesongkorrigering"
+        }
+      },
+      info: {
+        title: "Info",
+        description: "Vis informasjon om neste vanning og systemstatus.",
+        "configuration-not-available": "Konfigurasjon ikke tilgjengelig.",
+        cards: {
+          "zone-bucket-values": {
+            title: "Sone-beholderverdier og varighet",
+            labels: {
+              bucket: "Beholder",
+              duration: "Varighet"
+            },
+            "no-zones": "Ingen soner konfigurert"
+          },
+          "next-irrigation": {
+            title: "Neste vanning",
+            labels: {
+              "next-start": "Neste start",
+              duration: "Varighet",
+              zones: "Soner"
+            },
+            "no-data": "Ingen data tilgjengelig"
+          },
+          "irrigation-reason": {
+            title: "Årsak til vanning",
+            labels: {
+              reason: "Årsak",
+              sunrise: "Soloppgang",
+              "total-duration": "Total varighet",
+              explanation: "Forklaring"
+            },
+            "no-data": "Ingen data tilgjengelig"
+          },
+          irrigate_now: {
+            title: "Vann nå",
+            description: "Start vanning umiddelbart for alle soner med tilknyttet enhet. Hoppover-betingelser ignoreres.",
+            button_all: "Start alle soner nå",
+            no_linked_zones: "Ingen soner har en tilknyttet bryter/ventil-enhet med beregnet varighet."
+          }
+        }
+      }
+    },
+    mi = {
+      title: "Stedskoordinater",
+      description: "Konfigurer stedskoordinater for innhenting av værdata. Du kan bruke manuelle koordinater som er forskjellige fra din Home Assistant plassering om nødvendig.",
+      manual_enabled: "Bruk manuelle koordinater",
+      use_ha_location: "Bruk Home Assistant plassering",
+      latitude: "Breddegrad (desimalgrader)",
+      longitude: "Lengdegrad (desimalgrader)",
+      elevation: "Høyde (meter over havet)",
+      current_ha_coords: "Gjeldende Home Assistant koordinater"
+    },
+    fi = {
+      title: "Dager mellom vanning",
+      description: "Konfigurer minimumsantall dager mellom vanningshendelser.",
+      label: "Minimum dager mellom vanning",
+      help_text: "Sett til 0 for å deaktivere. Verdier fra 1-365 dager støttes."
+    },
+    vi = "Smart Irrigation",
+    _i = {
+      title: "Irrigation Start Triggers",
+      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
+      add_trigger: "Add Trigger",
+      edit_trigger: "Edit Trigger",
+      delete_trigger: "Delete Trigger",
+      trigger_types: {
+        sunrise: "Sunrise",
+        sunset: "Sunset",
+        solar_azimuth: "Solar Azimuth"
+      },
+      fields: {
+        name: {
+          name: "Trigger Name",
+          description: "A descriptive name to identify this trigger"
+        },
+        type: {
+          name: "Trigger Type",
+          description: "The type of solar event to trigger on"
+        },
+        enabled: {
+          name: "Enabled",
+          description: "Whether this trigger is currently active"
+        },
+        offset_minutes: {
+          name: "Offset (minutes)",
+          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
+        },
+        azimuth_angle: {
+          name: "Azimuth Angle (degrees)",
+          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
+        },
+        account_for_duration: {
+          name: "Account for Duration",
+          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
+        }
+      },
+      dialog: {
+        add_title: "Add Irrigation Start Trigger",
+        edit_title: "Edit Irrigation Start Trigger",
+        cancel: "Cancel",
+        save: "Save",
+        delete: "Delete"
+      },
+      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
+      offset_auto: "Auto (calculated from total zone duration)",
+      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
+      validation: {
+        name_required: "Trigger name is required",
+        azimuth_invalid: "Azimuth angle must be a valid number"
+      },
+      help: {
+        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
+        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
+        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
+        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
+      }
+    },
+    bi = {
+      title: "Hoppover-betingelser",
+      description: "Hopp automatisk over vanning når forholdene er ugunstige. Nedbørs-, temperatur- og vindsjekker krever en værtjeneste.",
+      threshold_label: "Nedbørsterskel",
+      threshold_description: "Minimum mengde forventet nedbør (i mm) for i dag og morgen for å hoppe over vanning.",
+      temp_section_title: "Hopp over ved lav temperatur",
+      temp_threshold_label: "Hopp over hvis temperatur under",
+      wind_section_title: "Hopp over ved sterk vind",
+      wind_threshold_label: "Hopp over hvis vindhastighet over",
+      rain_sensor_section_title: "Regnsensorbetingelse",
+      rain_sensor_label: "Regnsensor-enhet (valgfritt)",
+      rain_sensor_placeholder: "f.eks. binary_sensor.regn"
+    },
+    yi = {
+      title: "Sonesekvens",
+      description: "Når flere soner trenger vanning, velg om de kjører samtidig eller én etter én. I sekvensiell modus venter systemet til hver sone er ferdig før neste starter.",
+      parallel: "Parallell (alle soner samtidig)",
+      sequential: "Sekvensiell (én sone om gangen)"
+    },
+    wi = {
+      common: ui,
+      defaults: ci,
+      module: hi,
+      calcmodules: pi,
+      panels: gi,
+      coordinate_config: mi,
+      days_between_irrigation: fi,
+      title: vi,
+      irrigation_start_triggers: _i,
+      weather_skip: bi,
+      zone_sequencing: yi
+    },
+    ki = Object.freeze({
+      __proto__: null,
+      common: ui,
+      defaults: ci,
+      module: hi,
+      calcmodules: pi,
+      panels: gi,
+      coordinate_config: mi,
+      days_between_irrigation: fi,
+      title: vi,
+      irrigation_start_triggers: _i,
+      weather_skip: bi,
+      zone_sequencing: yi,
+      default: wi
+    }),
+    zi = {
+      actions: {
+        delete: "Zmazať",
+        edit: "Upraviť",
+        save: "Uložiť",
+        cancel: "Zrušiť"
+      },
+      labels: {
+        module: "Modul",
+        no: "Nie",
+        select: "Zvoliť",
+        yes: "Áno",
+        enabled: "Povolené",
+        disabled: "Zakázané",
+        before: "pred",
+        after: "po"
+      },
+      attributes: {
+        size: "size",
+        throughput: "priepustnosť",
+        state: "stav",
+        bucket: "zásobník",
+        last_updated: "posledná aktualizácia",
+        last_calculated: "posledný výpočet",
+        number_of_data_points: "počet dátových bodov"
+      },
+      loading: "Načítanie",
+      saving: "Ukladanie",
+      units: {
+        seconds: "sekúnd"
+      },
+      "loading-messages": {
+        configuration: "Načítanie konfigurácie...",
+        modules: "Načítanie modulov...",
+        general: "Načítanie..."
+      },
+      "saving-messages": {
+        adding: "Pridávanie...",
+        saving: "Ukladanie..."
+      }
+    },
+    Si = {
+      "default-zone": "Predvolená zóna",
+      "default-mapping": "Predvolená skupina snímačov"
+    },
+    $i = {
+      calculation: {
+        explanation: {
+          "module-returned-evapotranspiration-deficiency": "Poznámka: toto vysvetlenie používa '.' ako oddeľovač desatinných miest zobrazuje zaokrúhlené a metrické hodnoty. Modul vrátil nedostatok evapotranspirácie",
+          "bucket-was": "Vedro bolo",
+          "new-bucket-values-is": "Hodnota nového vedra je",
+          "old-bucket-variable": "staré_vedro",
+          delta: "delta",
+          "bucket-less-than-zero-irrigation-necessary": "Keďže vedro < 0, je potrebné zavlažovanie",
+          "steps-taken-to-calculate-duration": "Na výpočet presného trvania sa vykonali nasledujúce kroky",
+          "precipitation-rate-defined-as": "Miera zrážok je definovaná ako",
+          "duration-is-calculated-as": "Trvanie sa vypočíta ako",
+          bucket: "vedro",
+          "precipitation-rate-variable": "úhrn zrážok",
+          "multiplier-is-applied": "Teraz sa použije multiplikátor. Násobiteľ je",
+          "duration-after-multiplier-is": "teda trvanie je",
+          "maximum-duration-is-applied": "Potom sa použije maximálne trvanie. Maximálne trvanie je",
+          "duration-after-maximum-duration-is": "teda trvanie je",
+          "lead-time-is-applied": "Nakoniec sa použije dodacia lehota. Dodacia lehota je",
+          "duration-after-lead-time-is": "teda konečné trvanie je",
+          "bucket-larger-than-or-equal-to-zero-no-irrigation-necessary": "Keďže vedro >= 0, nie je potrebné žiadne zavlažovanie a trvanie je nastavené na",
+          "maximum-bucket-is": "maximálna veľkosť vedra je",
+          "max-bucket-variable": "max_bucket",
+          drainage: "drainage",
+          "drainage-rate": "drainage_rate",
+          hours: "hours",
+          "drainage-rate-is": "Rýchlosť odtoku pri nasýtení (zásobník na maxime) je",
+          "current-drainage-is": "Aktuálna drenáž vypočítaná ako",
+          "no-drainage": "Aktuálna drenáž je 0, pretože"
+        }
+      }
+    },
+    xi = {
+      pyeto: {
+        description: "Vypočítajte trvanie na základe výpočtu FAO56 z knižnice PyETO"
+      },
+      static: {
+        description: "'Atrapa' modul so statickou konfigurovateľnou deltou"
+      },
+      passthrough: {
+        description: "Priechodný modul, ktorý vracia hodnotu evapotranspiračného senzora ako delta"
+      }
+    },
+    Ai = {
+      general: {
+        cards: {
+          "automatic-duration-calculation": {
+            header: "Automatický výpočet trvania",
+            description: "Výpočet berie zhromaždené údaje o počasí až do tohto bodu a aktualizuje vedro pre každú automatickú zónu. Potom sa trvanie upraví na základe novej hodnoty segmentu a zhromaždené údaje o počasí sa odstránia.",
+            labels: {
+              "auto-calc-enabled": "Automaticky vypočítajte trvanie zón",
+              "auto-calc-time": "Vypočítajte pri",
+              "calc-time": "Vypočítať o"
+            }
+          },
+          "automatic-update": {
+            errors: {
+              "warning-update-time-on-or-after-calc-time": "Upozornenie: Čas aktualizácie údajov o počasí v čase výpočtu alebo po ňom"
+            },
+            header: "Automatic weather data update",
+            description: "Automaticky zbierajte a ukladajte údaje o počasí. Údaje o počasí sú potrebné na výpočet segmentov zón a trvania.",
+            labels: {
+              "auto-update-enabled": "Automaticky aktualizovať údaje o počasí",
+              "auto-update-delay": "Oneskorenie aktualizácie",
+              "auto-update-interval": "Aktualizujte údaje snímača každý",
+              "auto-update-schedule": "Plán aktualizácie",
+              "auto-update-time": "Aktualizovať o"
+            },
+            options: {
+              days: "dni",
+              hours: "hodiny",
+              minutes: "minúty"
+            }
+          },
+          "automatic-clear": {
+            header: "Automatické orezávanie údajov o počasí",
+            description: "Automaticky odstráňte zhromaždené údaje o počasí v nakonfigurovanom čase. Použite to, aby ste sa uistili, že nezostali žiadne údaje o počasí z predchádzajúcich dní. Neodstraňujte údaje o počasí pred výpočtom a túto možnosť použite iba vtedy, ak očakávate, že automatická aktualizácia bude zhromažďovať údaje o počasí až po výpočte na daný deň. V ideálnom prípade chcete prerezávať tak neskoro, ako je to možné.",
+            labels: {
+              "automatic-clear-enabled": "Automaticky vymazať zhromaždené údaje o počasí",
+              "automatic-clear-time": "Vymazať údaje o počasí o"
+            }
+          },
+          continuousupdates: {
+            header: "Priebežné aktualizácie senzorov (experimentálne)",
+            description: "Experimentálna funkcia pre podrobnejšie meteorologické dáta.",
+            labels: {
+              continuousupdates: "Enable continuous updates",
+              sensor_debounce: "Sensor debounce",
+              "sensor-debounce": "Čas odrazu senzora (ms)"
+            }
+          }
+        },
+        description: "Táto stránka poskytuje globálne nastavenia.",
+        title: "Všeobecné"
+      },
+      help: {
+        title: "Pomoc",
+        cards: {
+          "how-to-get-help": {
+            title: "Ako získať pomoc",
+            "first-read-the": "Najprv si prečítajte",
+            wiki: "Documentation",
+            "if-you-still-need-help": "Ak stále potrebujete pomoc, obráťte sa na",
+            "community-forum": "komunitné fórum",
+            "or-open-a": "alebo otvorte a",
+            "github-issue": "Problém Github",
+            "english-only": "len anglicky"
+          }
+        }
+      },
+      mappings: {
+        cards: {
+          "add-mapping": {
+            actions: {
+              add: "Pridať skupinu snímačov"
+            },
+            header: "Pridajte skupiny senzorov"
+          },
+          mapping: {
+            aggregates: {
+              average: "Priemer",
+              first: "Prvý",
+              last: "Posledný",
+              maximum: "Maximum",
+              median: "Medián",
+              minimum: "Minimum",
+              sum: "Sum",
+              riemannsum: "Riemann sum",
+              delta: "Delta"
+            },
+            errors: {
+              "cannot-delete-mapping-because-zones-use-it": "Túto skupinu senzorov nemôžete vymazať, pretože ju používa aspoň jedna zóna.",
+              invalid_source: "Invalid source",
+              source_does_not_exist: "Source does not exist. Please enter a valid source, such as 'sensor.mysensor'."
+            },
+            items: {
+              dewpoint: "Rosný bod",
+              evapotranspiration: "Evapotranspirácia",
+              humidity: "Vlhkosť",
+              "maximum temperature": "Maximálna teplota",
+              "minimum temperature": "Minimálna teplota",
+              precipitation: "Úhrn zrážok",
+              pressure: "Tlak",
+              "solar radiation": "Slnečné žiarenie",
+              temperature: "Teplota",
+              windspeed: "Rýchlosť vetra",
+              "current precipitation": "Current precipitation"
+            },
+            pressure_types: {
+              absolute: "absolútne",
+              relative: "relatítne"
+            },
+            "pressure-type": "Tlak je",
+            "sensor-aggregate-of-sensor-values-to-calculate": "hodnôt snímača na výpočet trvania",
+            "sensor-aggregate-use-the": "Použiť",
+            "sensor-entity": "Entita snímača",
+            static_value: "Hodnota",
+            "input-units": "Vstup poskytuje hodnoty v",
+            source: "Zdroj",
+            sources: {
+              none: "Nie je",
+              weather_service: "Weather service",
+              sensor: "Snímač",
+              static: "Statická hodnota"
+            }
+          }
+        },
+        description: "Pridajte jednu alebo viac skupín senzorov, ktoré získavajú údaje o počasí z Weather service, zo senzorov alebo ich kombinácie. Každú skupinu senzorov môžete namapovať na jednu alebo viac zón",
+        labels: {
+          "mapping-name": "Názov"
+        },
+        no_items: "Zatiaľ nie je definovaná žiadna skupina senzorov.",
+        title: "Skupiny senzorov",
+        "weather-records": {
+          title: "Weather Records (Last 10)",
+          timestamp: "Time",
+          temperature: "Temp",
+          humidity: "Humidity",
+          precipitation: "Precip",
+          "retrieval-time": "Retrieved",
+          "no-data": "No weather data available for this sensor group"
+        }
+      },
+      modules: {
+        cards: {
+          "add-module": {
+            actions: {
+              add: "Pridať modul"
+            },
+            header: "Pridať modul"
+          },
+          module: {
+            errors: {
+              "cannot-delete-module-because-zones-use-it": "Tento modul nemôžete vymazať, pretože ho používa aspoň jedna zóna."
+            },
+            labels: {
+              configuration: "Konfigurácia",
+              required: "označuje povinné pole"
+            },
+            "translated-options": {
+              DontEstimate: "Bez odhadu",
+              EstimateFromSunHours: "Odhad zo slnečných hodín",
+              EstimateFromTemp: "Odhad z teploty",
+              EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
+            }
+          }
+        },
+        description: "Pridajte jeden alebo viac modulov, ktoré vypočítavajú trvanie zavlažovania. Každý modul sa dodáva s vlastnou konfiguráciou a možno ho použiť na výpočet trvania pre jednu alebo viac zón.",
+        no_items: "Zatiaľ nie sú definované žiadne moduly.",
+        title: "Moduly"
+      },
+      zones: {
+        actions: {
+          add: "Pridať",
+          calculate: "Vypočítať",
+          information: "Informácia",
+          update: "Aktualizovať",
+          "reset-bucket": "Resetovať vedro",
+          "view-weather-info": "Zobraziť počasie",
+          "view-weather-info-message": "Weather data available for",
+          "view-watering-calendar": "Kalendár zavlažovania"
+        },
+        cards: {
+          "add-zone": {
+            actions: {
+              add: "Pridať zónu"
+            },
+            header: "Pridať zónu"
+          },
+          "zone-actions": {
+            actions: {
+              "calculate-all": "Vypočítajte všetky zóny",
+              "update-all": "Aktualizujte všetky zóny",
+              "reset-all-buckets": "Obnovte všetky vedrá",
+              "clear-all-weatherdata": "Vymazať všetky údaje o počasí"
+            },
+            header: "Akcie vo všetkých zónach"
+          }
+        },
+        description: "Tu špecifikujte jednu alebo viac zavlažovacích zón. Trvanie zavlažovania sa vypočíta pre zónu v závislosti od veľkosti, výkonu, stavu, modulu a skupiny senzorov.",
+        labels: {
+          bucket: "Vedro",
+          duration: "Trvanie",
+          "lead-time": "Dodacia lehota",
+          mapping: "Skupina senzorov",
+          "maximum-duration": "Maximálne trvanie",
+          multiplier: "Násobiteľ",
+          name: "Názov",
+          size: "Veľkosť",
+          state: "Stav",
+          states: {
+            automatic: "Automatický",
+            disabled: "Zakázaný",
+            manual: "Manuány"
+          },
+          throughput: "Priepustnosť",
+          "maximum-bucket": "Maximálne vedro",
+          last_calculated: "Naposledy vypočítané",
+          "data-last-updated": "Údaje boli naposledy aktualizované",
+          "data-number-of-data-points": "Počet údajových bodov",
+          drainage_rate: "Drainage rate",
+          linked_entity: "Prepojená entita prepínača/ventilu",
+          linked_entity_placeholder: "napr. switch.zahradny_ventil",
+          irrigate_now: "Zavlažiť teraz",
+          bucket_threshold: "Minimálny deficit pre závlahu"
+        },
+        no_items: "Zatiaľ nie sú definované žiadne zóny.",
+        title: "Zóny"
+      },
+      schedules: {
+        title: "Plány",
+        description: "Vytvorte opakujúce sa plány pre automatický výpočet, aktualizáciu alebo závlahu — bez automatizácií.",
+        add: "Pridať plán",
+        no_items: "Zatiaľ nie sú nakonfigurované žiadne plány. Kliknite na 'Pridať plán'.",
+        zones_all: "Všetky zóny",
+        zones_specific: "Konkrétne zóny",
+        hours: "hodín",
+        minutes: "min",
+        types: {
+          daily: "Denne",
+          weekly: "Týždenne",
+          monthly: "Mesačne",
+          interval: "Každých N hodín",
+          sunrise: "Východ slnka",
+          sunset: "Západ slnka",
+          solar_azimuth: "Slnečný azimut"
+        },
+        actions: {
+          calculate: "Vypočítať (aktualizovať dobu závlahy)",
+          update: "Aktualizovať (zbierať meteorologické dáta)",
+          irrigate: "Zavlažiť (priamo ovládať ventily)"
+        },
+        days: {
+          monday: "Po",
+          tuesday: "Ut",
+          wednesday: "St",
+          thursday: "Št",
+          friday: "Pi",
+          saturday: "So",
+          sunday: "Ne"
+        },
+        fields: {
+          name: "Názov",
+          type: "Typ plánu",
+          enabled: "Povolené",
+          time: "Čas (HH:MM)",
+          days_of_week: "Dni v týždni",
+          day_of_month: "Deň v mesiaci",
+          interval_hours: "Interval",
+          action: "Akcia",
+          zones: "Zóny",
+          start_date: "Dátum začiatku (voliteľné)",
+          end_date: "Dátum konca (voliteľné)",
+          offset_minutes: "Posun od východu/západu slnka",
+          account_for_duration: "Spustiť skoro, aby závlaha skončila v cieľovom čase",
+          azimuth_angle: "Uhol slnečného azimutu"
+        },
+        dialog: {
+          add_title: "Pridať plán",
+          edit_title: "Upraviť plán"
+        }
+      },
+      adjustments: {
+        title: "Sezónne úpravy",
+        description: "Mesačné úpravy multiplikátora alebo prahu pre sezónne podmienky.",
+        add: "Pridať úpravu",
+        no_items: "Žiadne sezónne úpravy nie sú nakonfigurované.",
+        zones_all: "Všetky zóny",
+        zones_specific: "Konkrétne zóny",
+        multiplier_hint: "1,0 = bez zmeny, 1,5 = 50% viac závlahy, 0,5 = 50% menej",
+        threshold_hint: "Pridané do zásobníka zóny. Kladné = viac vody potrebné, záporné = menej.",
+        fields: {
+          name: "Názov",
+          enabled: "Povolené",
+          month_start: "Od mesiaca",
+          month_end: "Do mesiaca",
+          multiplier_adjustment: "Úprava multiplikátora",
+          threshold_adjustment: "Úprava prahu (mm)",
+          zones: "Zóny"
+        },
+        dialog: {
+          add_title: "Pridať sezónnu úpravu",
+          edit_title: "Upraviť sezónnu úpravu"
+        }
+      },
+      info: {
+        title: "Info",
+        description: "Zobraziť informácie o ďalšej závlahe a stave systému.",
+        "configuration-not-available": "Konfigurácia nie je k dispozícii.",
+        cards: {
+          "zone-bucket-values": {
+            title: "Hodnoty zásobníka zóny a trvanie",
+            labels: {
+              bucket: "Zásobník",
+              duration: "Trvanie"
+            },
+            "no-zones": "Žiadne zóny nie sú nakonfigurované"
+          },
+          "next-irrigation": {
+            title: "Ďalšia závlaha",
+            labels: {
+              "next-start": "Ďalší štart",
+              duration: "Trvanie",
+              zones: "Zóny"
+            },
+            "no-data": "Žiadne dáta k dispozícii"
+          },
+          "irrigation-reason": {
+            title: "Dôvod závlahy",
+            labels: {
+              reason: "Dôvod",
+              sunrise: "Východ slnka",
+              "total-duration": "Celková doba",
+              explanation: "Vysvetlenie"
+            },
+            "no-data": "Žiadne dáta k dispozícii"
+          },
+          irrigate_now: {
+            title: "Zavlažiť teraz",
+            description: "Okamžite spustiť závlahu pre všetky zóny s prepojenou entitou. Podmienky preskočenia sú ignorované.",
+            button_all: "Spustiť všetky zóny teraz",
+            no_linked_zones: "Žiadna zóna nemá prepojenú entitu prepínača/ventilu s vypočítanou dobou."
+          }
+        }
+      }
+    },
+    Ei = "Inteligentné zavlažovanie",
+    Ti = {
+      title: "Súradnice Polohy",
+      description: "Nakonfigurujte súradnice polohy pre získavanie meteorologických údajov. Môžete použiť manuálne súradnice odlišné od vašej polohy Home Assistant ak je to potrebné.",
+      manual_enabled: "Použiť manuálne súradnice",
+      use_ha_location: "Použiť polohu Home Assistant",
+      latitude: "Zemepisná šírka (desatinné stupne)",
+      longitude: "Zemepisná dĺžka (desatinné stupne)",
+      elevation: "Nadmorská výška (metre nad morom)",
+      current_ha_coords: "Aktuálne súradnice Home Assistant"
+    },
+    Mi = {
+      title: "Dni medzi závlahami",
+      description: "Nakonfigurujte minimálny počet dní medzi záhradnými udalosťami.",
+      label: "Minimálne dni medzi závlahami",
+      help_text: "Nastavte na 0 pre deaktiváciu. Podporované sú hodnoty 1-365 dní."
+    },
+    Di = {
+      title: "Irrigation Start Triggers",
+      description: "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",
+      add_trigger: "Add Trigger",
+      edit_trigger: "Edit Trigger",
+      delete_trigger: "Delete Trigger",
+      trigger_types: {
+        sunrise: "Sunrise",
+        sunset: "Sunset",
+        solar_azimuth: "Solar Azimuth"
+      },
+      fields: {
+        name: {
+          name: "Trigger Name",
+          description: "A descriptive name to identify this trigger"
+        },
+        type: {
+          name: "Trigger Type",
+          description: "The type of solar event to trigger on"
+        },
+        enabled: {
+          name: "Enabled",
+          description: "Whether this trigger is currently active"
+        },
+        offset_minutes: {
+          name: "Offset (minutes)",
+          description: "Minutes before (-) or after (+) the solar event. For sunrise triggers, use 0 for automatic timing based on total zone duration."
+        },
+        azimuth_angle: {
+          name: "Azimuth Angle (degrees)",
+          description: "Solar azimuth angle in degrees where 0=North, 90=East, 180=South, 270=West"
+        },
+        account_for_duration: {
+          name: "Account for Duration",
+          description: "When enabled, irrigation will start early enough to finish at the specified time. When disabled, irrigation will start exactly at the specified time."
+        }
+      },
+      dialog: {
+        add_title: "Add Irrigation Start Trigger",
+        edit_title: "Edit Irrigation Start Trigger",
+        cancel: "Cancel",
+        save: "Save",
+        delete: "Delete"
+      },
+      no_triggers: "No irrigation start triggers configured. The system will use the default behavior (sunrise with total zone duration). Add triggers to customize when irrigation starts.",
+      offset_auto: "Auto (calculated from total zone duration)",
+      confirm_delete: "Are you sure you want to delete the trigger '{name}'?",
+      validation: {
+        name_required: "Trigger name is required",
+        azimuth_invalid: "Azimuth angle must be a valid number"
+      },
+      help: {
+        sunrise_offset: "For sunrise triggers: Use negative values to start before sunrise, positive to start after. Set to 0 to automatically start early enough to complete all zones before sunrise.",
+        sunset_offset: "For sunset triggers: Use negative values to start before sunset, positive to start after sunset.",
+        azimuth_explanation: "Solar azimuth is the compass direction of the sun. 0°=North, 90°=East, 180°=South, 270°=West. You can enter any angle value (e.g., 450° = 90°, -30° = 330°). Use this to trigger irrigation when the sun reaches a specific position.",
+        multiple_triggers: "You can configure multiple triggers. Each enabled trigger will independently schedule irrigation starts."
+      }
+    },
+    Ci = {
+      title: "Podmienky preskočenia",
+      description: "Automaticky preskočiť závlahu pri nepriaznivých podmienkach. Kontroly zrážok, teploty a vetra vyžadujú počasiovú službu.",
+      threshold_label: "Prah zrážok",
+      threshold_description: "Minimálne množstvo predpokladaných zrážok (v mm) pre dnešok a zajtrajšok na preskočenie závlahy.",
+      temp_section_title: "Preskočiť pri nízkej teplote",
+      temp_threshold_label: "Preskočiť ak teplota pod",
+      wind_section_title: "Preskočiť pri silnom vetre",
+      wind_threshold_label: "Preskočiť ak rýchlosť vetra nad",
+      rain_sensor_section_title: "Podmienka dažďového senzora",
+      rain_sensor_label: "Entita dažďového senzora (voliteľné)",
+      rain_sensor_placeholder: "napr. binary_sensor.dazd"
+    },
+    Oi = {
+      title: "Poradie zón",
+      description: "Keď viacero zón potrebuje závlahu, vyberte, či prebiehajú súčasne alebo jedna po druhej. V sekvenčnom režime systém čaká, kým každá zóna skončí, pred spustením ďalšej.",
+      parallel: "Paralelne (všetky zóny súčasne)",
+      sequential: "Sekvenčne (jedna zóna naraz)"
+    },
+    Ni = {
+      common: zi,
+      defaults: Si,
+      module: $i,
+      calcmodules: xi,
+      panels: Ai,
+      title: Ei,
+      coordinate_config: Ti,
+      days_between_irrigation: Mi,
+      irrigation_start_triggers: Di,
+      weather_skip: Ci,
+      zone_sequencing: Oi
+    },
+    ji = Object.freeze({
+      __proto__: null,
+      common: zi,
+      defaults: Si,
+      module: $i,
+      calcmodules: xi,
+      panels: Ai,
+      title: Ei,
+      coordinate_config: Ti,
+      days_between_irrigation: Mi,
+      irrigation_start_triggers: Di,
+      weather_skip: Ci,
+      zone_sequencing: Oi,
+      default: Ni
+    });
+  function Hi(e, t) {
+    var a = t && t.cache ? t.cache : Vi,
+      i = t && t.serializer ? t.serializer : Bi;
+    return (t && t.strategy ? t.strategy : Ui)(e, {
+      cache: a,
+      serializer: i
+    });
   }
-  function ds(e) {
-    throw new Error('Could not dynamically require "' + e + '". Please configure the dynamicRequireTargets or/and ignoreDynamicRequires option of @rollup/plugin-commonjs appropriately for this require call to work.');
+  function Pi(e, t, a, i) {
+    var n,
+      s = null == (n = i) || "number" == typeof n || "boolean" == typeof n ? i : a(i),
+      r = t.get(s);
+    return void 0 === r && (r = e.call(this, i), t.set(s, r)), r;
+  }
+  function Li(e, t, a) {
+    var i = Array.prototype.slice.call(arguments, 3),
+      n = a(i),
+      s = t.get(n);
+    return void 0 === s && (s = e.apply(this, i), t.set(n, s)), s;
+  }
+  function Ii(e, t, a, i, n) {
+    return a.bind(t, e, i, n);
+  }
+  function Ui(e, t) {
+    return Ii(e, this, 1 === e.length ? Pi : Li, t.cache.create(), t.serializer);
+  }
+  var Bi = function () {
+    return JSON.stringify(arguments);
+  };
+  function Ri() {
+    this.cache = Object.create(null);
+  }
+  Ri.prototype.get = function (e) {
+    return this.cache[e];
+  }, Ri.prototype.set = function (e, t) {
+    this.cache[e] = t;
+  };
+  var Fi,
+    Wi,
+    Yi,
+    Vi = {
+      create: function () {
+        return new Ri();
+      }
+    },
+    Zi = {
+      variadic: function (e, t) {
+        return Ii(e, this, Li, t.cache.create(), t.serializer);
+      },
+      monadic: function (e, t) {
+        return Ii(e, this, Pi, t.cache.create(), t.serializer);
+      }
+    };
+  function Gi(e) {
+    return e.type === Wi.literal;
+  }
+  function qi(e) {
+    return e.type === Wi.argument;
+  }
+  function Ki(e) {
+    return e.type === Wi.number;
+  }
+  function Xi(e) {
+    return e.type === Wi.date;
+  }
+  function Ji(e) {
+    return e.type === Wi.time;
+  }
+  function Qi(e) {
+    return e.type === Wi.select;
+  }
+  function en(e) {
+    return e.type === Wi.plural;
+  }
+  function tn(e) {
+    return e.type === Wi.pound;
+  }
+  function an(e) {
+    return e.type === Wi.tag;
+  }
+  function nn(e) {
+    return !(!e || "object" != typeof e || e.type !== Yi.number);
+  }
+  function sn(e) {
+    return !(!e || "object" != typeof e || e.type !== Yi.dateTime);
   }
   !function (e) {
-    e.Sunrise = "sunrise", e.Sunset = "sunset", e.SolarAzimuth = "solar_azimuth";
-  }(is || (is = {})), function (e) {
-    e.Disabled = "disabled", e.Manual = "manual", e.Automatic = "automatic";
-  }(ns || (ns = {}));
-  var us,
-    cs = {
+    e[e.EXPECT_ARGUMENT_CLOSING_BRACE = 1] = "EXPECT_ARGUMENT_CLOSING_BRACE", e[e.EMPTY_ARGUMENT = 2] = "EMPTY_ARGUMENT", e[e.MALFORMED_ARGUMENT = 3] = "MALFORMED_ARGUMENT", e[e.EXPECT_ARGUMENT_TYPE = 4] = "EXPECT_ARGUMENT_TYPE", e[e.INVALID_ARGUMENT_TYPE = 5] = "INVALID_ARGUMENT_TYPE", e[e.EXPECT_ARGUMENT_STYLE = 6] = "EXPECT_ARGUMENT_STYLE", e[e.INVALID_NUMBER_SKELETON = 7] = "INVALID_NUMBER_SKELETON", e[e.INVALID_DATE_TIME_SKELETON = 8] = "INVALID_DATE_TIME_SKELETON", e[e.EXPECT_NUMBER_SKELETON = 9] = "EXPECT_NUMBER_SKELETON", e[e.EXPECT_DATE_TIME_SKELETON = 10] = "EXPECT_DATE_TIME_SKELETON", e[e.UNCLOSED_QUOTE_IN_ARGUMENT_STYLE = 11] = "UNCLOSED_QUOTE_IN_ARGUMENT_STYLE", e[e.EXPECT_SELECT_ARGUMENT_OPTIONS = 12] = "EXPECT_SELECT_ARGUMENT_OPTIONS", e[e.EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE = 13] = "EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE", e[e.INVALID_PLURAL_ARGUMENT_OFFSET_VALUE = 14] = "INVALID_PLURAL_ARGUMENT_OFFSET_VALUE", e[e.EXPECT_SELECT_ARGUMENT_SELECTOR = 15] = "EXPECT_SELECT_ARGUMENT_SELECTOR", e[e.EXPECT_PLURAL_ARGUMENT_SELECTOR = 16] = "EXPECT_PLURAL_ARGUMENT_SELECTOR", e[e.EXPECT_SELECT_ARGUMENT_SELECTOR_FRAGMENT = 17] = "EXPECT_SELECT_ARGUMENT_SELECTOR_FRAGMENT", e[e.EXPECT_PLURAL_ARGUMENT_SELECTOR_FRAGMENT = 18] = "EXPECT_PLURAL_ARGUMENT_SELECTOR_FRAGMENT", e[e.INVALID_PLURAL_ARGUMENT_SELECTOR = 19] = "INVALID_PLURAL_ARGUMENT_SELECTOR", e[e.DUPLICATE_PLURAL_ARGUMENT_SELECTOR = 20] = "DUPLICATE_PLURAL_ARGUMENT_SELECTOR", e[e.DUPLICATE_SELECT_ARGUMENT_SELECTOR = 21] = "DUPLICATE_SELECT_ARGUMENT_SELECTOR", e[e.MISSING_OTHER_CLAUSE = 22] = "MISSING_OTHER_CLAUSE", e[e.INVALID_TAG = 23] = "INVALID_TAG", e[e.INVALID_TAG_NAME = 25] = "INVALID_TAG_NAME", e[e.UNMATCHED_CLOSING_TAG = 26] = "UNMATCHED_CLOSING_TAG", e[e.UNCLOSED_TAG = 27] = "UNCLOSED_TAG";
+  }(Fi || (Fi = {})), function (e) {
+    e[e.literal = 0] = "literal", e[e.argument = 1] = "argument", e[e.number = 2] = "number", e[e.date = 3] = "date", e[e.time = 4] = "time", e[e.select = 5] = "select", e[e.plural = 6] = "plural", e[e.pound = 7] = "pound", e[e.tag = 8] = "tag";
+  }(Wi || (Wi = {})), function (e) {
+    e[e.number = 0] = "number", e[e.dateTime = 1] = "dateTime";
+  }(Yi || (Yi = {}));
+  var rn = /[ \xA0\u1680\u2000-\u200A\u202F\u205F\u3000]/,
+    on = /(?:[Eec]{1,6}|G{1,5}|[Qq]{1,5}|(?:[yYur]+|U{1,5})|[ML]{1,5}|d{1,2}|D{1,3}|F{1}|[abB]{1,5}|[hkHK]{1,2}|w{1,2}|W{1}|m{1,2}|s{1,2}|[zZOvVxX]{1,4})(?=([^']*'[^']*')*[^']*$)/g;
+  function ln(e) {
+    var t = {};
+    return e.replace(on, function (e) {
+      var a = e.length;
+      switch (e[0]) {
+        case "G":
+          t.era = 4 === a ? "long" : 5 === a ? "narrow" : "short";
+          break;
+        case "y":
+          t.year = 2 === a ? "2-digit" : "numeric";
+          break;
+        case "Y":
+        case "u":
+        case "U":
+        case "r":
+          throw new RangeError("`Y/u/U/r` (year) patterns are not supported, use `y` instead");
+        case "q":
+        case "Q":
+          throw new RangeError("`q/Q` (quarter) patterns are not supported");
+        case "M":
+        case "L":
+          t.month = ["numeric", "2-digit", "short", "long", "narrow"][a - 1];
+          break;
+        case "w":
+        case "W":
+          throw new RangeError("`w/W` (week) patterns are not supported");
+        case "d":
+          t.day = ["numeric", "2-digit"][a - 1];
+          break;
+        case "D":
+        case "F":
+        case "g":
+          throw new RangeError("`D/F/g` (day) patterns are not supported, use `d` instead");
+        case "E":
+          t.weekday = 4 === a ? "long" : 5 === a ? "narrow" : "short";
+          break;
+        case "e":
+          if (a < 4) throw new RangeError("`e..eee` (weekday) patterns are not supported");
+          t.weekday = ["short", "long", "narrow", "short"][a - 4];
+          break;
+        case "c":
+          if (a < 4) throw new RangeError("`c..ccc` (weekday) patterns are not supported");
+          t.weekday = ["short", "long", "narrow", "short"][a - 4];
+          break;
+        case "a":
+          t.hour12 = !0;
+          break;
+        case "b":
+        case "B":
+          throw new RangeError("`b/B` (period) patterns are not supported, use `a` instead");
+        case "h":
+          t.hourCycle = "h12", t.hour = ["numeric", "2-digit"][a - 1];
+          break;
+        case "H":
+          t.hourCycle = "h23", t.hour = ["numeric", "2-digit"][a - 1];
+          break;
+        case "K":
+          t.hourCycle = "h11", t.hour = ["numeric", "2-digit"][a - 1];
+          break;
+        case "k":
+          t.hourCycle = "h24", t.hour = ["numeric", "2-digit"][a - 1];
+          break;
+        case "j":
+        case "J":
+        case "C":
+          throw new RangeError("`j/J/C` (hour) patterns are not supported, use `h/H/K/k` instead");
+        case "m":
+          t.minute = ["numeric", "2-digit"][a - 1];
+          break;
+        case "s":
+          t.second = ["numeric", "2-digit"][a - 1];
+          break;
+        case "S":
+        case "A":
+          throw new RangeError("`S/A` (second) patterns are not supported, use `s` instead");
+        case "z":
+          t.timeZoneName = a < 4 ? "short" : "long";
+          break;
+        case "Z":
+        case "O":
+        case "v":
+        case "V":
+        case "X":
+        case "x":
+          throw new RangeError("`Z/O/v/V/X/x` (timeZone) patterns are not supported, use `z` instead");
+      }
+      return "";
+    }), t;
+  }
+  var dn = /[\t-\r \x85\u200E\u200F\u2028\u2029]/i;
+  var un = /^\.(?:(0+)(\*)?|(#+)|(0+)(#+))$/g,
+    cn = /^(@+)?(\+|#+)?[rs]?$/g,
+    hn = /(\*)(0+)|(#+)(0+)|(0+)/g,
+    pn = /^(0+)$/;
+  function gn(e) {
+    var t = {};
+    return "r" === e[e.length - 1] ? t.roundingPriority = "morePrecision" : "s" === e[e.length - 1] && (t.roundingPriority = "lessPrecision"), e.replace(cn, function (e, a, i) {
+      return "string" != typeof i ? (t.minimumSignificantDigits = a.length, t.maximumSignificantDigits = a.length) : "+" === i ? t.minimumSignificantDigits = a.length : "#" === a[0] ? t.maximumSignificantDigits = a.length : (t.minimumSignificantDigits = a.length, t.maximumSignificantDigits = a.length + ("string" == typeof i ? i.length : 0)), "";
+    }), t;
+  }
+  function mn(e) {
+    switch (e) {
+      case "sign-auto":
+        return {
+          signDisplay: "auto"
+        };
+      case "sign-accounting":
+      case "()":
+        return {
+          currencySign: "accounting"
+        };
+      case "sign-always":
+      case "+!":
+        return {
+          signDisplay: "always"
+        };
+      case "sign-accounting-always":
+      case "()!":
+        return {
+          signDisplay: "always",
+          currencySign: "accounting"
+        };
+      case "sign-except-zero":
+      case "+?":
+        return {
+          signDisplay: "exceptZero"
+        };
+      case "sign-accounting-except-zero":
+      case "()?":
+        return {
+          signDisplay: "exceptZero",
+          currencySign: "accounting"
+        };
+      case "sign-never":
+      case "+_":
+        return {
+          signDisplay: "never"
+        };
+    }
+  }
+  function fn(e) {
+    var t;
+    if ("E" === e[0] && "E" === e[1] ? (t = {
+      notation: "engineering"
+    }, e = e.slice(2)) : "E" === e[0] && (t = {
+      notation: "scientific"
+    }, e = e.slice(1)), t) {
+      var a = e.slice(0, 2);
+      if ("+!" === a ? (t.signDisplay = "always", e = e.slice(2)) : "+?" === a && (t.signDisplay = "exceptZero", e = e.slice(2)), !pn.test(e)) throw new Error("Malformed concise eng/scientific notation");
+      t.minimumIntegerDigits = e.length;
+    }
+    return t;
+  }
+  function vn(e) {
+    var t = mn(e);
+    return t || {};
+  }
+  function _n(e) {
+    for (var t = {}, a = 0, n = e; a < n.length; a++) {
+      var s = n[a];
+      switch (s.stem) {
+        case "percent":
+        case "%":
+          t.style = "percent";
+          continue;
+        case "%x100":
+          t.style = "percent", t.scale = 100;
+          continue;
+        case "currency":
+          t.style = "currency", t.currency = s.options[0];
+          continue;
+        case "group-off":
+        case ",_":
+          t.useGrouping = !1;
+          continue;
+        case "precision-integer":
+        case ".":
+          t.maximumFractionDigits = 0;
+          continue;
+        case "measure-unit":
+        case "unit":
+          t.style = "unit", t.unit = s.options[0].replace(/^(.*?)-/, "");
+          continue;
+        case "compact-short":
+        case "K":
+          t.notation = "compact", t.compactDisplay = "short";
+          continue;
+        case "compact-long":
+        case "KK":
+          t.notation = "compact", t.compactDisplay = "long";
+          continue;
+        case "scientific":
+          t = i(i(i({}, t), {
+            notation: "scientific"
+          }), s.options.reduce(function (e, t) {
+            return i(i({}, e), vn(t));
+          }, {}));
+          continue;
+        case "engineering":
+          t = i(i(i({}, t), {
+            notation: "engineering"
+          }), s.options.reduce(function (e, t) {
+            return i(i({}, e), vn(t));
+          }, {}));
+          continue;
+        case "notation-simple":
+          t.notation = "standard";
+          continue;
+        case "unit-width-narrow":
+          t.currencyDisplay = "narrowSymbol", t.unitDisplay = "narrow";
+          continue;
+        case "unit-width-short":
+          t.currencyDisplay = "code", t.unitDisplay = "short";
+          continue;
+        case "unit-width-full-name":
+          t.currencyDisplay = "name", t.unitDisplay = "long";
+          continue;
+        case "unit-width-iso-code":
+          t.currencyDisplay = "symbol";
+          continue;
+        case "scale":
+          t.scale = parseFloat(s.options[0]);
+          continue;
+        case "rounding-mode-floor":
+          t.roundingMode = "floor";
+          continue;
+        case "rounding-mode-ceiling":
+          t.roundingMode = "ceil";
+          continue;
+        case "rounding-mode-down":
+          t.roundingMode = "trunc";
+          continue;
+        case "rounding-mode-up":
+          t.roundingMode = "expand";
+          continue;
+        case "rounding-mode-half-even":
+          t.roundingMode = "halfEven";
+          continue;
+        case "rounding-mode-half-down":
+          t.roundingMode = "halfTrunc";
+          continue;
+        case "rounding-mode-half-up":
+          t.roundingMode = "halfExpand";
+          continue;
+        case "integer-width":
+          if (s.options.length > 1) throw new RangeError("integer-width stems only accept a single optional option");
+          s.options[0].replace(hn, function (e, a, i, n, s, r) {
+            if (a) t.minimumIntegerDigits = i.length;else {
+              if (n && s) throw new Error("We currently do not support maximum integer digits");
+              if (r) throw new Error("We currently do not support exact integer digits");
+            }
+            return "";
+          });
+          continue;
+      }
+      if (pn.test(s.stem)) t.minimumIntegerDigits = s.stem.length;else if (un.test(s.stem)) {
+        if (s.options.length > 1) throw new RangeError("Fraction-precision stems only accept a single optional option");
+        s.stem.replace(un, function (e, a, i, n, s, r) {
+          return "*" === i ? t.minimumFractionDigits = a.length : n && "#" === n[0] ? t.maximumFractionDigits = n.length : s && r ? (t.minimumFractionDigits = s.length, t.maximumFractionDigits = s.length + r.length) : (t.minimumFractionDigits = a.length, t.maximumFractionDigits = a.length), "";
+        });
+        var r = s.options[0];
+        "w" === r ? t = i(i({}, t), {
+          trailingZeroDisplay: "stripIfInteger"
+        }) : r && (t = i(i({}, t), gn(r)));
+      } else if (cn.test(s.stem)) t = i(i({}, t), gn(s.stem));else {
+        var o = mn(s.stem);
+        o && (t = i(i({}, t), o));
+        var l = fn(s.stem);
+        l && (t = i(i({}, t), l));
+      }
+    }
+    return t;
+  }
+  var bn,
+    yn = {
+      "001": ["H", "h"],
+      419: ["h", "H", "hB", "hb"],
+      AC: ["H", "h", "hb", "hB"],
+      AD: ["H", "hB"],
+      AE: ["h", "hB", "hb", "H"],
+      AF: ["H", "hb", "hB", "h"],
+      AG: ["h", "hb", "H", "hB"],
+      AI: ["H", "h", "hb", "hB"],
+      AL: ["h", "H", "hB"],
+      AM: ["H", "hB"],
+      AO: ["H", "hB"],
+      AR: ["h", "H", "hB", "hb"],
+      AS: ["h", "H"],
+      AT: ["H", "hB"],
+      AU: ["h", "hb", "H", "hB"],
+      AW: ["H", "hB"],
+      AX: ["H"],
+      AZ: ["H", "hB", "h"],
+      BA: ["H", "hB", "h"],
+      BB: ["h", "hb", "H", "hB"],
+      BD: ["h", "hB", "H"],
+      BE: ["H", "hB"],
+      BF: ["H", "hB"],
+      BG: ["H", "hB", "h"],
+      BH: ["h", "hB", "hb", "H"],
+      BI: ["H", "h"],
+      BJ: ["H", "hB"],
+      BL: ["H", "hB"],
+      BM: ["h", "hb", "H", "hB"],
+      BN: ["hb", "hB", "h", "H"],
+      BO: ["h", "H", "hB", "hb"],
+      BQ: ["H"],
+      BR: ["H", "hB"],
+      BS: ["h", "hb", "H", "hB"],
+      BT: ["h", "H"],
+      BW: ["H", "h", "hb", "hB"],
+      BY: ["H", "h"],
+      BZ: ["H", "h", "hb", "hB"],
+      CA: ["h", "hb", "H", "hB"],
+      CC: ["H", "h", "hb", "hB"],
+      CD: ["hB", "H"],
+      CF: ["H", "h", "hB"],
+      CG: ["H", "hB"],
+      CH: ["H", "hB", "h"],
+      CI: ["H", "hB"],
+      CK: ["H", "h", "hb", "hB"],
+      CL: ["h", "H", "hB", "hb"],
+      CM: ["H", "h", "hB"],
+      CN: ["H", "hB", "hb", "h"],
+      CO: ["h", "H", "hB", "hb"],
+      CP: ["H"],
+      CR: ["h", "H", "hB", "hb"],
+      CU: ["h", "H", "hB", "hb"],
+      CV: ["H", "hB"],
+      CW: ["H", "hB"],
+      CX: ["H", "h", "hb", "hB"],
+      CY: ["h", "H", "hb", "hB"],
+      CZ: ["H"],
+      DE: ["H", "hB"],
+      DG: ["H", "h", "hb", "hB"],
+      DJ: ["h", "H"],
+      DK: ["H"],
+      DM: ["h", "hb", "H", "hB"],
+      DO: ["h", "H", "hB", "hb"],
+      DZ: ["h", "hB", "hb", "H"],
+      EA: ["H", "h", "hB", "hb"],
+      EC: ["h", "H", "hB", "hb"],
+      EE: ["H", "hB"],
+      EG: ["h", "hB", "hb", "H"],
+      EH: ["h", "hB", "hb", "H"],
+      ER: ["h", "H"],
+      ES: ["H", "hB", "h", "hb"],
+      ET: ["hB", "hb", "h", "H"],
+      FI: ["H"],
+      FJ: ["h", "hb", "H", "hB"],
+      FK: ["H", "h", "hb", "hB"],
+      FM: ["h", "hb", "H", "hB"],
+      FO: ["H", "h"],
+      FR: ["H", "hB"],
+      GA: ["H", "hB"],
+      GB: ["H", "h", "hb", "hB"],
+      GD: ["h", "hb", "H", "hB"],
+      GE: ["H", "hB", "h"],
+      GF: ["H", "hB"],
+      GG: ["H", "h", "hb", "hB"],
+      GH: ["h", "H"],
+      GI: ["H", "h", "hb", "hB"],
+      GL: ["H", "h"],
+      GM: ["h", "hb", "H", "hB"],
+      GN: ["H", "hB"],
+      GP: ["H", "hB"],
+      GQ: ["H", "hB", "h", "hb"],
+      GR: ["h", "H", "hb", "hB"],
+      GT: ["h", "H", "hB", "hb"],
+      GU: ["h", "hb", "H", "hB"],
+      GW: ["H", "hB"],
+      GY: ["h", "hb", "H", "hB"],
+      HK: ["h", "hB", "hb", "H"],
+      HN: ["h", "H", "hB", "hb"],
+      HR: ["H", "hB"],
+      HU: ["H", "h"],
+      IC: ["H", "h", "hB", "hb"],
+      ID: ["H"],
+      IE: ["H", "h", "hb", "hB"],
+      IL: ["H", "hB"],
+      IM: ["H", "h", "hb", "hB"],
+      IN: ["h", "H"],
+      IO: ["H", "h", "hb", "hB"],
+      IQ: ["h", "hB", "hb", "H"],
+      IR: ["hB", "H"],
+      IS: ["H"],
+      IT: ["H", "hB"],
+      JE: ["H", "h", "hb", "hB"],
+      JM: ["h", "hb", "H", "hB"],
+      JO: ["h", "hB", "hb", "H"],
+      JP: ["H", "K", "h"],
+      KE: ["hB", "hb", "H", "h"],
+      KG: ["H", "h", "hB", "hb"],
+      KH: ["hB", "h", "H", "hb"],
+      KI: ["h", "hb", "H", "hB"],
+      KM: ["H", "h", "hB", "hb"],
+      KN: ["h", "hb", "H", "hB"],
+      KP: ["h", "H", "hB", "hb"],
+      KR: ["h", "H", "hB", "hb"],
+      KW: ["h", "hB", "hb", "H"],
+      KY: ["h", "hb", "H", "hB"],
+      KZ: ["H", "hB"],
+      LA: ["H", "hb", "hB", "h"],
+      LB: ["h", "hB", "hb", "H"],
+      LC: ["h", "hb", "H", "hB"],
+      LI: ["H", "hB", "h"],
+      LK: ["H", "h", "hB", "hb"],
+      LR: ["h", "hb", "H", "hB"],
+      LS: ["h", "H"],
+      LT: ["H", "h", "hb", "hB"],
+      LU: ["H", "h", "hB"],
+      LV: ["H", "hB", "hb", "h"],
+      LY: ["h", "hB", "hb", "H"],
+      MA: ["H", "h", "hB", "hb"],
+      MC: ["H", "hB"],
+      MD: ["H", "hB"],
+      ME: ["H", "hB", "h"],
+      MF: ["H", "hB"],
+      MG: ["H", "h"],
+      MH: ["h", "hb", "H", "hB"],
+      MK: ["H", "h", "hb", "hB"],
+      ML: ["H"],
+      MM: ["hB", "hb", "H", "h"],
+      MN: ["H", "h", "hb", "hB"],
+      MO: ["h", "hB", "hb", "H"],
+      MP: ["h", "hb", "H", "hB"],
+      MQ: ["H", "hB"],
+      MR: ["h", "hB", "hb", "H"],
+      MS: ["H", "h", "hb", "hB"],
+      MT: ["H", "h"],
+      MU: ["H", "h"],
+      MV: ["H", "h"],
+      MW: ["h", "hb", "H", "hB"],
+      MX: ["h", "H", "hB", "hb"],
+      MY: ["hb", "hB", "h", "H"],
+      MZ: ["H", "hB"],
+      NA: ["h", "H", "hB", "hb"],
+      NC: ["H", "hB"],
+      NE: ["H"],
+      NF: ["H", "h", "hb", "hB"],
+      NG: ["H", "h", "hb", "hB"],
+      NI: ["h", "H", "hB", "hb"],
+      NL: ["H", "hB"],
+      NO: ["H", "h"],
+      NP: ["H", "h", "hB"],
+      NR: ["H", "h", "hb", "hB"],
+      NU: ["H", "h", "hb", "hB"],
+      NZ: ["h", "hb", "H", "hB"],
+      OM: ["h", "hB", "hb", "H"],
+      PA: ["h", "H", "hB", "hb"],
+      PE: ["h", "H", "hB", "hb"],
+      PF: ["H", "h", "hB"],
+      PG: ["h", "H"],
+      PH: ["h", "hB", "hb", "H"],
+      PK: ["h", "hB", "H"],
+      PL: ["H", "h"],
+      PM: ["H", "hB"],
+      PN: ["H", "h", "hb", "hB"],
+      PR: ["h", "H", "hB", "hb"],
+      PS: ["h", "hB", "hb", "H"],
+      PT: ["H", "hB"],
+      PW: ["h", "H"],
+      PY: ["h", "H", "hB", "hb"],
+      QA: ["h", "hB", "hb", "H"],
+      RE: ["H", "hB"],
+      RO: ["H", "hB"],
+      RS: ["H", "hB", "h"],
+      RU: ["H"],
+      RW: ["H", "h"],
+      SA: ["h", "hB", "hb", "H"],
+      SB: ["h", "hb", "H", "hB"],
+      SC: ["H", "h", "hB"],
+      SD: ["h", "hB", "hb", "H"],
+      SE: ["H"],
+      SG: ["h", "hb", "H", "hB"],
+      SH: ["H", "h", "hb", "hB"],
+      SI: ["H", "hB"],
+      SJ: ["H"],
+      SK: ["H"],
+      SL: ["h", "hb", "H", "hB"],
+      SM: ["H", "h", "hB"],
+      SN: ["H", "h", "hB"],
+      SO: ["h", "H"],
+      SR: ["H", "hB"],
+      SS: ["h", "hb", "H", "hB"],
+      ST: ["H", "hB"],
+      SV: ["h", "H", "hB", "hb"],
+      SX: ["H", "h", "hb", "hB"],
+      SY: ["h", "hB", "hb", "H"],
+      SZ: ["h", "hb", "H", "hB"],
+      TA: ["H", "h", "hb", "hB"],
+      TC: ["h", "hb", "H", "hB"],
+      TD: ["h", "H", "hB"],
+      TF: ["H", "h", "hB"],
+      TG: ["H", "hB"],
+      TH: ["H", "h"],
+      TJ: ["H", "h"],
+      TL: ["H", "hB", "hb", "h"],
+      TM: ["H", "h"],
+      TN: ["h", "hB", "hb", "H"],
+      TO: ["h", "H"],
+      TR: ["H", "hB"],
+      TT: ["h", "hb", "H", "hB"],
+      TW: ["hB", "hb", "h", "H"],
+      TZ: ["hB", "hb", "H", "h"],
+      UA: ["H", "hB", "h"],
+      UG: ["hB", "hb", "H", "h"],
+      UM: ["h", "hb", "H", "hB"],
+      US: ["h", "hb", "H", "hB"],
+      UY: ["h", "H", "hB", "hb"],
+      UZ: ["H", "hB", "h"],
+      VA: ["H", "h", "hB"],
+      VC: ["h", "hb", "H", "hB"],
+      VE: ["h", "H", "hB", "hb"],
+      VG: ["h", "hb", "H", "hB"],
+      VI: ["h", "hb", "H", "hB"],
+      VN: ["H", "h"],
+      VU: ["h", "H"],
+      WF: ["H", "hB"],
+      WS: ["h", "H"],
+      XK: ["H", "hB", "h"],
+      YE: ["h", "hB", "hb", "H"],
+      YT: ["H", "hB"],
+      ZA: ["H", "h", "hb", "hB"],
+      ZM: ["h", "hb", "H", "hB"],
+      ZW: ["H", "h"],
+      "af-ZA": ["H", "h", "hB", "hb"],
+      "ar-001": ["h", "hB", "hb", "H"],
+      "ca-ES": ["H", "h", "hB"],
+      "en-001": ["h", "hb", "H", "hB"],
+      "en-HK": ["h", "hb", "H", "hB"],
+      "en-IL": ["H", "h", "hb", "hB"],
+      "en-MY": ["h", "hb", "H", "hB"],
+      "es-BR": ["H", "h", "hB", "hb"],
+      "es-ES": ["H", "h", "hB", "hb"],
+      "es-GQ": ["H", "h", "hB", "hb"],
+      "fr-CA": ["H", "h", "hB"],
+      "gl-ES": ["H", "h", "hB"],
+      "gu-IN": ["hB", "hb", "h", "H"],
+      "hi-IN": ["hB", "h", "H"],
+      "it-CH": ["H", "h", "hB"],
+      "it-IT": ["H", "h", "hB"],
+      "kn-IN": ["hB", "h", "H"],
+      "ml-IN": ["hB", "h", "H"],
+      "mr-IN": ["hB", "hb", "h", "H"],
+      "pa-IN": ["hB", "hb", "h", "H"],
+      "ta-IN": ["hB", "h", "hb", "H"],
+      "te-IN": ["hB", "h", "H"],
+      "zu-ZA": ["H", "hB", "hb", "h"]
+    };
+  function wn(e) {
+    var t = e.hourCycle;
+    if (void 0 === t && e.hourCycles && e.hourCycles.length && (t = e.hourCycles[0]), t) switch (t) {
+      case "h24":
+        return "k";
+      case "h23":
+        return "H";
+      case "h12":
+        return "h";
+      case "h11":
+        return "K";
+      default:
+        throw new Error("Invalid hourCycle");
+    }
+    var a,
+      i = e.language;
+    return "root" !== i && (a = e.maximize().region), (yn[a || ""] || yn[i || ""] || yn["".concat(i, "-001")] || yn["001"])[0];
+  }
+  var kn = new RegExp("^".concat(rn.source, "*")),
+    zn = new RegExp("".concat(rn.source, "*$"));
+  function Sn(e, t) {
+    return {
+      start: e,
+      end: t
+    };
+  }
+  var $n = !!String.prototype.startsWith && "_a".startsWith("a", 1),
+    xn = !!String.fromCodePoint,
+    An = !!Object.fromEntries,
+    En = !!String.prototype.codePointAt,
+    Tn = !!String.prototype.trimStart,
+    Mn = !!String.prototype.trimEnd,
+    Dn = !!Number.isSafeInteger ? Number.isSafeInteger : function (e) {
+      return "number" == typeof e && isFinite(e) && Math.floor(e) === e && Math.abs(e) <= 9007199254740991;
+    },
+    Cn = !0;
+  try {
+    Cn = "a" === (null === (bn = Un("([^\\p{White_Space}\\p{Pattern_Syntax}]*)", "yu").exec("a")) || void 0 === bn ? void 0 : bn[0]);
+  } catch (P) {
+    Cn = !1;
+  }
+  var On,
+    Nn = $n ? function (e, t, a) {
+      return e.startsWith(t, a);
+    } : function (e, t, a) {
+      return e.slice(a, a + t.length) === t;
+    },
+    jn = xn ? String.fromCodePoint : function () {
+      for (var e = [], t = 0; t < arguments.length; t++) e[t] = arguments[t];
+      for (var a, i = "", n = e.length, s = 0; n > s;) {
+        if ((a = e[s++]) > 1114111) throw RangeError(a + " is not a valid code point");
+        i += a < 65536 ? String.fromCharCode(a) : String.fromCharCode(55296 + ((a -= 65536) >> 10), a % 1024 + 56320);
+      }
+      return i;
+    },
+    Hn = An ? Object.fromEntries : function (e) {
+      for (var t = {}, a = 0, i = e; a < i.length; a++) {
+        var n = i[a],
+          s = n[0],
+          r = n[1];
+        t[s] = r;
+      }
+      return t;
+    },
+    Pn = En ? function (e, t) {
+      return e.codePointAt(t);
+    } : function (e, t) {
+      var a = e.length;
+      if (!(t < 0 || t >= a)) {
+        var i,
+          n = e.charCodeAt(t);
+        return n < 55296 || n > 56319 || t + 1 === a || (i = e.charCodeAt(t + 1)) < 56320 || i > 57343 ? n : i - 56320 + (n - 55296 << 10) + 65536;
+      }
+    },
+    Ln = Tn ? function (e) {
+      return e.trimStart();
+    } : function (e) {
+      return e.replace(kn, "");
+    },
+    In = Mn ? function (e) {
+      return e.trimEnd();
+    } : function (e) {
+      return e.replace(zn, "");
+    };
+  function Un(e, t) {
+    return new RegExp(e, t);
+  }
+  if (Cn) {
+    var Bn = Un("([^\\p{White_Space}\\p{Pattern_Syntax}]*)", "yu");
+    On = function (e, t) {
+      var a;
+      return Bn.lastIndex = t, null !== (a = Bn.exec(e)[1]) && void 0 !== a ? a : "";
+    };
+  } else On = function (e, t) {
+    for (var a = [];;) {
+      var i = Pn(e, t);
+      if (void 0 === i || Vn(i) || Zn(i)) break;
+      a.push(i), t += i >= 65536 ? 2 : 1;
+    }
+    return jn.apply(void 0, a);
+  };
+  var Rn,
+    Fn = function () {
+      function e(e, t) {
+        void 0 === t && (t = {}), this.message = e, this.position = {
+          offset: 0,
+          line: 1,
+          column: 1
+        }, this.ignoreTag = !!t.ignoreTag, this.locale = t.locale, this.requiresOtherClause = !!t.requiresOtherClause, this.shouldParseSkeletons = !!t.shouldParseSkeletons;
+      }
+      return e.prototype.parse = function () {
+        if (0 !== this.offset()) throw Error("parser can only be used once");
+        return this.parseMessage(0, "", !1);
+      }, e.prototype.parseMessage = function (e, t, a) {
+        for (var i = []; !this.isEOF();) {
+          var n = this.char();
+          if (123 === n) {
+            if ((s = this.parseArgument(e, a)).err) return s;
+            i.push(s.val);
+          } else {
+            if (125 === n && e > 0) break;
+            if (35 !== n || "plural" !== t && "selectordinal" !== t) {
+              if (60 === n && !this.ignoreTag && 47 === this.peek()) {
+                if (a) break;
+                return this.error(Fi.UNMATCHED_CLOSING_TAG, Sn(this.clonePosition(), this.clonePosition()));
+              }
+              if (60 === n && !this.ignoreTag && Wn(this.peek() || 0)) {
+                if ((s = this.parseTag(e, t)).err) return s;
+                i.push(s.val);
+              } else {
+                var s;
+                if ((s = this.parseLiteral(e, t)).err) return s;
+                i.push(s.val);
+              }
+            } else {
+              var r = this.clonePosition();
+              this.bump(), i.push({
+                type: Wi.pound,
+                location: Sn(r, this.clonePosition())
+              });
+            }
+          }
+        }
+        return {
+          val: i,
+          err: null
+        };
+      }, e.prototype.parseTag = function (e, t) {
+        var a = this.clonePosition();
+        this.bump();
+        var i = this.parseTagName();
+        if (this.bumpSpace(), this.bumpIf("/>")) return {
+          val: {
+            type: Wi.literal,
+            value: "<".concat(i, "/>"),
+            location: Sn(a, this.clonePosition())
+          },
+          err: null
+        };
+        if (this.bumpIf(">")) {
+          var n = this.parseMessage(e + 1, t, !0);
+          if (n.err) return n;
+          var s = n.val,
+            r = this.clonePosition();
+          if (this.bumpIf("</")) {
+            if (this.isEOF() || !Wn(this.char())) return this.error(Fi.INVALID_TAG, Sn(r, this.clonePosition()));
+            var o = this.clonePosition();
+            return i !== this.parseTagName() ? this.error(Fi.UNMATCHED_CLOSING_TAG, Sn(o, this.clonePosition())) : (this.bumpSpace(), this.bumpIf(">") ? {
+              val: {
+                type: Wi.tag,
+                value: i,
+                children: s,
+                location: Sn(a, this.clonePosition())
+              },
+              err: null
+            } : this.error(Fi.INVALID_TAG, Sn(r, this.clonePosition())));
+          }
+          return this.error(Fi.UNCLOSED_TAG, Sn(a, this.clonePosition()));
+        }
+        return this.error(Fi.INVALID_TAG, Sn(a, this.clonePosition()));
+      }, e.prototype.parseTagName = function () {
+        var e = this.offset();
+        for (this.bump(); !this.isEOF() && Yn(this.char());) this.bump();
+        return this.message.slice(e, this.offset());
+      }, e.prototype.parseLiteral = function (e, t) {
+        for (var a = this.clonePosition(), i = "";;) {
+          var n = this.tryParseQuote(t);
+          if (n) i += n;else {
+            var s = this.tryParseUnquoted(e, t);
+            if (s) i += s;else {
+              var r = this.tryParseLeftAngleBracket();
+              if (!r) break;
+              i += r;
+            }
+          }
+        }
+        var o = Sn(a, this.clonePosition());
+        return {
+          val: {
+            type: Wi.literal,
+            value: i,
+            location: o
+          },
+          err: null
+        };
+      }, e.prototype.tryParseLeftAngleBracket = function () {
+        return this.isEOF() || 60 !== this.char() || !this.ignoreTag && (Wn(e = this.peek() || 0) || 47 === e) ? null : (this.bump(), "<");
+        var e;
+      }, e.prototype.tryParseQuote = function (e) {
+        if (this.isEOF() || 39 !== this.char()) return null;
+        switch (this.peek()) {
+          case 39:
+            return this.bump(), this.bump(), "'";
+          case 123:
+          case 60:
+          case 62:
+          case 125:
+            break;
+          case 35:
+            if ("plural" === e || "selectordinal" === e) break;
+            return null;
+          default:
+            return null;
+        }
+        this.bump();
+        var t = [this.char()];
+        for (this.bump(); !this.isEOF();) {
+          var a = this.char();
+          if (39 === a) {
+            if (39 !== this.peek()) {
+              this.bump();
+              break;
+            }
+            t.push(39), this.bump();
+          } else t.push(a);
+          this.bump();
+        }
+        return jn.apply(void 0, t);
+      }, e.prototype.tryParseUnquoted = function (e, t) {
+        if (this.isEOF()) return null;
+        var a = this.char();
+        return 60 === a || 123 === a || 35 === a && ("plural" === t || "selectordinal" === t) || 125 === a && e > 0 ? null : (this.bump(), jn(a));
+      }, e.prototype.parseArgument = function (e, t) {
+        var a = this.clonePosition();
+        if (this.bump(), this.bumpSpace(), this.isEOF()) return this.error(Fi.EXPECT_ARGUMENT_CLOSING_BRACE, Sn(a, this.clonePosition()));
+        if (125 === this.char()) return this.bump(), this.error(Fi.EMPTY_ARGUMENT, Sn(a, this.clonePosition()));
+        var i = this.parseIdentifierIfPossible().value;
+        if (!i) return this.error(Fi.MALFORMED_ARGUMENT, Sn(a, this.clonePosition()));
+        if (this.bumpSpace(), this.isEOF()) return this.error(Fi.EXPECT_ARGUMENT_CLOSING_BRACE, Sn(a, this.clonePosition()));
+        switch (this.char()) {
+          case 125:
+            return this.bump(), {
+              val: {
+                type: Wi.argument,
+                value: i,
+                location: Sn(a, this.clonePosition())
+              },
+              err: null
+            };
+          case 44:
+            return this.bump(), this.bumpSpace(), this.isEOF() ? this.error(Fi.EXPECT_ARGUMENT_CLOSING_BRACE, Sn(a, this.clonePosition())) : this.parseArgumentOptions(e, t, i, a);
+          default:
+            return this.error(Fi.MALFORMED_ARGUMENT, Sn(a, this.clonePosition()));
+        }
+      }, e.prototype.parseIdentifierIfPossible = function () {
+        var e = this.clonePosition(),
+          t = this.offset(),
+          a = On(this.message, t),
+          i = t + a.length;
+        return this.bumpTo(i), {
+          value: a,
+          location: Sn(e, this.clonePosition())
+        };
+      }, e.prototype.parseArgumentOptions = function (e, t, a, n) {
+        var s,
+          r = this.clonePosition(),
+          o = this.parseIdentifierIfPossible().value,
+          l = this.clonePosition();
+        switch (o) {
+          case "":
+            return this.error(Fi.EXPECT_ARGUMENT_TYPE, Sn(r, l));
+          case "number":
+          case "date":
+          case "time":
+            this.bumpSpace();
+            var d = null;
+            if (this.bumpIf(",")) {
+              this.bumpSpace();
+              var u = this.clonePosition();
+              if ((_ = this.parseSimpleArgStyleIfPossible()).err) return _;
+              if (0 === (g = In(_.val)).length) return this.error(Fi.EXPECT_ARGUMENT_STYLE, Sn(this.clonePosition(), this.clonePosition()));
+              d = {
+                style: g,
+                styleLocation: Sn(u, this.clonePosition())
+              };
+            }
+            if ((b = this.tryParseArgumentClose(n)).err) return b;
+            var c = Sn(n, this.clonePosition());
+            if (d && Nn(null == d ? void 0 : d.style, "::", 0)) {
+              var h = Ln(d.style.slice(2));
+              if ("number" === o) return (_ = this.parseNumberSkeletonFromString(h, d.styleLocation)).err ? _ : {
+                val: {
+                  type: Wi.number,
+                  value: a,
+                  location: c,
+                  style: _.val
+                },
+                err: null
+              };
+              if (0 === h.length) return this.error(Fi.EXPECT_DATE_TIME_SKELETON, c);
+              var p = h;
+              this.locale && (p = function (e, t) {
+                for (var a = "", i = 0; i < e.length; i++) {
+                  var n = e.charAt(i);
+                  if ("j" === n) {
+                    for (var s = 0; i + 1 < e.length && e.charAt(i + 1) === n;) s++, i++;
+                    var r = 1 + (1 & s),
+                      o = s < 2 ? 1 : 3 + (s >> 1),
+                      l = wn(t);
+                    for ("H" != l && "k" != l || (o = 0); o-- > 0;) a += "a";
+                    for (; r-- > 0;) a = l + a;
+                  } else a += "J" === n ? "H" : n;
+                }
+                return a;
+              }(h, this.locale));
+              var g = {
+                type: Yi.dateTime,
+                pattern: p,
+                location: d.styleLocation,
+                parsedOptions: this.shouldParseSkeletons ? ln(p) : {}
+              };
+              return {
+                val: {
+                  type: "date" === o ? Wi.date : Wi.time,
+                  value: a,
+                  location: c,
+                  style: g
+                },
+                err: null
+              };
+            }
+            return {
+              val: {
+                type: "number" === o ? Wi.number : "date" === o ? Wi.date : Wi.time,
+                value: a,
+                location: c,
+                style: null !== (s = null == d ? void 0 : d.style) && void 0 !== s ? s : null
+              },
+              err: null
+            };
+          case "plural":
+          case "selectordinal":
+          case "select":
+            var m = this.clonePosition();
+            if (this.bumpSpace(), !this.bumpIf(",")) return this.error(Fi.EXPECT_SELECT_ARGUMENT_OPTIONS, Sn(m, i({}, m)));
+            this.bumpSpace();
+            var f = this.parseIdentifierIfPossible(),
+              v = 0;
+            if ("select" !== o && "offset" === f.value) {
+              if (!this.bumpIf(":")) return this.error(Fi.EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE, Sn(this.clonePosition(), this.clonePosition()));
+              var _;
+              if (this.bumpSpace(), (_ = this.tryParseDecimalInteger(Fi.EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE, Fi.INVALID_PLURAL_ARGUMENT_OFFSET_VALUE)).err) return _;
+              this.bumpSpace(), f = this.parseIdentifierIfPossible(), v = _.val;
+            }
+            var b,
+              y = this.tryParsePluralOrSelectOptions(e, o, t, f);
+            if (y.err) return y;
+            if ((b = this.tryParseArgumentClose(n)).err) return b;
+            var w = Sn(n, this.clonePosition());
+            return "select" === o ? {
+              val: {
+                type: Wi.select,
+                value: a,
+                options: Hn(y.val),
+                location: w
+              },
+              err: null
+            } : {
+              val: {
+                type: Wi.plural,
+                value: a,
+                options: Hn(y.val),
+                offset: v,
+                pluralType: "plural" === o ? "cardinal" : "ordinal",
+                location: w
+              },
+              err: null
+            };
+          default:
+            return this.error(Fi.INVALID_ARGUMENT_TYPE, Sn(r, l));
+        }
+      }, e.prototype.tryParseArgumentClose = function (e) {
+        return this.isEOF() || 125 !== this.char() ? this.error(Fi.EXPECT_ARGUMENT_CLOSING_BRACE, Sn(e, this.clonePosition())) : (this.bump(), {
+          val: !0,
+          err: null
+        });
+      }, e.prototype.parseSimpleArgStyleIfPossible = function () {
+        for (var e = 0, t = this.clonePosition(); !this.isEOF();) {
+          switch (this.char()) {
+            case 39:
+              this.bump();
+              var a = this.clonePosition();
+              if (!this.bumpUntil("'")) return this.error(Fi.UNCLOSED_QUOTE_IN_ARGUMENT_STYLE, Sn(a, this.clonePosition()));
+              this.bump();
+              break;
+            case 123:
+              e += 1, this.bump();
+              break;
+            case 125:
+              if (!(e > 0)) return {
+                val: this.message.slice(t.offset, this.offset()),
+                err: null
+              };
+              e -= 1;
+              break;
+            default:
+              this.bump();
+          }
+        }
+        return {
+          val: this.message.slice(t.offset, this.offset()),
+          err: null
+        };
+      }, e.prototype.parseNumberSkeletonFromString = function (e, t) {
+        var a = [];
+        try {
+          a = function (e) {
+            if (0 === e.length) throw new Error("Number skeleton cannot be empty");
+            for (var t = e.split(dn).filter(function (e) {
+                return e.length > 0;
+              }), a = [], i = 0, n = t; i < n.length; i++) {
+              var s = n[i].split("/");
+              if (0 === s.length) throw new Error("Invalid number skeleton");
+              for (var r = s[0], o = s.slice(1), l = 0, d = o; l < d.length; l++) if (0 === d[l].length) throw new Error("Invalid number skeleton");
+              a.push({
+                stem: r,
+                options: o
+              });
+            }
+            return a;
+          }(e);
+        } catch (e) {
+          return this.error(Fi.INVALID_NUMBER_SKELETON, t);
+        }
+        return {
+          val: {
+            type: Yi.number,
+            tokens: a,
+            location: t,
+            parsedOptions: this.shouldParseSkeletons ? _n(a) : {}
+          },
+          err: null
+        };
+      }, e.prototype.tryParsePluralOrSelectOptions = function (e, t, a, i) {
+        for (var n, s = !1, r = [], o = new Set(), l = i.value, d = i.location;;) {
+          if (0 === l.length) {
+            var u = this.clonePosition();
+            if ("select" === t || !this.bumpIf("=")) break;
+            var c = this.tryParseDecimalInteger(Fi.EXPECT_PLURAL_ARGUMENT_SELECTOR, Fi.INVALID_PLURAL_ARGUMENT_SELECTOR);
+            if (c.err) return c;
+            d = Sn(u, this.clonePosition()), l = this.message.slice(u.offset, this.offset());
+          }
+          if (o.has(l)) return this.error("select" === t ? Fi.DUPLICATE_SELECT_ARGUMENT_SELECTOR : Fi.DUPLICATE_PLURAL_ARGUMENT_SELECTOR, d);
+          "other" === l && (s = !0), this.bumpSpace();
+          var h = this.clonePosition();
+          if (!this.bumpIf("{")) return this.error("select" === t ? Fi.EXPECT_SELECT_ARGUMENT_SELECTOR_FRAGMENT : Fi.EXPECT_PLURAL_ARGUMENT_SELECTOR_FRAGMENT, Sn(this.clonePosition(), this.clonePosition()));
+          var p = this.parseMessage(e + 1, t, a);
+          if (p.err) return p;
+          var g = this.tryParseArgumentClose(h);
+          if (g.err) return g;
+          r.push([l, {
+            value: p.val,
+            location: Sn(h, this.clonePosition())
+          }]), o.add(l), this.bumpSpace(), l = (n = this.parseIdentifierIfPossible()).value, d = n.location;
+        }
+        return 0 === r.length ? this.error("select" === t ? Fi.EXPECT_SELECT_ARGUMENT_SELECTOR : Fi.EXPECT_PLURAL_ARGUMENT_SELECTOR, Sn(this.clonePosition(), this.clonePosition())) : this.requiresOtherClause && !s ? this.error(Fi.MISSING_OTHER_CLAUSE, Sn(this.clonePosition(), this.clonePosition())) : {
+          val: r,
+          err: null
+        };
+      }, e.prototype.tryParseDecimalInteger = function (e, t) {
+        var a = 1,
+          i = this.clonePosition();
+        this.bumpIf("+") || this.bumpIf("-") && (a = -1);
+        for (var n = !1, s = 0; !this.isEOF();) {
+          var r = this.char();
+          if (!(r >= 48 && r <= 57)) break;
+          n = !0, s = 10 * s + (r - 48), this.bump();
+        }
+        var o = Sn(i, this.clonePosition());
+        return n ? Dn(s *= a) ? {
+          val: s,
+          err: null
+        } : this.error(t, o) : this.error(e, o);
+      }, e.prototype.offset = function () {
+        return this.position.offset;
+      }, e.prototype.isEOF = function () {
+        return this.offset() === this.message.length;
+      }, e.prototype.clonePosition = function () {
+        return {
+          offset: this.position.offset,
+          line: this.position.line,
+          column: this.position.column
+        };
+      }, e.prototype.char = function () {
+        var e = this.position.offset;
+        if (e >= this.message.length) throw Error("out of bound");
+        var t = Pn(this.message, e);
+        if (void 0 === t) throw Error("Offset ".concat(e, " is at invalid UTF-16 code unit boundary"));
+        return t;
+      }, e.prototype.error = function (e, t) {
+        return {
+          val: null,
+          err: {
+            kind: e,
+            message: this.message,
+            location: t
+          }
+        };
+      }, e.prototype.bump = function () {
+        if (!this.isEOF()) {
+          var e = this.char();
+          10 === e ? (this.position.line += 1, this.position.column = 1, this.position.offset += 1) : (this.position.column += 1, this.position.offset += e < 65536 ? 1 : 2);
+        }
+      }, e.prototype.bumpIf = function (e) {
+        if (Nn(this.message, e, this.offset())) {
+          for (var t = 0; t < e.length; t++) this.bump();
+          return !0;
+        }
+        return !1;
+      }, e.prototype.bumpUntil = function (e) {
+        var t = this.offset(),
+          a = this.message.indexOf(e, t);
+        return a >= 0 ? (this.bumpTo(a), !0) : (this.bumpTo(this.message.length), !1);
+      }, e.prototype.bumpTo = function (e) {
+        if (this.offset() > e) throw Error("targetOffset ".concat(e, " must be greater than or equal to the current offset ").concat(this.offset()));
+        for (e = Math.min(e, this.message.length);;) {
+          var t = this.offset();
+          if (t === e) break;
+          if (t > e) throw Error("targetOffset ".concat(e, " is at invalid UTF-16 code unit boundary"));
+          if (this.bump(), this.isEOF()) break;
+        }
+      }, e.prototype.bumpSpace = function () {
+        for (; !this.isEOF() && Vn(this.char());) this.bump();
+      }, e.prototype.peek = function () {
+        if (this.isEOF()) return null;
+        var e = this.char(),
+          t = this.offset(),
+          a = this.message.charCodeAt(t + (e >= 65536 ? 2 : 1));
+        return null != a ? a : null;
+      }, e;
+    }();
+  function Wn(e) {
+    return e >= 97 && e <= 122 || e >= 65 && e <= 90;
+  }
+  function Yn(e) {
+    return 45 === e || 46 === e || e >= 48 && e <= 57 || 95 === e || e >= 97 && e <= 122 || e >= 65 && e <= 90 || 183 == e || e >= 192 && e <= 214 || e >= 216 && e <= 246 || e >= 248 && e <= 893 || e >= 895 && e <= 8191 || e >= 8204 && e <= 8205 || e >= 8255 && e <= 8256 || e >= 8304 && e <= 8591 || e >= 11264 && e <= 12271 || e >= 12289 && e <= 55295 || e >= 63744 && e <= 64975 || e >= 65008 && e <= 65533 || e >= 65536 && e <= 983039;
+  }
+  function Vn(e) {
+    return e >= 9 && e <= 13 || 32 === e || 133 === e || e >= 8206 && e <= 8207 || 8232 === e || 8233 === e;
+  }
+  function Zn(e) {
+    return e >= 33 && e <= 35 || 36 === e || e >= 37 && e <= 39 || 40 === e || 41 === e || 42 === e || 43 === e || 44 === e || 45 === e || e >= 46 && e <= 47 || e >= 58 && e <= 59 || e >= 60 && e <= 62 || e >= 63 && e <= 64 || 91 === e || 92 === e || 93 === e || 94 === e || 96 === e || 123 === e || 124 === e || 125 === e || 126 === e || 161 === e || e >= 162 && e <= 165 || 166 === e || 167 === e || 169 === e || 171 === e || 172 === e || 174 === e || 176 === e || 177 === e || 182 === e || 187 === e || 191 === e || 215 === e || 247 === e || e >= 8208 && e <= 8213 || e >= 8214 && e <= 8215 || 8216 === e || 8217 === e || 8218 === e || e >= 8219 && e <= 8220 || 8221 === e || 8222 === e || 8223 === e || e >= 8224 && e <= 8231 || e >= 8240 && e <= 8248 || 8249 === e || 8250 === e || e >= 8251 && e <= 8254 || e >= 8257 && e <= 8259 || 8260 === e || 8261 === e || 8262 === e || e >= 8263 && e <= 8273 || 8274 === e || 8275 === e || e >= 8277 && e <= 8286 || e >= 8592 && e <= 8596 || e >= 8597 && e <= 8601 || e >= 8602 && e <= 8603 || e >= 8604 && e <= 8607 || 8608 === e || e >= 8609 && e <= 8610 || 8611 === e || e >= 8612 && e <= 8613 || 8614 === e || e >= 8615 && e <= 8621 || 8622 === e || e >= 8623 && e <= 8653 || e >= 8654 && e <= 8655 || e >= 8656 && e <= 8657 || 8658 === e || 8659 === e || 8660 === e || e >= 8661 && e <= 8691 || e >= 8692 && e <= 8959 || e >= 8960 && e <= 8967 || 8968 === e || 8969 === e || 8970 === e || 8971 === e || e >= 8972 && e <= 8991 || e >= 8992 && e <= 8993 || e >= 8994 && e <= 9e3 || 9001 === e || 9002 === e || e >= 9003 && e <= 9083 || 9084 === e || e >= 9085 && e <= 9114 || e >= 9115 && e <= 9139 || e >= 9140 && e <= 9179 || e >= 9180 && e <= 9185 || e >= 9186 && e <= 9254 || e >= 9255 && e <= 9279 || e >= 9280 && e <= 9290 || e >= 9291 && e <= 9311 || e >= 9472 && e <= 9654 || 9655 === e || e >= 9656 && e <= 9664 || 9665 === e || e >= 9666 && e <= 9719 || e >= 9720 && e <= 9727 || e >= 9728 && e <= 9838 || 9839 === e || e >= 9840 && e <= 10087 || 10088 === e || 10089 === e || 10090 === e || 10091 === e || 10092 === e || 10093 === e || 10094 === e || 10095 === e || 10096 === e || 10097 === e || 10098 === e || 10099 === e || 10100 === e || 10101 === e || e >= 10132 && e <= 10175 || e >= 10176 && e <= 10180 || 10181 === e || 10182 === e || e >= 10183 && e <= 10213 || 10214 === e || 10215 === e || 10216 === e || 10217 === e || 10218 === e || 10219 === e || 10220 === e || 10221 === e || 10222 === e || 10223 === e || e >= 10224 && e <= 10239 || e >= 10240 && e <= 10495 || e >= 10496 && e <= 10626 || 10627 === e || 10628 === e || 10629 === e || 10630 === e || 10631 === e || 10632 === e || 10633 === e || 10634 === e || 10635 === e || 10636 === e || 10637 === e || 10638 === e || 10639 === e || 10640 === e || 10641 === e || 10642 === e || 10643 === e || 10644 === e || 10645 === e || 10646 === e || 10647 === e || 10648 === e || e >= 10649 && e <= 10711 || 10712 === e || 10713 === e || 10714 === e || 10715 === e || e >= 10716 && e <= 10747 || 10748 === e || 10749 === e || e >= 10750 && e <= 11007 || e >= 11008 && e <= 11055 || e >= 11056 && e <= 11076 || e >= 11077 && e <= 11078 || e >= 11079 && e <= 11084 || e >= 11085 && e <= 11123 || e >= 11124 && e <= 11125 || e >= 11126 && e <= 11157 || 11158 === e || e >= 11159 && e <= 11263 || e >= 11776 && e <= 11777 || 11778 === e || 11779 === e || 11780 === e || 11781 === e || e >= 11782 && e <= 11784 || 11785 === e || 11786 === e || 11787 === e || 11788 === e || 11789 === e || e >= 11790 && e <= 11798 || 11799 === e || e >= 11800 && e <= 11801 || 11802 === e || 11803 === e || 11804 === e || 11805 === e || e >= 11806 && e <= 11807 || 11808 === e || 11809 === e || 11810 === e || 11811 === e || 11812 === e || 11813 === e || 11814 === e || 11815 === e || 11816 === e || 11817 === e || e >= 11818 && e <= 11822 || 11823 === e || e >= 11824 && e <= 11833 || e >= 11834 && e <= 11835 || e >= 11836 && e <= 11839 || 11840 === e || 11841 === e || 11842 === e || e >= 11843 && e <= 11855 || e >= 11856 && e <= 11857 || 11858 === e || e >= 11859 && e <= 11903 || e >= 12289 && e <= 12291 || 12296 === e || 12297 === e || 12298 === e || 12299 === e || 12300 === e || 12301 === e || 12302 === e || 12303 === e || 12304 === e || 12305 === e || e >= 12306 && e <= 12307 || 12308 === e || 12309 === e || 12310 === e || 12311 === e || 12312 === e || 12313 === e || 12314 === e || 12315 === e || 12316 === e || 12317 === e || e >= 12318 && e <= 12319 || 12320 === e || 12336 === e || 64830 === e || 64831 === e || e >= 65093 && e <= 65094;
+  }
+  function Gn(e) {
+    e.forEach(function (e) {
+      if (delete e.location, Qi(e) || en(e)) for (var t in e.options) delete e.options[t].location, Gn(e.options[t].value);else Ki(e) && nn(e.style) || (Xi(e) || Ji(e)) && sn(e.style) ? delete e.style.location : an(e) && Gn(e.children);
+    });
+  }
+  function qn(e, t) {
+    void 0 === t && (t = {}), t = i({
+      shouldParseSkeletons: !0,
+      requiresOtherClause: !0
+    }, t);
+    var a = new Fn(e, t).parse();
+    if (a.err) {
+      var n = SyntaxError(Fi[a.err.kind]);
+      throw n.location = a.err.location, n.originalMessage = a.err.message, n;
+    }
+    return (null == t ? void 0 : t.captureLocation) || Gn(a.val), a.val;
+  }
+  !function (e) {
+    e.MISSING_VALUE = "MISSING_VALUE", e.INVALID_VALUE = "INVALID_VALUE", e.MISSING_INTL_API = "MISSING_INTL_API";
+  }(Rn || (Rn = {}));
+  var Kn,
+    Xn = function (e) {
+      function t(t, a, i) {
+        var n = e.call(this, t) || this;
+        return n.code = a, n.originalMessage = i, n;
+      }
+      return a(t, e), t.prototype.toString = function () {
+        return "[formatjs Error: ".concat(this.code, "] ").concat(this.message);
+      }, t;
+    }(Error),
+    Jn = function (e) {
+      function t(t, a, i, n) {
+        return e.call(this, 'Invalid values for "'.concat(t, '": "').concat(a, '". Options are "').concat(Object.keys(i).join('", "'), '"'), Rn.INVALID_VALUE, n) || this;
+      }
+      return a(t, e), t;
+    }(Xn),
+    Qn = function (e) {
+      function t(t, a, i) {
+        return e.call(this, 'Value for "'.concat(t, '" must be of type ').concat(a), Rn.INVALID_VALUE, i) || this;
+      }
+      return a(t, e), t;
+    }(Xn),
+    es = function (e) {
+      function t(t, a) {
+        return e.call(this, 'The intl string context variable "'.concat(t, '" was not provided to the string "').concat(a, '"'), Rn.MISSING_VALUE, a) || this;
+      }
+      return a(t, e), t;
+    }(Xn);
+  function ts(e) {
+    return "function" == typeof e;
+  }
+  function as(e, t, a, i, n, s, r) {
+    if (1 === e.length && Gi(e[0])) return [{
+      type: Kn.literal,
+      value: e[0].value
+    }];
+    for (var o = [], l = 0, d = e; l < d.length; l++) {
+      var u = d[l];
+      if (Gi(u)) o.push({
+        type: Kn.literal,
+        value: u.value
+      });else if (tn(u)) "number" == typeof s && o.push({
+        type: Kn.literal,
+        value: a.getNumberFormat(t).format(s)
+      });else {
+        var c = u.value;
+        if (!n || !(c in n)) throw new es(c, r);
+        var h = n[c];
+        if (qi(u)) h && "string" != typeof h && "number" != typeof h || (h = "string" == typeof h || "number" == typeof h ? String(h) : ""), o.push({
+          type: "string" == typeof h ? Kn.literal : Kn.object,
+          value: h
+        });else if (Xi(u)) {
+          var p = "string" == typeof u.style ? i.date[u.style] : sn(u.style) ? u.style.parsedOptions : void 0;
+          o.push({
+            type: Kn.literal,
+            value: a.getDateTimeFormat(t, p).format(h)
+          });
+        } else if (Ji(u)) {
+          p = "string" == typeof u.style ? i.time[u.style] : sn(u.style) ? u.style.parsedOptions : i.time.medium;
+          o.push({
+            type: Kn.literal,
+            value: a.getDateTimeFormat(t, p).format(h)
+          });
+        } else if (Ki(u)) {
+          (p = "string" == typeof u.style ? i.number[u.style] : nn(u.style) ? u.style.parsedOptions : void 0) && p.scale && (h *= p.scale || 1), o.push({
+            type: Kn.literal,
+            value: a.getNumberFormat(t, p).format(h)
+          });
+        } else {
+          if (an(u)) {
+            var g = u.children,
+              m = u.value,
+              f = n[m];
+            if (!ts(f)) throw new Qn(m, "function", r);
+            var v = f(as(g, t, a, i, n, s).map(function (e) {
+              return e.value;
+            }));
+            Array.isArray(v) || (v = [v]), o.push.apply(o, v.map(function (e) {
+              return {
+                type: "string" == typeof e ? Kn.literal : Kn.object,
+                value: e
+              };
+            }));
+          }
+          if (Qi(u)) {
+            if (!(_ = u.options[h] || u.options.other)) throw new Jn(u.value, h, Object.keys(u.options), r);
+            o.push.apply(o, as(_.value, t, a, i, n));
+          } else if (en(u)) {
+            var _;
+            if (!(_ = u.options["=".concat(h)])) {
+              if (!Intl.PluralRules) throw new Xn('Intl.PluralRules is not available in this environment.\nTry polyfilling it using "@formatjs/intl-pluralrules"\n', Rn.MISSING_INTL_API, r);
+              var b = a.getPluralRules(t, {
+                type: u.pluralType
+              }).select(h - (u.offset || 0));
+              _ = u.options[b] || u.options.other;
+            }
+            if (!_) throw new Jn(u.value, h, Object.keys(u.options), r);
+            o.push.apply(o, as(_.value, t, a, i, n, h - (u.offset || 0)));
+          } else ;
+        }
+      }
+    }
+    return function (e) {
+      return e.length < 2 ? e : e.reduce(function (e, t) {
+        var a = e[e.length - 1];
+        return a && a.type === Kn.literal && t.type === Kn.literal ? a.value += t.value : e.push(t), e;
+      }, []);
+    }(o);
+  }
+  function is(e, t) {
+    return t ? Object.keys(e).reduce(function (a, n) {
+      var s, r;
+      return a[n] = (s = e[n], (r = t[n]) ? i(i(i({}, s || {}), r || {}), Object.keys(s).reduce(function (e, t) {
+        return e[t] = i(i({}, s[t]), r[t] || {}), e;
+      }, {})) : s), a;
+    }, i({}, e)) : e;
+  }
+  function ns(e) {
+    return {
+      create: function () {
+        return {
+          get: function (t) {
+            return e[t];
+          },
+          set: function (t, a) {
+            e[t] = a;
+          }
+        };
+      }
+    };
+  }
+  !function (e) {
+    e[e.literal = 0] = "literal", e[e.object = 1] = "object";
+  }(Kn || (Kn = {}));
+  var ss = function () {
+      function e(t, a, n, r) {
+        void 0 === a && (a = e.defaultLocale);
+        var o,
+          l = this;
+        if (this.formatterCache = {
+          number: {},
+          dateTime: {},
+          pluralRules: {}
+        }, this.format = function (e) {
+          var t = l.formatToParts(e);
+          if (1 === t.length) return t[0].value;
+          var a = t.reduce(function (e, t) {
+            return e.length && t.type === Kn.literal && "string" == typeof e[e.length - 1] ? e[e.length - 1] += t.value : e.push(t.value), e;
+          }, []);
+          return a.length <= 1 ? a[0] || "" : a;
+        }, this.formatToParts = function (e) {
+          return as(l.ast, l.locales, l.formatters, l.formats, e, void 0, l.message);
+        }, this.resolvedOptions = function () {
+          var e;
+          return {
+            locale: (null === (e = l.resolvedLocale) || void 0 === e ? void 0 : e.toString()) || Intl.NumberFormat.supportedLocalesOf(l.locales)[0]
+          };
+        }, this.getAst = function () {
+          return l.ast;
+        }, this.locales = a, this.resolvedLocale = e.resolveLocale(a), "string" == typeof t) {
+          if (this.message = t, !e.__parse) throw new TypeError("IntlMessageFormat.__parse must be set to process `message` of type `string`");
+          var d = r || {};
+          d.formatters;
+          var u = function (e, t) {
+            var a = {};
+            for (var i in e) Object.prototype.hasOwnProperty.call(e, i) && t.indexOf(i) < 0 && (a[i] = e[i]);
+            if (null != e && "function" == typeof Object.getOwnPropertySymbols) {
+              var n = 0;
+              for (i = Object.getOwnPropertySymbols(e); n < i.length; n++) t.indexOf(i[n]) < 0 && Object.prototype.propertyIsEnumerable.call(e, i[n]) && (a[i[n]] = e[i[n]]);
+            }
+            return a;
+          }(d, ["formatters"]);
+          this.ast = e.__parse(t, i(i({}, u), {
+            locale: this.resolvedLocale
+          }));
+        } else this.ast = t;
+        if (!Array.isArray(this.ast)) throw new TypeError("A message must be provided as a String or AST.");
+        this.formats = is(e.formats, n), this.formatters = r && r.formatters || (void 0 === (o = this.formatterCache) && (o = {
+          number: {},
+          dateTime: {},
+          pluralRules: {}
+        }), {
+          getNumberFormat: Hi(function () {
+            for (var e, t = [], a = 0; a < arguments.length; a++) t[a] = arguments[a];
+            return new ((e = Intl.NumberFormat).bind.apply(e, s([void 0], t, !1)))();
+          }, {
+            cache: ns(o.number),
+            strategy: Zi.variadic
+          }),
+          getDateTimeFormat: Hi(function () {
+            for (var e, t = [], a = 0; a < arguments.length; a++) t[a] = arguments[a];
+            return new ((e = Intl.DateTimeFormat).bind.apply(e, s([void 0], t, !1)))();
+          }, {
+            cache: ns(o.dateTime),
+            strategy: Zi.variadic
+          }),
+          getPluralRules: Hi(function () {
+            for (var e, t = [], a = 0; a < arguments.length; a++) t[a] = arguments[a];
+            return new ((e = Intl.PluralRules).bind.apply(e, s([void 0], t, !1)))();
+          }, {
+            cache: ns(o.pluralRules),
+            strategy: Zi.variadic
+          })
+        });
+      }
+      return Object.defineProperty(e, "defaultLocale", {
+        get: function () {
+          return e.memoizedDefaultLocale || (e.memoizedDefaultLocale = new Intl.NumberFormat().resolvedOptions().locale), e.memoizedDefaultLocale;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), e.memoizedDefaultLocale = null, e.resolveLocale = function (e) {
+        if (void 0 !== Intl.Locale) {
+          var t = Intl.NumberFormat.supportedLocalesOf(e);
+          return t.length > 0 ? new Intl.Locale(t[0]) : new Intl.Locale("string" == typeof e ? e : e[0]);
+        }
+      }, e.__parse = qn, e.formats = {
+        number: {
+          integer: {
+            maximumFractionDigits: 0
+          },
+          currency: {
+            style: "currency"
+          },
+          percent: {
+            style: "percent"
+          }
+        },
+        date: {
+          short: {
+            month: "numeric",
+            day: "numeric",
+            year: "2-digit"
+          },
+          medium: {
+            month: "short",
+            day: "numeric",
+            year: "numeric"
+          },
+          long: {
+            month: "long",
+            day: "numeric",
+            year: "numeric"
+          },
+          full: {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric"
+          }
+        },
+        time: {
+          short: {
+            hour: "numeric",
+            minute: "numeric"
+          },
+          medium: {
+            hour: "numeric",
+            minute: "numeric",
+            second: "numeric"
+          },
+          long: {
+            hour: "numeric",
+            minute: "numeric",
+            second: "numeric",
+            timeZoneName: "short"
+          },
+          full: {
+            hour: "numeric",
+            minute: "numeric",
+            second: "numeric",
+            timeZoneName: "short"
+          }
+        }
+      }, e;
+    }(),
+    rs = ss;
+  const os = {
+    de: Xt,
+    en: ca,
+    es: Sa,
+    fr: Pa,
+    it: Ka,
+    nl: di,
+    no: ki,
+    sk: ji
+  };
+  function ls(e, t, ...a) {
+    const i = t.replace(/['"]+/g, "");
+    let n;
+    try {
+      n = e.split(".").reduce((e, t) => e[t], os[i]);
+    } catch (t) {
+      n = e.split(".").reduce((e, t) => e[t], os.en);
+    }
+    if (void 0 === n && (n = e.split(".").reduce((e, t) => e[t], os.en)), !a.length) return n;
+    const s = {};
+    for (let e = 0; e < a.length; e += 2) {
+      let t = a[e];
+      t = t.replace(/^{([^}]+)?}$/, "$1"), s[t] = a[e + 1];
+    }
+    try {
+      return new rs(n, t).format(s);
+    } catch (e) {
+      return "Translation " + e;
+    }
+  }
+  function ds(e) {
+    return e && e.__esModule && Object.prototype.hasOwnProperty.call(e, "default") ? e.default : e;
+  }
+  function us(e) {
+    throw new Error('Could not dynamically require "' + e + '". Please configure the dynamicRequireTargets or/and ignoreDynamicRequires option of @rollup/plugin-commonjs appropriately for this require call to work.');
+  }
+  var cs,
+    hs = {
       exports: {}
     };
-  var hs = (us || (us = 1, function (e) {
+  var ps = (cs || (cs = 1, function (e) {
       e.exports = function () {
         var t, a;
         function i() {
@@ -8281,7 +7614,7 @@
             return null != e;
           }), n = t.overflow < 0 && !t.empty && !t.invalidEra && !t.invalidMonth && !t.invalidWeekday && !t.weekdayMismatch && !t.nullInput && !t.invalidFormat && !t.userInvalidated && (!t.meridiem || t.meridiem && i), e._strict && (n = n && 0 === t.charsLeftOver && 0 === t.unusedTokens.length && void 0 === t.bigHour)), null != Object.isFrozen && Object.isFrozen(e) ? n : (e._isValid = n, e._isValid);
         }
-        function b(e) {
+        function _(e) {
           var t = g(NaN);
           return null != e ? p(f(t), e) : f(t).userInvalidated = !0, t;
         }
@@ -8292,14 +7625,14 @@
           for (t = 0; t < i; t++) if (t in a && e.call(this, a[t], t, a)) return !0;
           return !1;
         };
-        var _ = i.momentProperties = [],
+        var b = i.momentProperties = [],
           y = !1;
         function w(e, t) {
           var a,
             i,
             n,
-            s = _.length;
-          if (d(t._isAMomentObject) || (e._isAMomentObject = t._isAMomentObject), d(t._i) || (e._i = t._i), d(t._f) || (e._f = t._f), d(t._l) || (e._l = t._l), d(t._strict) || (e._strict = t._strict), d(t._tzm) || (e._tzm = t._tzm), d(t._isUTC) || (e._isUTC = t._isUTC), d(t._offset) || (e._offset = t._offset), d(t._pf) || (e._pf = f(t)), d(t._locale) || (e._locale = t._locale), s > 0) for (a = 0; a < s; a++) d(n = t[i = _[a]]) || (e[i] = n);
+            s = b.length;
+          if (d(t._isAMomentObject) || (e._isAMomentObject = t._isAMomentObject), d(t._i) || (e._i = t._i), d(t._f) || (e._f = t._f), d(t._l) || (e._l = t._l), d(t._strict) || (e._strict = t._strict), d(t._tzm) || (e._tzm = t._tzm), d(t._isUTC) || (e._isUTC = t._isUTC), d(t._offset) || (e._offset = t._offset), d(t._pf) || (e._pf = f(t)), d(t._locale) || (e._locale = t._locale), s > 0) for (a = 0; a < s; a++) d(n = t[i = b[a]]) || (e[i] = n);
           return e;
         }
         function k(e) {
@@ -8361,7 +7694,7 @@
           for (t in e) o(e, t) && a.push(t);
           return a;
         };
-        var N = {
+        var O = {
           sameDay: "[Today at] LT",
           nextDay: "[Tomorrow at] LT",
           nextWeek: "dddd [at] LT",
@@ -8369,7 +7702,7 @@
           lastWeek: "[Last] dddd [at] LT",
           sameElse: "L"
         };
-        function O(e, t, a) {
+        function N(e, t, a) {
           var i = this._calendar[e] || this._calendar.sameElse;
           return T(i) ? i.call(t, a) : i;
         }
@@ -8408,9 +7741,9 @@
           };
         }
         function F(e, t) {
-          return e.isValid() ? (t = Y(t, e.localeData()), L[t] = L[t] || R(t), L[t](e)) : e.localeData().invalidDate();
+          return e.isValid() ? (t = W(t, e.localeData()), L[t] = L[t] || R(t), L[t](e)) : e.localeData().invalidDate();
         }
-        function Y(e, t) {
+        function W(e, t) {
           var a = 5;
           function i(e) {
             return t.longDateFormat(e) || e;
@@ -8418,7 +7751,7 @@
           for (P.lastIndex = 0; a >= 0 && P.test(e);) e = e.replace(P, i), P.lastIndex = 0, a -= 1;
           return e;
         }
-        var W = {
+        var Y = {
           LTS: "h:mm:ss A",
           LT: "h:mm A",
           L: "MM/DD/YYYY",
@@ -8569,8 +7902,8 @@
           me = /\d{1,3}/,
           fe = /\d{1,4}/,
           ve = /[+-]?\d{1,6}/,
-          be = /\d+/,
-          _e = /[+-]?\d+/,
+          _e = /\d+/,
+          be = /[+-]?\d+/,
           ye = /Z|[+-]\d\d:?\d\d/gi,
           we = /Z|[+-]\d\d(?::?\d\d)?/gi,
           ke = /[+-]?\d+(\.\d{1,3})?/,
@@ -8603,7 +7936,7 @@
         }
         re = {};
         var Ce = {};
-        function Ne(e, t) {
+        function Oe(e, t) {
           var a,
             i,
             n = t;
@@ -8611,8 +7944,8 @@
             a[t] = De(e);
           }), i = e.length, a = 0; a < i; a++) Ce[e[a]] = n;
         }
-        function Oe(e, t) {
-          Ne(e, function (e, a, i, n) {
+        function Ne(e, t) {
+          Oe(e, function (e, a, i, n) {
             i._w = i._w || {}, t(e, i._w, i, n);
           });
         }
@@ -8629,8 +7962,8 @@
           Be = 4,
           Re = 5,
           Fe = 6,
-          Ye = 7,
-          We = 8;
+          We = 7,
+          Ye = 8;
         function Ve(e) {
           return He(e) ? 366 : 365;
         }
@@ -8639,11 +7972,11 @@
           return e <= 9999 ? j(e, 4) : "+" + e;
         }), U(0, ["YY", 2], 0, function () {
           return this.year() % 100;
-        }), U(0, ["YYYY", 4], 0, "year"), U(0, ["YYYYY", 5], 0, "year"), U(0, ["YYYYYY", 6, !0], 0, "year"), xe("Y", _e), xe("YY", he, le), xe("YYYY", fe, ue), xe("YYYYY", ve, ce), xe("YYYYYY", ve, ce), Ne(["YYYYY", "YYYYYY"], Pe), Ne("YYYY", function (e, t) {
+        }), U(0, ["YYYY", 4], 0, "year"), U(0, ["YYYYY", 5], 0, "year"), U(0, ["YYYYYY", 6, !0], 0, "year"), xe("Y", be), xe("YY", he, le), xe("YYYY", fe, ue), xe("YYYYY", ve, ce), xe("YYYYYY", ve, ce), Oe(["YYYYY", "YYYYYY"], Pe), Oe("YYYY", function (e, t) {
           t[Pe] = 2 === e.length ? i.parseTwoDigitYear(e) : De(e);
-        }), Ne("YY", function (e, t) {
+        }), Oe("YY", function (e, t) {
           t[Pe] = i.parseTwoDigitYear(e);
-        }), Ne("Y", function (e, t) {
+        }), Oe("Y", function (e, t) {
           t[Pe] = parseInt(e, 10);
         }), i.parseTwoDigitYear = function (e) {
           return De(e) + (De(e) > 68 ? 1900 : 2e3);
@@ -8739,9 +8072,9 @@
           return t.monthsShortRegex(e);
         }), xe("MMMM", function (e, t) {
           return t.monthsRegex(e);
-        }), Ne(["M", "MM"], function (e, t) {
+        }), Oe(["M", "MM"], function (e, t) {
           t[Le] = De(e) - 1;
-        }), Ne(["MMM", "MMMM"], function (e, t, a, i) {
+        }), Oe(["MMM", "MMMM"], function (e, t, a, i) {
           var n = a._locale.monthsParse(e, i, a._strict);
           null != n ? t[Le] = n : f(a).invalidMonth = e;
         });
@@ -8806,17 +8139,17 @@
           for (t = 0; t < 12; t++) a = g([2e3, t]), i = Te(this.monthsShort(a, "")), n = Te(this.months(a, "")), s.push(i), r.push(n), o.push(n), o.push(i);
           s.sort(e), r.sort(e), o.sort(e), this._monthsRegex = new RegExp("^(" + o.join("|") + ")", "i"), this._monthsShortRegex = this._monthsRegex, this._monthsStrictRegex = new RegExp("^(" + r.join("|") + ")", "i"), this._monthsShortStrictRegex = new RegExp("^(" + s.join("|") + ")", "i");
         }
-        function bt(e, t, a, i, n, s, r) {
+        function _t(e, t, a, i, n, s, r) {
           var o;
           return e < 100 && e >= 0 ? (o = new Date(e + 400, t, a, i, n, s, r), isFinite(o.getFullYear()) && o.setFullYear(e)) : o = new Date(e, t, a, i, n, s, r), o;
         }
-        function _t(e) {
+        function bt(e) {
           var t, a;
           return e < 100 && e >= 0 ? ((a = Array.prototype.slice.call(arguments))[0] = e + 400, t = new Date(Date.UTC.apply(null, a)), isFinite(t.getUTCFullYear()) && t.setUTCFullYear(e)) : t = new Date(Date.UTC.apply(null, arguments)), t;
         }
         function yt(e, t, a) {
           var i = 7 + t - a;
-          return -(7 + _t(e, 0, i).getUTCDay() - t) % 7 + i - 1;
+          return -(7 + bt(e, 0, i).getUTCDay() - t) % 7 + i - 1;
         }
         function wt(e, t, a, i, n) {
           var s,
@@ -8845,7 +8178,7 @@
         function St(e) {
           return kt(e, this._week.dow, this._week.doy).week;
         }
-        U("w", ["ww", 2], "wo", "week"), U("W", ["WW", 2], "Wo", "isoWeek"), xe("w", he, Se), xe("ww", he, le), xe("W", he, Se), xe("WW", he, le), Oe(["w", "ww", "W", "WW"], function (e, t, a, i) {
+        U("w", ["ww", 2], "wo", "week"), U("W", ["WW", 2], "Wo", "isoWeek"), xe("w", he, Se), xe("ww", he, le), xe("W", he, Se), xe("WW", he, le), Ne(["w", "ww", "W", "WW"], function (e, t, a, i) {
           t[i.substr(0, 1)] = De(e);
         });
         var $t = {
@@ -8887,14 +8220,14 @@
           return t.weekdaysShortRegex(e);
         }), xe("dddd", function (e, t) {
           return t.weekdaysRegex(e);
-        }), Oe(["dd", "ddd", "dddd"], function (e, t, a, i) {
+        }), Ne(["dd", "ddd", "dddd"], function (e, t, a, i) {
           var n = a._locale.weekdaysParse(e, i, a._strict);
           null != n ? t.d = n : f(a).invalidWeekday = e;
-        }), Oe(["d", "e", "E"], function (e, t, a, i) {
+        }), Ne(["d", "e", "E"], function (e, t, a, i) {
           t[i] = De(e);
         });
-        var Nt = "Sunday_Monday_Tuesday_Wednesday_Thursday_Friday_Saturday".split("_"),
-          Ot = "Sun_Mon_Tue_Wed_Thu_Fri_Sat".split("_"),
+        var Ot = "Sunday_Monday_Tuesday_Wednesday_Thursday_Friday_Saturday".split("_"),
+          Nt = "Sun_Mon_Tue_Wed_Thu_Fri_Sat".split("_"),
           jt = "Su_Mo_Tu_We_Th_Fr_Sa".split("_"),
           Ht = ze,
           Pt = ze,
@@ -8927,12 +8260,12 @@
             if (!a && this._weekdaysParse[i].test(e)) return i;
           }
         }
-        function Yt(e) {
+        function Wt(e) {
           if (!this.isValid()) return null != e ? this : NaN;
           var t = Xe(this, "Day");
           return null != e ? (e = Mt(e, this.localeData()), this.add(e - t, "d")) : t;
         }
-        function Wt(e) {
+        function Yt(e) {
           if (!this.isValid()) return null != e ? this : NaN;
           var t = (this.day() + 7 - this.localeData()._week.dow) % 7;
           return null == e ? t : this.add(e - t, "d");
@@ -8995,24 +8328,24 @@
           return "" + this.hours() + j(this.minutes(), 2);
         }), U("Hmmss", 0, 0, function () {
           return "" + this.hours() + j(this.minutes(), 2) + j(this.seconds(), 2);
-        }), Qt("a", !0), Qt("A", !1), xe("a", ea), xe("A", ea), xe("H", he, $e), xe("h", he, Se), xe("k", he, Se), xe("HH", he, le), xe("hh", he, le), xe("kk", he, le), xe("hmm", pe), xe("hmmss", ge), xe("Hmm", pe), xe("Hmmss", ge), Ne(["H", "HH"], Ue), Ne(["k", "kk"], function (e, t, a) {
+        }), Qt("a", !0), Qt("A", !1), xe("a", ea), xe("A", ea), xe("H", he, $e), xe("h", he, Se), xe("k", he, Se), xe("HH", he, le), xe("hh", he, le), xe("kk", he, le), xe("hmm", pe), xe("hmmss", ge), xe("Hmm", pe), xe("Hmmss", ge), Oe(["H", "HH"], Ue), Oe(["k", "kk"], function (e, t, a) {
           var i = De(e);
           t[Ue] = 24 === i ? 0 : i;
-        }), Ne(["a", "A"], function (e, t, a) {
+        }), Oe(["a", "A"], function (e, t, a) {
           a._isPm = a._locale.isPM(e), a._meridiem = e;
-        }), Ne(["h", "hh"], function (e, t, a) {
+        }), Oe(["h", "hh"], function (e, t, a) {
           t[Ue] = De(e), f(a).bigHour = !0;
-        }), Ne("hmm", function (e, t, a) {
+        }), Oe("hmm", function (e, t, a) {
           var i = e.length - 2;
           t[Ue] = De(e.substr(0, i)), t[Be] = De(e.substr(i)), f(a).bigHour = !0;
-        }), Ne("hmmss", function (e, t, a) {
+        }), Oe("hmmss", function (e, t, a) {
           var i = e.length - 4,
             n = e.length - 2;
           t[Ue] = De(e.substr(0, i)), t[Be] = De(e.substr(i, 2)), t[Re] = De(e.substr(n)), f(a).bigHour = !0;
-        }), Ne("Hmm", function (e, t, a) {
+        }), Oe("Hmm", function (e, t, a) {
           var i = e.length - 2;
           t[Ue] = De(e.substr(0, i)), t[Be] = De(e.substr(i));
-        }), Ne("Hmmss", function (e, t, a) {
+        }), Oe("Hmmss", function (e, t, a) {
           var i = e.length - 4,
             n = e.length - 2;
           t[Ue] = De(e.substr(0, i)), t[Be] = De(e.substr(i, 2)), t[Re] = De(e.substr(n));
@@ -9024,8 +8357,8 @@
         }
         var sa,
           ra = {
-            calendar: N,
-            longDateFormat: W,
+            calendar: O,
+            longDateFormat: Y,
             invalidDate: Z,
             ordinal: q,
             dayOfMonthOrdinalParse: K,
@@ -9033,9 +8366,9 @@
             months: it,
             monthsShort: nt,
             week: $t,
-            weekdays: Nt,
+            weekdays: Ot,
             weekdaysMin: jt,
-            weekdaysShort: Ot,
+            weekdaysShort: Nt,
             meridiemParse: aa
           },
           oa = {},
@@ -9066,7 +8399,7 @@
         function pa(t) {
           var a = null;
           if (void 0 === oa[t] && e && e.exports && ha(t)) try {
-            a = sa._abbr, ds("./locale/" + t), ga(a);
+            a = sa._abbr, us("./locale/" + t), ga(a);
           } catch (e) {
             oa[t] = null;
           }
@@ -9111,13 +8444,13 @@
           }
           return ca(e);
         }
-        function ba() {
+        function _a() {
           return x(oa);
         }
-        function _a(e) {
+        function ba(e) {
           var t,
             a = e._a;
-          return a && -2 === f(e).overflow && (t = a[Le] < 0 || a[Le] > 11 ? Le : a[Ie] < 1 || a[Ie] > at(a[Pe], a[Le]) ? Ie : a[Ue] < 0 || a[Ue] > 24 || 24 === a[Ue] && (0 !== a[Be] || 0 !== a[Re] || 0 !== a[Fe]) ? Ue : a[Be] < 0 || a[Be] > 59 ? Be : a[Re] < 0 || a[Re] > 59 ? Re : a[Fe] < 0 || a[Fe] > 999 ? Fe : -1, f(e)._overflowDayOfYear && (t < Pe || t > Ie) && (t = Ie), f(e)._overflowWeeks && -1 === t && (t = Ye), f(e)._overflowWeekday && -1 === t && (t = We), f(e).overflow = t), e;
+          return a && -2 === f(e).overflow && (t = a[Le] < 0 || a[Le] > 11 ? Le : a[Ie] < 1 || a[Ie] > at(a[Pe], a[Le]) ? Ie : a[Ue] < 0 || a[Ue] > 24 || 24 === a[Ue] && (0 !== a[Be] || 0 !== a[Re] || 0 !== a[Fe]) ? Ue : a[Be] < 0 || a[Be] > 59 ? Be : a[Re] < 0 || a[Re] > 59 ? Re : a[Fe] < 0 || a[Fe] > 999 ? Fe : -1, f(e)._overflowDayOfYear && (t < Pe || t > Ie) && (t = Ie), f(e)._overflowWeeks && -1 === t && (t = We), f(e)._overflowWeekday && -1 === t && (t = Ye), f(e).overflow = t), e;
         }
         var ya = /^\s*((?:[+-]\d{6}|\d{4})-(?:\d\d-\d\d|W\d\d-\d|W\d\d|\d\d\d|\d\d))(?:(T| )(\d\d(?::\d\d(?::\d\d(?:[.,]\d+)?)?)?)([+-]\d\d(?::?\d\d)?|\s*Z)?)?$/,
           wa = /^\s*((?:[+-]\d{6}|\d{4})(?:\d\d\d\d|W\d\d\d|W\d\d|\d\d\d|\d\d|))(?:(T| )(\d\d(?:\d\d(?:\d\d(?:[.,]\d+)?)?)?)([+-]\d\d(?::?\d\d)?|\s*Z)?)?$/,
@@ -9182,26 +8515,26 @@
           return e.replace(/\([^()]*\)|[\n\t]/g, " ").replace(/(\s\s+)/g, " ").replace(/^\s\s*/, "").replace(/\s\s*$/, "");
         }
         function Ca(e, t, a) {
-          return !e || Ot.indexOf(e) === new Date(t[0], t[1], t[2]).getDay() || (f(a).weekdayMismatch = !0, a._isValid = !1, !1);
+          return !e || Nt.indexOf(e) === new Date(t[0], t[1], t[2]).getDay() || (f(a).weekdayMismatch = !0, a._isValid = !1, !1);
         }
-        function Na(e, t, a) {
+        function Oa(e, t, a) {
           if (e) return Aa[e];
           if (t) return 0;
           var i = parseInt(a, 10),
             n = i % 100;
           return (i - n) / 100 * 60 + n;
         }
-        function Oa(e) {
+        function Na(e) {
           var t,
             a = xa.exec(Da(e._i));
           if (a) {
             if (t = Ta(a[4], a[3], a[2], a[5], a[6], a[7]), !Ca(a[1], t, e)) return;
-            e._a = t, e._tzm = Na(a[8], a[9], a[10]), e._d = _t.apply(null, e._a), e._d.setUTCMinutes(e._d.getUTCMinutes() - e._tzm), f(e).rfc2822 = !0;
+            e._a = t, e._tzm = Oa(a[8], a[9], a[10]), e._d = bt.apply(null, e._a), e._d.setUTCMinutes(e._d.getUTCMinutes() - e._tzm), f(e).rfc2822 = !0;
           } else e._isValid = !1;
         }
         function ja(e) {
           var t = $a.exec(e._i);
-          null === t ? (Ea(e), !1 === e._isValid && (delete e._isValid, Oa(e), !1 === e._isValid && (delete e._isValid, e._strict ? e._isValid = !1 : i.createFromInputFallback(e)))) : e._d = new Date(+t[1]);
+          null === t ? (Ea(e), !1 === e._isValid && (delete e._isValid, Na(e), !1 === e._isValid && (delete e._isValid, e._strict ? e._isValid = !1 : i.createFromInputFallback(e)))) : e._d = new Date(+t[1]);
         }
         function Ha(e, t, a) {
           return null != e ? e : null != t ? t : a;
@@ -9218,9 +8551,9 @@
             s,
             r = [];
           if (!e._d) {
-            for (i = Pa(e), e._w && null == e._a[Ie] && null == e._a[Le] && Ia(e), null != e._dayOfYear && (s = Ha(e._a[Pe], i[Pe]), (e._dayOfYear > Ve(s) || 0 === e._dayOfYear) && (f(e)._overflowDayOfYear = !0), a = _t(s, 0, e._dayOfYear), e._a[Le] = a.getUTCMonth(), e._a[Ie] = a.getUTCDate()), t = 0; t < 3 && null == e._a[t]; ++t) e._a[t] = r[t] = i[t];
+            for (i = Pa(e), e._w && null == e._a[Ie] && null == e._a[Le] && Ia(e), null != e._dayOfYear && (s = Ha(e._a[Pe], i[Pe]), (e._dayOfYear > Ve(s) || 0 === e._dayOfYear) && (f(e)._overflowDayOfYear = !0), a = bt(s, 0, e._dayOfYear), e._a[Le] = a.getUTCMonth(), e._a[Ie] = a.getUTCDate()), t = 0; t < 3 && null == e._a[t]; ++t) e._a[t] = r[t] = i[t];
             for (; t < 7; t++) e._a[t] = r[t] = null == e._a[t] ? 2 === t ? 1 : 0 : e._a[t];
-            24 === e._a[Ue] && 0 === e._a[Be] && 0 === e._a[Re] && 0 === e._a[Fe] && (e._nextDay = !0, e._a[Ue] = 0), e._d = (e._useUTC ? _t : bt).apply(null, r), n = e._useUTC ? e._d.getUTCDay() : e._d.getDay(), null != e._tzm && e._d.setUTCMinutes(e._d.getUTCMinutes() - e._tzm), e._nextDay && (e._a[Ue] = 24), e._w && void 0 !== e._w.d && e._w.d !== n && (f(e).weekdayMismatch = !0);
+            24 === e._a[Ue] && 0 === e._a[Be] && 0 === e._a[Re] && 0 === e._a[Fe] && (e._nextDay = !0, e._a[Ue] = 0), e._d = (e._useUTC ? bt : _t).apply(null, r), n = e._useUTC ? e._d.getUTCDay() : e._d.getDay(), null != e._tzm && e._d.setUTCMinutes(e._d.getUTCMinutes() - e._tzm), e._nextDay && (e._a[Ue] = 24), e._w && void 0 !== e._w.d && e._w.d !== n && (f(e).weekdayMismatch = !0);
           }
         }
         function Ia(e) {
@@ -9241,9 +8574,9 @@
                 d = "" + e._i,
                 u = d.length,
                 c = 0;
-              for (l = (n = Y(e._f, e._locale).match(H) || []).length, t = 0; t < l; t++) s = n[t], (a = (d.match(Ae(s, e)) || [])[0]) && ((r = d.substr(0, d.indexOf(a))).length > 0 && f(e).unusedInput.push(r), d = d.slice(d.indexOf(a) + a.length), c += a.length), I[s] ? (a ? f(e).empty = !1 : f(e).unusedTokens.push(s), je(s, a, e)) : e._strict && !a && f(e).unusedTokens.push(s);
-              f(e).charsLeftOver = u - c, d.length > 0 && f(e).unusedInput.push(d), e._a[Ue] <= 12 && !0 === f(e).bigHour && e._a[Ue] > 0 && (f(e).bigHour = void 0), f(e).parsedDateParts = e._a.slice(0), f(e).meridiem = e._meridiem, e._a[Ue] = Ba(e._locale, e._a[Ue], e._meridiem), null !== (o = f(e).era) && (e._a[Pe] = e._locale.erasConvertYear(o, e._a[Pe])), La(e), _a(e);
-            } else Oa(e);
+              for (l = (n = W(e._f, e._locale).match(H) || []).length, t = 0; t < l; t++) s = n[t], (a = (d.match(Ae(s, e)) || [])[0]) && ((r = d.substr(0, d.indexOf(a))).length > 0 && f(e).unusedInput.push(r), d = d.slice(d.indexOf(a) + a.length), c += a.length), I[s] ? (a ? f(e).empty = !1 : f(e).unusedTokens.push(s), je(s, a, e)) : e._strict && !a && f(e).unusedTokens.push(s);
+              f(e).charsLeftOver = u - c, d.length > 0 && f(e).unusedInput.push(d), e._a[Ue] <= 12 && !0 === f(e).bigHour && e._a[Ue] > 0 && (f(e).bigHour = void 0), f(e).parsedDateParts = e._a.slice(0), f(e).meridiem = e._meridiem, e._a[Ue] = Ba(e._locale, e._a[Ue], e._meridiem), null !== (o = f(e).era) && (e._a[Pe] = e._locale.erasConvertYear(o, e._a[Pe])), La(e), ba(e);
+            } else Na(e);
           } else Ea(e);
         }
         function Ba(e, t, a) {
@@ -9272,16 +8605,16 @@
             }), La(e);
           }
         }
-        function Ya(e) {
-          var t = new k(_a(Wa(e)));
+        function Wa(e) {
+          var t = new k(ba(Ya(e)));
           return t._nextDay && (t.add(1, "d"), t._nextDay = void 0), t;
         }
-        function Wa(e) {
+        function Ya(e) {
           var t = e._i,
             a = e._f;
-          return e._locale = e._locale || va(e._l), null === t || void 0 === a && "" === t ? b({
+          return e._locale = e._locale || va(e._l), null === t || void 0 === a && "" === t ? _({
             nullInput: !0
-          }) : ("string" == typeof t && (e._i = t = e._locale.preparse(t)), z(t) ? new k(_a(t)) : (c(t) ? e._d = t : s(a) ? Ra(e) : a ? Ua(e) : Va(e), v(e) || (e._d = null), e));
+          }) : ("string" == typeof t && (e._i = t = e._locale.preparse(t)), z(t) ? new k(ba(t)) : (c(t) ? e._d = t : s(a) ? Ra(e) : a ? Ua(e) : Va(e), v(e) || (e._d = null), e));
         }
         function Va(e) {
           var t = e._i;
@@ -9291,7 +8624,7 @@
         }
         function Za(e, t, a, i, n) {
           var o = {};
-          return !0 !== t && !1 !== t || (i = t, t = void 0), !0 !== a && !1 !== a || (i = a, a = void 0), (r(e) && l(e) || s(e) && 0 === e.length) && (e = void 0), o._isAMomentObject = !0, o._useUTC = o._isUTC = n, o._l = a, o._i = e, o._f = t, o._strict = i, Ya(o);
+          return !0 !== t && !1 !== t || (i = t, t = void 0), !0 !== a && !1 !== a || (i = a, a = void 0), (r(e) && l(e) || s(e) && 0 === e.length) && (e = void 0), o._isAMomentObject = !0, o._useUTC = o._isUTC = n, o._l = a, o._i = e, o._f = t, o._strict = i, Wa(o);
         }
         function Ga(e, t, a, i) {
           return Za(e, t, a, i, !1);
@@ -9301,11 +8634,11 @@
         }), i.ISO_8601 = function () {}, i.RFC_2822 = function () {};
         var qa = $("moment().min is deprecated, use moment.max instead. http://momentjs.com/guides/#/warnings/min-max/", function () {
             var e = Ga.apply(null, arguments);
-            return this.isValid() && e.isValid() ? e < this ? this : e : b();
+            return this.isValid() && e.isValid() ? e < this ? this : e : _();
           }),
           Ka = $("moment().max is deprecated, use moment.min instead. http://momentjs.com/guides/#/warnings/min-max/", function () {
             var e = Ga.apply(null, arguments);
-            return this.isValid() && e.isValid() ? e > this ? this : e : b();
+            return this.isValid() && e.isValid() ? e > this ? this : e : _();
           });
         function Xa(e, t) {
           var a, i;
@@ -9375,7 +8708,7 @@
             return e < 0 && (e = -e, a = "-"), a + j(~~(e / 60), 2) + t + j(~~e % 60, 2);
           });
         }
-        di("Z", ":"), di("ZZ", ""), xe("Z", we), xe("ZZ", we), Ne(["Z", "ZZ"], function (e, t, a) {
+        di("Z", ":"), di("ZZ", ""), xe("Z", we), xe("ZZ", we), Oe(["Z", "ZZ"], function (e, t, a) {
           a._useUTC = !0, a._tzm = ci(we, e);
         });
         var ui = /([\+\-]|\d\d)/gi;
@@ -9413,14 +8746,14 @@
         function vi(e) {
           return this._isUTC && (this.utcOffset(0, e), this._isUTC = !1, e && this.subtract(pi(this), "m")), this;
         }
-        function bi() {
+        function _i() {
           if (null != this._tzm) this.utcOffset(this._tzm, !1, !0);else if ("string" == typeof this._i) {
             var e = ci(ye, this._i);
             null != e ? this.utcOffset(e) : this.utcOffset(0, !0);
           }
           return this;
         }
-        function _i(e) {
+        function bi(e) {
           return !!this.isValid() && (e = e ? Ga(e).utcOffset() : 0, (this.utcOffset() - e) % 60 == 0);
         }
         function yi() {
@@ -9430,7 +8763,7 @@
           if (!d(this._isDSTShifted)) return this._isDSTShifted;
           var e,
             t = {};
-          return w(t, this), (t = Wa(t))._a ? (e = t._isUTC ? g(t._a) : Ga(t._a), this._isDSTShifted = this.isValid() && li(t._a, e.toArray()) > 0) : this._isDSTShifted = !1, this._isDSTShifted;
+          return w(t, this), (t = Ya(t))._a ? (e = t._isUTC ? g(t._a) : Ga(t._a), this._isDSTShifted = this.isValid() && li(t._a, e.toArray()) > 0) : this._isDSTShifted = !1, this._isDSTShifted;
         }
         function ki() {
           return !!this.isValid() && !this._isUTC;
@@ -9499,8 +8832,8 @@
           e.isValid() && (n = null == n || n, o && ht(e, Xe(e, "Month") + o * a), r && Je(e, "Date", Xe(e, "Date") + r * a), s && e._d.setTime(e._d.valueOf() + s * a), n && i.updateOffset(e, r || o));
         }
         Ai.fn = si.prototype, Ai.invalid = ni;
-        var Ni = Di(1, "add"),
-          Oi = Di(-1, "subtract");
+        var Oi = Di(1, "add"),
+          Ni = Di(-1, "subtract");
         function ji(e) {
           return "string" == typeof e || e instanceof String;
         }
@@ -9552,11 +8885,11 @@
           var a = z(e) ? e : Ga(e);
           return !(!this.isValid() || !a.isValid()) && ("millisecond" === (t = ae(t) || "millisecond") ? this.valueOf() > a.valueOf() : a.valueOf() < this.clone().startOf(t).valueOf());
         }
-        function Yi(e, t) {
+        function Wi(e, t) {
           var a = z(e) ? e : Ga(e);
           return !(!this.isValid() || !a.isValid()) && ("millisecond" === (t = ae(t) || "millisecond") ? this.valueOf() < a.valueOf() : this.clone().endOf(t).valueOf() < a.valueOf());
         }
-        function Wi(e, t, a, i) {
+        function Yi(e, t, a, i) {
           var n = z(e) ? e : Ga(e),
             s = z(t) ? t : Ga(t);
           return !!(this.isValid() && n.isValid() && s.isValid()) && ("(" === (i = i || "()")[0] ? this.isAfter(n, a) : !this.isBefore(n, a)) && (")" === i[1] ? this.isBefore(s, a) : !this.isAfter(s, a));
@@ -9746,10 +9079,10 @@
           }
           return this._d.setTime(t), i.updateOffset(this, !0), this;
         }
-        function bn() {
+        function _n() {
           return this._d.valueOf() - 6e4 * (this._offset || 0);
         }
-        function _n() {
+        function bn() {
           return Math.floor(this.valueOf() / 1e3);
         }
         function yn() {
@@ -9852,7 +9185,7 @@
           }
           return "";
         }
-        function Nn() {
+        function On() {
           var e,
             t,
             a,
@@ -9863,7 +9196,7 @@
           }
           return "";
         }
-        function On() {
+        function Nn() {
           var e,
             t,
             a,
@@ -9891,7 +9224,7 @@
           return t.erasNarrowRegex(e);
         }
         function Bn(e, t) {
-          return t._eraYearOrdinalRegex || be;
+          return t._eraYearOrdinalRegex || _e;
         }
         function Rn() {
           var e,
@@ -9910,10 +9243,10 @@
         function Fn(e, t) {
           U(0, [e, e.length], 0, t);
         }
-        function Yn(e) {
+        function Wn(e) {
           return Kn.call(this, e, this.week(), this.weekday() + this.localeData()._week.dow, this.localeData()._week.dow, this.localeData()._week.doy);
         }
-        function Wn(e) {
+        function Yn(e) {
           return Kn.call(this, e, this.isoWeek(), this.isoWeekday(), 1, 4);
         }
         function Vn() {
@@ -9936,31 +9269,31 @@
         }
         function Xn(e, t, a, i, n) {
           var s = wt(e, t, a, i, n),
-            r = _t(s.year, 0, s.dayOfYear);
+            r = bt(s.year, 0, s.dayOfYear);
           return this.year(r.getUTCFullYear()), this.month(r.getUTCMonth()), this.date(r.getUTCDate()), this;
         }
         function Jn(e) {
           return null == e ? Math.ceil((this.month() + 1) / 3) : this.month(3 * (e - 1) + this.month() % 3);
         }
-        U("N", 0, 0, "eraAbbr"), U("NN", 0, 0, "eraAbbr"), U("NNN", 0, 0, "eraAbbr"), U("NNNN", 0, 0, "eraName"), U("NNNNN", 0, 0, "eraNarrow"), U("y", ["y", 1], "yo", "eraYear"), U("y", ["yy", 2], 0, "eraYear"), U("y", ["yyy", 3], 0, "eraYear"), U("y", ["yyyy", 4], 0, "eraYear"), xe("N", Ln), xe("NN", Ln), xe("NNN", Ln), xe("NNNN", In), xe("NNNNN", Un), Ne(["N", "NN", "NNN", "NNNN", "NNNNN"], function (e, t, a, i) {
+        U("N", 0, 0, "eraAbbr"), U("NN", 0, 0, "eraAbbr"), U("NNN", 0, 0, "eraAbbr"), U("NNNN", 0, 0, "eraName"), U("NNNNN", 0, 0, "eraNarrow"), U("y", ["y", 1], "yo", "eraYear"), U("y", ["yy", 2], 0, "eraYear"), U("y", ["yyy", 3], 0, "eraYear"), U("y", ["yyyy", 4], 0, "eraYear"), xe("N", Ln), xe("NN", Ln), xe("NNN", Ln), xe("NNNN", In), xe("NNNNN", Un), Oe(["N", "NN", "NNN", "NNNN", "NNNNN"], function (e, t, a, i) {
           var n = a._locale.erasParse(e, i, a._strict);
           n ? f(a).era = n : f(a).invalidEra = e;
-        }), xe("y", be), xe("yy", be), xe("yyy", be), xe("yyyy", be), xe("yo", Bn), Ne(["y", "yy", "yyy", "yyyy"], Pe), Ne(["yo"], function (e, t, a, i) {
+        }), xe("y", _e), xe("yy", _e), xe("yyy", _e), xe("yyyy", _e), xe("yo", Bn), Oe(["y", "yy", "yyy", "yyyy"], Pe), Oe(["yo"], function (e, t, a, i) {
           var n;
           a._locale._eraYearOrdinalRegex && (n = e.match(a._locale._eraYearOrdinalRegex)), a._locale.eraYearOrdinalParse ? t[Pe] = a._locale.eraYearOrdinalParse(e, n) : t[Pe] = parseInt(e, 10);
         }), U(0, ["gg", 2], 0, function () {
           return this.weekYear() % 100;
         }), U(0, ["GG", 2], 0, function () {
           return this.isoWeekYear() % 100;
-        }), Fn("gggg", "weekYear"), Fn("ggggg", "weekYear"), Fn("GGGG", "isoWeekYear"), Fn("GGGGG", "isoWeekYear"), xe("G", _e), xe("g", _e), xe("GG", he, le), xe("gg", he, le), xe("GGGG", fe, ue), xe("gggg", fe, ue), xe("GGGGG", ve, ce), xe("ggggg", ve, ce), Oe(["gggg", "ggggg", "GGGG", "GGGGG"], function (e, t, a, i) {
+        }), Fn("gggg", "weekYear"), Fn("ggggg", "weekYear"), Fn("GGGG", "isoWeekYear"), Fn("GGGGG", "isoWeekYear"), xe("G", be), xe("g", be), xe("GG", he, le), xe("gg", he, le), xe("GGGG", fe, ue), xe("gggg", fe, ue), xe("GGGGG", ve, ce), xe("ggggg", ve, ce), Ne(["gggg", "ggggg", "GGGG", "GGGGG"], function (e, t, a, i) {
           t[i.substr(0, 2)] = De(e);
-        }), Oe(["gg", "GG"], function (e, t, a, n) {
+        }), Ne(["gg", "GG"], function (e, t, a, n) {
           t[n] = i.parseTwoDigitYear(e);
-        }), U("Q", 0, "Qo", "quarter"), xe("Q", oe), Ne("Q", function (e, t) {
+        }), U("Q", 0, "Qo", "quarter"), xe("Q", oe), Oe("Q", function (e, t) {
           t[Le] = 3 * (De(e) - 1);
         }), U("D", ["DD", 2], "Do", "date"), xe("D", he, Se), xe("DD", he, le), xe("Do", function (e, t) {
           return e ? t._dayOfMonthOrdinalParse || t._ordinalParse : t._dayOfMonthOrdinalParseLenient;
-        }), Ne(["D", "DD"], Ie), Ne("Do", function (e, t) {
+        }), Oe(["D", "DD"], Ie), Oe("Do", function (e, t) {
           t[Ie] = De(e.match(he)[0]);
         });
         var Qn = Ke("Date", !0);
@@ -9968,11 +9301,11 @@
           var t = Math.round((this.clone().startOf("day") - this.clone().startOf("year")) / 864e5) + 1;
           return null == e ? t : this.add(e - t, "d");
         }
-        U("DDD", ["DDDD", 3], "DDDo", "dayOfYear"), xe("DDD", me), xe("DDDD", de), Ne(["DDD", "DDDD"], function (e, t, a) {
+        U("DDD", ["DDDD", 3], "DDDo", "dayOfYear"), xe("DDD", me), xe("DDDD", de), Oe(["DDD", "DDDD"], function (e, t, a) {
           a._dayOfYear = De(e);
-        }), U("m", ["mm", 2], 0, "minute"), xe("m", he, $e), xe("mm", he, le), Ne(["m", "mm"], Be);
+        }), U("m", ["mm", 2], 0, "minute"), xe("m", he, $e), xe("mm", he, le), Oe(["m", "mm"], Be);
         var ts = Ke("Minutes", !1);
-        U("s", ["ss", 2], 0, "second"), xe("s", he, $e), xe("ss", he, le), Ne(["s", "ss"], Re);
+        U("s", ["ss", 2], 0, "second"), xe("s", he, $e), xe("ss", he, le), Oe(["s", "ss"], Re);
         var as,
           is,
           ns = Ke("Seconds", !1);
@@ -9992,11 +9325,11 @@
           return 1e5 * this.millisecond();
         }), U(0, ["SSSSSSSSS", 9], 0, function () {
           return 1e6 * this.millisecond();
-        }), xe("S", me, oe), xe("SS", me, le), xe("SSS", me, de), as = "SSSS"; as.length <= 9; as += "S") xe(as, be);
+        }), xe("S", me, oe), xe("SS", me, le), xe("SSS", me, de), as = "SSSS"; as.length <= 9; as += "S") xe(as, _e);
         function ss(e, t) {
           t[Fe] = De(1e3 * ("0." + e));
         }
-        for (as = "S"; as.length <= 9; as += "S") Ne(as, ss);
+        for (as = "S"; as.length <= 9; as += "S") Oe(as, ss);
         function rs() {
           return this._isUTC ? "UTC" : "";
         }
@@ -10005,7 +9338,7 @@
         }
         is = Ke("Milliseconds", !1), U("z", 0, 0, "zoneAbbr"), U("zz", 0, 0, "zoneName");
         var ls = k.prototype;
-        function us(e) {
+        function ds(e) {
           return Ga(1e3 * e);
         }
         function cs() {
@@ -10014,9 +9347,9 @@
         function hs(e) {
           return e;
         }
-        ls.add = Ni, ls.calendar = Bi, ls.clone = Ri, ls.diff = qi, ls.endOf = vn, ls.format = en, ls.from = tn, ls.fromNow = an, ls.to = nn, ls.toNow = sn, ls.get = Qe, ls.invalidAt = xn, ls.isAfter = Fi, ls.isBefore = Yi, ls.isBetween = Wi, ls.isSame = Vi, ls.isSameOrAfter = Zi, ls.isSameOrBefore = Gi, ls.isValid = Sn, ls.lang = on, ls.locale = rn, ls.localeData = ln, ls.max = Ka, ls.min = qa, ls.parsingFlags = $n, ls.set = et, ls.startOf = fn, ls.subtract = Oi, ls.toArray = wn, ls.toObject = kn, ls.toDate = yn, ls.toISOString = Ji, ls.inspect = Qi, "undefined" != typeof Symbol && null != Symbol.for && (ls[Symbol.for("nodejs.util.inspect.custom")] = function () {
+        ls.add = Oi, ls.calendar = Bi, ls.clone = Ri, ls.diff = qi, ls.endOf = vn, ls.format = en, ls.from = tn, ls.fromNow = an, ls.to = nn, ls.toNow = sn, ls.get = Qe, ls.invalidAt = xn, ls.isAfter = Fi, ls.isBefore = Wi, ls.isBetween = Yi, ls.isSame = Vi, ls.isSameOrAfter = Zi, ls.isSameOrBefore = Gi, ls.isValid = Sn, ls.lang = on, ls.locale = rn, ls.localeData = ln, ls.max = Ka, ls.min = qa, ls.parsingFlags = $n, ls.set = et, ls.startOf = fn, ls.subtract = Ni, ls.toArray = wn, ls.toObject = kn, ls.toDate = yn, ls.toISOString = Ji, ls.inspect = Qi, "undefined" != typeof Symbol && null != Symbol.for && (ls[Symbol.for("nodejs.util.inspect.custom")] = function () {
           return "Moment<" + this.format() + ">";
-        }), ls.toJSON = zn, ls.toString = Xi, ls.unix = _n, ls.valueOf = bn, ls.creationData = An, ls.eraName = Dn, ls.eraNarrow = Cn, ls.eraAbbr = Nn, ls.eraYear = On, ls.year = Ge, ls.isLeapYear = qe, ls.weekYear = Yn, ls.isoWeekYear = Wn, ls.quarter = ls.quarters = Jn, ls.month = pt, ls.daysInMonth = gt, ls.week = ls.weeks = Et, ls.isoWeek = ls.isoWeeks = Tt, ls.weeksInYear = Gn, ls.weeksInWeekYear = qn, ls.isoWeeksInYear = Vn, ls.isoWeeksInISOWeekYear = Zn, ls.date = Qn, ls.day = ls.days = Yt, ls.weekday = Wt, ls.isoWeekday = Vt, ls.dayOfYear = es, ls.hour = ls.hours = ia, ls.minute = ls.minutes = ts, ls.second = ls.seconds = ns, ls.millisecond = ls.milliseconds = is, ls.utcOffset = gi, ls.utc = fi, ls.local = vi, ls.parseZone = bi, ls.hasAlignedHourOffset = _i, ls.isDST = yi, ls.isLocal = ki, ls.isUtcOffset = zi, ls.isUtc = Si, ls.isUTC = Si, ls.zoneAbbr = rs, ls.zoneName = os, ls.dates = $("dates accessor is deprecated. Use date instead.", Qn), ls.months = $("months accessor is deprecated. Use month instead", pt), ls.years = $("years accessor is deprecated. Use year instead", Ge), ls.zone = $("moment().zone is deprecated, use moment().utcOffset instead. http://momentjs.com/guides/#/warnings/zone/", mi), ls.isDSTShifted = $("isDSTShifted is deprecated. See http://momentjs.com/guides/#/warnings/dst-shifted/ for more information", wi);
+        }), ls.toJSON = zn, ls.toString = Xi, ls.unix = bn, ls.valueOf = _n, ls.creationData = An, ls.eraName = Dn, ls.eraNarrow = Cn, ls.eraAbbr = On, ls.eraYear = Nn, ls.year = Ge, ls.isLeapYear = qe, ls.weekYear = Wn, ls.isoWeekYear = Yn, ls.quarter = ls.quarters = Jn, ls.month = pt, ls.daysInMonth = gt, ls.week = ls.weeks = Et, ls.isoWeek = ls.isoWeeks = Tt, ls.weeksInYear = Gn, ls.weeksInWeekYear = qn, ls.isoWeeksInYear = Vn, ls.isoWeeksInISOWeekYear = Zn, ls.date = Qn, ls.day = ls.days = Wt, ls.weekday = Yt, ls.isoWeekday = Vt, ls.dayOfYear = es, ls.hour = ls.hours = ia, ls.minute = ls.minutes = ts, ls.second = ls.seconds = ns, ls.millisecond = ls.milliseconds = is, ls.utcOffset = gi, ls.utc = fi, ls.local = vi, ls.parseZone = _i, ls.hasAlignedHourOffset = bi, ls.isDST = yi, ls.isLocal = ki, ls.isUtcOffset = zi, ls.isUtc = Si, ls.isUTC = Si, ls.zoneAbbr = rs, ls.zoneName = os, ls.dates = $("dates accessor is deprecated. Use date instead.", Qn), ls.months = $("months accessor is deprecated. Use month instead", pt), ls.years = $("years accessor is deprecated. Use year instead", Ge), ls.zone = $("moment().zone is deprecated, use moment().utcOffset instead. http://momentjs.com/guides/#/warnings/zone/", mi), ls.isDSTShifted = $("isDSTShifted is deprecated. See http://momentjs.com/guides/#/warnings/dst-shifted/ for more information", wi);
         var ps = C.prototype;
         function gs(e, t, a, i) {
           var n = va(),
@@ -10043,10 +9376,10 @@
         function vs(e, t) {
           return ms(e, t, "months");
         }
-        function bs(e, t) {
+        function _s(e, t) {
           return ms(e, t, "monthsShort");
         }
-        function _s(e, t, a) {
+        function bs(e, t, a) {
           return fs(e, t, a, "weekdays");
         }
         function ys(e, t, a) {
@@ -10055,7 +9388,7 @@
         function ws(e, t, a) {
           return fs(e, t, a, "weekdaysMin");
         }
-        ps.calendar = O, ps.longDateFormat = V, ps.invalidDate = G, ps.ordinal = X, ps.preparse = hs, ps.postformat = hs, ps.relativeTime = Q, ps.pastFuture = ee, ps.set = M, ps.eras = En, ps.erasParse = Tn, ps.erasConvertYear = Mn, ps.erasAbbrRegex = Hn, ps.erasNameRegex = jn, ps.erasNarrowRegex = Pn, ps.months = lt, ps.monthsShort = dt, ps.monthsParse = ct, ps.monthsRegex = ft, ps.monthsShortRegex = mt, ps.week = St, ps.firstDayOfYear = At, ps.firstDayOfWeek = xt, ps.weekdays = It, ps.weekdaysMin = Bt, ps.weekdaysShort = Ut, ps.weekdaysParse = Ft, ps.weekdaysRegex = Zt, ps.weekdaysShortRegex = Gt, ps.weekdaysMinRegex = qt, ps.isPM = ta, ps.meridiem = na, ga("en", {
+        ps.calendar = N, ps.longDateFormat = V, ps.invalidDate = G, ps.ordinal = X, ps.preparse = hs, ps.postformat = hs, ps.relativeTime = Q, ps.pastFuture = ee, ps.set = M, ps.eras = En, ps.erasParse = Tn, ps.erasConvertYear = Mn, ps.erasAbbrRegex = Hn, ps.erasNameRegex = jn, ps.erasNarrowRegex = Pn, ps.months = lt, ps.monthsShort = dt, ps.monthsParse = ct, ps.monthsRegex = ft, ps.monthsShortRegex = mt, ps.week = St, ps.firstDayOfYear = At, ps.firstDayOfWeek = xt, ps.weekdays = It, ps.weekdaysMin = Bt, ps.weekdaysShort = Ut, ps.weekdaysParse = Ft, ps.weekdaysRegex = Zt, ps.weekdaysShortRegex = Gt, ps.weekdaysMinRegex = qt, ps.isPM = ta, ps.meridiem = na, ga("en", {
           eras: [{
             since: "0001-01-01",
             until: 1 / 0,
@@ -10147,8 +9480,8 @@
             return this.as(e);
           };
         }
-        var Ns = Cs("ms"),
-          Os = Cs("s"),
+        var Os = Cs("ms"),
+          Ns = Cs("s"),
           js = Cs("m"),
           Hs = Cs("h"),
           Ps = Cs("d"),
@@ -10156,25 +9489,25 @@
           Is = Cs("M"),
           Us = Cs("Q"),
           Bs = Cs("y"),
-          Rs = Ns;
+          Rs = Os;
         function Fs() {
           return Ai(this);
         }
-        function Ys(e) {
+        function Ws(e) {
           return e = ae(e), this.isValid() ? this[e + "s"]() : NaN;
         }
-        function Ws(e) {
+        function Ys(e) {
           return function () {
             return this.isValid() ? this._data[e] : NaN;
           };
         }
-        var Vs = Ws("milliseconds"),
-          Zs = Ws("seconds"),
-          Gs = Ws("minutes"),
-          qs = Ws("hours"),
-          Ks = Ws("days"),
-          Xs = Ws("months"),
-          Js = Ws("years");
+        var Vs = Ys("milliseconds"),
+          Zs = Ys("seconds"),
+          Gs = Ys("minutes"),
+          qs = Ys("hours"),
+          Ks = Ys("days"),
+          Xs = Ys("months"),
+          Js = Ys("years");
         function Qs() {
           return Me(this.days() / 7);
         }
@@ -10238,13 +9571,13 @@
           return c ? (e = Me(l / 60), t = Me(e / 60), l %= 60, e %= 60, a = Me(u / 12), u %= 12, i = l ? l.toFixed(3).replace(/\.?0+$/, "") : "", n = c < 0 ? "-" : "", s = lr(this._months) !== lr(c) ? "-" : "", r = lr(this._days) !== lr(c) ? "-" : "", o = lr(this._milliseconds) !== lr(c) ? "-" : "", n + "P" + (a ? s + a + "Y" : "") + (u ? s + u + "M" : "") + (d ? r + d + "D" : "") + (t || e || l ? "T" : "") + (t ? o + t + "H" : "") + (e ? o + e + "M" : "") + (l ? o + i + "S" : "")) : "P0D";
         }
         var ur = si.prototype;
-        return ur.isValid = ii, ur.abs = zs, ur.add = $s, ur.subtract = xs, ur.as = Ds, ur.asMilliseconds = Ns, ur.asSeconds = Os, ur.asMinutes = js, ur.asHours = Hs, ur.asDays = Ps, ur.asWeeks = Ls, ur.asMonths = Is, ur.asQuarters = Us, ur.asYears = Bs, ur.valueOf = Rs, ur._bubble = Es, ur.clone = Fs, ur.get = Ys, ur.milliseconds = Vs, ur.seconds = Zs, ur.minutes = Gs, ur.hours = qs, ur.days = Ks, ur.weeks = Qs, ur.months = Xs, ur.years = Js, ur.humanize = rr, ur.toISOString = dr, ur.toString = dr, ur.toJSON = dr, ur.locale = rn, ur.localeData = ln, ur.toIsoString = $("toIsoString() is deprecated. Please use toISOString() instead (notice the capitals)", dr), ur.lang = on, U("X", 0, 0, "unix"), U("x", 0, 0, "valueOf"), xe("x", _e), xe("X", ke), Ne("X", function (e, t, a) {
+        return ur.isValid = ii, ur.abs = zs, ur.add = $s, ur.subtract = xs, ur.as = Ds, ur.asMilliseconds = Os, ur.asSeconds = Ns, ur.asMinutes = js, ur.asHours = Hs, ur.asDays = Ps, ur.asWeeks = Ls, ur.asMonths = Is, ur.asQuarters = Us, ur.asYears = Bs, ur.valueOf = Rs, ur._bubble = Es, ur.clone = Fs, ur.get = Ws, ur.milliseconds = Vs, ur.seconds = Zs, ur.minutes = Gs, ur.hours = qs, ur.days = Ks, ur.weeks = Qs, ur.months = Xs, ur.years = Js, ur.humanize = rr, ur.toISOString = dr, ur.toString = dr, ur.toJSON = dr, ur.locale = rn, ur.localeData = ln, ur.toIsoString = $("toIsoString() is deprecated. Please use toISOString() instead (notice the capitals)", dr), ur.lang = on, U("X", 0, 0, "unix"), U("x", 0, 0, "valueOf"), xe("x", be), xe("X", ke), Oe("X", function (e, t, a) {
           a._d = new Date(1e3 * parseFloat(e));
-        }), Ne("x", function (e, t, a) {
+        }), Oe("x", function (e, t, a) {
           a._d = new Date(De(e));
         }),
         //! moment.js
-        i.version = "2.30.1", n(Ga), i.fn = ls, i.min = Ja, i.max = Qa, i.now = ei, i.utc = g, i.unix = us, i.months = vs, i.isDate = c, i.locale = ga, i.invalid = b, i.duration = Ai, i.isMoment = z, i.weekdays = _s, i.parseZone = cs, i.localeData = va, i.isDuration = ri, i.monthsShort = bs, i.weekdaysMin = ws, i.defineLocale = ma, i.updateLocale = fa, i.locales = ba, i.weekdaysShort = ys, i.normalizeUnits = ae, i.relativeTimeRounding = nr, i.relativeTimeThreshold = sr, i.calendarFormat = Ui, i.prototype = ls, i.HTML5_FMT = {
+        i.version = "2.30.1", n(Ga), i.fn = ls, i.min = Ja, i.max = Qa, i.now = ei, i.utc = g, i.unix = ds, i.months = vs, i.isDate = c, i.locale = ga, i.invalid = _, i.duration = Ai, i.isMoment = z, i.weekdays = bs, i.parseZone = cs, i.localeData = va, i.isDuration = ri, i.monthsShort = _s, i.weekdaysMin = ws, i.defineLocale = ma, i.updateLocale = fa, i.locales = _a, i.weekdaysShort = ys, i.normalizeUnits = ae, i.relativeTimeRounding = nr, i.relativeTimeThreshold = sr, i.calendarFormat = Ui, i.prototype = ls, i.HTML5_FMT = {
           DATETIME_LOCAL: "YYYY-MM-DDTHH:mm",
           DATETIME_LOCAL_SECONDS: "YYYY-MM-DDTHH:mm:ss",
           DATETIME_LOCAL_MS: "YYYY-MM-DDTHH:mm:ss.SSS",
@@ -10256,9 +9589,9 @@
           MONTH: "YYYY-MM"
         }, i;
       }();
-    }(cs)), cs.exports),
-    ps = ls(hs);
-  let gs = class extends Dt(de) {
+    }(hs)), hs.exports),
+    gs = ds(ps);
+  let ms = class extends jt(de) {
     constructor() {
       super(...arguments), this.zones = [], this.modules = [], this.mappings = [], this.wateringCalendars = new Map(), this.weatherRecords = new Map(), this.isLoading = !0, this.isSaving = !1, this._showAddZone = !1, this._confirmDeleteZoneId = null, this._newZoneName = "", this._newZoneSize = "", this._newZoneThroughput = "", this._updateScheduled = !1, this.globalDebounceTimer = null;
     }
@@ -10268,7 +9601,7 @@
       }));
     }
     firstUpdated() {
-      _e().then(() => this._scheduleUpdate()).catch(e => {
+      be().then(() => this._scheduleUpdate()).catch(e => {
         console.error("Failed to load HA form:", e), this._scheduleUpdate();
       });
     }
@@ -10286,7 +9619,7 @@
     async _fetchData() {
       if (this.hass) try {
         this.isLoading = !0;
-        const [e, t, a, i] = await Promise.all([$t(this.hass), xt(this.hass), At(this.hass), Et(this.hass)]);
+        const [e, t, a, i] = await Promise.all([Tt(this.hass), Mt(this.hass), Dt(this.hass), Ct(this.hass)]);
         this.config = e, this.zones = t, this.modules = a, this.mappings = i, this._fetchWateringCalendars(), this._fetchWeatherRecords();
       } catch (e) {
         console.error("Error fetching data:", e);
@@ -10332,7 +9665,7 @@
         name: this._newZoneName.trim(),
         size: Math.round(100 * (parseFloat(this._newZoneSize) || 0)) / 100,
         throughput: Math.round(100 * (parseFloat(this._newZoneThroughput) || 0)) / 100,
-        state: ns.Automatic,
+        state: Pt.Automatic,
         duration: 0,
         bucket: 0,
         module: void 0,
@@ -10398,7 +9731,7 @@
     async _fetchWeatherRecords() {
       if (this.hass) {
         for (const e of this.zones) if (void 0 !== e.id && void 0 !== e.mapping) try {
-          const t = await Tt(this.hass, e.mapping.toString(), 10);
+          const t = await Ot(this.hass, e.mapping.toString(), 10);
           this.weatherRecords.set(e.id, t);
         } catch (t) {
           console.error(`Failed to fetch weather records for zone ${e.id}:`, t);
@@ -10428,31 +9761,31 @@
       <div class="card-content">
         ${0 === t.length ? F`
               <div class="weather-note">
-                ${es("panels.mappings.weather-records.no-data", this.hass.language)}
+                ${ls("panels.mappings.weather-records.no-data", this.hass.language)}
               </div>
             ` : F`
               <div class="weather-table">
                 <div class="weather-header">
                   <span
-                    >${es("panels.mappings.weather-records.timestamp", this.hass.language)}</span
+                    >${ls("panels.mappings.weather-records.timestamp", this.hass.language)}</span
                   >
                   <span
-                    >${es("panels.mappings.weather-records.temperature", this.hass.language)}</span
+                    >${ls("panels.mappings.weather-records.temperature", this.hass.language)}</span
                   >
                   <span
-                    >${es("panels.mappings.weather-records.humidity", this.hass.language)}</span
+                    >${ls("panels.mappings.weather-records.humidity", this.hass.language)}</span
                   >
                   <span
-                    >${es("panels.mappings.weather-records.precipitation", this.hass.language)}</span
+                    >${ls("panels.mappings.weather-records.precipitation", this.hass.language)}</span
                   >
                   <span
-                    >${es("panels.mappings.weather-records.retrieval-time", this.hass.language)}</span
+                    >${ls("panels.mappings.weather-records.retrieval-time", this.hass.language)}</span
                   >
                 </div>
                 ${t.slice(0, 10).map(e => F`
                     <div class="weather-row">
                       <span
-                        >${ps(e.timestamp).format("MM-DD HH:mm")}</span
+                        >${gs(e.timestamp).format("MM-DD HH:mm")}</span
                       >
                       <span
                         >${e.temperature ? e.temperature.toFixed(1) + "°C" : "-"}</span
@@ -10464,7 +9797,7 @@
                         >${e.precipitation ? e.precipitation.toFixed(1) + "mm" : "-"}</span
                       >
                       <span
-                        >${e.retrieval_time ? ps(e.retrieval_time).format("MM-DD HH:mm") : "-"}</span
+                        >${e.retrieval_time ? gs(e.retrieval_time).format("MM-DD HH:mm") : "-"}</span
                       >
                     </div>
                   `)}
@@ -10530,7 +9863,7 @@
     _renderModuleOptions() {
       return this.hass ? F`
       <mwc-list-item value="">
-        ---${es("common.labels.select", this.hass.language)}---
+        ---${ls("common.labels.select", this.hass.language)}---
       </mwc-list-item>
       ${this.modules.map(e => F`
           <mwc-list-item value="${e.id}">${e.id}: ${e.name}</mwc-list-item>
@@ -10540,7 +9873,7 @@
     _renderMappingOptions() {
       return this.hass ? F`
       <mwc-list-item value="">
-        ---${es("common.labels.select", this.hass.language)}---
+        ---${ls("common.labels.select", this.hass.language)}---
       </mwc-list-item>
       ${this.mappings.map(e => F`
           <mwc-list-item value="${e.id}">${e.id}: ${e.name}</mwc-list-item>
@@ -10552,13 +9885,13 @@
       if (!this.hass) return F``;
       const c = Number(null !== (a = e.bucket) && void 0 !== a ? a : 0),
         h = c < 0 ? "var(--warning-color)" : "var(--success-color)",
-        p = e.state === ns.Automatic ? "state-automatic" : e.state === ns.Manual ? "state-manual" : "state-disabled";
+        p = e.state === Pt.Automatic ? "state-automatic" : e.state === Pt.Manual ? "state-manual" : "state-disabled";
       return F`
       <ha-card>
         <div class="card-header">
           <div class="name">${e.name}</div>
           <span class="zone-state-badge ${p}">
-            ${es(`panels.zones.labels.states.${e.state}`, this.hass.language)}
+            ${ls(`panels.zones.labels.states.${e.state}`, this.hass.language)}
           </span>
         </div>
 
@@ -10567,15 +9900,15 @@
           <div class="zone-status-grid">
             <div class="status-item">
               <span class="status-label"
-                >${es("panels.zones.labels.bucket", this.hass.language)}</span
+                >${ls("panels.zones.labels.bucket", this.hass.language)}</span
               >
               <span class="status-value" style="color: ${h}">
-                ${c.toFixed(2)} ${kt(this.config, st)}
+                ${c.toFixed(2)} ${zt(this.config, rt)}
               </span>
             </div>
             <div class="status-item">
               <span class="status-label"
-                >${es("panels.zones.labels.duration", this.hass.language)}</span
+                >${ls("panels.zones.labels.duration", this.hass.language)}</span
               >
               <span class="status-value">
                 ${(null !== (i = e.duration) && void 0 !== i ? i : 0) > 0 ? `${e.duration} s` : "–"}
@@ -10583,15 +9916,15 @@
             </div>
             <div class="status-item">
               <span class="status-label"
-                >${es("panels.zones.labels.last_calculated", this.hass.language)}</span
+                >${ls("panels.zones.labels.last_calculated", this.hass.language)}</span
               >
               <span class="status-value">
-                ${e.last_calculated ? ps(e.last_calculated).format("YYYY-MM-DD HH:mm") : "–"}
+                ${e.last_calculated ? gs(e.last_calculated).format("YYYY-MM-DD HH:mm") : "–"}
               </span>
             </div>
             <div class="status-item">
               <span class="status-label"
-                >${es("panels.zones.labels.data-number-of-data-points", this.hass.language)}</span
+                >${ls("panels.zones.labels.data-number-of-data-points", this.hass.language)}</span
               >
               <span class="status-value"
                 >${null !== (n = e.number_of_data_points) && void 0 !== n ? n : 0}</span
@@ -10602,57 +9935,57 @@
 
         <!-- ACTION BUTTONS -->
         <div class="card-content zone-action-bar">
-          ${e.state === ns.Automatic ? F`
+          ${e.state === Pt.Automatic ? F`
                 <ha-button
                   @click="${() => this.handleCalculateZone(t)}"
                   ?disabled="${this.isSaving}"
                 >
                   <ha-icon slot="icon" icon="mdi:calculator"></ha-icon>
-                  ${es("panels.zones.actions.calculate", this.hass.language)}
+                  ${ls("panels.zones.actions.calculate", this.hass.language)}
                 </ha-button>
                 <ha-button
                   @click="${() => this.handleUpdateZone(t)}"
                   ?disabled="${this.isSaving}"
                 >
                   <ha-icon slot="icon" icon="mdi:update"></ha-icon>
-                  ${es("panels.zones.actions.update", this.hass.language)}
+                  ${ls("panels.zones.actions.update", this.hass.language)}
                 </ha-button>
               ` : ""}
           ${e.linked_entity && (null !== (s = e.duration) && void 0 !== s ? s : 0) > 0 ? F`
                 <ha-button
                   raised
                   @click="${() => {
-        this.hass && Mt(this.hass, void 0 !== e.id ? e.id.toString() : void 0).catch(e => console.error("irrigate_now failed", e));
+        this.hass && Nt(this.hass, void 0 !== e.id ? e.id.toString() : void 0).catch(e => console.error("irrigate_now failed", e));
       }}"
                   ?disabled="${this.isSaving}"
                 >
-                  ${es("panels.zones.labels.irrigate_now", this.hass.language)}
+                  ${ls("panels.zones.labels.irrigate_now", this.hass.language)}
                 </ha-button>
               ` : ""}
         </div>
 
         <!-- SETTINGS EXPANSION -->
         <ha-expansion-panel
-          .header="${es("common.labels.settings", this.hass.language)}"
+          .header="${ls("common.labels.settings", this.hass.language)}"
         >
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.name", this.hass.language)}</span
+              >${ls("panels.zones.labels.name", this.hass.language)}</span
             >
             <input
               type="text"
               class="settings-input"
               .value="${e.name}"
               @input="${a => this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-        [Qe]: a.target.value
+        [et]: a.target.value
       }))}"
             />
           </ha-settings-row>
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.size", this.hass.language)}
-              (${kt(this.config, et)})</span
+              >${ls("panels.zones.labels.size", this.hass.language)}
+              (${zt(this.config, tt)})</span
             >
             <input
               type="number"
@@ -10664,7 +9997,7 @@
               @input="${a => {
         const i = Math.round(100 * a.target.valueAsNumber) / 100;
         isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [et]: i
+          [tt]: i
         }));
       }}"
             />
@@ -10672,8 +10005,8 @@
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.throughput", this.hass.language)}
-              (${kt(this.config, tt)})</span
+              >${ls("panels.zones.labels.throughput", this.hass.language)}
+              (${zt(this.config, at)})</span
             >
             <input
               type="number"
@@ -10685,7 +10018,7 @@
               @input="${a => {
         const i = Math.round(100 * a.target.valueAsNumber) / 100;
         isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [tt]: i
+          [at]: i
         }));
       }}"
             />
@@ -10693,8 +10026,8 @@
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.drainage_rate", this.hass.language)}
-              (${kt(this.config, ct)})</span
+              >${ls("panels.zones.labels.drainage_rate", this.hass.language)}
+              (${zt(this.config, ht)})</span
             >
             <input
               type="number"
@@ -10706,7 +10039,7 @@
               @input="${a => {
         const i = Math.round(100 * a.target.valueAsNumber) / 100;
         isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [ct]: i
+          [ht]: i
         }));
       }}"
             />
@@ -10714,38 +10047,38 @@
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.state", this.hass.language)}</span
+              >${ls("panels.zones.labels.state", this.hass.language)}</span
             >
             <ha-select
               .value="${e.state}"
               @selected="${a => this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-        [at]: a.detail.value,
-        [it]: 0
+        [it]: a.detail.value,
+        [nt]: 0
       }))}"
               @closed="${e => e.stopPropagation()}"
             >
-              <mwc-list-item value="${ns.Automatic}">
-                ${es("panels.zones.labels.states.automatic", this.hass.language)}
+              <mwc-list-item value="${Pt.Automatic}">
+                ${ls("panels.zones.labels.states.automatic", this.hass.language)}
               </mwc-list-item>
-              <mwc-list-item value="${ns.Manual}">
-                ${es("panels.zones.labels.states.manual", this.hass.language)}
+              <mwc-list-item value="${Pt.Manual}">
+                ${ls("panels.zones.labels.states.manual", this.hass.language)}
               </mwc-list-item>
-              <mwc-list-item value="${ns.Disabled}">
-                ${es("panels.zones.labels.states.disabled", this.hass.language)}
+              <mwc-list-item value="${Pt.Disabled}">
+                ${ls("panels.zones.labels.states.disabled", this.hass.language)}
               </mwc-list-item>
             </ha-select>
           </ha-settings-row>
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("common.labels.module", this.hass.language)}</span
+              >${ls("common.labels.module", this.hass.language)}</span
             >
             <ha-select
               .value="${void 0 !== e.module ? String(e.module) : ""}"
               @selected="${a => {
         const i = a.detail.value;
         this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [nt]: i ? parseInt(i) : void 0
+          [st]: i ? parseInt(i) : void 0
         }));
       }}"
               @closed="${e => e.stopPropagation()}"
@@ -10756,14 +10089,14 @@
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.mapping", this.hass.language)}</span
+              >${ls("panels.zones.labels.mapping", this.hass.language)}</span
             >
             <ha-select
               .value="${void 0 !== e.mapping ? String(e.mapping) : ""}"
               @selected="${a => {
         const i = a.detail.value;
         this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [ot]: i ? parseInt(i) : void 0
+          [lt]: i ? parseInt(i) : void 0
         }));
       }}"
               @closed="${e => e.stopPropagation()}"
@@ -10774,7 +10107,7 @@
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.linked_entity", this.hass.language)}</span
+              >${ls("panels.zones.labels.linked_entity", this.hass.language)}</span
             >
             <ha-entity-picker
               .hass="${this.hass}"
@@ -10782,14 +10115,14 @@
               .includeDomains="${["switch", "valve"]}"
               allow-custom-entity
               @value-changed="${a => this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-        [ht]: a.detail.value || void 0
+        [pt]: a.detail.value || void 0
       }))}"
             ></ha-entity-picker>
           </ha-settings-row>
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.flow_sensor", this.hass.language)}</span
+              >${ls("panels.zones.labels.flow_sensor", this.hass.language)}</span
             >
             <ha-entity-picker
               .hass="${this.hass}"
@@ -10797,15 +10130,15 @@
               .includeDomains="${["sensor"]}"
               allow-custom-entity
               @value-changed="${a => this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-        [gt]: a.detail.value || null
+        [mt]: a.detail.value || null
       }))}"
             ></ha-entity-picker>
           </ha-settings-row>
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.bucket", this.hass.language)}
-              (${kt(this.config, st)})</span
+              >${ls("panels.zones.labels.bucket", this.hass.language)}
+              (${zt(this.config, rt)})</span
             >
             <input
               type="number"
@@ -10813,47 +10146,6 @@
               step="0.1"
               inputmode="decimal"
               .value="${parseFloat(Number(e.bucket).toFixed(2))}"
-              @input="${a => {
-        const i = Math.round(100 * a.target.valueAsNumber) / 100;
-        isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [st]: i
-        }));
-      }}"
-            />
-          </ha-settings-row>
-
-          <ha-settings-row>
-            <span slot="heading"
-              >${es("panels.zones.labels.maximum-bucket", this.hass.language)}
-              (${kt(this.config, st)})</span
-            >
-            <input
-              type="number"
-              class="settings-input shortfield"
-              step="0.1"
-              min="0"
-              inputmode="decimal"
-              .value="${parseFloat(Number(e.maximum_bucket).toFixed(2))}"
-              @input="${a => {
-        const i = Math.round(100 * a.target.valueAsNumber) / 100;
-        isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [ut]: i
-        }));
-      }}"
-            />
-          </ha-settings-row>
-
-          <ha-settings-row>
-            <span slot="heading"
-              >${es("panels.zones.labels.multiplier", this.hass.language)}</span
-            >
-            <input
-              type="number"
-              class="settings-input shortfield"
-              step="0.1"
-              min="0"
-              inputmode="decimal"
-              .value="${parseFloat(e.multiplier.toFixed(2))}"
               @input="${a => {
         const i = Math.round(100 * a.target.valueAsNumber) / 100;
         isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
@@ -10865,7 +10157,48 @@
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.lead-time", this.hass.language)}
+              >${ls("panels.zones.labels.maximum-bucket", this.hass.language)}
+              (${zt(this.config, rt)})</span
+            >
+            <input
+              type="number"
+              class="settings-input shortfield"
+              step="0.1"
+              min="0"
+              inputmode="decimal"
+              .value="${parseFloat(Number(e.maximum_bucket).toFixed(2))}"
+              @input="${a => {
+        const i = Math.round(100 * a.target.valueAsNumber) / 100;
+        isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
+          [ct]: i
+        }));
+      }}"
+            />
+          </ha-settings-row>
+
+          <ha-settings-row>
+            <span slot="heading"
+              >${ls("panels.zones.labels.multiplier", this.hass.language)}</span
+            >
+            <input
+              type="number"
+              class="settings-input shortfield"
+              step="0.1"
+              min="0"
+              inputmode="decimal"
+              .value="${parseFloat(e.multiplier.toFixed(2))}"
+              @input="${a => {
+        const i = Math.round(100 * a.target.valueAsNumber) / 100;
+        isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
+          [ot]: i
+        }));
+      }}"
+            />
+          </ha-settings-row>
+
+          <ha-settings-row>
+            <span slot="heading"
+              >${ls("panels.zones.labels.lead-time", this.hass.language)}
               (s)</span
             >
             <input
@@ -10878,7 +10211,7 @@
               @input="${a => {
         const i = a.target.valueAsNumber;
         isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [lt]: Math.round(i)
+          [dt]: Math.round(i)
         }));
       }}"
             />
@@ -10886,7 +10219,7 @@
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.maximum-duration", this.hass.language)}
+              >${ls("panels.zones.labels.maximum-duration", this.hass.language)}
               (s)</span
             >
             <input
@@ -10899,7 +10232,7 @@
               @input="${a => {
         const i = a.target.valueAsNumber;
         isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [dt]: Math.round(i)
+          [ut]: Math.round(i)
         }));
       }}"
             />
@@ -10907,8 +10240,8 @@
 
           <ha-settings-row>
             <span slot="heading"
-              >${es("panels.zones.labels.bucket_threshold", this.hass.language)}
-              (${kt(this.config, st)})</span
+              >${ls("panels.zones.labels.bucket_threshold", this.hass.language)}
+              (${zt(this.config, rt)})</span
             >
             <input
               type="number"
@@ -10920,16 +10253,16 @@
               @input="${a => {
         const i = Math.round(10 * a.target.valueAsNumber) / 10;
         isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [pt]: Math.min(i, 0)
+          [gt]: Math.min(i, 0)
         }));
       }}"
             />
           </ha-settings-row>
 
-          ${e.state === ns.Manual ? F`
+          ${e.state === Pt.Manual ? F`
                 <ha-settings-row>
                   <span slot="heading"
-                    >${es("panels.zones.labels.duration", this.hass.language)}
+                    >${ls("panels.zones.labels.duration", this.hass.language)}
                     (${"s"})</span
                   >
                   <input
@@ -10942,7 +10275,7 @@
                     @input="${a => {
         const i = a.target.valueAsNumber;
         isNaN(i) || this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-          [it]: Math.round(i)
+          [nt]: Math.round(i)
         }));
       }}"
                   />
@@ -10953,11 +10286,11 @@
           <div class="settings-danger-row">
             <ha-button
               @click="${() => this.handleEditZone(t, Object.assign(Object.assign({}, e), {
-        [st]: 0
+        [rt]: 0
       }))}"
               ?disabled="${this.isSaving}"
             >
-              ${es("panels.zones.actions.reset-bucket", this.hass.language)}
+              ${ls("panels.zones.actions.reset-bucket", this.hass.language)}
             </ha-button>
             <ha-button
               class="danger-button"
@@ -10965,7 +10298,7 @@
               ?disabled="${this.isSaving || void 0 === e.id}"
             >
               <ha-icon slot="icon" icon="mdi:delete"></ha-icon>
-              ${es("common.actions.delete", this.hass.language)}
+              ${ls("common.actions.delete", this.hass.language)}
             </ha-button>
           </div>
         </ha-expansion-panel>
@@ -10973,16 +10306,16 @@
         <!-- EXPLANATION EXPANSION -->
         ${e.explanation && e.explanation.length > 0 ? F`
               <ha-expansion-panel
-                .header="${es("panels.zones.actions.information", this.hass.language)}"
+                .header="${ls("panels.zones.actions.information", this.hass.language)}"
               >
-                <div class="card-content">${yt(e.explanation)}</div>
+                <div class="card-content">${wt(e.explanation)}</div>
               </ha-expansion-panel>
             ` : ""}
 
         <!-- WEATHER EXPANSION -->
         ${void 0 !== e.mapping ? F`
               <ha-expansion-panel
-                .header="${es("panels.zones.actions.view-weather-info", this.hass.language)}"
+                .header="${ls("panels.zones.actions.view-weather-info", this.hass.language)}"
               >
                 ${this.renderWeatherRecords(e)}
               </ha-expansion-panel>
@@ -10990,7 +10323,7 @@
 
         <!-- CALENDAR EXPANSION -->
         <ha-expansion-panel
-          .header="${es("panels.zones.actions.view-watering-calendar", this.hass.language)}"
+          .header="${ls("panels.zones.actions.view-watering-calendar", this.hass.language)}"
         >
           ${this.renderWateringCalendar(e)}
         </ha-expansion-panel>
@@ -11000,29 +10333,44 @@
     render() {
       if (!this.hass) return F``;
       if (this.isLoading) return F`
-        <ha-card header="${es("panels.zones.title", this.hass.language)}">
+        <ha-card header="${ls("panels.zones.title", this.hass.language)}">
           <div class="card-content">
-            ${es("common.loading-messages.general", this.hass.language)}...
+            ${ls("common.loading-messages.general", this.hass.language)}...
           </div>
         </ha-card>
       `;
-      const e = null !== this._confirmDeleteZoneId ? this.zones.find(e => e.id === this._confirmDeleteZoneId) : null;
+      const e = null !== this._confirmDeleteZoneId ? this.zones.find(e => e.id === this._confirmDeleteZoneId) : null,
+        t = this.zones.some(e => {
+          var t;
+          return e.linked_entity && (null !== (t = e.duration) && void 0 !== t ? t : 0) > 0;
+        });
       return F`
-      <!-- Zones header card with + button -->
+      <!-- Zones header card with + button and Irrigate All -->
       <ha-card>
         <div class="card-header">
           <div class="name">
-            ${es("panels.zones.title", this.hass.language)}
+            ${ls("panels.zones.title", this.hass.language)}
           </div>
           <ha-icon-button
-            .path="${os}"
+            .path="${Et}"
             @click="${() => {
         this._showAddZone = !0;
       }}"
           ></ha-icon-button>
         </div>
-        <div class="card-content">
-          ${es("panels.zones.description", this.hass.language)}
+        <div class="card-content zones-top-actions">
+          <ha-button
+            raised
+            @click="${() => {
+        this.hass && Nt(this.hass).catch(e => console.error("irrigate_now failed", e));
+      }}"
+            ?disabled="${!t || this.isSaving}"
+          >
+            ${ls("panels.zones.actions.irrigate_all", this.hass.language)}
+          </ha-button>
+          ${t ? "" : F`<span class="zones-top-note"
+                >${ls("panels.info.cards.irrigate_now.no_linked_zones", this.hass.language)}</span
+              >`}
         </div>
       </ha-card>
 
@@ -11032,11 +10380,11 @@
         @closed="${() => {
         this._showAddZone = !1;
       }}"
-        heading="${es("panels.zones.cards.add-zone.header", this.hass.language)}"
+        heading="${ls("panels.zones.cards.add-zone.header", this.hass.language)}"
       >
         <div class="add-zone-form">
           <label class="form-label">
-            ${es("panels.zones.labels.name", this.hass.language)}
+            ${ls("panels.zones.labels.name", this.hass.language)}
           </label>
           <input
             type="text"
@@ -11047,7 +10395,7 @@
       }}"
           />
           <label class="form-label">
-            ${es("panels.zones.labels.size", this.hass.language)}
+            ${ls("panels.zones.labels.size", this.hass.language)}
           </label>
           <input
             type="number"
@@ -11061,7 +10409,7 @@
       }}"
           />
           <label class="form-label">
-            ${es("panels.zones.labels.throughput", this.hass.language)}
+            ${ls("panels.zones.labels.throughput", this.hass.language)}
           </label>
           <input
             type="number"
@@ -11081,7 +10429,7 @@
         this._showAddZone = !1;
       }}"
         >
-          ${es("common.actions.cancel", this.hass.language)}
+          ${ls("common.actions.cancel", this.hass.language)}
         </ha-button>
         <ha-button
           slot="primaryAction"
@@ -11089,7 +10437,7 @@
           @click="${this.handleAddZone}"
           ?disabled="${!this._newZoneName.trim() || this.isSaving}"
         >
-          ${this.isSaving ? es("common.saving-messages.adding", this.hass.language) : es("panels.zones.cards.add-zone.actions.add", this.hass.language)}
+          ${this.isSaving ? ls("common.saving-messages.adding", this.hass.language) : ls("panels.zones.cards.add-zone.actions.add", this.hass.language)}
         </ha-button>
       </ha-dialog>
 
@@ -11100,10 +10448,10 @@
               @closed="${() => {
         this._confirmDeleteZoneId = null;
       }}"
-              heading="${es("common.actions.confirm_delete", this.hass.language)}"
+              heading="${ls("common.actions.confirm_delete", this.hass.language)}"
             >
               <p>
-                ${es("common.actions.confirm_delete_zone", this.hass.language)}
+                ${ls("common.actions.confirm_delete_zone", this.hass.language)}
               </p>
               <p><strong>${e.name}</strong></p>
               <ha-button
@@ -11112,14 +10460,14 @@
         this._confirmDeleteZoneId = null;
       }}"
               >
-                ${es("common.actions.cancel", this.hass.language)}
+                ${ls("common.actions.cancel", this.hass.language)}
               </ha-button>
               <ha-button
                 slot="primaryAction"
                 class="danger-button"
                 @click="${this._confirmDelete}"
               >
-                ${es("common.actions.delete", this.hass.language)}
+                ${ls("common.actions.delete", this.hass.language)}
               </ha-button>
             </ha-dialog>
           ` : ""}
@@ -11130,32 +10478,32 @@
       <!-- Bulk actions card -->
       <ha-card>
         <ha-expansion-panel
-          .header="${es("common.labels.bulk_actions", this.hass.language)}"
+          .header="${ls("common.labels.bulk_actions", this.hass.language)}"
         >
           <div class="card-content bulk-actions">
             <ha-button
               @click="${this.handleCalculateAllZones}"
               ?disabled="${this.isSaving}"
             >
-              ${es("panels.zones.cards.zone-actions.actions.calculate-all", this.hass.language)}
+              ${ls("panels.zones.cards.zone-actions.actions.calculate-all", this.hass.language)}
             </ha-button>
             <ha-button
               @click="${this.handleUpdateAllZones}"
               ?disabled="${this.isSaving}"
             >
-              ${es("panels.zones.cards.zone-actions.actions.update-all", this.hass.language)}
+              ${ls("panels.zones.cards.zone-actions.actions.update-all", this.hass.language)}
             </ha-button>
             <ha-button
               @click="${this.handleResetAllBuckets}"
               ?disabled="${this.isSaving}"
             >
-              ${es("panels.zones.cards.zone-actions.actions.reset-all-buckets", this.hass.language)}
+              ${ls("panels.zones.cards.zone-actions.actions.reset-all-buckets", this.hass.language)}
             </ha-button>
             <ha-button
               @click="${this.handleClearAllWeatherdata}"
               ?disabled="${this.isSaving}"
             >
-              ${es("panels.zones.cards.zone-actions.actions.clear-all-weatherdata", this.hass.language)}
+              ${ls("panels.zones.cards.zone-actions.actions.clear-all-weatherdata", this.hass.language)}
             </ha-button>
           </div>
         </ha-expansion-panel>
@@ -11167,7 +10515,7 @@
     }
     static get styles() {
       return c`
-      ${ts}
+      ${Lt}
 
       ha-settings-row {
         padding: 0 16px;
@@ -11304,6 +10652,20 @@
         margin-bottom: -4px;
       }
 
+      /* Zones top action bar */
+      .zones-top-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .zones-top-note {
+        font-size: 0.8125rem;
+        color: var(--secondary-text-color);
+        font-style: italic;
+      }
+
       /* Bulk actions */
       .bulk-actions {
         display: flex;
@@ -11313,24 +10675,823 @@
     `;
     }
   };
-  n([pe()], gs.prototype, "config", void 0), n([pe({
+  n([pe()], ms.prototype, "config", void 0), n([pe({
     type: Array
-  })], gs.prototype, "zones", void 0), n([pe({
+  })], ms.prototype, "zones", void 0), n([pe({
     type: Array
-  })], gs.prototype, "modules", void 0), n([pe({
+  })], ms.prototype, "modules", void 0), n([pe({
     type: Array
-  })], gs.prototype, "mappings", void 0), n([pe({
+  })], ms.prototype, "mappings", void 0), n([pe({
     type: Map
-  })], gs.prototype, "wateringCalendars", void 0), n([pe({
+  })], ms.prototype, "wateringCalendars", void 0), n([pe({
     type: Map
-  })], gs.prototype, "weatherRecords", void 0), n([pe({
+  })], ms.prototype, "weatherRecords", void 0), n([pe({
     type: Boolean
-  })], gs.prototype, "isLoading", void 0), n([pe({
+  })], ms.prototype, "isLoading", void 0), n([pe({
     type: Boolean
-  })], gs.prototype, "isSaving", void 0), n([pe({
+  })], ms.prototype, "isSaving", void 0), n([pe({
     type: Boolean
-  })], gs.prototype, "_showAddZone", void 0), n([pe()], gs.prototype, "_confirmDeleteZoneId", void 0), n([pe()], gs.prototype, "_newZoneName", void 0), n([pe()], gs.prototype, "_newZoneSize", void 0), n([pe()], gs.prototype, "_newZoneThroughput", void 0), gs = n([ce("smart-irrigation-view-zones")], gs);
-  let ms = class extends Dt(de) {
+  })], ms.prototype, "_showAddZone", void 0), n([pe()], ms.prototype, "_confirmDeleteZoneId", void 0), n([pe()], ms.prototype, "_newZoneName", void 0), n([pe()], ms.prototype, "_newZoneSize", void 0), n([pe()], ms.prototype, "_newZoneThroughput", void 0), ms = n([ce("smart-irrigation-view-zones")], ms);
+  let fs = class extends jt(de) {
+    constructor() {
+      super(...arguments), this.isLoading = !0, this.isSaving = !1, this._weatherConfig = null, this._weatherService = null, this._useWeatherService = !1, this._newApiKey = "", this._weatherSaving = !1, this._updateScheduled = !1, this.debouncedSave = (() => {
+        let e = null;
+        return t => {
+          e && clearTimeout(e), e = window.setTimeout(() => {
+            this.saveData(t), e = null;
+          }, 500);
+        };
+      })();
+    }
+    _scheduleUpdate() {
+      this._updateScheduled || (this._updateScheduled = !0, requestAnimationFrame(() => {
+        this._updateScheduled = !1, this.requestUpdate();
+      }));
+    }
+    hassSubscribe() {
+      return this._fetchData().catch(e => {
+        console.error("Failed to fetch initial data:", e);
+      }), [this.hass.connection.subscribeMessage(() => {
+        this._fetchData().catch(e => {
+          console.error("Failed to fetch data on config update:", e);
+        });
+      }, {
+        type: Se + "_config_updated"
+      })];
+    }
+    async _fetchData() {
+      var e;
+      if (this.hass) {
+        this.isLoading = !0, this._scheduleUpdate();
+        try {
+          const [n, s] = await Promise.all([Tt(this.hass), (i = this.hass, i.callWS({
+            type: Se + "/weather_config"
+          }))]);
+          this.config = n, this._weatherConfig = s, this._useWeatherService = s.use_weather_service, this._weatherService = null !== (e = s.weather_service) && void 0 !== e ? e : xe, this.data = (t = this.config, a = ["calctime", "autocalcenabled", "autoupdateenabled", "autoupdateschedule", "autoupdatefirsttime", "autoupdateinterval", "autoclearenabled", "cleardatatime", "continuousupdates", "sensor_debounce", "manual_coordinates_enabled", "manual_latitude", "manual_longitude", "manual_elevation", "days_between_irrigation"], t ? Object.entries(t).filter(([e]) => a.includes(e)).reduce((e, [t, a]) => Object.assign(e, {
+            [t]: a
+          }), {}) : {});
+        } catch (e) {
+          console.error("Error fetching data:", e);
+        } finally {
+          this.isLoading = !1, this._scheduleUpdate();
+        }
+        var t, a, i;
+      }
+    }
+    firstUpdated() {
+      be().then(() => this._scheduleUpdate()).catch(e => {
+        console.error("Failed to load HA form:", e), this._scheduleUpdate();
+      });
+    }
+    render() {
+      var e, t;
+      return this.hass && this.config && this.data ? this.isLoading ? F`<div class="loading-indicator">
+        ${ls("common.loading-messages.general", this.hass.language)}
+      </div>` : F`
+      ${this._renderWeatherServiceCard()} ${this._renderAutoUpdateCard()}
+      ${this._renderAutoCalcCard()} ${this._renderAutoClearCard()}
+      ${this._renderContinuousUpdatesCard()} ${this._renderWeatherSkipCard()}
+      ${this._renderCoordinateCard()} ${this._renderDaysBetweenIrrigationCard()}
+      ${this._renderZoneSequencingCard()}
+    ` : F`<div class="loading-indicator">
+        ${ls("common.loading-messages.configuration", null !== (t = null === (e = this.hass) || void 0 === e ? void 0 : e.language) && void 0 !== t ? t : "en")}
+      </div>`;
+    }
+    async _saveWeatherConfig() {
+      if (this.hass) {
+        this._weatherSaving = !0, this._scheduleUpdate();
+        try {
+          await (e = this.hass, t = this._useWeatherService, a = this._useWeatherService ? this._weatherService : null, i = this._newApiKey || null, e.callWS({
+            type: Se + "/weather_config_save",
+            use_weather_service: t,
+            weather_service: null != a ? a : null,
+            api_key: null != i ? i : null
+          })), this._newApiKey = "", await this._fetchData();
+        } catch (e) {
+          console.error("Failed to save weather config:", e);
+        } finally {
+          this._weatherSaving = !1, this._scheduleUpdate();
+        }
+        var e, t, a, i;
+      }
+    }
+    _renderWeatherServiceCard() {
+      var e, t, a;
+      if (!this.hass) return F``;
+      const i = null !== (t = null === (e = this._weatherConfig) || void 0 === e ? void 0 : e.no_api_key_services) && void 0 !== t ? t : [xe],
+        n = this._useWeatherService && this._weatherService && !i.includes(this._weatherService);
+      return F`
+      <ha-card
+        header="${ls("weather_service_config.title", this.hass.language)}"
+      >
+        <div class="card-content description-text">
+          ${ls("weather_service_config.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${ls("weather_service_config.enabled_label", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this._useWeatherService}"
+              @change="${e => {
+        this._useWeatherService = e.target.checked;
+      }}"
+            ></ha-switch>
+          </div>
+          ${this._useWeatherService ? F`
+                <div class="setting-row">
+                  <label>
+                    ${ls("weather_service_config.service_label", this.hass.language)}
+                  </label>
+                  <ha-select
+                    .value="${this._weatherService || xe}"
+                    @selected="${e => {
+        this._weatherService = e.detail.value;
+      }}"
+                    @closed="${e => e.stopPropagation()}"
+                  >
+                    <mwc-list-item value="${xe}">
+                      ${ls("weather_service_config.openmeteo", this.hass.language)}
+                    </mwc-list-item>
+                    <mwc-list-item value="${"Open Weather Map"}">
+                      ${ls("weather_service_config.owm", this.hass.language)}
+                    </mwc-list-item>
+                    <mwc-list-item value="${"Pirate Weather"}">
+                      ${ls("weather_service_config.pw", this.hass.language)}
+                    </mwc-list-item>
+                  </ha-select>
+                </div>
+                ${n ? F`
+                      <div class="setting-row">
+                        <label>
+                          ${ls("weather_service_config.api_key_label", this.hass.language)}
+                          ${(null === (a = this._weatherConfig) || void 0 === a ? void 0 : a.has_api_key) ? F`<div class="setting-description">
+                                ${ls("weather_service_config.api_key_configured", this.hass.language)}
+                              </div>` : F`<div
+                                class="setting-description"
+                                style="color:var(--warning-color)"
+                              >
+                                ${ls("weather_service_config.api_key_not_configured", this.hass.language)}
+                              </div>`}
+                        </label>
+                        <input
+                          type="password"
+                          class="settings-input"
+                          placeholder="${ls("weather_service_config.api_key_placeholder", this.hass.language)}"
+                          .value="${this._newApiKey}"
+                          @input="${e => {
+        this._newApiKey = e.target.value;
+      }}"
+                        />
+                      </div>
+                    ` : F`
+                      <div class="description-text" style="padding: 8px 0;">
+                        ${ls("weather_service_config.no_api_key_needed", this.hass.language)}
+                      </div>
+                    `}
+              ` : ""}
+          <div style="margin-top: 12px;">
+            <ha-button
+              raised
+              ?disabled="${this._weatherSaving}"
+              @click="${this._saveWeatherConfig}"
+            >
+              ${this._weatherSaving ? ls("common.saving-messages.saving", this.hass.language) : ls("weather_service_config.save_button", this.hass.language)}
+            </ha-button>
+          </div>
+        </div>
+      </ha-card>
+    `;
+    }
+    _renderAutoUpdateCard() {
+      var e, t;
+      return this.hass && this.config && this.data ? F`
+      <ha-card
+        header="${ls("panels.general.cards.automatic-update.header", this.hass.language)}"
+      >
+        <div class="card-content description-text">
+          ${ls("panels.general.cards.automatic-update.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${ls("panels.general.cards.automatic-update.labels.auto-update-enabled", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.autoupdateenabled}"
+              @change="${e => this.handleConfigChange({
+        autoupdateenabled: e.target.checked
+      })}"
+            ></ha-switch>
+          </div>
+          ${this.data.autoupdateenabled ? F`
+                <div class="setting-row">
+                  <label>
+                    ${ls("panels.general.cards.automatic-update.labels.auto-update-interval", this.hass.language)}
+                  </label>
+                  <div class="inline-row">
+                    <input
+                      type="number"
+                      class="settings-input shortfield"
+                      min="1"
+                      step="1"
+                      inputmode="numeric"
+                      .value="${null !== (e = this.data.autoupdateinterval) && void 0 !== e ? e : 1}"
+                      @input="${e => {
+        const t = parseInt(e.target.value);
+        isNaN(t) || this.handleConfigChange({
+          autoupdateinterval: t
+        });
+      }}"
+                    />
+                    <ha-select
+                      .value="${this.data.autoupdateschedule || Ae}"
+                      @selected="${e => this.handleConfigChange({
+        autoupdateschedule: e.detail.value
+      })}"
+                      @closed="${e => e.stopPropagation()}"
+                    >
+                      <mwc-list-item value="${"minutes"}">
+                        ${ls("panels.general.cards.automatic-update.options.minutes", this.hass.language)}
+                      </mwc-list-item>
+                      <mwc-list-item value="${Ae}">
+                        ${ls("panels.general.cards.automatic-update.options.hours", this.hass.language)}
+                      </mwc-list-item>
+                      <mwc-list-item value="${"days"}">
+                        ${ls("panels.general.cards.automatic-update.options.days", this.hass.language)}
+                      </mwc-list-item>
+                    </ha-select>
+                  </div>
+                </div>
+                <div class="setting-row">
+                  <label>
+                    ${ls("panels.general.cards.automatic-update.labels.auto-update-delay", this.hass.language)}
+                    (s)
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    .value="${null !== (t = this.config.autoupdatedelay) && void 0 !== t ? t : 0}"
+                    @input="${e => {
+        const t = parseInt(e.target.value);
+        isNaN(t) || this.handleConfigChange({
+          autoupdatedelay: t
+        });
+      }}"
+                  />
+                </div>
+              ` : ""}
+        </div>
+      </ha-card>
+    ` : F``;
+    }
+    _renderAutoCalcCard() {
+      return this.hass && this.config && this.data ? F`
+      <ha-card
+        header="${ls("panels.general.cards.automatic-duration-calculation.header", this.hass.language)}"
+      >
+        <div class="card-content description-text">
+          ${ls("panels.general.cards.automatic-duration-calculation.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${ls("panels.general.cards.automatic-duration-calculation.labels.auto-calc-enabled", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.autocalcenabled}"
+              @change="${e => this.handleConfigChange({
+        autocalcenabled: e.target.checked
+      })}"
+            ></ha-switch>
+          </div>
+          ${this.data.autocalcenabled ? F`
+                <div class="setting-row">
+                  <label>
+                    ${ls("panels.general.cards.automatic-duration-calculation.labels.calc-time", this.hass.language)}
+                  </label>
+                  <input
+                    type="text"
+                    class="settings-input shortfield"
+                    .value="${this.config.calctime}"
+                    @input="${e => this.handleConfigChange({
+        calctime: e.target.value
+      })}"
+                  />
+                </div>
+              ` : ""}
+        </div>
+      </ha-card>
+    ` : F``;
+    }
+    _renderAutoClearCard() {
+      return this.hass && this.config && this.data ? F`
+      <ha-card
+        header="${ls("panels.general.cards.automatic-clear.header", this.hass.language)}"
+      >
+        <div class="card-content description-text">
+          ${ls("panels.general.cards.automatic-clear.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${ls("panels.general.cards.automatic-clear.labels.automatic-clear-enabled", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.autoclearenabled}"
+              @change="${e => this.handleConfigChange({
+        autoclearenabled: e.target.checked
+      })}"
+            ></ha-switch>
+          </div>
+          ${this.data.autoclearenabled ? F`
+                <div class="setting-row">
+                  <label>
+                    ${ls("panels.general.cards.automatic-clear.labels.automatic-clear-time", this.hass.language)}
+                  </label>
+                  <input
+                    type="text"
+                    class="settings-input shortfield"
+                    .value="${this.config.cleardatatime}"
+                    @input="${e => this.handleConfigChange({
+        cleardatatime: e.target.value
+      })}"
+                  />
+                </div>
+              ` : ""}
+        </div>
+      </ha-card>
+    ` : F``;
+    }
+    _renderContinuousUpdatesCard() {
+      var e;
+      return this.hass && this.config && this.data ? F`
+      <ha-card
+        header="${ls("panels.general.cards.continuousupdates.header", this.hass.language)}"
+      >
+        <div class="card-content description-text">
+          ${ls("panels.general.cards.continuousupdates.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${ls("panels.general.cards.continuousupdates.labels.continuousupdates", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.continuousupdates}"
+              @change="${e => this.handleConfigChange({
+        continuousupdates: e.target.checked
+      })}"
+            ></ha-switch>
+          </div>
+          ${this.data.continuousupdates ? F`
+                <div class="setting-row">
+                  <label>
+                    ${ls("panels.general.cards.continuousupdates.labels.sensor_debounce", this.hass.language)}
+                    (ms)
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    .value="${null !== (e = this.config.sensor_debounce) && void 0 !== e ? e : 100}"
+                    @input="${e => {
+        const t = parseInt(e.target.value);
+        isNaN(t) || this.handleConfigChange({
+          sensor_debounce: t
+        });
+      }}"
+                  />
+                </div>
+              ` : ""}
+        </div>
+      </ha-card>
+    ` : F``;
+    }
+    _renderWeatherSkipCard() {
+      var e, t, a;
+      return this.hass && this.config && this.data ? F`
+      <ha-card header="${ls("weather_skip.title", this.hass.language)}">
+        <div class="card-content description-text">
+          ${ls("weather_skip.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${ls("weather_skip.threshold_label", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.skip_irrigation_on_precipitation}"
+              @change="${e => this.handleConfigChange({
+        skip_irrigation_on_precipitation: e.target.checked
+      })}"
+            ></ha-switch>
+          </div>
+          ${this.config.skip_irrigation_on_precipitation ? F`
+                <div class="setting-row">
+                  <label>
+                    ${ls("weather_skip.threshold_label", this.hass.language)}
+                    (${zt(this.config, $e)})
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="0"
+                    step="0.1"
+                    inputmode="decimal"
+                    .value="${null !== (e = this.config.precipitation_threshold_mm) && void 0 !== e ? e : 2}"
+                    @input="${e => {
+        const t = parseFloat(e.target.value);
+        isNaN(t) || this.handleConfigChange({
+          precipitation_threshold_mm: t
+        });
+      }}"
+                  />
+                </div>
+              ` : ""}
+
+          <div class="section-divider">
+            ${ls("weather_skip.temp_section_title", this.hass.language)}
+          </div>
+          <div class="setting-row">
+            <label>
+              ${ls("weather_skip.temp_section_title", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.skip_on_temp_enabled}"
+              @change="${e => this.handleConfigChange({
+        skip_on_temp_enabled: e.target.checked
+      })}"
+            ></ha-switch>
+          </div>
+          ${this.config.skip_on_temp_enabled ? F`
+                <div class="setting-row">
+                  <label>
+                    ${ls("weather_skip.temp_threshold_label", this.hass.language)}
+                    (°C)
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    step="0.5"
+                    .value="${null !== (t = this.config.temp_threshold) && void 0 !== t ? t : 5}"
+                    @input="${e => {
+        const t = parseFloat(e.target.value);
+        isNaN(t) || this.handleConfigChange({
+          temp_threshold: t
+        });
+      }}"
+                  />
+                </div>
+              ` : ""}
+
+          <div class="section-divider">
+            ${ls("weather_skip.wind_section_title", this.hass.language)}
+          </div>
+          <div class="setting-row">
+            <label>
+              ${ls("weather_skip.wind_section_title", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.skip_on_wind_enabled}"
+              @change="${e => this.handleConfigChange({
+        skip_on_wind_enabled: e.target.checked
+      })}"
+            ></ha-switch>
+          </div>
+          ${this.config.skip_on_wind_enabled ? F`
+                <div class="setting-row">
+                  <label>
+                    ${ls("weather_skip.wind_threshold_label", this.hass.language)}
+                    (m/s)
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="0"
+                    step="0.1"
+                    inputmode="decimal"
+                    .value="${null !== (a = this.config.wind_threshold) && void 0 !== a ? a : 6.9}"
+                    @input="${e => {
+        const t = parseFloat(e.target.value);
+        isNaN(t) || this.handleConfigChange({
+          wind_threshold: t
+        });
+      }}"
+                  />
+                </div>
+              ` : ""}
+
+          <div class="section-divider">
+            ${ls("weather_skip.rain_sensor_section_title", this.hass.language)}
+          </div>
+          <div class="setting-row">
+            <label>
+              ${ls("weather_skip.rain_sensor_label", this.hass.language)}
+            </label>
+            <ha-entity-picker
+              .hass="${this.hass}"
+              .value="${this.config.rain_sensor || ""}"
+              .includeDomains="${["binary_sensor"]}"
+              allow-custom-entity
+              @value-changed="${e => this.handleConfigChange({
+        rain_sensor: e.detail.value || null
+      })}"
+            ></ha-entity-picker>
+          </div>
+        </div>
+      </ha-card>
+    ` : F``;
+    }
+    _renderCoordinateCard() {
+      var e, t, a;
+      if (!this.hass || !this.config || !this.data) return F``;
+      const i = this.hass.config,
+        n = (null == i ? void 0 : i.latitude) || 0,
+        s = (null == i ? void 0 : i.longitude) || 0,
+        r = (null == i ? void 0 : i.elevation) || 0;
+      return F`
+      <ha-card
+        header="${ls("coordinate_config.title", this.hass.language)}"
+      >
+        <div class="card-content description-text">
+          ${ls("coordinate_config.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${ls("coordinate_config.manual_enabled", this.hass.language)}
+            </label>
+            <ha-switch
+              .checked="${this.config.manual_coordinates_enabled}"
+              @change="${e => this.handleConfigChange({
+        manual_coordinates_enabled: e.target.checked
+      })}"
+            ></ha-switch>
+          </div>
+          ${this.config.manual_coordinates_enabled ? F`
+                <div class="setting-row">
+                  <label>
+                    ${ls("coordinate_config.latitude", this.hass.language)}
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="-90"
+                    max="90"
+                    step="0.000001"
+                    inputmode="decimal"
+                    .value="${null !== (e = this.config.manual_latitude) && void 0 !== e ? e : n}"
+                    @input="${e => {
+        const t = parseFloat(e.target.value);
+        isNaN(t) || this.handleConfigChange({
+          manual_latitude: t
+        });
+      }}"
+                  />
+                </div>
+                <div class="setting-row">
+                  <label>
+                    ${ls("coordinate_config.longitude", this.hass.language)}
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="-180"
+                    max="180"
+                    step="0.000001"
+                    inputmode="decimal"
+                    .value="${null !== (t = this.config.manual_longitude) && void 0 !== t ? t : s}"
+                    @input="${e => {
+        const t = parseFloat(e.target.value);
+        isNaN(t) || this.handleConfigChange({
+          manual_longitude: t
+        });
+      }}"
+                  />
+                </div>
+                <div class="setting-row">
+                  <label>
+                    ${ls("coordinate_config.elevation", this.hass.language)}
+                  </label>
+                  <input
+                    type="number"
+                    class="settings-input shortfield"
+                    min="-1000"
+                    max="9000"
+                    step="1"
+                    inputmode="numeric"
+                    .value="${null !== (a = this.config.manual_elevation) && void 0 !== a ? a : r}"
+                    @input="${e => {
+        const t = parseFloat(e.target.value);
+        isNaN(t) || this.handleConfigChange({
+          manual_elevation: t
+        });
+      }}"
+                  />
+                </div>
+              ` : F`
+                <div
+                  class="card-content"
+                  style="color: var(--secondary-text-color); font-style: italic;"
+                >
+                  ${ls("coordinate_config.current_ha_coords", this.hass.language)}:
+                  ${ls("coordinate_config.latitude", this.hass.language)}:
+                  ${n},
+                  ${ls("coordinate_config.longitude", this.hass.language)}:
+                  ${s},
+                  ${ls("coordinate_config.elevation", this.hass.language)}:
+                  ${r}m
+                </div>
+              `}
+        </div>
+      </ha-card>
+    `;
+    }
+    _renderDaysBetweenIrrigationCard() {
+      var e;
+      return this.hass && this.config && this.data ? F`
+      <ha-card
+        header="${ls("days_between_irrigation.title", this.hass.language)}"
+      >
+        <div class="card-content description-text">
+          ${ls("days_between_irrigation.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${ls("days_between_irrigation.label", this.hass.language)}
+              <div class="setting-description">
+                ${ls("days_between_irrigation.help_text", this.hass.language)}
+              </div>
+            </label>
+            <input
+              type="number"
+              class="settings-input shortfield"
+              min="0"
+              max="365"
+              step="1"
+              inputmode="numeric"
+              .value="${null !== (e = this.config.days_between_irrigation) && void 0 !== e ? e : 0}"
+              @input="${e => {
+        const t = e.target.valueAsNumber;
+        isNaN(t) || this.handleConfigChange({
+          days_between_irrigation: Math.round(t)
+        });
+      }}"
+            />
+          </div>
+        </div>
+      </ha-card>
+    ` : F``;
+    }
+    _renderZoneSequencingCard() {
+      return this.hass && this.config && this.data ? F`
+      <ha-card
+        header="${ls("zone_sequencing.title", this.hass.language)}"
+      >
+        <div class="card-content description-text">
+          ${ls("zone_sequencing.description", this.hass.language)}
+        </div>
+        <div class="card-content">
+          <div class="setting-row">
+            <label>
+              ${ls("zone_sequencing.title", this.hass.language)}
+            </label>
+            <ha-select
+              .value="${this.config.zone_sequencing || vt}"
+              @selected="${e => this.handleConfigChange({
+        [ft]: e.detail.value
+      })}"
+              @closed="${e => e.stopPropagation()}"
+            >
+              <mwc-list-item value="${vt}">
+                ${ls("zone_sequencing.parallel", this.hass.language)}
+              </mwc-list-item>
+              <mwc-list-item value="${"sequential"}">
+                ${ls("zone_sequencing.sequential", this.hass.language)}
+              </mwc-list-item>
+            </ha-select>
+          </div>
+        </div>
+      </ha-card>
+    ` : F``;
+    }
+    async saveData(e) {
+      if (this.hass && this.data) {
+        this.isSaving = !0, this._scheduleUpdate();
+        try {
+          this.data = Object.assign(Object.assign({}, this.data), e), this._scheduleUpdate(), await (t = this.hass, a = this.data, t.callApi("POST", Se + "/config", a));
+        } catch (e) {
+          console.error("Error saving config:", e), St(e, this.shadowRoot.querySelector("ha-card")), await this._fetchData();
+        } finally {
+          this.isSaving = !1, this._scheduleUpdate();
+        }
+        var t, a;
+      }
+    }
+    handleConfigChange(e) {
+      this.debouncedSave(e);
+    }
+    disconnectedCallback() {
+      super.disconnectedCallback();
+    }
+    static get styles() {
+      return c`
+      ${Lt}
+
+      .description-text {
+        font-size: 0.875rem;
+        color: var(--secondary-text-color);
+        padding-bottom: 4px;
+      }
+
+      .setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--divider-color);
+        gap: 16px;
+      }
+
+      .setting-row:last-child {
+        border-bottom: none;
+      }
+
+      .setting-row label {
+        flex: 1;
+        color: var(--primary-text-color);
+        font-size: 0.9375rem;
+      }
+
+      .setting-description {
+        font-size: 0.8125rem;
+        color: var(--secondary-text-color);
+        margin-top: 2px;
+      }
+
+      .inline-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .section-divider {
+        padding: 12px 0 4px;
+        font-weight: 500;
+        font-size: 0.8125rem;
+        color: var(--secondary-text-color);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-top: 1px solid var(--divider-color);
+        margin-top: 8px;
+      }
+
+      /* Native input styled to match HA */
+      .settings-input {
+        background: var(--input-fill-color, var(--secondary-background-color));
+        border: 1px solid var(--input-ink-color, var(--secondary-text-color));
+        border-radius: 4px;
+        color: var(--primary-text-color);
+        padding: 6px 10px;
+        font-family: var(
+          --mdc-typography-body1-font-family,
+          Roboto,
+          sans-serif
+        );
+        font-size: 0.9375rem;
+        box-sizing: border-box;
+        height: 36px;
+      }
+
+      .settings-input:focus {
+        border-color: var(--primary-color);
+        outline: none;
+      }
+
+      .settings-input.shortfield {
+        width: 110px;
+      }
+    `;
+    }
+  };
+  n([pe()], fs.prototype, "narrow", void 0), n([pe()], fs.prototype, "path", void 0), n([pe()], fs.prototype, "data", void 0), n([pe()], fs.prototype, "config", void 0), n([pe({
+    type: Boolean
+  })], fs.prototype, "isLoading", void 0), n([pe({
+    type: Boolean
+  })], fs.prototype, "isSaving", void 0), n([pe()], fs.prototype, "_weatherConfig", void 0), n([pe()], fs.prototype, "_weatherService", void 0), n([pe({
+    type: Boolean
+  })], fs.prototype, "_useWeatherService", void 0), n([pe()], fs.prototype, "_newApiKey", void 0), n([pe({
+    type: Boolean
+  })], fs.prototype, "_weatherSaving", void 0), fs = n([ce("smart-irrigation-view-general")], fs);
+  let vs = class extends jt(de) {
     constructor() {
       super(...arguments), this.zones = [], this.modules = [], this.allmodules = [], this.isLoading = !0, this.isSaving = !1, this._updateScheduled = !1, this.globalDebounceTimer = null, this.moduleCache = new Map(), this.debouncedSave = (() => {
         let e = null;
@@ -11347,7 +11508,7 @@
       }));
     }
     firstUpdated() {
-      _e().catch(e => {
+      be().catch(e => {
         console.error("Failed to load HA form:", e);
       });
     }
@@ -11366,7 +11527,7 @@
       if (this.hass) {
         this.isLoading = !0, this._scheduleUpdate();
         try {
-          const [t, a, i, n] = await Promise.all([$t(this.hass), xt(this.hass), At(this.hass), (e = this.hass, e.callWS({
+          const [t, a, i, n] = await Promise.all([Tt(this.hass), Mt(this.hass), Dt(this.hass), (e = this.hass, e.callWS({
             type: Se + "/allmodules"
           }))]);
           this.config = t, this.zones = a, this.modules = i, this.allmodules = n, this.moduleCache.clear();
@@ -11438,23 +11599,23 @@
           <div class="moduledescription${t}">${e.description}</div>
           <div class="moduleconfig">
             <label class="subheader"
-              >${es("panels.modules.cards.module.labels.configuration", this.hass.language)}
+              >${ls("panels.modules.cards.module.labels.configuration", this.hass.language)}
               (*
-              ${es("panels.modules.cards.module.labels.required", this.hass.language)})</label
+              ${ls("panels.modules.cards.module.labels.required", this.hass.language)})</label
             >
             ${e.schema ? Object.entries(e.schema).map(([e]) => this.renderConfig(t, e)) : null}
           </div>
           ${i ? F`<div class="weather-note">
-                ${es("panels.modules.cards.module.errors.cannot-delete-module-because-zones-use-it", this.hass.language)}
+                ${ls("panels.modules.cards.module.errors.cannot-delete-module-because-zones-use-it", this.hass.language)}
               </div>` : F` <div
                 class="action-button"
                 @click="${e => this.handleRemoveModule(e, t)}"
               >
                 <svg style="width:24px;height:24px" viewBox="0 0 24 24">
-                  <path fill="#404040" d="${ss}" />
+                  <path fill="#404040" d="${xt}" />
                 </svg>
                 <span class="action-button-label">
-                  ${es("common.actions.delete", this.hass.language)}
+                  ${ls("common.actions.delete", this.hass.language)}
                 </span>
               </div>`}
         </div>
@@ -11514,10 +11675,10 @@
         }))}"
         >
           ${Object.entries(i.options).map(([e, a]) => F`<option
-                value="${wt(a, 0)}"
-                ?selected="${r === wt(a, 0)}"
+                value="${kt(a, 0)}"
+                ?selected="${r === kt(a, 0)}"
               >
-                ${es("panels.modules.cards.module.translated-options." + wt(a, 1), t)}
+                ${ls("panels.modules.cards.module.translated-options." + kt(a, 1), t)}
               </option>`)}
         </select>`;
       }
@@ -11531,22 +11692,22 @@
     }
     render() {
       return this.hass ? F`
-      <ha-card header="${es("panels.modules.title", this.hass.language)}">
+      <ha-card header="${ls("panels.modules.title", this.hass.language)}">
         <div class="card-content">
-          ${es("panels.modules.description", this.hass.language)}
+          ${ls("panels.modules.description", this.hass.language)}
         </div>
       </ha-card>
 
       <ha-card
-        header="${es("panels.modules.cards.add-module.header", this.hass.language)}"
+        header="${ls("panels.modules.cards.add-module.header", this.hass.language)}"
       >
         <div class="card-content">
           ${this.isLoading ? F`<div class="loading-indicator">
-                ${es("common.loading-messages.general", this.hass.language)}
+                ${ls("common.loading-messages.general", this.hass.language)}
               </div>` : F`
                 <div class="zoneline">
                   <label for="moduleInput"
-                    >${es("common.labels.module", this.hass.language)}:</label
+                    >${ls("common.labels.module", this.hass.language)}:</label
                   >
                   <select id="moduleInput" ?disabled="${this.isSaving}">
                     ${Object.entries(this.allmodules).map(([e, t]) => F`<option value="${t.id}">
@@ -11561,7 +11722,7 @@
                     ?disabled="${this.isSaving}"
                     class="${this.isSaving ? "saving" : ""}"
                   >
-                    ${this.isSaving ? es("common.saving-messages.adding", this.hass.language) : es("panels.modules.cards.add-module.actions.add", this.hass.language)}
+                    ${this.isSaving ? ls("common.saving-messages.adding", this.hass.language) : ls("panels.modules.cards.add-module.actions.add", this.hass.language)}
                   </button>
                 </div>
               `}
@@ -11569,7 +11730,7 @@
       </ha-card>
 
       ${this.isLoading ? F`<div class="loading-indicator">
-            ${es("common.loading-messages.modules", this.hass.language)}
+            ${ls("common.loading-messages.modules", this.hass.language)}
           </div>` : Object.entries(this.modules).map(([e, t]) => this.renderModule(t, parseInt(e)))}
     ` : F``;
     }
@@ -11578,22 +11739,22 @@
     }
     static get styles() {
       return c`
-      ${ts}/* View-specific styles only - most common styles are now in globalStyle */
+      ${Lt}/* View-specific styles only - most common styles are now in globalStyle */
     `;
     }
   };
-  n([pe()], ms.prototype, "config", void 0), n([pe({
+  n([pe()], vs.prototype, "config", void 0), n([pe({
     type: Array
-  })], ms.prototype, "zones", void 0), n([pe({
+  })], vs.prototype, "zones", void 0), n([pe({
     type: Array
-  })], ms.prototype, "modules", void 0), n([pe({
+  })], vs.prototype, "modules", void 0), n([pe({
     type: Array
-  })], ms.prototype, "allmodules", void 0), n([pe({
+  })], vs.prototype, "allmodules", void 0), n([pe({
     type: Boolean
-  })], ms.prototype, "isLoading", void 0), n([pe({
+  })], vs.prototype, "isLoading", void 0), n([pe({
     type: Boolean
-  })], ms.prototype, "isSaving", void 0), n([me("#moduleInput")], ms.prototype, "moduleInput", void 0), ms = n([ce("smart-irrigation-view-modules")], ms);
-  let fs = class extends Dt(de) {
+  })], vs.prototype, "isSaving", void 0), n([me("#moduleInput")], vs.prototype, "moduleInput", void 0), vs = n([ce("smart-irrigation-view-modules")], vs);
+  let _s = class extends jt(de) {
     constructor() {
       super(...arguments), this.zones = [], this.mappings = [], this.weatherRecords = new Map(), this.isLoading = !0, this.isSaving = !1, this.debounceTimers = new Map(), this.globalDebounceTimer = null, this.mappingCache = new Map(), this._updateScheduled = !1, this._lastUpdateTime = 0, this._updateThrottleDelay = 16;
     }
@@ -11607,7 +11768,7 @@
       }));
     }
     firstUpdated() {
-      _e().catch(e => {
+      be().catch(e => {
         console.error("Failed to load HA form:", e);
       });
     }
@@ -11626,10 +11787,10 @@
       var e;
       if (this.hass) try {
         this.isLoading = !0;
-        const [e, t, a] = await Promise.all([$t(this.hass), xt(this.hass), Et(this.hass)]);
+        const [e, t, a] = await Promise.all([Tt(this.hass), Mt(this.hass), Ct(this.hass)]);
         this.config = e, this.zones = t, this.mappings = a, this._fetchWeatherRecords(), this.mappingCache.clear();
       } catch (t) {
-        console.error("Error fetching data:", t), zt({
+        console.error("Error fetching data:", t), St({
           body: {
             message: "Failed to load mapping data"
           },
@@ -11642,7 +11803,7 @@
     async _fetchWeatherRecords() {
       if (this.hass) {
         for (const e of this.mappings) if (void 0 !== e.id) try {
-          const t = await Tt(this.hass, e.id.toString(), 10);
+          const t = await Ot(this.hass, e.id.toString(), 10);
           this.weatherRecords.set(e.id, t);
         } catch (t) {
           console.error(`Failed to fetch weather records for mapping ${e.id}:`, t), this.weatherRecords.set(e.id, []);
@@ -11656,29 +11817,29 @@
       return F`
       <div class="weather-records">
         <h4>
-          ${es("panels.mappings.weather-records.title", this.hass.language)}
+          ${ls("panels.mappings.weather-records.title", this.hass.language)}
         </h4>
         ${0 === t.length ? F`
               <div class="weather-note">
-                ${es("panels.mappings.weather-records.no-data", this.hass.language)}
+                ${ls("panels.mappings.weather-records.no-data", this.hass.language)}
               </div>
             ` : F`
               <div class="weather-table">
                 <div class="weather-header">
                   <span
-                    >${es("panels.mappings.weather-records.timestamp", this.hass.language)}</span
+                    >${ls("panels.mappings.weather-records.timestamp", this.hass.language)}</span
                   >
                   <span
-                    >${es("panels.mappings.weather-records.temperature", this.hass.language)}</span
+                    >${ls("panels.mappings.weather-records.temperature", this.hass.language)}</span
                   >
                   <span
-                    >${es("panels.mappings.weather-records.humidity", this.hass.language)}</span
+                    >${ls("panels.mappings.weather-records.humidity", this.hass.language)}</span
                   >
                   <span
-                    >${es("panels.mappings.weather-records.precipitation", this.hass.language)}</span
+                    >${ls("panels.mappings.weather-records.precipitation", this.hass.language)}</span
                   >
                   <span
-                    >${es("panels.mappings.weather-records.retrieval-time", this.hass.language)}</span
+                    >${ls("panels.mappings.weather-records.retrieval-time", this.hass.language)}</span
                   >
                 </div>
                 ${t.slice(0, 10).map(e => {
@@ -11686,7 +11847,7 @@
           a = "-";
         try {
           if (e.timestamp && null !== e.timestamp) {
-            const a = ps(e.timestamp);
+            const a = gs(e.timestamp);
             a.isValid() && (t = a.format("MM-DD HH:mm"));
           }
         } catch (t) {
@@ -11694,7 +11855,7 @@
         }
         try {
           if (e.retrieval_time && null !== e.retrieval_time) {
-            const t = ps(e.retrieval_time);
+            const t = gs(e.retrieval_time);
             t.isValid() && (a = t.format("MM-DD HH:mm"));
           }
         } catch (t) {
@@ -11724,15 +11885,15 @@
     handleAddMapping() {
       if (!this.mappingNameInput.value.trim()) return;
       const e = {
-          [Te]: "",
           [Me]: "",
           [De]: "",
           [Ce]: "",
-          [Ne]: "",
           [Oe]: "",
+          [Ne]: "",
           [je]: "",
           [He]: "",
-          [Pe]: ""
+          [Pe]: "",
+          [Le]: ""
         },
         t = {
           name: this.mappingNameInput.value.trim(),
@@ -11783,11 +11944,11 @@
       }
       if (a.length > 0) {
         const e = null === (t = this.shadowRoot) || void 0 === t ? void 0 : t.querySelector("ha-card");
-        throw e && zt({
+        throw e && St({
           body: {
-            message: es("panels.mappings.cards.mapping.errors.source_does_not_exist", this.hass.language) + ": " + a.join(", ")
+            message: ls("panels.mappings.cards.mapping.errors.source_does_not_exist", this.hass.language) + ": " + a.join(", ")
           },
-          error: es("panels.mappings.cards.mapping.errors.invalid_source", this.hass.language)
+          error: ls("panels.mappings.cards.mapping.errors.invalid_source", this.hass.language)
         }, e), new Error("Invalid sensor entities found");
       }
       const {
@@ -11812,7 +11973,7 @@
         <div class="card-content">
           <div class="card-content">
             <label for="name${e.id}"
-              >${es("panels.mappings.labels.mapping-name", this.hass.language)}:</label
+              >${ls("panels.mappings.labels.mapping-name", this.hass.language)}:</label
             >
             <input
               id="name${e.id}"
@@ -11824,16 +11985,16 @@
             />
             ${Object.entries(e.mappings).map(([e]) => this.renderMappingSetting(t, e))}
             ${i ? F`<div class="weather-note">
-                  ${es("panels.mappings.cards.mapping.errors.cannot-delete-mapping-because-zones-use-it", this.hass.language)}
+                  ${ls("panels.mappings.cards.mapping.errors.cannot-delete-mapping-because-zones-use-it", this.hass.language)}
                 </div>` : F` <div
                   class="action-button"
                   @click="${e => this.handleRemoveMapping(e, t)}"
                 >
                   <svg style="width:24px;height:24px" viewBox="0 0 24 24">
-                    <path fill="#404040" d="${ss}" />
+                    <path fill="#404040" d="${xt}" />
                   </svg>
                   <span class="action-button-label">
-                    ${es("common.actions.delete", this.hass.language)}
+                    ${ls("common.actions.delete", this.hass.language)}
                   </span>
                 </div>`}
           </div>
@@ -11850,12 +12011,12 @@
       <div class="mappingline">
         <div class="mappingsettingname">
           <label for="${`${t}_${e}`}">
-            ${es(`panels.mappings.cards.mapping.items.${t.toLowerCase()}`, this.hass.language)}
+            ${ls(`panels.mappings.cards.mapping.items.${t.toLowerCase()}`, this.hass.language)}
           </label>
         </div>
         <div class="mappingsettingline">
           <label
-            >${es("panels.mappings.cards.mapping.source", this.hass.language)}:</label
+            >${ls("panels.mappings.cards.mapping.source", this.hass.language)}:</label
           >
           <div class="radio-group">
             ${this.renderSimpleRadioOptions(e, t, i)}
@@ -11867,19 +12028,19 @@
     }
     renderSimpleRadioOptions(e, t, a) {
       if (!this.hass || !this.config) return F``;
-      const i = t === Me || t === je,
-        n = a[We];
+      const i = t === De || t === He,
+        n = a[Ve];
       return F`
       ${!i && this.config.use_weather_service ? F`
             <label>
               <input
                 type="radio"
                 name="${t}_${e}_source"
-                value="${Le}"
-                ?checked="${n === Le}"
+                value="${Ie}"
+                ?checked="${n === Ie}"
                 @change="${a => this.handleSimpleSourceChange(e, t, a)}"
               />
-              ${es("panels.mappings.cards.mapping.sources.weather_service", this.hass.language)}
+              ${ls("panels.mappings.cards.mapping.sources.weather_service", this.hass.language)}
             </label>
           ` : ""}
       ${i ? F`
@@ -11891,20 +12052,9 @@
                 ?checked="${n === Ye}"
                 @change="${a => this.handleSimpleSourceChange(e, t, a)}"
               />
-              ${es("panels.mappings.cards.mapping.sources.none", this.hass.language)}
+              ${ls("panels.mappings.cards.mapping.sources.none", this.hass.language)}
             </label>
           ` : ""}
-
-      <label>
-        <input
-          type="radio"
-          name="${t}_${e}_source"
-          value="${Ie}"
-          ?checked="${n === Ie}"
-          @change="${a => this.handleSimpleSourceChange(e, t, a)}"
-        />
-        ${es("panels.mappings.cards.mapping.sources.sensor", this.hass.language)}
-      </label>
 
       <label>
         <input
@@ -11914,7 +12064,18 @@
           ?checked="${n === Ue}"
           @change="${a => this.handleSimpleSourceChange(e, t, a)}"
         />
-        ${es("panels.mappings.cards.mapping.sources.static", this.hass.language)}
+        ${ls("panels.mappings.cards.mapping.sources.sensor", this.hass.language)}
+      </label>
+
+      <label>
+        <input
+          type="radio"
+          name="${t}_${e}_source"
+          value="${Be}"
+          ?checked="${n === Be}"
+          @change="${a => this.handleSimpleSourceChange(e, t, a)}"
+        />
+        ${ls("panels.mappings.cards.mapping.sources.static", this.hass.language)}
       </label>
     `;
     }
@@ -11924,8 +12085,8 @@
       this.handleEditMapping(e, Object.assign(Object.assign({}, i), {
         mappings: Object.assign(Object.assign({}, i.mappings), {
           [t]: Object.assign(Object.assign({}, i.mappings[t]), {
-            [We]: n,
-            [Ve]: ""
+            [Ve]: n,
+            [Ze]: ""
           })
         })
       }));
@@ -11943,11 +12104,11 @@
     }
     renderSourceOptions(e, t, a) {
       if (!this.hass) return F``;
-      const i = t === Me || t === je;
+      const i = t === De || t === He;
       return F`
       <div class="mappingsettingline">
         <label for="${`${t}_${e}`}_source">
-          ${es("panels.mappings.cards.mapping.source", this.hass.language)}:
+          ${ls("panels.mappings.cards.mapping.source", this.hass.language)}:
         </label>
       </div>
       <div class="radio-group">
@@ -11962,26 +12123,26 @@
       if (!this.hass || !this.config) return F``;
       const i = `${t}_${e}`,
         n = !this.config.use_weather_service,
-        s = this.config.use_weather_service && a[We] === Le;
+        s = this.config.use_weather_service && a[Ve] === Ie;
       return F`
       <label class="${n ? "strikethrough" : ""}">
         <input
           type="radio"
           id="${i}_weather"
-          value="${Le}"
+          value="${Ie}"
           name="${i}_source"
           ?checked="${s}"
           ?disabled="${n}"
           @change="${a => this.handleSourceChange(e, t, a)}"
         />
-        ${es("panels.mappings.cards.mapping.sources.weather_service", this.hass.language)}
+        ${ls("panels.mappings.cards.mapping.sources.weather_service", this.hass.language)}
       </label>
     `;
     }
     renderNoneOption(e, t, a) {
       if (!this.hass) return F``;
       const i = `${t}_${e}`,
-        n = a[We] === Ye;
+        n = a[Ve] === Ye;
       return F`
       <label>
         <input
@@ -11992,43 +12153,43 @@
           ?checked="${n}"
           @change="${a => this.handleSourceChange(e, t, a)}"
         />
-        ${es("panels.mappings.cards.mapping.sources.none", this.hass.language)}
+        ${ls("panels.mappings.cards.mapping.sources.none", this.hass.language)}
       </label>
     `;
     }
     renderSensorOption(e, t, a) {
       if (!this.hass) return F``;
       const i = `${t}_${e}`,
-        n = a[We] === Ie;
+        n = a[Ve] === Ue;
       return F`
       <label>
         <input
           type="radio"
           id="${i}_sensor"
-          value="${Ie}"
+          value="${Ue}"
           name="${i}_source"
           ?checked="${n}"
           @change="${a => this.handleSourceChange(e, t, a)}"
         />
-        ${es("panels.mappings.cards.mapping.sources.sensor", this.hass.language)}
+        ${ls("panels.mappings.cards.mapping.sources.sensor", this.hass.language)}
       </label>
     `;
     }
     renderStaticValueOption(e, t, a) {
       if (!this.hass) return F``;
       const i = `${t}_${e}`,
-        n = a[We] === Ue;
+        n = a[Ve] === Be;
       return F`
       <label>
         <input
           type="radio"
           id="${i}_static"
-          value="${Ue}"
+          value="${Be}"
           name="${i}_source"
           ?checked="${n}"
           @change="${a => this.handleSourceChange(e, t, a)}"
         />
-        ${es("panels.mappings.cards.mapping.sources.static", this.hass.language)}
+        ${ls("panels.mappings.cards.mapping.sources.static", this.hass.language)}
       </label>
     `;
     }
@@ -12038,21 +12199,21 @@
       this.handleEditMapping(e, Object.assign(Object.assign({}, i), {
         mappings: Object.assign(Object.assign({}, i.mappings), {
           [t]: Object.assign(Object.assign({}, i.mappings[t]), {
-            [We]: n,
-            [Ve]: ""
+            [Ve]: n,
+            [Ze]: ""
           })
         })
       }));
     }
     renderMappingInputs(e, t, a) {
       if (!this.hass) return F``;
-      const i = a[We];
+      const i = a[Ve];
       return F`
-      ${i === Ie ? this.renderSensorInput(e, t, a) : ""}
-      ${i === Ue ? this.renderStaticValueInput(e, t, a) : ""}
-      ${i === Ie || i === Ue ? this.renderUnitSelect(e, t, a) : ""}
-      ${t !== Oe || i !== Ie && i !== Ue ? "" : this.renderPressureTypeSelect(e, t, a)}
-      ${i === Ie ? this.renderAggregateSelect(e, t, a) : ""}
+      ${i === Ue ? this.renderSensorInput(e, t, a) : ""}
+      ${i === Be ? this.renderStaticValueInput(e, t, a) : ""}
+      ${i === Ue || i === Be ? this.renderUnitSelect(e, t, a) : ""}
+      ${t !== je || i !== Ue && i !== Be ? "" : this.renderPressureTypeSelect(e, t, a)}
+      ${i === Ue ? this.renderAggregateSelect(e, t, a) : ""}
     `;
     }
     renderSensorInput(e, t, a) {
@@ -12061,12 +12222,12 @@
       return F`
       <div class="mappingsettingline">
         <label for="${i}_sensor_entity">
-          ${es("panels.mappings.cards.mapping.sensor-entity", this.hass.language)}:
+          ${ls("panels.mappings.cards.mapping.sensor-entity", this.hass.language)}:
         </label>
         <input
           type="text"
           id="${i}_sensor_entity"
-          .value="${a[Ve] || ""}"
+          .value="${a[Ze] || ""}"
           @change="${a => this.handleSensorChange(e, t, a)}"
         />
       </div>
@@ -12078,12 +12239,12 @@
       return F`
       <div class="mappingsettingline">
         <label for="${i}_static_value">
-          ${es("panels.mappings.cards.mapping.static_value", this.hass.language)}:
+          ${ls("panels.mappings.cards.mapping.static_value", this.hass.language)}:
         </label>
         <input
           type="text"
           id="${i}_static_value"
-          .value="${a[Ze] || ""}"
+          .value="${a[Ge] || ""}"
           @input="${a => this.handleStaticValueChange(e, t, a)}"
         />
       </div>
@@ -12095,7 +12256,7 @@
       return F`
       <div class="mappingsettingline">
         <label for="${i}_unit">
-          ${es("panels.mappings.cards.mapping.input-units", this.hass.language)}:
+          ${ls("panels.mappings.cards.mapping.input-units", this.hass.language)}:
         </label>
         <select
           id="${i}_unit"
@@ -12112,7 +12273,7 @@
       return F`
       <div class="mappingsettingline">
         <label for="${i}_pressure_type">
-          ${es("panels.mappings.cards.mapping.pressure-type", this.hass.language)}:
+          ${ls("panels.mappings.cards.mapping.pressure-type", this.hass.language)}:
         </label>
         <select
           id="${i}_pressure_type"
@@ -12129,7 +12290,7 @@
       return F`
       <div class="mappingsettingline">
         <label for="${i}_aggregate">
-          ${es("panels.mappings.cards.mapping.sensor-aggregate-use-the", this.hass.language)}
+          ${ls("panels.mappings.cards.mapping.sensor-aggregate-use-the", this.hass.language)}
         </label>
         <select
           id="${i}_aggregate"
@@ -12138,7 +12299,7 @@
           ${this.renderAggregateOptionsForMapping(t, a)}
         </select>
         <label for="${i}_aggregate">
-          ${es("panels.mappings.cards.mapping.sensor-aggregate-of-sensor-values-to-calculate", this.hass.language)}
+          ${ls("panels.mappings.cards.mapping.sensor-aggregate-of-sensor-values-to-calculate", this.hass.language)}
         </label>
       </div>
     `;
@@ -12148,7 +12309,7 @@
       this.handleEditMapping(e, Object.assign(Object.assign({}, i), {
         mappings: Object.assign(Object.assign({}, i.mappings), {
           [t]: Object.assign(Object.assign({}, i.mappings[t]), {
-            [Ve]: a.target.value
+            [Ze]: a.target.value
           })
         })
       }));
@@ -12158,7 +12319,7 @@
       this.handleEditMapping(e, Object.assign(Object.assign({}, i), {
         mappings: Object.assign(Object.assign({}, i.mappings), {
           [t]: Object.assign(Object.assign({}, i.mappings[t]), {
-            [Ze]: a.target.value
+            [Ge]: a.target.value
           })
         })
       }));
@@ -12168,7 +12329,7 @@
       this.handleEditMapping(e, Object.assign(Object.assign({}, i), {
         mappings: Object.assign(Object.assign({}, i.mappings), {
           [t]: Object.assign(Object.assign({}, i.mappings[t]), {
-            [Ge]: a.target.value
+            [qe]: a.target.value
           })
         })
       }));
@@ -12178,7 +12339,7 @@
       this.handleEditMapping(e, Object.assign(Object.assign({}, i), {
         mappings: Object.assign(Object.assign({}, i.mappings), {
           [t]: Object.assign(Object.assign({}, i.mappings[t]), {
-            [Be]: a.target.value
+            [Re]: a.target.value
           })
         })
       }));
@@ -12188,7 +12349,7 @@
       this.handleEditMapping(e, Object.assign(Object.assign({}, i), {
         mappings: Object.assign(Object.assign({}, i.mappings), {
           [t]: Object.assign(Object.assign({}, i.mappings[t]), {
-            [qe]: a.target.value
+            [Ke]: a.target.value
           })
         })
       }));
@@ -12196,14 +12357,14 @@
     renderAggregateOptionsForMapping(e, t) {
       if (!this.hass || !this.config) return F``;
       let a = "average";
-      return e === Ce && (a = "delta"), e === Ne && (a = "average"), t[qe] && (a = t[qe]), F`
-      ${Ke.map(e => this.renderAggregateOption(e, a))}
+      return e === Oe && (a = "delta"), e === Ne && (a = "average"), t[Ke] && (a = t[Ke]), F`
+      ${Xe.map(e => this.renderAggregateOption(e, a))}
     `;
     }
     renderAggregateOption(e, t) {
       if (this.hass && this.config) {
         return F`<option value="${e}" ?selected="${e === t}">
-        ${es("panels.mappings.cards.mapping.aggregates." + e, this.hass.language)}
+        ${ls("panels.mappings.cards.mapping.aggregates." + e, this.hass.language)}
       </option>`;
       }
       return F``;
@@ -12211,19 +12372,19 @@
     renderPressureTypes(e, t) {
       if (this.hass && this.config) {
         let e = F``;
-        const a = t[Be];
+        const a = t[Re];
         return e = F`${e}
-        <option
-          value="${Re}"
-          ?selected="${a === Re}"
-        >
-          ${es("panels.mappings.cards.mapping.pressure_types." + Re, this.hass.language)}
-        </option>
         <option
           value="${Fe}"
           ?selected="${a === Fe}"
         >
-          ${es("panels.mappings.cards.mapping.pressure_types." + Fe, this.hass.language)}
+          ${ls("panels.mappings.cards.mapping.pressure_types." + Fe, this.hass.language)}
+        </option>
+        <option
+          value="${We}"
+          ?selected="${a === We}"
+        >
+          ${ls("panels.mappings.cards.mapping.pressure_types." + We, this.hass.language)}
         </option>`, e;
       }
       return F``;
@@ -12232,83 +12393,83 @@
       if (!this.hass || !this.config) return F``;
       const a = function (e) {
         switch (e) {
-          case Te:
-          case He:
+          case Me:
+          case Pe:
             return [{
               unit: "°C",
-              system: Ee
+              system: Te
             }, {
               unit: "°F",
-              system: Ae
+              system: Ee
             }];
-          case Ce:
-          case Me:
+          case Oe:
+          case De:
             return [{
               unit: "mm",
-              system: Ee
+              system: Te
             }, {
               unit: "in",
-              system: Ae
+              system: Ee
             }];
           case Ne:
             return [{
-              unit: Xe,
-              system: Ee
-            }, {
               unit: Je,
-              system: Ae
+              system: Te
+            }, {
+              unit: Qe,
+              system: Ee
             }];
-          case De:
+          case Ce:
             return [{
               unit: "%",
-              system: [Ee, Ae]
-            }];
-          case Oe:
-            return [{
-              unit: "millibar",
-              system: Ee
-            }, {
-              unit: "hPa",
-              system: Ee
-            }, {
-              unit: "psi",
-              system: Ae
-            }, {
-              unit: "inch Hg",
-              system: Ae
-            }];
-          case Pe:
-            return [{
-              unit: "km/h",
-              system: Ee
-            }, {
-              unit: "meter/s",
-              system: Ee
-            }, {
-              unit: "mile/h",
-              system: Ae
+              system: [Te, Ee]
             }];
           case je:
             return [{
-              unit: "W/m2",
+              unit: "millibar",
+              system: Te
+            }, {
+              unit: "hPa",
+              system: Te
+            }, {
+              unit: "psi",
               system: Ee
+            }, {
+              unit: "inch Hg",
+              system: Ee
+            }];
+          case Le:
+            return [{
+              unit: "km/h",
+              system: Te
+            }, {
+              unit: "meter/s",
+              system: Te
+            }, {
+              unit: "mile/h",
+              system: Ee
+            }];
+          case He:
+            return [{
+              unit: "W/m2",
+              system: Te
             }, {
               unit: "MJ/day/m2",
-              system: Ee
+              system: Te
             }, {
               unit: "W/sq ft",
-              system: Ae
+              system: Ee
             }, {
               unit: "MJ/day/sq ft",
-              system: Ae
+              system: Ee
             }];
           default:
             return [];
         }
       }(e);
-      let i = t[Ge];
+      let i = t[qe];
       const n = this.config.units;
-      if (!t[Ge]) for (const e of a) if ("string" == typeof e.system) {
+      if (!t[qe]) for (const e of a) if ("string" == typeof e.system) {
         if (n === e.system) {
           i = e.unit;
           break;
@@ -12331,35 +12492,35 @@
     render() {
       return this.hass ? this.isLoading ? F`
         <ha-card
-          header="${es("panels.mappings.title", this.hass.language)}"
+          header="${ls("panels.mappings.title", this.hass.language)}"
         >
           <div class="card-content">
-            ${es("common.loading-messages.general", this.hass.language)}
+            ${ls("common.loading-messages.general", this.hass.language)}
           </div>
         </ha-card>
       ` : F`
       <ha-card
-        header="${es("panels.mappings.title", this.hass.language)}"
+        header="${ls("panels.mappings.title", this.hass.language)}"
       >
         <div class="card-content">
-          ${es("panels.mappings.description", this.hass.language)}
+          ${ls("panels.mappings.description", this.hass.language)}
         </div>
       </ha-card>
 
       <ha-card
-        header="${es("panels.mappings.cards.add-mapping.header", this.hass.language)}"
+        header="${ls("panels.mappings.cards.add-mapping.header", this.hass.language)}"
       >
         <div class="card-content">
           <div class="zoneline">
             <label for="mappingNameInput"
-              >${es("panels.mappings.labels.mapping-name", this.hass.language)}:</label
+              >${ls("panels.mappings.labels.mapping-name", this.hass.language)}:</label
             >
             <input id="mappingNameInput" type="text" />
           </div>
           <div class="zoneline">
             <span></span>
             <button @click="${this.handleAddMapping}">
-              ${es("panels.mappings.cards.add-mapping.actions.add", this.hass.language)}
+              ${ls("panels.mappings.cards.add-mapping.actions.add", this.hass.language)}
             </button>
           </div>
         </div>
@@ -12390,7 +12551,7 @@
         <div class="card-content">
           <div class="card-content">
             <label for="name${e.id}"
-              >${es("panels.mappings.labels.mapping-name", this.hass.language)}:</label
+              >${ls("panels.mappings.labels.mapping-name", this.hass.language)}:</label
             >
             <input
               id="name${e.id}"
@@ -12403,16 +12564,16 @@
             ${this.renderMappingSettings(e, t)}
             ${this.renderWeatherRecords(e)}
             ${a ? F`<div class="weather-note">
-                  ${es("panels.mappings.cards.mapping.errors.cannot-delete-mapping-because-zones-use-it", this.hass.language)}
+                  ${ls("panels.mappings.cards.mapping.errors.cannot-delete-mapping-because-zones-use-it", this.hass.language)}
                 </div>` : F` <div
                   class="action-button"
                   @click="${e => this.handleRemoveMapping(e, t)}"
                 >
                   <svg style="width:24px;height:24px" viewBox="0 0 24 24">
-                    <path fill="#404040" d="${ss}" />
+                    <path fill="#404040" d="${xt}" />
                   </svg>
                   <span class="action-button-label">
-                    ${es("common.actions.delete", this.hass.language)}
+                    ${ls("common.actions.delete", this.hass.language)}
                   </span>
                 </div>`}
           </div>
@@ -12431,7 +12592,7 @@
     }
     static get styles() {
       return c`
-      ${ts}/* View-specific styles only - most common styles are now in globalStyle */
+      ${Lt}/* View-specific styles only - most common styles are now in globalStyle */
     `;
     }
     disconnectedCallback() {
@@ -12440,384 +12601,19 @@
       }), this.debounceTimers.clear(), this.globalDebounceTimer && (clearTimeout(this.globalDebounceTimer), this.globalDebounceTimer = null), this.mappingCache.clear();
     }
   };
-  n([pe()], fs.prototype, "config", void 0), n([pe({
+  n([pe()], _s.prototype, "config", void 0), n([pe({
     type: Array
-  })], fs.prototype, "zones", void 0), n([pe({
+  })], _s.prototype, "zones", void 0), n([pe({
     type: Array
-  })], fs.prototype, "mappings", void 0), n([pe({
+  })], _s.prototype, "mappings", void 0), n([pe({
     type: Map
-  })], fs.prototype, "weatherRecords", void 0), n([pe({
+  })], _s.prototype, "weatherRecords", void 0), n([pe({
     type: Boolean
-  })], fs.prototype, "isLoading", void 0), n([pe({
+  })], _s.prototype, "isLoading", void 0), n([pe({
     type: Boolean
-  })], fs.prototype, "isSaving", void 0), n([me("#mappingNameInput")], fs.prototype, "mappingNameInput", void 0), fs = n([ce("smart-irrigation-view-mappings")], fs);
-  let vs = class extends Dt(de) {
-    constructor() {
-      super(...arguments), this.zones = [], this.isLoading = !0, this._updateScheduled = !1;
-    }
-    _scheduleUpdate() {
-      this._updateScheduled || (this._updateScheduled = !0, requestAnimationFrame(() => {
-        this._updateScheduled = !1, this.requestUpdate();
-      }));
-    }
-    firstUpdated() {
-      _e().catch(e => {
-        console.error("Failed to load HA form:", e);
-      });
-    }
-    hassSubscribe() {
-      return this._fetchData().catch(e => {
-        console.error("Failed to fetch initial data:", e);
-      }), [this.hass.connection.subscribeMessage(() => {
-        this._fetchData().catch(e => {
-          console.error("Failed to fetch data on config update:", e);
-        });
-      }, {
-        type: Se + "_config_updated"
-      })];
-    }
-    async _fetchData() {
-      var e;
-      if (this.hass) try {
-        this.isLoading = !0;
-        const [t, a, i] = await Promise.all([$t(this.hass), (e = this.hass, e.callWS({
-          type: Se + "/info"
-        })), xt(this.hass)]);
-        this.config = t, this.info = a, this.zones = i;
-      } catch (e) {
-        console.error("Error fetching data:", e);
-      } finally {
-        this.isLoading = !1, this._scheduleUpdate();
-      }
-    }
-    render() {
-      return this.hass ? this.isLoading ? F`
-        <ha-card header="${es("panels.info.title", this.hass.language)}">
-          <div class="card-content">
-            ${es("common.loading", this.hass.language)}...
-          </div>
-        </ha-card>
-      ` : this.config ? F`
-      <ha-card header="${es("panels.info.title", this.hass.language)}">
-        <div class="card-content">
-          ${es("panels.info.description", this.hass.language)}
-        </div>
-      </ha-card>
-
-      ${this.renderIrrigateNowCard()} ${this.renderZoneBucketsCard()}
-      ${this.renderNextIrrigationCard()} ${this.renderIrrigationReasonCard()}
-    ` : F`
-        <ha-card header="${es("panels.info.title", this.hass.language)}">
-          <div class="card-content">
-            ${es("panels.info.configuration-not-available", this.hass.language)}
-          </div>
-        </ha-card>
-      ` : F``;
-    }
-    renderIrrigateNowCard() {
-      if (!this.hass) return F``;
-      const e = this.zones.some(e => {
-        var t;
-        return e.linked_entity && (null !== (t = e.duration) && void 0 !== t ? t : 0) > 0;
-      });
-      return F`
-      <ha-card
-        header="${es("panels.info.cards.irrigate_now.title", this.hass.language)}"
-      >
-        <div class="card-content">
-          ${es("panels.info.cards.irrigate_now.description", this.hass.language)}
-        </div>
-        <div class="card-content">
-          <button
-            class="irrigate-btn"
-            ?disabled="${!e}"
-            @click=${() => {
-        this.hass && Mt(this.hass).catch(e => console.error("irrigate_now failed", e));
-      }}
-          >
-            ${es("panels.info.cards.irrigate_now.button_all", this.hass.language)}
-          </button>
-          ${e ? "" : F`<span class="irrigate-note"
-                >${es("panels.info.cards.irrigate_now.no_linked_zones", this.hass.language)}</span
-              >`}
-        </div>
-      </ha-card>
-    `;
-    }
-    renderZoneBucketsCard() {
-      if (!this.hass) return F``;
-      if (!this.zones || 0 === this.zones.length) return F`
-        <ha-card
-          header="${es("panels.info.cards.zone-bucket-values.title", this.hass.language)}"
-        >
-          <div class="card-content">
-            <div class="info-item">
-              <span class="value"
-                >${es("panels.info.cards.zone-bucket-values.no-zones", this.hass.language)}</span
-              >
-            </div>
-          </div>
-        </ha-card>
-      `;
-      const e = this.config ? kt(this.config, st) : "mm";
-      return F`
-      <ha-card
-        header="${es("panels.info.cards.zone-bucket-values.title", this.hass.language)}"
-      >
-        <div class="card-content">
-          ${this.zones.map(t => {
-        var a, i, n, s, r, o, l, d;
-        return F`
-              <div class="info-item zone-info">
-                <div class="zone-header">
-                  <label class="zone-name">${t.name}:</label>
-                </div>
-                <div class="zone-details">
-                  <div class="zone-bucket">
-                    <span class="label"
-                      >${es("panels.info.cards.zone-bucket-values.labels.bucket", null !== (i = null === (a = this.hass) || void 0 === a ? void 0 : a.language) && void 0 !== i ? i : "en")}:</span
-                    >
-                    <span class="value">
-                      ${Number(t.bucket).toFixed(1)} ${e}
-                    </span>
-                  </div>
-                  <div class="zone-duration">
-                    <span class="label"
-                      >${es("panels.info.cards.zone-bucket-values.labels.duration", null !== (s = null === (n = this.hass) || void 0 === n ? void 0 : n.language) && void 0 !== s ? s : "en")}:</span
-                    >
-                    <span class="value">
-                      ${t.duration ? `${Math.round(t.duration)} ${es("common.units.seconds", null !== (o = null === (r = this.hass) || void 0 === r ? void 0 : r.language) && void 0 !== o ? o : "en")}` : `0 ${es("common.units.seconds", null !== (d = null === (l = this.hass) || void 0 === l ? void 0 : l.language) && void 0 !== d ? d : "en")}`}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            `;
-      })}
-        </div>
-      </ha-card>
-    `;
-    }
-    renderNextIrrigationCard() {
-      var e, t, a, i, n, s, r, o;
-      return this.hass && this.info ? F`
-      <ha-card
-        header="${es("panels.info.cards.next-irrigation.title", this.hass.language)}"
-      >
-        <div class="card-content">
-          <div class="info-item">
-            <label
-              >${es("panels.info.cards.next-irrigation.labels.next-start", this.hass.language)}:</label
-            >
-            <span class="value">
-              ${this.info.next_irrigation_start ? ps(this.info.next_irrigation_start).format("YYYY-MM-DD HH:mm:ss") : es("panels.info.cards.next-irrigation.no-data", this.hass.language)}
-            </span>
-          </div>
-
-          ${this.info.next_irrigation_duration ? F`
-                <div class="info-item">
-                  <label
-                    >${es("panels.info.cards.next-irrigation.labels.duration", this.hass.language)}:</label
-                  >
-                  <span class="value"
-                    >${this.info.next_irrigation_duration}
-                    ${es("common.units.seconds", this.hass.language)}</span
-                  >
-                </div>
-              ` : ""}
-          ${this.info.next_irrigation_zones && this.info.next_irrigation_zones.length > 0 ? F`
-                <div class="info-item">
-                  <label
-                    >${es("panels.info.cards.next-irrigation.labels.zones", this.hass.language)}:</label
-                  >
-                  <span class="value"
-                    >${this.info.next_irrigation_zones.join(", ")}</span
-                  >
-                </div>
-              ` : ""}
-        </div>
-      </ha-card>
-    ` : F`
-        <ha-card
-          header="${es("panels.info.cards.next-irrigation.title", null !== (t = null === (e = this.hass) || void 0 === e ? void 0 : e.language) && void 0 !== t ? t : "en")}"
-        >
-          <div class="card-content">
-            <div class="info-item">
-              <label
-                >${es("panels.info.cards.next-irrigation.labels.next-start", null !== (i = null === (a = this.hass) || void 0 === a ? void 0 : a.language) && void 0 !== i ? i : "en")}:</label
-              >
-              <span class="value">
-                ${es("panels.info.cards.next-irrigation.no-data", null !== (s = null === (n = this.hass) || void 0 === n ? void 0 : n.language) && void 0 !== s ? s : "en")}
-              </span>
-            </div>
-            <div class="info-note">
-              ${es("panels.info.cards.next-irrigation.backend-todo", null !== (o = null === (r = this.hass) || void 0 === r ? void 0 : r.language) && void 0 !== o ? o : "en")}
-            </div>
-          </div>
-        </ha-card>
-      `;
-    }
-    renderIrrigationReasonCard() {
-      var e, t, a, i, n, s, r, o;
-      return this.hass && this.info ? F`
-      <ha-card
-        header="${es("panels.info.cards.irrigation-reason.title", this.hass.language)}"
-      >
-        <div class="card-content">
-          <div class="info-item">
-            <label
-              >${es("panels.info.cards.irrigation-reason.labels.reason", this.hass.language)}:</label
-            >
-            <span class="value">
-              ${this.info.irrigation_reason || es("panels.info.cards.irrigation-reason.no-data", this.hass.language)}
-            </span>
-          </div>
-
-          ${this.info.sunrise_time ? F`
-                <div class="info-item">
-                  <label
-                    >${es("panels.info.cards.irrigation-reason.labels.sunrise", this.hass.language)}:</label
-                  >
-                  <span class="value"
-                    >${ps(this.info.sunrise_time).format("HH:mm:ss")}</span
-                  >
-                </div>
-              ` : ""}
-          ${void 0 !== this.info.total_irrigation_duration ? F`
-                <div class="info-item">
-                  <label
-                    >${es("panels.info.cards.irrigation-reason.labels.total-duration", this.hass.language)}:</label
-                  >
-                  <span class="value"
-                    >${this.info.total_irrigation_duration}
-                    ${es("common.units.seconds", this.hass.language)}</span
-                  >
-                </div>
-              ` : ""}
-          ${this.info.irrigation_explanation ? F`
-                <div class="info-item explanation">
-                  <label
-                    >${es("panels.info.cards.irrigation-reason.labels.explanation", this.hass.language)}:</label
-                  >
-                  <div class="explanation-text">
-                    ${this.info.irrigation_explanation}
-                  </div>
-                </div>
-              ` : ""}
-        </div>
-      </ha-card>
-    ` : F`
-        <ha-card
-          header="${es("panels.info.cards.irrigation-reason.title", null !== (t = null === (e = this.hass) || void 0 === e ? void 0 : e.language) && void 0 !== t ? t : "en")}"
-        >
-          <div class="card-content">
-            <div class="info-item">
-              <label
-                >${es("panels.info.cards.irrigation-reason.labels.reason", null !== (i = null === (a = this.hass) || void 0 === a ? void 0 : a.language) && void 0 !== i ? i : "en")}:</label
-              >
-              <span class="value">
-                ${es("panels.info.cards.irrigation-reason.no-data", null !== (s = null === (n = this.hass) || void 0 === n ? void 0 : n.language) && void 0 !== s ? s : "en")}
-              </span>
-            </div>
-            <div class="info-note">
-              ${es("panels.info.cards.irrigation-reason.backend-todo", null !== (o = null === (r = this.hass) || void 0 === r ? void 0 : r.language) && void 0 !== o ? o : "en")}
-            </div>
-          </div>
-        </ha-card>
-      `;
-    }
-    static get styles() {
-      return c`
-      ${ts} /* View-specific styles only - most common styles are now in globalStyle */
-
-      .zone-info {
-        margin-bottom: 16px;
-        padding: 8px 0;
-        border-bottom: 1px solid var(--divider-color);
-      }
-
-      .zone-info:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-      }
-
-      .zone-header {
-        margin-bottom: 8px;
-      }
-
-      .zone-name {
-        font-weight: 500;
-        color: var(--primary-text-color);
-      }
-
-      .zone-details {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        margin-left: 12px;
-      }
-
-      .zone-bucket,
-      .zone-duration {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .zone-bucket .label,
-      .zone-duration .label {
-        color: var(--secondary-text-color);
-        font-size: 0.9em;
-      }
-
-      .zone-bucket .value,
-      .zone-duration .value {
-        font-weight: 500;
-        color: var(--primary-text-color);
-      }
-
-      @media (min-width: 768px) {
-        .zone-details {
-          flex-direction: row;
-          gap: 24px;
-        }
-
-        .zone-bucket,
-        .zone-duration {
-          flex: 1;
-        }
-      }
-
-      .irrigate-btn {
-        padding: 8px 20px;
-        background: var(--primary-color);
-        color: var(--text-primary-color, #fff);
-        border: none;
-        border-radius: 4px;
-        font-size: 1rem;
-        cursor: pointer;
-      }
-      .irrigate-btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-      }
-      .irrigate-note {
-        display: block;
-        margin-top: 8px;
-        color: var(--secondary-text-color);
-        font-size: 0.875rem;
-      }
-    `;
-    }
-  };
-  n([pe()], vs.prototype, "config", void 0), n([pe({
-    type: Object
-  })], vs.prototype, "info", void 0), n([pe({
-    type: Array
-  })], vs.prototype, "zones", void 0), n([pe({
-    type: Boolean
-  })], vs.prototype, "isLoading", void 0), vs = n([ce("smart-irrigation-view-info")], vs);
+  })], _s.prototype, "isSaving", void 0), n([me("#mappingNameInput")], _s.prototype, "mappingNameInput", void 0), _s = n([ce("smart-irrigation-view-mappings")], _s);
   const bs = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-  let _s = class extends Dt(de) {
+  let ys = class extends jt(de) {
     constructor() {
       super(...arguments), this._schedules = [], this._zones = [], this._isLoading = !0, this._showDialog = !1, this._editingSchedule = {
         name: "",
@@ -12838,7 +12634,7 @@
       if (this.hass) try {
         const [t, a] = await Promise.all([(e = this.hass, e.callWS({
           type: Se + "/schedules"
-        })), xt(this.hass)]);
+        })), Mt(this.hass)]);
         this._schedules = t || [], this._zones = a || [];
       } catch (e) {
         console.error("Failed to load schedules", e);
@@ -12890,13 +12686,13 @@
       this._editingSchedule = Object.assign(Object.assign({}, this._editingSchedule), e);
     }
     _typeLabel(e) {
-      return es(`panels.schedules.types.${e}`, this.hass.language) || e;
+      return ls(`panels.schedules.types.${e}`, this.hass.language) || e;
     }
     _actionLabel(e) {
-      return es(`panels.schedules.actions.${e}`, this.hass.language) || e;
+      return ls(`panels.schedules.actions.${e}`, this.hass.language) || e;
     }
     _zonesLabel(e) {
-      if ("all" === e) return es("panels.schedules.zones_all", this.hass.language);
+      if ("all" === e) return ls("panels.schedules.zones_all", this.hass.language);
       if (Array.isArray(e)) {
         const t = e.map(e => {
           const t = this._zones.find(t => String(t.id) === String(e));
@@ -12912,7 +12708,7 @@
       return F`
       <div class="field">
         <label
-          >${es("panels.schedules.fields.zones", this.hass.language)}</label
+          >${ls("panels.schedules.fields.zones", this.hass.language)}</label
         >
         <div class="switch-container">
           <input
@@ -12925,7 +12721,7 @@
       })}
           />
           <label for="zones_all"
-            >${es("panels.schedules.zones_all", this.hass.language)}</label
+            >${ls("panels.schedules.zones_all", this.hass.language)}</label
           >
           <input
             type="radio"
@@ -12937,7 +12733,7 @@
       })}
           />
           <label for="zones_specific"
-            >${es("panels.schedules.zones_specific", this.hass.language)}</label
+            >${ls("panels.schedules.zones_specific", this.hass.language)}</label
           >
         </div>
         ${e ? "" : F`
@@ -12973,7 +12769,7 @@
           return F`
           <div class="field">
             <label
-              >${es("panels.schedules.fields.time", this.hass.language)}</label
+              >${ls("panels.schedules.fields.time", this.hass.language)}</label
             >
             <input
               type="time"
@@ -12988,7 +12784,7 @@
           return F`
           <div class="field">
             <label
-              >${es("panels.schedules.fields.time", this.hass.language)}</label
+              >${ls("panels.schedules.fields.time", this.hass.language)}</label
             >
             <input
               type="time"
@@ -13000,7 +12796,7 @@
           </div>
           <div class="field">
             <label
-              >${es("panels.schedules.fields.days_of_week", this.hass.language)}</label
+              >${ls("panels.schedules.fields.days_of_week", this.hass.language)}</label
             >
             <div class="day-checkboxes">
               ${bs.map(e => F`
@@ -13017,7 +12813,7 @@
             });
           }}
                     />
-                    ${es(`panels.schedules.days.${e}`, this.hass.language)}
+                    ${ls(`panels.schedules.days.${e}`, this.hass.language)}
                   </label>
                 `)}
             </div>
@@ -13027,7 +12823,7 @@
           return F`
           <div class="field">
             <label
-              >${es("panels.schedules.fields.time", this.hass.language)}</label
+              >${ls("panels.schedules.fields.time", this.hass.language)}</label
             >
             <input
               type="time"
@@ -13039,7 +12835,7 @@
           </div>
           <div class="field">
             <label
-              >${es("panels.schedules.fields.day_of_month", this.hass.language)}</label
+              >${ls("panels.schedules.fields.day_of_month", this.hass.language)}</label
             >
             <input
               type="number"
@@ -13056,7 +12852,7 @@
           return F`
           <div class="field">
             <label
-              >${es("panels.schedules.fields.interval_hours", this.hass.language)}</label
+              >${ls("panels.schedules.fields.interval_hours", this.hass.language)}</label
             >
             <div class="input-suffix-row">
               <input
@@ -13068,7 +12864,7 @@
           })}
               />
               <span class="suffix"
-                >${es("panels.schedules.hours", this.hass.language)}</span
+                >${ls("panels.schedules.hours", this.hass.language)}</span
               >
             </div>
           </div>
@@ -13080,7 +12876,7 @@
           return F`
           <div class="field">
             <label
-              >${es("panels.schedules.fields.azimuth_angle", this.hass.language)}</label
+              >${ls("panels.schedules.fields.azimuth_angle", this.hass.language)}</label
             >
             <div class="input-suffix-row">
               <input
@@ -13108,7 +12904,7 @@
       return F`
       <div class="field">
         <label
-          >${es("panels.schedules.fields.offset_minutes", this.hass.language)}</label
+          >${ls("panels.schedules.fields.offset_minutes", this.hass.language)}</label
         >
         <div class="input-suffix-row">
           <input
@@ -13120,13 +12916,13 @@
       })}
           />
           <span class="suffix"
-            >${es("panels.schedules.minutes", this.hass.language)}</span
+            >${ls("panels.schedules.minutes", this.hass.language)}</span
           >
         </div>
       </div>
       <div class="field-row">
         <label
-          >${es("panels.schedules.fields.account_for_duration", this.hass.language)}</label
+          >${ls("panels.schedules.fields.account_for_duration", this.hass.language)}</label
         >
         <input
           type="checkbox"
@@ -13141,7 +12937,7 @@
     _renderDialog() {
       if (!this._showDialog) return F``;
       const e = this._editingSchedule,
-        t = this._editingId ? es("panels.schedules.dialog.edit_title", this.hass.language) : es("panels.schedules.dialog.add_title", this.hass.language);
+        t = this._editingId ? ls("panels.schedules.dialog.edit_title", this.hass.language) : ls("panels.schedules.dialog.add_title", this.hass.language);
       return F`
       <ha-dialog open .heading=${!0} @closed=${this._closeDialog}>
         <div slot="heading">
@@ -13158,7 +12954,7 @@
         <div class="dialog-content">
           <div class="field">
             <label
-              >${es("panels.schedules.fields.name", this.hass.language)}</label
+              >${ls("panels.schedules.fields.name", this.hass.language)}</label
             >
             <input
               type="text"
@@ -13172,7 +12968,7 @@
 
           <div class="field">
             <label
-              >${es("panels.schedules.fields.type", this.hass.language)}</label
+              >${ls("panels.schedules.fields.type", this.hass.language)}</label
             >
             <select
               @change=${e => this._update({
@@ -13191,7 +12987,7 @@
 
           <div class="field">
             <label
-              >${es("panels.schedules.fields.action", this.hass.language)}</label
+              >${ls("panels.schedules.fields.action", this.hass.language)}</label
             >
             <select
               @change=${e => this._update({
@@ -13210,7 +13006,7 @@
 
           <div class="field-row">
             <label
-              >${es("panels.schedules.fields.enabled", this.hass.language)}</label
+              >${ls("panels.schedules.fields.enabled", this.hass.language)}</label
             >
             <input
               type="checkbox"
@@ -13223,7 +13019,7 @@
 
           <div class="field">
             <label
-              >${es("panels.schedules.fields.start_date", this.hass.language)}</label
+              >${ls("panels.schedules.fields.start_date", this.hass.language)}</label
             >
             <input
               type="date"
@@ -13236,7 +13032,7 @@
 
           <div class="field">
             <label
-              >${es("panels.schedules.fields.end_date", this.hass.language)}</label
+              >${ls("panels.schedules.fields.end_date", this.hass.language)}</label
             >
             <input
               type="date"
@@ -13255,7 +13051,7 @@
             @click=${this._closeDialog}
             dialogAction="cancel"
           >
-            ${es("common.actions.cancel", this.hass.language)}
+            ${ls("common.actions.cancel", this.hass.language)}
           </ha-button>
           <ha-button
             slot="primaryAction"
@@ -13263,7 +13059,7 @@
             @click=${this._save}
             dialogAction="close"
           >
-            ${es("common.actions.save", this.hass.language)}
+            ${ls("common.actions.save", this.hass.language)}
           </ha-button>
         </ha-dialog-footer>
       </ha-dialog>
@@ -13272,27 +13068,27 @@
     render() {
       return this.hass ? this._isLoading ? F`
         <ha-card
-          header="${es("panels.schedules.title", this.hass.language)}"
+          header="${ls("panels.schedules.title", this.hass.language)}"
         >
           <div class="card-content">
-            ${es("common.loading", this.hass.language)}...
+            ${ls("common.loading", this.hass.language)}...
           </div>
         </ha-card>
       ` : F`
       ${this._renderDialog()}
 
       <ha-card
-        header="${es("panels.schedules.title", this.hass.language)}"
+        header="${ls("panels.schedules.title", this.hass.language)}"
       >
         <div class="card-content">
-          ${es("panels.schedules.description", this.hass.language)}
+          ${ls("panels.schedules.description", this.hass.language)}
         </div>
         <div class="card-content">
           <button class="add-btn" @click=${this._openAdd}>
             <svg style="width:20px;height:20px" viewBox="0 0 24 24">
-              <path fill="currentColor" d="${os}" />
+              <path fill="currentColor" d="${Et}" />
             </svg>
-            ${es("panels.schedules.add", this.hass.language)}
+            ${ls("panels.schedules.add", this.hass.language)}
           </button>
         </div>
       </ha-card>
@@ -13300,7 +13096,7 @@
       ${0 === this._schedules.length ? F`
             <ha-card>
               <div class="card-content">
-                ${es("panels.schedules.no_items", this.hass.language)}
+                ${ls("panels.schedules.no_items", this.hass.language)}
               </div>
             </ha-card>
           ` : this._schedules.map(e => F`
@@ -13308,14 +13104,14 @@
                 <div class="card-content">
                   <div class="info-row">
                     <span class="info-label"
-                      >${es("panels.schedules.fields.type", this.hass.language)}:</span
+                      >${ls("panels.schedules.fields.type", this.hass.language)}:</span
                     >
                     <span>${this._typeLabel(e.type)}</span>
                   </div>
                   ${e.time && ["daily", "weekly", "monthly"].includes(e.type) ? F`
                         <div class="info-row">
                           <span class="info-label"
-                            >${es("panels.schedules.fields.time", this.hass.language)}:</span
+                            >${ls("panels.schedules.fields.time", this.hass.language)}:</span
                           >
                           <span>${e.time}</span>
                         </div>
@@ -13323,32 +13119,32 @@
                   ${e.interval_hours ? F`
                         <div class="info-row">
                           <span class="info-label"
-                            >${es("panels.schedules.fields.interval_hours", this.hass.language)}:</span
+                            >${ls("panels.schedules.fields.interval_hours", this.hass.language)}:</span
                           >
                           <span
                             >${e.interval_hours}
-                            ${es("panels.schedules.hours", this.hass.language)}</span
+                            ${ls("panels.schedules.hours", this.hass.language)}</span
                           >
                         </div>
                       ` : ""}
                   <div class="info-row">
                     <span class="info-label"
-                      >${es("panels.schedules.fields.action", this.hass.language)}:</span
+                      >${ls("panels.schedules.fields.action", this.hass.language)}:</span
                     >
                     <span>${this._actionLabel(e.action)}</span>
                   </div>
                   <div class="info-row">
                     <span class="info-label"
-                      >${es("panels.schedules.fields.zones", this.hass.language)}:</span
+                      >${ls("panels.schedules.fields.zones", this.hass.language)}:</span
                     >
                     <span>${this._zonesLabel(e.zones)}</span>
                   </div>
                   <div class="info-row">
                     <span class="info-label"
-                      >${es("panels.schedules.fields.enabled", this.hass.language)}:</span
+                      >${ls("panels.schedules.fields.enabled", this.hass.language)}:</span
                     >
                     <span
-                      >${e.enabled ? es("common.labels.yes", this.hass.language) : es("common.labels.no", this.hass.language)}</span
+                      >${e.enabled ? ls("common.labels.yes", this.hass.language) : ls("common.labels.no", this.hass.language)}</span
                     >
                   </div>
                 </div>
@@ -13359,10 +13155,10 @@
                       @click=${() => this._openEdit(e)}
                     >
                       <svg style="width:20px;height:20px" viewBox="0 0 24 24">
-                        <path fill="#404040" d="${rs}" />
+                        <path fill="#404040" d="${At}" />
                       </svg>
                       <span class="action-button-label"
-                        >${es("common.actions.edit", this.hass.language)}</span
+                        >${ls("common.actions.edit", this.hass.language)}</span
                       >
                     </div>
                   </div>
@@ -13372,10 +13168,10 @@
                       @click=${() => e.id && this._delete(e.id)}
                     >
                       <span class="action-button-label"
-                        >${es("common.actions.delete", this.hass.language)}</span
+                        >${ls("common.actions.delete", this.hass.language)}</span
                       >
                       <svg style="width:20px;height:20px" viewBox="0 0 24 24">
-                        <path fill="#404040" d="${ss}" />
+                        <path fill="#404040" d="${xt}" />
                       </svg>
                     </div>
                   </div>
@@ -13385,7 +13181,7 @@
     ` : F``;
     }
     static get styles() {
-      return [ts, c`
+      return [Lt, c`
         .dialog-content {
           display: flex;
           flex-direction: column;
@@ -13491,9 +13287,9 @@
   };
   n([pe({
     attribute: !1
-  })], _s.prototype, "hass", void 0), n([ge()], _s.prototype, "_schedules", void 0), n([ge()], _s.prototype, "_zones", void 0), n([ge()], _s.prototype, "_isLoading", void 0), n([ge()], _s.prototype, "_showDialog", void 0), n([ge()], _s.prototype, "_editingSchedule", void 0), n([ge()], _s.prototype, "_editingId", void 0), _s = n([ce("smart-irrigation-view-schedules")], _s);
-  const ys = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  let ws = class extends Dt(de) {
+  })], ys.prototype, "hass", void 0), n([ge()], ys.prototype, "_schedules", void 0), n([ge()], ys.prototype, "_zones", void 0), n([ge()], ys.prototype, "_isLoading", void 0), n([ge()], ys.prototype, "_showDialog", void 0), n([ge()], ys.prototype, "_editingSchedule", void 0), n([ge()], ys.prototype, "_editingId", void 0), ys = n([ce("smart-irrigation-view-schedules")], ys);
+  const ws = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  let ks = class extends jt(de) {
     constructor() {
       super(...arguments), this._adjustments = [], this._zones = [], this._isLoading = !0, this._showDialog = !1, this._editing = {
         name: "",
@@ -13515,7 +13311,7 @@
       if (this.hass) try {
         const [t, a] = await Promise.all([(e = this.hass, e.callWS({
           type: Se + "/adjustments"
-        })), xt(this.hass)]);
+        })), Mt(this.hass)]);
         this._adjustments = t || [], this._zones = a || [];
       } catch (e) {
         console.error("Failed to load adjustments", e);
@@ -13569,10 +13365,10 @@
       this._editing = Object.assign(Object.assign({}, this._editing), e);
     }
     _monthName(e) {
-      return ys[e - 1] || String(e);
+      return ws[e - 1] || String(e);
     }
     _zonesLabel(e) {
-      if ("all" === e) return es("panels.adjustments.zones_all", this.hass.language);
+      if ("all" === e) return ls("panels.adjustments.zones_all", this.hass.language);
       if (Array.isArray(e)) {
         const t = e.map(e => {
           const t = this._zones.find(t => String(t.id) === String(e));
@@ -13588,7 +13384,7 @@
       return F`
       <div class="field">
         <label
-          >${es("panels.adjustments.fields.zones", this.hass.language)}</label
+          >${ls("panels.adjustments.fields.zones", this.hass.language)}</label
         >
         <div class="switch-container">
           <input
@@ -13601,7 +13397,7 @@
       })}
           />
           <label for="adj_zones_all"
-            >${es("panels.adjustments.zones_all", this.hass.language)}</label
+            >${ls("panels.adjustments.zones_all", this.hass.language)}</label
           >
           <input
             type="radio"
@@ -13613,7 +13409,7 @@
       })}
           />
           <label for="adj_zones_specific"
-            >${es("panels.adjustments.zones_specific", this.hass.language)}</label
+            >${ls("panels.adjustments.zones_specific", this.hass.language)}</label
           >
         </div>
         ${e ? "" : F`
@@ -13644,7 +13440,7 @@
     _renderDialog() {
       if (!this._showDialog) return F``;
       const e = this._editing,
-        t = this._editingId ? es("panels.adjustments.dialog.edit_title", this.hass.language) : es("panels.adjustments.dialog.add_title", this.hass.language);
+        t = this._editingId ? ls("panels.adjustments.dialog.edit_title", this.hass.language) : ls("panels.adjustments.dialog.add_title", this.hass.language);
       return F`
       <ha-dialog open .heading=${!0} @closed=${this._closeDialog}>
         <div slot="heading">
@@ -13661,7 +13457,7 @@
         <div class="dialog-content">
           <div class="field">
             <label
-              >${es("panels.adjustments.fields.name", this.hass.language)}</label
+              >${ls("panels.adjustments.fields.name", this.hass.language)}</label
             >
             <input
               type="text"
@@ -13675,14 +13471,14 @@
 
           <div class="field">
             <label
-              >${es("panels.adjustments.fields.month_start", this.hass.language)}</label
+              >${ls("panels.adjustments.fields.month_start", this.hass.language)}</label
             >
             <select
               @change=${e => this._update({
         month_start: parseInt(e.target.value)
       })}
             >
-              ${ys.map((t, a) => F`
+              ${ws.map((t, a) => F`
                   <option
                     value="${a + 1}"
                     ?selected="${e.month_start === a + 1}"
@@ -13695,14 +13491,14 @@
 
           <div class="field">
             <label
-              >${es("panels.adjustments.fields.month_end", this.hass.language)}</label
+              >${ls("panels.adjustments.fields.month_end", this.hass.language)}</label
             >
             <select
               @change=${e => this._update({
         month_end: parseInt(e.target.value)
       })}
             >
-              ${ys.map((t, a) => F`
+              ${ws.map((t, a) => F`
                   <option value="${a + 1}" ?selected="${e.month_end === a + 1}">
                     ${t}
                   </option>
@@ -13712,7 +13508,7 @@
 
           <div class="field">
             <label
-              >${es("panels.adjustments.fields.multiplier_adjustment", this.hass.language)}</label
+              >${ls("panels.adjustments.fields.multiplier_adjustment", this.hass.language)}</label
             >
             <div class="input-suffix-row">
               <input
@@ -13728,13 +13524,13 @@
               <span class="suffix">×</span>
             </div>
             <span class="hint"
-              >${es("panels.adjustments.multiplier_hint", this.hass.language)}</span
+              >${ls("panels.adjustments.multiplier_hint", this.hass.language)}</span
             >
           </div>
 
           <div class="field">
             <label
-              >${es("panels.adjustments.fields.threshold_adjustment", this.hass.language)}</label
+              >${ls("panels.adjustments.fields.threshold_adjustment", this.hass.language)}</label
             >
             <div class="input-suffix-row">
               <input
@@ -13750,7 +13546,7 @@
               <span class="suffix">mm</span>
             </div>
             <span class="hint"
-              >${es("panels.adjustments.threshold_hint", this.hass.language)}</span
+              >${ls("panels.adjustments.threshold_hint", this.hass.language)}</span
             >
           </div>
 
@@ -13758,7 +13554,7 @@
 
           <div class="field-row">
             <label
-              >${es("panels.adjustments.fields.enabled", this.hass.language)}</label
+              >${ls("panels.adjustments.fields.enabled", this.hass.language)}</label
             >
             <input
               type="checkbox"
@@ -13777,7 +13573,7 @@
             @click=${this._closeDialog}
             dialogAction="cancel"
           >
-            ${es("common.actions.cancel", this.hass.language)}
+            ${ls("common.actions.cancel", this.hass.language)}
           </ha-button>
           <ha-button
             slot="primaryAction"
@@ -13785,7 +13581,7 @@
             @click=${this._save}
             dialogAction="close"
           >
-            ${es("common.actions.save", this.hass.language)}
+            ${ls("common.actions.save", this.hass.language)}
           </ha-button>
         </ha-dialog-footer>
       </ha-dialog>
@@ -13794,27 +13590,27 @@
     render() {
       return this.hass ? this._isLoading ? F`
         <ha-card
-          header="${es("panels.adjustments.title", this.hass.language)}"
+          header="${ls("panels.adjustments.title", this.hass.language)}"
         >
           <div class="card-content">
-            ${es("common.loading", this.hass.language)}...
+            ${ls("common.loading", this.hass.language)}...
           </div>
         </ha-card>
       ` : F`
       ${this._renderDialog()}
 
       <ha-card
-        header="${es("panels.adjustments.title", this.hass.language)}"
+        header="${ls("panels.adjustments.title", this.hass.language)}"
       >
         <div class="card-content">
-          ${es("panels.adjustments.description", this.hass.language)}
+          ${ls("panels.adjustments.description", this.hass.language)}
         </div>
         <div class="card-content">
           <button class="add-btn" @click=${this._openAdd}>
             <svg style="width:20px;height:20px" viewBox="0 0 24 24">
-              <path fill="currentColor" d="${os}" />
+              <path fill="currentColor" d="${Et}" />
             </svg>
-            ${es("panels.adjustments.add", this.hass.language)}
+            ${ls("panels.adjustments.add", this.hass.language)}
           </button>
         </div>
       </ha-card>
@@ -13822,7 +13618,7 @@
       ${0 === this._adjustments.length ? F`
             <ha-card>
               <div class="card-content">
-                ${es("panels.adjustments.no_items", this.hass.language)}
+                ${ls("panels.adjustments.no_items", this.hass.language)}
               </div>
             </ha-card>
           ` : this._adjustments.map(e => F`
@@ -13830,40 +13626,40 @@
                 <div class="card-content">
                   <div class="info-row">
                     <span class="info-label"
-                      >${es("panels.adjustments.fields.month_start", this.hass.language)}:</span
+                      >${ls("panels.adjustments.fields.month_start", this.hass.language)}:</span
                     >
                     <span>${this._monthName(e.month_start)}</span>
                   </div>
                   <div class="info-row">
                     <span class="info-label"
-                      >${es("panels.adjustments.fields.month_end", this.hass.language)}:</span
+                      >${ls("panels.adjustments.fields.month_end", this.hass.language)}:</span
                     >
                     <span>${this._monthName(e.month_end)}</span>
                   </div>
                   <div class="info-row">
                     <span class="info-label"
-                      >${es("panels.adjustments.fields.multiplier_adjustment", this.hass.language)}:</span
+                      >${ls("panels.adjustments.fields.multiplier_adjustment", this.hass.language)}:</span
                     >
                     <span>${e.multiplier_adjustment}×</span>
                   </div>
                   <div class="info-row">
                     <span class="info-label"
-                      >${es("panels.adjustments.fields.threshold_adjustment", this.hass.language)}:</span
+                      >${ls("panels.adjustments.fields.threshold_adjustment", this.hass.language)}:</span
                     >
                     <span>${e.threshold_adjustment} mm</span>
                   </div>
                   <div class="info-row">
                     <span class="info-label"
-                      >${es("panels.adjustments.fields.zones", this.hass.language)}:</span
+                      >${ls("panels.adjustments.fields.zones", this.hass.language)}:</span
                     >
                     <span>${this._zonesLabel(e.zones)}</span>
                   </div>
                   <div class="info-row">
                     <span class="info-label"
-                      >${es("panels.adjustments.fields.enabled", this.hass.language)}:</span
+                      >${ls("panels.adjustments.fields.enabled", this.hass.language)}:</span
                     >
                     <span
-                      >${e.enabled ? es("common.labels.yes", this.hass.language) : es("common.labels.no", this.hass.language)}</span
+                      >${e.enabled ? ls("common.labels.yes", this.hass.language) : ls("common.labels.no", this.hass.language)}</span
                     >
                   </div>
                 </div>
@@ -13874,10 +13670,10 @@
                       @click=${() => this._openEdit(e)}
                     >
                       <svg style="width:20px;height:20px" viewBox="0 0 24 24">
-                        <path fill="#404040" d="${rs}" />
+                        <path fill="#404040" d="${At}" />
                       </svg>
                       <span class="action-button-label"
-                        >${es("common.actions.edit", this.hass.language)}</span
+                        >${ls("common.actions.edit", this.hass.language)}</span
                       >
                     </div>
                   </div>
@@ -13887,10 +13683,10 @@
                       @click=${() => e.id && this._delete(e.id)}
                     >
                       <span class="action-button-label"
-                        >${es("common.actions.delete", this.hass.language)}</span
+                        >${ls("common.actions.delete", this.hass.language)}</span
                       >
                       <svg style="width:20px;height:20px" viewBox="0 0 24 24">
-                        <path fill="#404040" d="${ss}" />
+                        <path fill="#404040" d="${xt}" />
                       </svg>
                     </div>
                   </div>
@@ -13900,7 +13696,7 @@
     ` : F``;
     }
     static get styles() {
-      return [ts, c`
+      return [Lt, c`
         .dialog-content {
           display: flex;
           flex-direction: column;
@@ -14006,9 +13802,171 @@
   };
   n([pe({
     attribute: !1
-  })], ws.prototype, "hass", void 0), n([ge()], ws.prototype, "_adjustments", void 0), n([ge()], ws.prototype, "_zones", void 0), n([ge()], ws.prototype, "_isLoading", void 0), n([ge()], ws.prototype, "_showDialog", void 0), n([ge()], ws.prototype, "_editing", void 0), n([ge()], ws.prototype, "_editingId", void 0), ws = n([ce("smart-irrigation-view-adjustments")], ws);
-  const ks = ts,
-    zs = () => {
+  })], ks.prototype, "hass", void 0), n([ge()], ks.prototype, "_adjustments", void 0), n([ge()], ks.prototype, "_zones", void 0), n([ge()], ks.prototype, "_isLoading", void 0), n([ge()], ks.prototype, "_showDialog", void 0), n([ge()], ks.prototype, "_editing", void 0), n([ge()], ks.prototype, "_editingId", void 0), ks = n([ce("smart-irrigation-view-adjustments")], ks);
+  var zs;
+  !function (e) {
+    e.General = "general", e.Modules = "modules", e.Mappings = "mappings", e.Schedules = "schedules", e.Adjustments = "adjustments", e.Help = "help";
+  }(zs || (zs = {}));
+  const Ss = {
+    [zs.General]: "panels.general.title",
+    [zs.Modules]: "panels.modules.title",
+    [zs.Mappings]: "panels.mappings.title",
+    [zs.Schedules]: "panels.schedules.title",
+    [zs.Adjustments]: "panels.adjustments.title",
+    [zs.Help]: "panels.help.title"
+  };
+  let $s = class extends de {
+    constructor() {
+      super(...arguments), this._activeTab = zs.General;
+    }
+    render() {
+      return this.hass ? F`
+      <div class="setup-container">
+        <nav class="setup-nav">
+          ${Object.values(zs).map(e => F`
+              <button
+                class="setup-nav-btn ${this._activeTab === e ? "active" : ""}"
+                @click="${() => {
+        this._activeTab = e;
+      }}"
+              >
+                ${ls(Ss[e], this.hass.language)}
+              </button>
+            `)}
+        </nav>
+        <div class="setup-content">${this._renderContent()}</div>
+      </div>
+    ` : F``;
+    }
+    _renderContent() {
+      if (!this.hass) return F``;
+      switch (this._activeTab) {
+        case zs.General:
+          return F`<smart-irrigation-view-general
+          .hass="${this.hass}"
+          .narrow="${this.narrow}"
+        ></smart-irrigation-view-general>`;
+        case zs.Modules:
+          return F`<smart-irrigation-view-modules
+          .hass="${this.hass}"
+          .narrow="${this.narrow}"
+        ></smart-irrigation-view-modules>`;
+        case zs.Mappings:
+          return F`<smart-irrigation-view-mappings
+          .hass="${this.hass}"
+          .narrow="${this.narrow}"
+        ></smart-irrigation-view-mappings>`;
+        case zs.Schedules:
+          return F`<smart-irrigation-view-schedules
+          .hass="${this.hass}"
+          .narrow="${this.narrow}"
+        ></smart-irrigation-view-schedules>`;
+        case zs.Adjustments:
+          return F`<smart-irrigation-view-adjustments
+          .hass="${this.hass}"
+          .narrow="${this.narrow}"
+        ></smart-irrigation-view-adjustments>`;
+        case zs.Help:
+          return this._renderHelp();
+      }
+    }
+    _renderHelp() {
+      return this.hass ? F`
+      <ha-card
+        header="${ls("panels.help.cards.how-to-get-help.title", this.hass.language)}"
+      >
+        <div class="card-content">
+          ${ls("panels.help.cards.how-to-get-help.first-read-the", this.hass.language)}
+          <a href="${"https://justchr.github.io/HAsmartirrigation/"}"
+            >${ls("panels.help.cards.how-to-get-help.wiki", this.hass.language)}</a
+          >.
+          ${ls("panels.help.cards.how-to-get-help.if-you-still-need-help", this.hass.language)}
+          <a
+            href="https://community.home-assistant.io/t/smart-irrigation-save-water-by-precisely-watering-your-lawn-garden"
+            >${ls("panels.help.cards.how-to-get-help.community-forum", this.hass.language)}</a
+          >
+          ${ls("panels.help.cards.how-to-get-help.or-open-a", this.hass.language)}
+          <a href="${"https://github.com/JustChr/HAsmartirrigation/issues"}"
+            >${ls("panels.help.cards.how-to-get-help.github-issue", this.hass.language)}</a
+          >
+          (${ls("panels.help.cards.how-to-get-help.english-only", this.hass.language)}).
+        </div>
+      </ha-card>
+    ` : F``;
+    }
+    static get styles() {
+      return c`
+      ${Lt}
+
+      :host {
+        display: block;
+        width: 100%;
+      }
+
+      .setup-container {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .setup-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 8px 16px 0;
+        border-bottom: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+
+      .setup-nav-btn {
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--secondary-text-color);
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        letter-spacing: 0.05em;
+        padding: 8px 12px;
+        text-transform: uppercase;
+        transition:
+          color 0.15s,
+          border-color 0.15s;
+        white-space: nowrap;
+        margin-bottom: -1px;
+      }
+
+      .setup-nav-btn:hover {
+        color: var(--primary-text-color);
+      }
+
+      .setup-nav-btn.active {
+        border-bottom-color: var(--primary-color);
+        color: var(--primary-color);
+      }
+
+      .setup-content {
+        padding-top: 4px;
+      }
+
+      .setup-content > * {
+        display: block;
+        width: 100%;
+      }
+    `;
+    }
+  };
+  n([pe({
+    attribute: !1
+  })], $s.prototype, "hass", void 0), n([pe({
+    type: Boolean
+  })], $s.prototype, "narrow", void 0), n([pe()], $s.prototype, "_activeTab", void 0), $s = n([ce("smart-irrigation-view-setup")], $s);
+  const xs = Lt,
+    As = () => {
       const e = e => {
           let t = {};
           for (let a = 0; a < e.length; a += 2) {
@@ -14042,7 +14000,7 @@
       }
       return a;
     },
-    Ss = (e, ...t) => {
+    Es = (e, ...t) => {
       let a = {
         page: e,
         params: {}
@@ -14068,10 +14026,10 @@
       let n = `/${Se}/${a.page}`;
       return a.subpage && (n = `${n}/${a.subpage}`), i(a.params).length && (n = `${n}/${i(a.params)}`), a.filter && (n = `${n}/filter/${i(a.filter)}`), n;
     };
-  var $s;
+  var Ts;
   !function (e) {
-    e.Info = "info", e.Zones = "zones", e.General = "general", e.Schedules = "schedules", e.Adjustments = "adjustments", e.Modules = "modules", e.Mappings = "mappings", e.Help = "help";
-  }($s || ($s = {})), e.SmartIrrigationPanel = class extends de {
+    e.Zones = "zones", e.Setup = "setup";
+  }(Ts || (Ts = {})), e.SmartIrrigationPanel = class extends de {
     constructor() {
       super(...arguments), this._updateScheduled = !1, this._lastNavigationTime = 0, this._navigationThrottleDelay = 100;
     }
@@ -14081,19 +14039,18 @@
       }));
     }
     async firstUpdated() {
-      const e = zs();
-      e.page && Object.values($s).includes(e.page) ? (window.addEventListener("location-changed", () => {
+      $t(0, Es(Ts.Zones)), window.addEventListener("location-changed", () => {
         if (!window.location.pathname.includes("smart-irrigation")) return;
         const e = performance.now();
         e - this._lastNavigationTime < this._navigationThrottleDelay || (this._lastNavigationTime = e, this._scheduleUpdate());
-      }), _e().then(() => {
+      }), be().then(() => {
         this._scheduleUpdate();
       }).catch(e => {
         console.error("Failed to load HA form elements:", e), this._scheduleUpdate();
-      })) : St(0, Ss($s.Zones));
+      });
     }
     render() {
-      const e = zs(),
+      const e = As(),
         t = !!customElements.get("ha-tab-group"),
         a = !!customElements.get("ha-tab-group-tab");
       return F`
@@ -14103,30 +14060,30 @@
             .hass=${this.hass}
             .narrow=${this.narrow}
           ></ha-menu-button>
-          <div class="main-title">${es("title", this.hass.language)}</div>
+          <div class="main-title">${ls("title", this.hass.language)}</div>
           <div class="version">${ze}</div>
         </div>
 
         ${t && a ? F`
               <ha-tab-group @wa-tab-show=${this.handlePageSelected}>
-                ${Object.values($s).map(t => F`
+                ${Object.values(Ts).map(t => F`
                     <ha-tab-group-tab
                       slot="nav"
                       panel="${t}"
                       .active=${e.page === t}
                     >
-                      ${es(`panels.${t}.title`, this.hass.language)}
+                      ${ls(`panels.${t}.title`, this.hass.language)}
                     </ha-tab-group-tab>
                   `)}
               </ha-tab-group>
             ` : F`
               <div class="custom-tabs">
-                ${Object.values($s).map(t => F`
+                ${Object.values(Ts).map(t => F`
                     <button
                       class="custom-tab ${e.page === t ? "active" : ""}"
                       @click=${() => this.navigateToPage(t)}
                     >
-                      ${es(`panels.${t}.title`, this.hass.language)}
+                      ${ls(`panels.${t}.title`, this.hass.language)}
                     </button>
                   `)}
               </div>
@@ -14137,23 +14094,8 @@
     }
     getView(e) {
       switch (e.page) {
-        case "info":
-          return F`
-          <smart-irrigation-view-info
-            .hass=${this.hass}
-            .narrow=${this.narrow}
-            .path=${e}
-          ></smart-irrigation-view-info>
-        `;
-        case "general":
-          return F`
-          <smart-irrigation-view-general
-            .hass=${this.hass}
-            .narrow=${this.narrow}
-            .path=${e}
-          ></smart-irrigation-view-general>
-        `;
         case "zones":
+        default:
           return F`
           <smart-irrigation-view-zones
             .hass=${this.hass}
@@ -14161,85 +14103,30 @@
             .path=${e}
           ></smart-irrigation-view-zones>
         `;
-        case "schedules":
+        case "setup":
           return F`
-          <smart-irrigation-view-schedules
+          <smart-irrigation-view-setup
             .hass=${this.hass}
             .narrow=${this.narrow}
-            .path=${e}
-          ></smart-irrigation-view-schedules>
-        `;
-        case "adjustments":
-          return F`
-          <smart-irrigation-view-adjustments
-            .hass=${this.hass}
-            .narrow=${this.narrow}
-            .path=${e}
-          ></smart-irrigation-view-adjustments>
-        `;
-        case "modules":
-          return F`
-          <smart-irrigation-view-modules
-            .hass=${this.hass}
-            .narrow=${this.narrow}
-            .path=${e}
-          ></smart-irrigation-view-modules>
-        `;
-        case "mappings":
-          return F`
-          <smart-irrigation-view-mappings
-            .hass=${this.hass}
-            .narrow=${this.narrow}
-            .path=${e}
-          ></smart-irrigation-view-mappings>
-        `;
-        case "help":
-          return F`<ha-card
-          header="${es("panels.help.cards.how-to-get-help.title", this.hass.language)}"
-        >
-          <div class="card-content">
-            ${es("panels.help.cards.how-to-get-help.first-read-the", this.hass.language)}
-            <a href="${"https://justchr.github.io/HAsmartirrigation/"}"
-              >${es("panels.help.cards.how-to-get-help.wiki", this.hass.language)}</a
-            >.
-            ${es("panels.help.cards.how-to-get-help.if-you-still-need-help", this.hass.language)}
-            <a
-              href="https://community.home-assistant.io/t/smart-irrigation-save-water-by-precisely-watering-your-lawn-garden"
-              >${es("panels.help.cards.how-to-get-help.community-forum", this.hass.language)}</a
-            >
-            ${es("panels.help.cards.how-to-get-help.or-open-a", this.hass.language)}
-            <a href="${"https://github.com/JustChr/HAsmartirrigation/issues"}"
-              >${es("panels.help.cards.how-to-get-help.github-issue", this.hass.language)}</a
-            >
-            (${es("panels.help.cards.how-to-get-help.english-only", this.hass.language)}).
-          </div></ha-card
-        >`;
-        default:
-          return F`
-          <ha-card header="Page not found">
-            <div class="card-content">
-              The page you are trying to reach cannot be found. Please select a
-              page from the menu above to continue.
-            </div>
-          </ha-card>
+          ></smart-irrigation-view-setup>
         `;
       }
     }
     navigateToPage(e) {
-      if (e !== zs().page) {
-        const t = Ss(e);
-        St(0, t), this.requestUpdate();
+      if (e !== As().page) {
+        const t = Es(e);
+        $t(0, t), this.requestUpdate();
       } else scrollTo(0, 0);
     }
     handlePageSelected(e) {
       const t = e.detail.name;
-      if (t !== zs().page) {
-        const e = Ss(t);
-        St(0, e), this.requestUpdate();
+      if (t !== As().page) {
+        const e = Es(t);
+        $t(0, e), this.requestUpdate();
       } else scrollTo(0, 0);
     }
     static get styles() {
-      return [ks, c`
+      return [xs, c`
         :host {
           color: var(--primary-text-color);
           --paper-card-header-color: var(--primary-text-color);
@@ -14357,7 +14244,7 @@
     type: Boolean,
     reflect: !0
   })], e.SmartIrrigationPanel.prototype, "narrow", void 0), e.SmartIrrigationPanel = n([ce("smart-irrigation")], e.SmartIrrigationPanel);
-  let xs = class extends de {
+  let Ms = class extends de {
     async showDialog(e) {
       this._params = e, await this.updateComplete;
     }
@@ -14414,11 +14301,11 @@
   };
   n([pe({
     attribute: !1
-  })], xs.prototype, "hass", void 0), n([ge()], xs.prototype, "_params", void 0), xs = n([ce("error-dialog")], xs);
-  var As = Object.freeze({
+  })], Ms.prototype, "hass", void 0), n([ge()], Ms.prototype, "_params", void 0), Ms = n([ce("error-dialog")], Ms);
+  var Ds = Object.freeze({
     __proto__: null,
     get ErrorDialog() {
-      return xs;
+      return Ms;
     }
   });
   Object.defineProperty(e, "__esModule", {

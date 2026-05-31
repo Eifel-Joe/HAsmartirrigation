@@ -707,6 +707,70 @@ async def websocket_irrigate_now(hass: HomeAssistant, connection, msg):
         connection.send_result(msg["id"], {"success": False, "error": str(e)})
 
 
+@async_response
+async def websocket_get_weather_config(hass: HomeAssistant, connection, msg):
+    """Return the current weather service configuration (without exposing the API key)."""
+    use_weather_service = hass.data[const.DOMAIN].get(
+        const.CONF_USE_WEATHER_SERVICE, False
+    )
+    weather_service = hass.data[const.DOMAIN].get(const.CONF_WEATHER_SERVICE)
+    has_api_key = bool(
+        hass.data[const.DOMAIN].get(const.CONF_WEATHER_SERVICE_API_KEY)
+    )
+    connection.send_result(
+        msg["id"],
+        {
+            "use_weather_service": use_weather_service,
+            "weather_service": weather_service,
+            "has_api_key": has_api_key,
+            "available_services": const.CONF_WEATHER_SERVICES,
+            "no_api_key_services": const.CONF_WEATHER_SERVICES_NO_API_KEY,
+        },
+    )
+
+
+@async_response
+async def websocket_save_weather_config(hass: HomeAssistant, connection, msg):
+    """Save weather service configuration to config entry options and in-memory state."""
+    use_weather_service: bool = msg["use_weather_service"]
+    weather_service: str | None = msg.get("weather_service")
+    api_key: str | None = msg.get("api_key") or None
+
+    # Update in-memory state immediately
+    hass.data[const.DOMAIN][const.CONF_USE_WEATHER_SERVICE] = use_weather_service
+    if use_weather_service and weather_service:
+        hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE] = weather_service
+        if api_key:
+            hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY] = api_key.strip()
+    elif not use_weather_service:
+        hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE] = None
+
+    # Persist to config entry options so settings survive HA restarts
+    entry = hass.data[const.DOMAIN].get("entry")
+    if entry is not None:
+        new_options = dict(entry.options)
+        new_options[const.CONF_USE_WEATHER_SERVICE] = use_weather_service
+        if use_weather_service and weather_service:
+            new_options[const.CONF_WEATHER_SERVICE] = weather_service
+            if api_key:
+                new_options[const.CONF_WEATHER_SERVICE_API_KEY] = api_key.strip()
+        elif not use_weather_service:
+            new_options[const.CONF_WEATHER_SERVICE] = None
+        hass.config_entries.async_update_entry(entry, options=new_options)
+
+    # Also update store config for use_weather_service flag
+    coordinator = hass.data[const.DOMAIN]["coordinator"]
+    await coordinator.store.async_update_config(
+        {
+            const.CONF_USE_WEATHER_SERVICE: use_weather_service,
+            const.CONF_WEATHER_SERVICE: weather_service if use_weather_service else None,
+        }
+    )
+
+    async_dispatcher_send(hass, const.DOMAIN + "_config_updated")
+    connection.send_result(msg["id"], {"success": True})
+
+
 async def async_register_websockets(hass: HomeAssistant):
     """Register Smart Irrigation HTTP views and websocket commands."""
     hass.http.register_view(SmartIrrigationConfigView)
@@ -857,6 +921,27 @@ async def async_register_websockets(hass: HomeAssistant):
             {
                 vol.Required("type"): const.DOMAIN + "/irrigate_now",
                 vol.Optional("zone_id"): vol.Coerce(str),
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        const.DOMAIN + "/weather_config",
+        websocket_get_weather_config,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {vol.Required("type"): const.DOMAIN + "/weather_config"}
+        ),
+    )
+    async_register_command(
+        hass,
+        const.DOMAIN + "/weather_config_save",
+        websocket_save_weather_config,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): const.DOMAIN + "/weather_config_save",
+                vol.Required("use_weather_service"): bool,
+                vol.Optional("weather_service"): vol.Any(str, None),
+                vol.Optional("api_key"): vol.Any(str, None),
             }
         ),
     )

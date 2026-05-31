@@ -217,6 +217,9 @@
         "edit_title": "Edit Seasonal Adjustment"
       }
     },
+    "setup": {
+      "title": "Setup"
+    },
     "help": {
       "title": "Help",
       "cards": {
@@ -382,7 +385,8 @@
         "reset-bucket": "Reset bucket",
         "view-weather-info": "View weather data",
         "view-weather-info-message": "Weather data available for",
-        "view-watering-calendar": "View watering calendar"
+        "view-watering-calendar": "View watering calendar",
+        "irrigate_all": "Run All Zones Now"
       },
       "cards": {
         "add-zone": {
@@ -435,6 +439,22 @@
     }
   },
   "title": "Smart Irrigation",
+  "weather_service_config": {
+    "title": "Weather Service",
+    "description": "Configure which weather service to use for ET calculations and skip conditions.",
+    "enabled_label": "Enable weather service",
+    "service_label": "Weather service",
+    "api_key_label": "API key",
+    "api_key_placeholder": "Leave blank to keep existing key",
+    "api_key_configured": "API key is configured",
+    "api_key_not_configured": "No API key configured",
+    "no_api_key_needed": "Open-Meteo is a free service and requires no API key.",
+    "save_button": "Save weather settings",
+    "saved": "Weather settings saved",
+    "owm": "OpenWeatherMap",
+    "pw": "Pirate Weather",
+    "openmeteo": "Open-Meteo (free, no key needed)"
+  },
   "irrigation_start_triggers": {
     "title": "Irrigation Start Triggers",
     "description": "Configure when irrigation should start based on solar events. You can add multiple triggers for different schedules. For sunrise triggers, leaving offset at 0 will automatically use the total duration of all enabled zones.",

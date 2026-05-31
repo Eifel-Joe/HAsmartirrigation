@@ -1163,8 +1163,12 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
         ? this.zones.find((z) => z.id === this._confirmDeleteZoneId)
         : null;
 
+    const hasLinkedZones = this.zones.some(
+      (z) => z.linked_entity && (z.duration ?? 0) > 0,
+    );
+
     return html`
-      <!-- Zones header card with + button -->
+      <!-- Zones header card with + button and Irrigate All -->
       <ha-card>
         <div class="card-header">
           <div class="name">
@@ -1177,8 +1181,27 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
             }}"
           ></ha-icon-button>
         </div>
-        <div class="card-content">
-          ${localize("panels.zones.description", this.hass.language)}
+        <div class="card-content zones-top-actions">
+          <ha-button
+            raised
+            @click="${() => {
+              if (!this.hass) return;
+              irrigateNow(this.hass).catch((e) =>
+                console.error("irrigate_now failed", e),
+              );
+            }}"
+            ?disabled="${!hasLinkedZones || this.isSaving}"
+          >
+            ${localize("panels.zones.actions.irrigate_all", this.hass.language)}
+          </ha-button>
+          ${!hasLinkedZones
+            ? html`<span class="zones-top-note"
+                >${localize(
+                  "panels.info.cards.irrigate_now.no_linked_zones",
+                  this.hass.language,
+                )}</span
+              >`
+            : ""}
         </div>
       </ha-card>
 
@@ -1495,6 +1518,20 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
         font-size: 0.875rem;
         color: var(--secondary-text-color);
         margin-bottom: -4px;
+      }
+
+      /* Zones top action bar */
+      .zones-top-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .zones-top-note {
+        font-size: 0.8125rem;
+        color: var(--secondary-text-color);
+        font-style: italic;
       }
 
       /* Bulk actions */

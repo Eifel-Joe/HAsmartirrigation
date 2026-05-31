@@ -214,3 +214,28 @@ export const irrigateNow = (
     type: DOMAIN + "/irrigate_now",
     ...(zone_id !== undefined ? { zone_id } : {}),
   });
+
+export interface WeatherConfig {
+  use_weather_service: boolean;
+  weather_service: string | null;
+  has_api_key: boolean;
+  available_services: string[];
+  no_api_key_services: string[];
+}
+
+export const fetchWeatherConfig = (
+  hass: HomeAssistant,
+): Promise<WeatherConfig> => hass.callWS({ type: DOMAIN + "/weather_config" });
+
+export const saveWeatherConfig = (
+  hass: HomeAssistant,
+  use_weather_service: boolean,
+  weather_service?: string | null,
+  api_key?: string | null,
+): Promise<any> =>
+  hass.callWS({
+    type: DOMAIN + "/weather_config_save",
+    use_weather_service,
+    weather_service: weather_service ?? null,
+    api_key: api_key ?? null,
+  });

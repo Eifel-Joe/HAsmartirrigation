@@ -80,6 +80,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     store = await async_get_registry(hass)
     # store Weather Service info in hass.data
     hass.data.setdefault(const.DOMAIN, {})
+    hass.data[const.DOMAIN]["entry"] = entry
     # load store info into hass.data[const.DOMAIN]
     config = await store.async_get_config()
     hass.data[const.DOMAIN][const.CONF_USE_WEATHER_SERVICE] = config.get(
