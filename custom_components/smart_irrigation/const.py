@@ -1,6 +1,6 @@
 """Store constants."""
 
-VERSION = "v2026.05.12"
+VERSION = "v2026.05.13"
 NAME = "Smart Irrigation"
 MANUFACTURER = "@JustChr"
 
@@ -117,7 +117,11 @@ TRIGGER_CONF_NAME = "name"
 TRIGGER_CONF_ACCOUNT_FOR_DURATION = "account_for_duration"
 
 CONF_WEATHER_SERVICE = "weather_service"
-CONF_WEATHER_SERVICE_API_KEY = "weather_service_api_key"
+CONF_WEATHER_SERVICE_API_KEY = (
+    "weather_service_api_key"  # legacy single-key slot (kept for migration)
+)
+CONF_OWM_API_KEY = "owm_api_key"
+CONF_PW_API_KEY = "pw_api_key"
 CONF_WEATHER_SERVICE_API_VERSION = "weather_service_api_version"
 CONF_INSTANCE_NAME = "name"
 

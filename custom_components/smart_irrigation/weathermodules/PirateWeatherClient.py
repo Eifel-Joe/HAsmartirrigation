@@ -105,6 +105,22 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
         self._cached_data = None
         self._cached_forecast_data = None
 
+    def validate_key(self):
+        """Test the API key by making a real request and checking the HTTP status.
+
+        Raises OSError on 401/403 (invalid/unauthorized key).
+        Raises CannotConnect-compatible Exception on other non-200 statuses.
+        """
+        req = requests.get(self.url, timeout=30)
+        if req.status_code == 401:
+            raise OSError("Pirate Weather API key is invalid (HTTP 401)")
+        if req.status_code == 403:
+            raise OSError("Pirate Weather API key is not authorized (HTTP 403)")
+        if req.status_code not in (200,):
+            raise Exception(
+                f"Pirate Weather validation failed with HTTP {req.status_code}"
+            )
+
     def get_forecast_data(self):
         """Validate and return forecast data."""
         if (

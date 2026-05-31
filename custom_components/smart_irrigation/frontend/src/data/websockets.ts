@@ -218,7 +218,8 @@ export const irrigateNow = (
 export interface WeatherConfig {
   use_weather_service: boolean;
   weather_service: string | null;
-  has_api_key: boolean;
+  has_owm_api_key: boolean;
+  has_pw_api_key: boolean;
   available_services: string[];
   no_api_key_services: string[];
 }

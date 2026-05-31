@@ -714,13 +714,29 @@ async def websocket_get_weather_config(hass: HomeAssistant, connection, msg):
         const.CONF_USE_WEATHER_SERVICE, False
     )
     weather_service = hass.data[const.DOMAIN].get(const.CONF_WEATHER_SERVICE)
-    has_api_key = bool(hass.data[const.DOMAIN].get(const.CONF_WEATHER_SERVICE_API_KEY))
+    # Report per-service configured status so the frontend can show the right badge
+    has_owm_api_key = bool(
+        hass.data[const.DOMAIN].get(const.CONF_OWM_API_KEY)
+        # also accept legacy slot as fallback during migration
+        or (
+            weather_service == const.CONF_WEATHER_SERVICE_OWM
+            and hass.data[const.DOMAIN].get(const.CONF_WEATHER_SERVICE_API_KEY)
+        )
+    )
+    has_pw_api_key = bool(
+        hass.data[const.DOMAIN].get(const.CONF_PW_API_KEY)
+        or (
+            weather_service == const.CONF_WEATHER_SERVICE_PW
+            and hass.data[const.DOMAIN].get(const.CONF_WEATHER_SERVICE_API_KEY)
+        )
+    )
     connection.send_result(
         msg["id"],
         {
             "use_weather_service": use_weather_service,
             "weather_service": weather_service,
-            "has_api_key": has_api_key,
+            "has_owm_api_key": has_owm_api_key,
+            "has_pw_api_key": has_pw_api_key,
             "available_services": const.CONF_WEATHER_SERVICES,
             "no_api_key_services": const.CONF_WEATHER_SERVICES_NO_API_KEY,
         },
@@ -735,9 +751,16 @@ async def websocket_test_weather_config(hass: HomeAssistant, connection, msg):
     weather_service = msg.get("weather_service")
     api_key = msg.get("api_key") or None
 
-    # Fall back to stored key when the caller doesn't supply one
+    # Fall back to the per-service stored key when the caller doesn't supply one
     if not api_key:
-        api_key = hass.data[const.DOMAIN].get(const.CONF_WEATHER_SERVICE_API_KEY)
+        if weather_service == const.CONF_WEATHER_SERVICE_OWM:
+            api_key = hass.data[const.DOMAIN].get(const.CONF_OWM_API_KEY) or hass.data[
+                const.DOMAIN
+            ].get(const.CONF_WEATHER_SERVICE_API_KEY)
+        elif weather_service == const.CONF_WEATHER_SERVICE_PW:
+            api_key = hass.data[const.DOMAIN].get(const.CONF_PW_API_KEY) or hass.data[
+                const.DOMAIN
+            ].get(const.CONF_WEATHER_SERVICE_API_KEY)
 
     if not weather_service:
         connection.send_result(msg["id"], {"success": False, "error": "no_service"})
@@ -762,14 +785,21 @@ async def websocket_save_weather_config(hass: HomeAssistant, connection, msg):
     weather_service: str | None = msg.get("weather_service")
     api_key: str | None = msg.get("api_key") or None
 
+    # Map the selected service to its per-service key constant
+    _service_key_map = {
+        const.CONF_WEATHER_SERVICE_OWM: const.CONF_OWM_API_KEY,
+        const.CONF_WEATHER_SERVICE_PW: const.CONF_PW_API_KEY,
+    }
+    service_key_const = (
+        _service_key_map.get(weather_service) if weather_service else None
+    )
+
     # Update in-memory state immediately
     hass.data[const.DOMAIN][const.CONF_USE_WEATHER_SERVICE] = use_weather_service
     if use_weather_service and weather_service:
         hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE] = weather_service
-        if api_key:
-            hass.data[const.DOMAIN][
-                const.CONF_WEATHER_SERVICE_API_KEY
-            ] = api_key.strip()
+        if api_key and service_key_const:
+            hass.data[const.DOMAIN][service_key_const] = api_key.strip()
     elif not use_weather_service:
         hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE] = None
 
@@ -780,8 +810,8 @@ async def websocket_save_weather_config(hass: HomeAssistant, connection, msg):
         new_options[const.CONF_USE_WEATHER_SERVICE] = use_weather_service
         if use_weather_service and weather_service:
             new_options[const.CONF_WEATHER_SERVICE] = weather_service
-            if api_key:
-                new_options[const.CONF_WEATHER_SERVICE_API_KEY] = api_key.strip()
+            if api_key and service_key_const:
+                new_options[service_key_const] = api_key.strip()
         elif not use_weather_service:
             new_options[const.CONF_WEATHER_SERVICE] = None
         hass.config_entries.async_update_entry(entry, options=new_options)

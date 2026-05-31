@@ -341,19 +341,29 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
                         )}"
                       >
                         <div class="api-key-status">
-                          ${this._weatherConfig?.has_api_key
-                            ? html`<span class="api-key-badge configured"
-                                >${localize(
-                                  "weather_service_config.api_key_configured",
-                                  this.hass.language,
-                                )}</span
-                              >`
-                            : html`<span class="api-key-badge missing"
-                                >${localize(
-                                  "weather_service_config.api_key_not_configured",
-                                  this.hass.language,
-                                )}</span
-                              >`}
+                          ${(() => {
+                            const svc = this._weatherService;
+                            const cfg = this._weatherConfig;
+                            const hasKey =
+                              svc === CONF_WEATHER_SERVICE_OWM
+                                ? cfg?.has_owm_api_key
+                                : svc === CONF_WEATHER_SERVICE_PW
+                                  ? cfg?.has_pw_api_key
+                                  : false;
+                            return hasKey
+                              ? html`<span class="api-key-badge configured"
+                                  >${localize(
+                                    "weather_service_config.api_key_configured",
+                                    this.hass.language,
+                                  )}</span
+                                >`
+                              : html`<span class="api-key-badge missing"
+                                  >${localize(
+                                    "weather_service_config.api_key_not_configured",
+                                    this.hass.language,
+                                  )}</span
+                                >`;
+                          })()}
                         </div>
                         <div class="api-key-row">
                           <input
@@ -376,7 +386,13 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
                             type="button"
                             ?disabled="${this._testingApi ||
                             (!this._newApiKey &&
-                              !this._weatherConfig?.has_api_key)}"
+                              !(this._weatherService ===
+                              CONF_WEATHER_SERVICE_OWM
+                                ? this._weatherConfig?.has_owm_api_key
+                                : this._weatherService ===
+                                    CONF_WEATHER_SERVICE_PW
+                                  ? this._weatherConfig?.has_pw_api_key
+                                  : false))}"
                             @click="${this._testWeatherConfig}"
                           >
                             ${this._testingApi

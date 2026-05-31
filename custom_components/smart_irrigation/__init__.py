@@ -126,11 +126,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE] = entry.options.get(
                     const.CONF_WEATHER_SERVICE
                 )
+            # Load per-service API keys
+            for key_const in (const.CONF_OWM_API_KEY, const.CONF_PW_API_KEY):
+                if key_const in entry.options:
+                    stored = entry.options.get(key_const)
+                    hass.data[const.DOMAIN][key_const] = (
+                        stored.strip() if stored else None
+                    )
+            # Migration: promote legacy single-slot key to per-service slot
             if const.CONF_WEATHER_SERVICE_API_KEY in entry.options:
-                api_key = entry.options.get(const.CONF_WEATHER_SERVICE_API_KEY)
-                hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_KEY] = (
-                    api_key.strip() if api_key is not None else None
-                )
+                legacy_key = entry.options.get(const.CONF_WEATHER_SERVICE_API_KEY)
+                if legacy_key:
+                    legacy_key = legacy_key.strip()
+                    hass.data[const.DOMAIN][
+                        const.CONF_WEATHER_SERVICE_API_KEY
+                    ] = legacy_key
+                    # Only migrate if the per-service slot is not already set
+                    svc = hass.data[const.DOMAIN].get(const.CONF_WEATHER_SERVICE)
+                    if svc == const.CONF_WEATHER_SERVICE_OWM and not hass.data[
+                        const.DOMAIN
+                    ].get(const.CONF_OWM_API_KEY):
+                        hass.data[const.DOMAIN][const.CONF_OWM_API_KEY] = legacy_key
+                    elif svc == const.CONF_WEATHER_SERVICE_PW and not hass.data[
+                        const.DOMAIN
+                    ].get(const.CONF_PW_API_KEY):
+                        hass.data[const.DOMAIN][const.CONF_PW_API_KEY] = legacy_key
             if const.CONF_WEATHER_SERVICE_API_VERSION in entry.options:
                 hass.data[const.DOMAIN][const.CONF_WEATHER_SERVICE_API_VERSION] = (
                     entry.options.get(const.CONF_WEATHER_SERVICE_API_VERSION)

@@ -4,6 +4,7 @@ import { HomeAssistant } from "custom-card-helpers";
 
 import {
   fetchAllModules,
+  fetchConfig,
   saveModule,
   saveMapping,
   saveZone,
@@ -13,10 +14,18 @@ import {
   WeatherConfig,
 } from "../../data/websockets";
 import {
+  SmartIrrigationConfig,
   SmartIrrigationModule,
   SmartIrrigationMapping,
   SmartIrrigationZoneState,
 } from "../../types";
+import {
+  CONF_METRIC,
+  UNIT_LPM,
+  UNIT_GPM,
+  UNIT_M2,
+  UNIT_SQ_FT,
+} from "../../const";
 import { localize } from "../../../localize/localize";
 import { globalStyle } from "../../styles/global-style";
 import {
@@ -56,6 +65,8 @@ export class SiSetupWizard extends LitElement {
   @state() private _saving = false;
   @state() private _error = "";
 
+  @state() private _siConfig: SmartIrrigationConfig | null = null;
+
   // Step 2 — Weather
   @state() private _useWeather = false;
   @state() private _weatherService: string = CONF_WEATHER_SERVICE_OPENMETEO;
@@ -94,12 +105,14 @@ export class SiSetupWizard extends LitElement {
   private async _loadInitialData() {
     if (!this.hass) return;
     try {
-      const [allModules, weatherCfg] = await Promise.all([
+      const [allModules, weatherCfg, siCfg] = await Promise.all([
         fetchAllModules(this.hass),
         fetchWeatherConfig(this.hass),
+        fetchConfig(this.hass),
       ]);
       this._availableModules = allModules;
       this._weatherConfig = weatherCfg;
+      this._siConfig = siCfg;
       this._useWeather = weatherCfg.use_weather_service;
       this._weatherService =
         weatherCfg.weather_service ?? CONF_WEATHER_SERVICE_OPENMETEO;
@@ -492,7 +505,13 @@ export class SiSetupWizard extends LitElement {
                       lang,
                     )}"
                   >
-                    ${this._weatherConfig?.has_api_key
+                    ${(
+                      this._weatherService === CONF_WEATHER_SERVICE_OWM
+                        ? this._weatherConfig?.has_owm_api_key
+                        : this._weatherService === CONF_WEATHER_SERVICE_PW
+                          ? this._weatherConfig?.has_pw_api_key
+                          : false
+                    )
                       ? html`<span class="api-badge configured"
                           >${localize(
                             "weather_service_config.api_key_configured",
@@ -518,7 +537,12 @@ export class SiSetupWizard extends LitElement {
                         class="wizard-btn secondary"
                         type="button"
                         ?disabled="${this._testingApi ||
-                        (!this._apiKey && !this._weatherConfig?.has_api_key)}"
+                        (!this._apiKey &&
+                          !(this._weatherService === CONF_WEATHER_SERVICE_OWM
+                            ? this._weatherConfig?.has_owm_api_key
+                            : this._weatherService === CONF_WEATHER_SERVICE_PW
+                              ? this._weatherConfig?.has_pw_api_key
+                              : false))}"
                         @click="${this._testApiKey}"
                       >
                         ${this._testingApi
@@ -614,12 +638,13 @@ export class SiSetupWizard extends LitElement {
       ${selected?.description
         ? html`<p class="module-desc">${selected.description}</p>`
         : ""}
-      ${selected?.schema && Object.keys(selected.schema).length > 0
+      ${selected?.schema &&
+      Array.isArray(selected.schema) &&
+      selected.schema.length > 0
         ? html`
             <div class="schema-fields">
-              ${Object.entries(selected.schema).map(
-                ([key, def]: [string, any]) =>
-                  this._renderModuleField(key, def),
+              ${(selected.schema as any[]).map((def: any) =>
+                this._renderModuleField(def.name, def),
               )}
             </div>
           `
@@ -628,11 +653,16 @@ export class SiSetupWizard extends LitElement {
   }
 
   private _renderModuleField(key: string, def: any): TemplateResult {
-    const label = key.replace(/_/g, " ");
+    // Convert snake_case key to Title Case label
+    const label = key
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
     const value = this._moduleConfig[key] ?? def.default ?? "";
+    const help: string | undefined = def.description;
+
     if (def.type === "boolean") {
       return html`
-        <si-field label="${label}">
+        <si-field label="${label}" help="${help ?? ""}">
           <ha-switch
             .checked="${Boolean(value)}"
             @change="${(e: Event) => {
@@ -646,8 +676,9 @@ export class SiSetupWizard extends LitElement {
       `;
     }
     if (def.type === "select" && def.options) {
+      // options come as [[value, label], ...] tuples from voluptuous_serialize
       return html`
-        <si-field label="${label}">
+        <si-field label="${label}" help="${help ?? ""}">
           <select
             class="wizard-input"
             @change="${(e: Event) => {
@@ -657,10 +688,13 @@ export class SiSetupWizard extends LitElement {
               };
             }}"
           >
-            ${def.options.map(
-              (opt: string) =>
-                html`<option value="${opt}" ?selected="${opt === value}">
-                  ${opt}
+            ${(def.options as [string, string][]).map(
+              ([optVal, optLabel]) =>
+                html`<option
+                  value="${optVal}"
+                  ?selected="${optVal === String(value)}"
+                >
+                  ${optLabel}
                 </option>`,
             )}
           </select>
@@ -668,12 +702,13 @@ export class SiSetupWizard extends LitElement {
       `;
     }
     return html`
-      <si-field label="${label}">
+      <si-field label="${label}" help="${help ?? ""}">
         <input
           type="${def.type === "float" || def.type === "integer"
             ? "number"
             : "text"}"
           class="wizard-input"
+          step="${def.type === "float" ? "0.01" : "1"}"
           .value="${String(value)}"
           @input="${(e: Event) => {
             const raw = (e.target as HTMLInputElement).value;
@@ -793,6 +828,10 @@ export class SiSetupWizard extends LitElement {
   }
 
   private _renderZone(lang: string): TemplateResult {
+    const isMetric = this._siConfig?.units !== "imperial";
+    const sizeUnit = isMetric ? "m²" : UNIT_SQ_FT;
+    const throughputUnit = isMetric ? UNIT_LPM : UNIT_GPM;
+
     return html`
       <h2 class="step-title">${localize("wizard.steps.zone.title", lang)}</h2>
       <p class="step-desc">
@@ -815,7 +854,7 @@ export class SiSetupWizard extends LitElement {
 
       <si-field
         label="${localize("wizard.steps.zone.size_label", lang)}"
-        unit="m²"
+        unit="${sizeUnit}"
         help="${localize("field_help.zone_size", lang)}"
       >
         <input
@@ -832,7 +871,7 @@ export class SiSetupWizard extends LitElement {
 
       <si-field
         label="${localize("wizard.steps.zone.throughput_label", lang)}"
-        unit="mm/h"
+        unit="${throughputUnit}"
         help="${localize("field_help.zone_throughput", lang)}"
       >
         <input

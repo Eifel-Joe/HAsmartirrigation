@@ -705,8 +705,11 @@ async def validate_api_key(hass: HomeAssistant, weather_service, api_key):
             elevation=test_elev,
         )
     if client:
+        # Use validate_key() when available (OWMClient uses a simpler endpoint
+        # that works on all plans; get_data() requires One Call 3.0 subscription)
+        validate_fn = getattr(client, "validate_key", None) or client.get_data
         try:
-            await hass.async_add_executor_job(client.get_data)
+            await hass.async_add_executor_job(validate_fn)
         except OSError as err:
             raise InvalidAuth from err
         except Exception as err:

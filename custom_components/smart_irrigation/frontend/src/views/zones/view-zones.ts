@@ -36,7 +36,12 @@ import { output_unit } from "../../helpers";
 import { globalStyle } from "../../styles/global-style";
 import { localize } from "../../../localize/localize";
 import {
+  CONF_METRIC,
   DOMAIN,
+  UNIT_LPM,
+  UNIT_GPM,
+  UNIT_M2,
+  UNIT_SQ_FT,
   UNIT_SECONDS,
   ZONE_BUCKET,
   ZONE_DRAINAGE_RATE,
@@ -56,6 +61,7 @@ import {
   ZONE_FLOW_SENSOR,
 } from "../../const";
 import moment from "moment";
+import "../../components/si-field";
 
 @customElement("smart-irrigation-view-zones")
 class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
@@ -1276,45 +1282,56 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
         )}"
       >
         <div class="add-zone-form">
-          <label class="form-label">
-            ${localize("panels.zones.labels.name", this.hass.language)}
-          </label>
-          <input
-            type="text"
-            class="settings-input"
-            .value="${this._newZoneName}"
-            @input="${(e: Event) => {
-              this._newZoneName = (e.target as HTMLInputElement).value;
-            }}"
-          />
-          <label class="form-label">
-            ${localize("panels.zones.labels.size", this.hass.language)}
-          </label>
-          <input
-            type="number"
-            class="settings-input"
-            step="0.1"
-            min="0"
-            inputmode="decimal"
-            .value="${this._newZoneSize}"
-            @input="${(e: Event) => {
-              this._newZoneSize = (e.target as HTMLInputElement).value;
-            }}"
-          />
-          <label class="form-label">
-            ${localize("panels.zones.labels.throughput", this.hass.language)}
-          </label>
-          <input
-            type="number"
-            class="settings-input"
-            step="0.1"
-            min="0"
-            inputmode="decimal"
-            .value="${this._newZoneThroughput}"
-            @input="${(e: Event) => {
-              this._newZoneThroughput = (e.target as HTMLInputElement).value;
-            }}"
-          />
+          <si-field
+            label="${localize("panels.zones.labels.name", this.hass.language)}"
+            required
+          >
+            <input
+              type="text"
+              class="settings-input add-zone-input"
+              .value="${this._newZoneName}"
+              @input="${(e: Event) => {
+                this._newZoneName = (e.target as HTMLInputElement).value;
+              }}"
+            />
+          </si-field>
+          <si-field
+            label="${localize("panels.zones.labels.size", this.hass.language)}"
+            unit="${this.config?.units === CONF_METRIC ? "m²" : UNIT_SQ_FT}"
+            help="${localize("field_help.zone_size", this.hass.language)}"
+          >
+            <input
+              type="number"
+              class="settings-input add-zone-input"
+              step="0.1"
+              min="0"
+              inputmode="decimal"
+              .value="${this._newZoneSize}"
+              @input="${(e: Event) => {
+                this._newZoneSize = (e.target as HTMLInputElement).value;
+              }}"
+            />
+          </si-field>
+          <si-field
+            label="${localize(
+              "panels.zones.labels.throughput",
+              this.hass.language,
+            )}"
+            unit="${this.config?.units === CONF_METRIC ? UNIT_LPM : UNIT_GPM}"
+            help="${localize("field_help.zone_throughput", this.hass.language)}"
+          >
+            <input
+              type="number"
+              class="settings-input add-zone-input"
+              step="0.1"
+              min="0"
+              inputmode="decimal"
+              .value="${this._newZoneThroughput}"
+              @input="${(e: Event) => {
+                this._newZoneThroughput = (e.target as HTMLInputElement).value;
+              }}"
+            />
+          </si-field>
         </div>
         <div class="dialog-footer">
           <button
@@ -1580,14 +1597,8 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
         min-width: 300px;
       }
 
-      .add-zone-form .settings-input {
+      .add-zone-input {
         width: 100%;
-      }
-
-      .form-label {
-        font-size: 0.875rem;
-        color: var(--secondary-text-color);
-        margin-bottom: -4px;
       }
 
       /* Zones top action bar */

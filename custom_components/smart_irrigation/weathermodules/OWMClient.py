@@ -26,6 +26,11 @@ OWM_URL = (
     "https://api.openweathermap.org/data/{}/onecall?units={}&lat={}&lon={}&appid={}"
 )
 
+# Simple validation endpoint available on all OWM plans (free + paid)
+OWM_VALIDATE_URL = (
+    "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid={}"
+)
+
 # Required OWM keys for validation
 OWM_wind_speed_key_name = "wind_speed"
 OWM_pressure_key_name = "pressure"
@@ -89,6 +94,19 @@ class OWMClient:  # pylint: disable=invalid-name
         self._last_time_called = datetime.datetime(1900, 1, 1, 0, 0, 0)
         self._cached_data = None
         self._cached_forecast_data = None
+
+    def validate_key(self):
+        """Test the API key using the basic /weather endpoint (available on all OWM plans).
+
+        Raises OSError on 401 (invalid key). Does NOT test One Call 3.0 subscription.
+        """
+        url = OWM_VALIDATE_URL.format(self.latitude, self.longitude, self.api_key)
+        req = requests.get(url, timeout=30)
+        doc = req.json()
+        if req.status_code == 401:
+            raise OSError("OWM API key is invalid (HTTP 401)")
+        if req.status_code not in (200, 403):
+            raise OSError(f"OWM validation failed with HTTP {req.status_code}")
 
     def get_forecast_data(self):
         """Validate and return forecast data."""
