@@ -511,7 +511,7 @@ async def websocket_get_weather_records(hass: HomeAssistant, connection, msg):
             key=lambda x: _safe_parse_datetime(x.get(const.RETRIEVED_AT)),
             reverse=True,
         )
-        limited_data = sorted_data[:limit]
+        limited_data = sorted_data if limit == 0 else sorted_data[:limit]
 
         for data_point in limited_data:
             if not isinstance(data_point, dict):

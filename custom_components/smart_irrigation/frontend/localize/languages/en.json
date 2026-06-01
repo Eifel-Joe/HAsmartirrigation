@@ -339,10 +339,13 @@
       "no_items": "There are no sensor group defined yet.",
       "title": "Sensor Groups",
       "weather-records": {
-        "title": "Weather Records (Last 10)",
+        "title": "Weather Records",
         "timestamp": "Time",
         "temperature": "Temp",
-        "humidity": "Humidity",
+        "humidity": "Hum",
+        "dewpoint": "Dew",
+        "wind": "Wind",
+        "pressure": "Press",
         "precipitation": "Precip",
         "retrieval-time": "Retrieved",
         "no-data": "No weather data available for this sensor group"

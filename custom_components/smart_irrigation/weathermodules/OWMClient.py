@@ -132,7 +132,9 @@ class OWMClient:  # pylint: disable=invalid-name
                     MAPPING_CURRENT_PRECIPITATION: current_precip,
                     MAPPING_PRECIPITATION: current_precip,
                     OBSERVATION_TIME: (
-                        datetime.datetime.utcfromtimestamp(observation_dt)
+                        datetime.datetime.fromtimestamp(
+                            observation_dt, tz=datetime.timezone.utc
+                        )
                         if observation_dt
                         else None
                     ),

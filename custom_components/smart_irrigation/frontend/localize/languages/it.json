@@ -267,7 +267,10 @@
         "humidity": "Umidità",
         "precipitation": "Precip",
         "retrieval-time": "Recuperato",
-        "no-data": "Non sono disponibili dati meteo per questo gruppo di sensori"
+        "no-data": "Non sono disponibili dati meteo per questo gruppo di sensori",
+        "dewpoint": "Dew",
+        "wind": "Wind",
+        "pressure": "Press"
       }
     },
     "modules": {

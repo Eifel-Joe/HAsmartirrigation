@@ -18,6 +18,7 @@ from ..const import (
     MAPPING_SOLRAD,
     MAPPING_TEMPERATURE,
     MAPPING_WINDSPEED,
+    OBSERVATION_TIME,
     W_TO_MJ_DAY_FACTOR,
 )
 
@@ -112,6 +113,7 @@ class OpenMeteoClient:
                 )
                 return None
 
+            obs_time_str = times[idx] if idx < len(times) else None
             parsed = {
                 MAPPING_TEMPERATURE: temperature,
                 MAPPING_HUMIDITY: humidity,
@@ -120,6 +122,13 @@ class OpenMeteoClient:
                 MAPPING_PRESSURE: self._abs_pressure(pressure),
                 MAPPING_CURRENT_PRECIPITATION: precipitation,
                 MAPPING_PRECIPITATION: precipitation,
+                OBSERVATION_TIME: (
+                    datetime.datetime.fromisoformat(obs_time_str).replace(
+                        tzinfo=datetime.timezone.utc
+                    )
+                    if obs_time_str
+                    else None
+                ),
             }
             if radiation is not None:
                 parsed[MAPPING_SOLRAD] = radiation * W_TO_MJ_DAY_FACTOR

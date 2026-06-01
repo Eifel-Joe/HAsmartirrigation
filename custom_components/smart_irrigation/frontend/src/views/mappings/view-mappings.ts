@@ -202,7 +202,7 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
           const records = await fetchMappingWeatherRecords(
             this.hass,
             mapping.id.toString(),
-            10,
+            0,
           );
           this.weatherRecords.set(mapping.id, records);
         } catch (error) {
@@ -245,104 +245,85 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
               </div>
             `
           : html`
-              <div class="weather-table">
-                <div class="weather-header">
-                  <span
-                    >${localize(
-                      "panels.mappings.weather-records.timestamp",
-                      this.hass.language,
-                    )}</span
-                  >
-                  <span
-                    >${localize(
-                      "panels.mappings.weather-records.temperature",
-                      this.hass.language,
-                    )}</span
-                  >
-                  <span
-                    >${localize(
-                      "panels.mappings.weather-records.humidity",
-                      this.hass.language,
-                    )}</span
-                  >
-                  <span
-                    >${localize(
-                      "panels.mappings.weather-records.precipitation",
-                      this.hass.language,
-                    )}</span
-                  >
-                  <span
-                    >${localize(
-                      "panels.mappings.weather-records.retrieval-time",
-                      this.hass.language,
-                    )}</span
-                  >
+              <div class="weather-table-scroll">
+                <div class="weather-table">
+                  <div class="weather-header">
+                    <span
+                      >${localize(
+                        "panels.mappings.weather-records.timestamp",
+                        this.hass.language,
+                      )}</span
+                    >
+                    <span
+                      >${localize(
+                        "panels.mappings.weather-records.temperature",
+                        this.hass.language,
+                      )}</span
+                    >
+                    <span
+                      >${localize(
+                        "panels.mappings.weather-records.humidity",
+                        this.hass.language,
+                      )}</span
+                    >
+                    <span
+                      >${localize(
+                        "panels.mappings.weather-records.dewpoint",
+                        this.hass.language,
+                      )}</span
+                    >
+                    <span
+                      >${localize(
+                        "panels.mappings.weather-records.wind",
+                        this.hass.language,
+                      )}</span
+                    >
+                    <span
+                      >${localize(
+                        "panels.mappings.weather-records.pressure",
+                        this.hass.language,
+                      )}</span
+                    >
+                    <span
+                      >${localize(
+                        "panels.mappings.weather-records.precipitation",
+                        this.hass.language,
+                      )}</span
+                    >
+                    <span
+                      >${localize(
+                        "panels.mappings.weather-records.retrieval-time",
+                        this.hass.language,
+                      )}</span
+                    >
+                  </div>
+                  ${records.map((record) => {
+                    const fmt = (ts: any) => {
+                      try {
+                        const m = moment(ts);
+                        return m.isValid() ? m.format("MM-DD HH:mm") : "-";
+                      } catch {
+                        return "-";
+                      }
+                    };
+                    const n = (v: any, unit: string, decimals = 1) =>
+                      v !== null && v !== undefined
+                        ? v.toFixed(decimals) + unit
+                        : "-";
+                    return html`
+                      <div class="weather-row">
+                        <span>${fmt(record.timestamp)}</span>
+                        <span>${n(record.temperature, "°C")}</span>
+                        <span>${n(record.humidity, "%")}</span>
+                        <span>${n(record.dewpoint, "°C")}</span>
+                        <span>${n(record.wind_speed, "m/s")}</span>
+                        <span>${n(record.pressure, "hPa", 0)}</span>
+                        <span>${n(record.precipitation, "mm")}</span>
+                        <span>${fmt(record.retrieval_time)}</span>
+                      </div>
+                    `;
+                  })}
                 </div>
-                ${records.slice(0, 10).map((record) => {
-                  // Safely format timestamps with error handling
-                  let timestampFormatted = "-";
-                  let retrievalTimeFormatted = "-";
-
-                  try {
-                    if (record.timestamp && record.timestamp !== null) {
-                      const timestampMoment = moment(record.timestamp);
-                      if (timestampMoment.isValid()) {
-                        timestampFormatted =
-                          timestampMoment.format("MM-DD HH:mm");
-                      }
-                    }
-                  } catch (error) {
-                    console.warn(
-                      "Error formatting timestamp:",
-                      record.timestamp,
-                      error,
-                    );
-                  }
-
-                  try {
-                    if (
-                      record.retrieval_time &&
-                      record.retrieval_time !== null
-                    ) {
-                      const retrievalMoment = moment(record.retrieval_time);
-                      if (retrievalMoment.isValid()) {
-                        retrievalTimeFormatted =
-                          retrievalMoment.format("MM-DD HH:mm");
-                      }
-                    }
-                  } catch (error) {
-                    console.warn(
-                      "Error formatting retrieval_time:",
-                      record.retrieval_time,
-                      error,
-                    );
-                  }
-
-                  return html`
-                    <div class="weather-row">
-                      <span>${timestampFormatted}</span>
-                      <span
-                        >${record.temperature !== null &&
-                        record.temperature !== undefined
-                          ? record.temperature.toFixed(1) + "°C"
-                          : "-"}</span
-                      >
-                      <span
-                        >${record.humidity !== null &&
-                        record.humidity !== undefined
-                          ? record.humidity.toFixed(1) + "%"
-                          : "-"}</span
-                      >
-                      <span
-                        >${record.precipitation !== null &&
-                        record.precipitation !== undefined
-                          ? record.precipitation.toFixed(1) + "mm"
-                          : "-"}</span
-                      >
-                      <span>${retrievalTimeFormatted}</span>
-                    </div>
-                  `;
-                })}
               </div>
             `}
       </div>

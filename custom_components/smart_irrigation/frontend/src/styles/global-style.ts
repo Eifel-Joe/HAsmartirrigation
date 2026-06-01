@@ -376,8 +376,15 @@ export const globalStyle = css`
     grid-template-columns: 1fr 0.8fr 1fr 0.8fr 0.8fr;
   }
 
+  .weather-table-scroll {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--divider-color);
+    border-radius: 4px;
+  }
+
   .weather-table {
-    grid-template-columns: 1fr 0.8fr 0.8fr 0.8fr 1fr;
+    grid-template-columns: 1fr 0.7fr 0.7fr 0.7fr 0.7fr 0.8fr 0.7fr 1fr;
   }
 
   .calendar-header,
@@ -389,6 +396,9 @@ export const globalStyle = css`
 
   .calendar-header span,
   .weather-header span {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     padding: 4px;
     background: var(--card-background-color);
     border-bottom: 2px solid var(--primary-color);

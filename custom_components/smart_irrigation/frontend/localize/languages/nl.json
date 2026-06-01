@@ -218,13 +218,16 @@
       "no_items": "Er zijn nog geen sensorgroepen.",
       "title": "Sensorgroepen",
       "weather-records": {
-        "title": "Weather Records (Last 10)",
+        "title": "Weather Records",
         "timestamp": "Time",
         "temperature": "Temp",
         "humidity": "Humidity",
         "precipitation": "Precip",
         "retrieval-time": "Retrieved",
-        "no-data": "No weather data available for this sensor group"
+        "no-data": "No weather data available for this sensor group",
+        "dewpoint": "Dew",
+        "wind": "Wind",
+        "pressure": "Press"
       }
     },
     "modules": {

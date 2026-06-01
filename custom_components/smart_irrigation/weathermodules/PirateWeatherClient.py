@@ -19,6 +19,7 @@ from ..const import (
     MAPPING_PRESSURE,
     MAPPING_TEMPERATURE,
     MAPPING_WINDSPEED,
+    OBSERVATION_TIME,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -313,6 +314,15 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                     _LOGGER.debug(
                         "PirateWeatherClient actual precipitation (precipIntensity): %s",
                         parsed_data[MAPPING_PRECIPITATION],
+                    )
+
+                    obs_ts = data.get("time")
+                    parsed_data[OBSERVATION_TIME] = (
+                        datetime.datetime.fromtimestamp(
+                            obs_ts, tz=datetime.timezone.utc
+                        )
+                        if obs_ts
+                        else None
                     )
 
                     self._cached_data = parsed_data
