@@ -1416,6 +1416,8 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
         # Drop MAX and MIN temp mapping because we calculate it from temp
         data_by_sensor.pop(const.MAPPING_MAX_TEMP, None)
         data_by_sensor.pop(const.MAPPING_MIN_TEMP, None)
+        # OBSERVATION_TIME is a datetime object and cannot be aggregated as a numeric sensor value
+        data_by_sensor.pop(const.OBSERVATION_TIME, None)
         return data_by_sensor
 
     def _calc_hour_multiplier(self, data_by_sensor, mapping):
@@ -1817,6 +1819,7 @@ class SmartIrrigationCoordinator(DataUpdateCoordinator):
                 await self.store.async_update_mapping(
                     mapping_id, changes={const.MAPPING_DATA: anchor}
                 )
+                calc_data[const.ZONE_NUMBER_OF_DATA_POINTS] = 0
 
         await self.store.async_update_zone(zone.get(const.ZONE_ID), calc_data)
         async_dispatcher_send(
