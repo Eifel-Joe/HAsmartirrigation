@@ -26,27 +26,24 @@ Zones appear in two places:
 For irrigation systems that have multiple zones which you want to run in series or independent you need to create multiple zones. The configuration should be done for each zone, including the area the zone covers and the corresponding settings.
 
 ## Adding a zone
-You need to specify the following to add a zone:
+Zones are added and configured under **Setup → Zones**. Click the **+** button and provide:
 
 - **Name**: The name of your zone, e.g. 'garden'
 - **Size**: The size of this zone (m<sup>2</sup> or sq ft)
 - **Throughput**: The flow of this zone (liter/minute or gallon/minute)
 
-After entering the information, click `Add zone` to add the zone.
-Each zone is shown as an entity in Home Assistant.
-After adding a zone, make sure to further configure your new zone.
+After clicking **Add**, the new zone appears in the list (and as an entity in Home Assistant). Expand its **Settings** to finish configuring it.
 
-## Actions on all automatic Zones
 ![](assets/images/configuration-zones-1.png)
 
-You can perform the following actions on all automatic zones: 
-- **Update all zones**: Retrieve the weather data for all [sensor groups](configuration-sensor-groups.md) for all automatic zones.
-- **Calculate all zones**: Calculate irrigation duration for all automatic zones. This will also delete weather data after calculation.
-- **Reset all buckets**: Set the buckets for all automatic zones to `0`.
-- **Clear all weatherdata**: Remove all collected weather data for the [sensor groups](configuration-sensor-groups.md) used by any automatic zone.
+## Actions on all automatic Zones
+These bulk actions are split across the two surfaces:
+
+- **Update all zones** / **Calculate all zones** — on the **Zones** dashboard (top tab): collect weather data for, and recalculate the duration of, every automatic zone.
+- **Reset all buckets** / **Clear all weather data** — under **Setup → Zones → Bulk Actions**: reset every automatic zone's bucket to `0`, or remove all collected weather data for the [sensor groups](configuration-sensor-groups.md) in use. Both ask for confirmation first.
 
 ## Configuring a zone
-You can change the following settings on a zone:
+Open **Setup → Zones**, expand a zone's **Settings**, and you can change:
 
 - **Name**: change the name of a zone
 - **Size**: change the size of a zone
@@ -87,15 +84,18 @@ If you prefer to keep using automations, simply leave this field empty. The inte
 
 ### Available actions per zone
 
+On the **Zones** dashboard, each zone card shows an at-a-glance verdict, a one-line status (bucket and when it was last checked), and the everyday action buttons:
+
 ![](assets/images/configuration-zones-2.png)
 
-Below each zone there are some buttons, to perform the following tasks:
+* **Update** — Collect weather data from the sensor group for the zone.
+* **Calculate** — Recalculate the zone's irrigation duration. Weather data for the zone's sensor group is deleted after calculation.
+* **Irrigate Now** — Immediately turn on the zone's [linked entity](#linked-entity) for the calculated duration, then turn it off. Bypasses all skip conditions. Shown disabled with a hint until the zone has a linked entity.
 
-* **Update weather data** — Collect weather data from the sensor group for the zone.
-* **Calculate irrigation duration** — Recalculate the zone's irrigation duration. Weather data for the zone's sensor group is deleted after calculation.
-* **Irrigate Now** — Immediately turn on the zone's [linked entity](#linked-entity) for the calculated duration, then turn it off. Bypasses all skip conditions. Only visible when the zone has a linked entity and a duration > 0.
-* **Calculation explanation** — After a calculation, view a detailed breakdown of how the bucket was updated and how the lead time and multiplier affected the final duration.
-* **View weather data** — View the last 10 weather data records for the zone's sensor group.
+The remaining per-zone tools live under **Setup → Zones**, in each zone's expandable panels:
+
+* **Calculation explanation** — After a calculation, a detailed breakdown of how the bucket was updated and how the lead time and multiplier affected the final duration.
+* **View weather data** — The last 10 weather data records for the zone's sensor group.
 * **View watering calendar** — View a 12-month estimated watering calendar based on the zone's location and typical weather patterns.
 * **Delete** — Remove the zone. 
 

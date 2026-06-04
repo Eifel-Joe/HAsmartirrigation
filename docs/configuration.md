@@ -12,6 +12,8 @@ You configure the integration from the Smart Irrigation panel in the Home Assist
 
 The first time you open the panel — or any time from **Setup → Setup wizard** — a guided wizard walks you through the four building blocks in order:
 
+![](assets/images/setup-wizard-1.png)
+
 1. **Weather** — pick a weather service (Open-Meteo needs no API key) or choose to use your own sensors.
 2. **Module** — the calculation module that turns weather into an irrigation duration (PyETO by default).
 3. **Sensor group** — where each weather value comes from (the chosen weather service, a sensor, a static value, or none).
