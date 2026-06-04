@@ -18,10 +18,11 @@ This integration calculates how long to run your irrigation system to compensate
 - Tracks a running moisture balance ("bucket") per zone
 - Supports multiple zones, each with its own size, throughput, module, and sensor group
 - Works with **Open-Meteo** (free, no API key), Open Weather Map, Pirate Weather, or your own local sensors
+- **Guided setup wizard** — a first-run wizard walks you through weather, calculation module, sensor group, and your first zone in a few steps
 - **Direct valve control** — link a `switch` or `valve` entity to each zone; the integration turns it on, waits the calculated duration, and turns it off — no automations needed
+- **Everyday dashboard** — the **Zones** tab is an at-a-glance dashboard showing, per zone, whether it will water and why, with one-tap Update / Calculate / Irrigate; full configuration lives under **Setup → Zones**
 - **Irrigate Now** — trigger immediate irrigation from the dashboard (all zones or per zone), bypassing skip conditions
 - **Schedules tab** — create daily/weekly/monthly/interval recurring schedules entirely from the UI — no automations needed
-- **Seasonal Adjustments tab** — define month-range multiplier or bucket adjustments to adapt irrigation for each season — managed from the UI
 - **Skip conditions** — skip irrigation based on forecasted rain, low temperature, high wind speed, or a rain sensor
 - Enforces a configurable minimum number of days between irrigation events
 - Still fires HA events for power users who prefer automation-based control
@@ -43,12 +44,15 @@ Compared to the last upstream release (`v2025.10.0`):
 | Bucket fluctuates with every forecast change | Now uses actual measured precipitation (`rain.1h`) instead of the daily forecast total |
 
 ### Improvements
+- **Redesigned UI** — a guided first-run setup wizard, a slim everyday **Zones** dashboard (per-zone "will it water, and why" plus one-tap Update / Calculate / Irrigate), and all zone configuration / reporting consolidated under **Setup → Zones**. Destructive actions now confirm, settings auto-save with a "Saved" indicator, and the General settings page is grouped into labelled sections.
 - **Direct valve control** — link a switch/valve entity per zone; the integration controls it directly with no automation needed
 - **Zone sequencing** — choose parallel (all zones at once) or sequential (one at a time) in General Settings
 - **Schedules tab** — full create/edit/delete UI for recurring schedules inside the panel
-- **Seasonal Adjustments tab** — full create/edit/delete UI for month-based irrigation adjustments inside the panel
-- **Irrigate Now buttons** — on Info tab (all zones) and Zones tab (per zone), bypasses skip conditions
+- **Irrigate Now buttons** — on the Zones dashboard (all zones or per zone), bypasses skip conditions
 - **Skip conditions** — temperature threshold, wind speed threshold, and rain sensor entity added alongside the existing precipitation forecast check
+- **Fully localized** — the panel ships translations for 7 languages besides English
+
+> **Note:** the old **Seasonal Adjustments** tab was removed in favor of the more flexible Schedules system. If you relied on it, recreate the behavior with per-zone multipliers and recurring schedules.
 - **Open-Meteo weather service** — free, no API key required
 - **Mobile-friendly number inputs** — Zone float fields use `step=0.1` + `inputmode=decimal`; integer fields use `step=1` + `inputmode=numeric`; values parsed with `valueAsNumber` to avoid browser format differences
 - **Extended sensor attributes** — `multiplier`, `lead_time`, `maximum_duration`, `maximum_bucket` now exposed as entity attributes for use in automations and templates
@@ -72,7 +76,7 @@ Download the [latest release](https://github.com/JustChr/HAsmartirrigation/relea
 
 Full documentation: **https://JustChr.github.io/HAsmartirrigation/**
 
-*(If the docs site is not yet live, enable GitHub Pages in the repository settings: Settings → Pages → Source: GitHub Actions.)*
+The docs site is built from the [`docs/`](docs/) folder with Jekyll and deployed automatically by the [Pages workflow](.github/workflows/jekyll-gh-pages.yml) on every change under `docs/`.
 
 ## Reporting issues
 
@@ -112,7 +116,7 @@ The compiled `dist/smart-irrigation.js` is committed to the repo (gitignored but
 ### Tests
 
 ```bash
-pytest custom_components/smart_irrigation/tests/
+pytest tests/        # or: make test
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for more detail.

@@ -6,7 +6,7 @@ title: Configuration: Schedules
 
 > Main page: [Configuration](configuration.md)<br/>
 > Previous: [Zone configuration](configuration-zones.md)<br/>
-> Next: [Seasonal Adjustments](configuration-adjustments.md)
+> Next: [Sensor group configuration](configuration-sensor-groups.md)
 
 The **Schedules** tab lets you create recurring schedules that automatically calculate, update, or irrigate your zones — no Home Assistant automations needed.
 
@@ -63,8 +63,8 @@ Each existing schedule is shown as a card with a summary of its settings. Use th
 
 - Use a **Calculate** schedule at your normal calculation time (e.g. 23:00) and a separate **Irrigate** schedule timed to start after calculation finishes.
 - For seasonal use, set a **start date** and **end date** so schedules only fire during your irrigation season.
-- Combine with [Seasonal Adjustments](configuration-adjustments.md) to automatically adapt irrigation intensity by month.
+- To adapt irrigation intensity over the year, adjust each zone's **multiplier** under Setup → Zones (the old Seasonal Adjustments tab was removed in favor of this simpler approach).
 
 > Main page: [Configuration](configuration.md)<br/>
 > Previous: [Zone configuration](configuration-zones.md)<br/>
-> Next: [Seasonal Adjustments](configuration-adjustments.md)
+> Next: [Sensor group configuration](configuration-sensor-groups.md)

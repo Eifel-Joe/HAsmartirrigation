@@ -15,6 +15,13 @@ Specify one or more irrigation zones here. The integration calculates irrigation
 
 > When entering any values in the configuration of this integration, take notice of the labels provided so you enter values in the correct units.
 
+## Where zones live: dashboard vs. settings
+
+Zones appear in two places:
+
+- The top-level **Zones** tab is the everyday **dashboard**. Each zone card shows an at-a-glance verdict (e.g. *"Watering needed: ~6 min"*, *"No watering needed"* or *"Turned off"*), a one-line status (bucket and when it was last checked), and the operational buttons **Update**, **Calculate** and **Irrigate now**. A gear icon on each card opens that zone's settings.
+- **Setup → Zones** is where you **add, configure and delete** zones, and view per-zone reporting (calculation explanation, weather data, watering calendar). The sections below ("Adding a zone", "Configuring a zone") all live here.
+
 ## Multi-zone support
 For irrigation systems that have multiple zones which you want to run in series or independent you need to create multiple zones. The configuration should be done for each zone, including the area the zone covers and the corresponding settings.
 
@@ -51,7 +58,7 @@ You can change the following settings on a zone:
   - _Disabled_: The zone is disabled. No updating and calculation of that zone. Setting a [module](configuration-modules.md) and [sensor group](configuration-sensor-groups.md) on the zone is optional.
 - **Module**: Choose the [calculation module](configuration-modules.md) that should be used to calculate irrigation for the zone.
 - **Sensor group**: Choose the [sensor group](configuration-sensor-groups.md) that provides the weather data for this zone.
-- **Bucket**: Either calculated or manually set. If `bucket >= 0` then no irrigation is necesarry, if `bucket < 0` irrigation is necessary. See [automations](automations.md) for examples on how to use this value to decide to irrigate.
+- **Bucket**: Either calculated or manually set. If `bucket >= 0` then no irrigation is necesarry, if `bucket < 0` irrigation is necessary. See [automations](usage-automations.md) for examples on how to use this value to decide to irrigate.
 - **Maximum bucket**: You can manually set a maximum bucket size which represents the soil's water holding capacity. The maximum recommended bucket size is based on the type of soil:
     - clay soil: 30 mm (1.18")
     - sandy soil: 12 mm (0.47"). 

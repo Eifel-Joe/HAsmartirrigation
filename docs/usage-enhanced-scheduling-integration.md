@@ -40,29 +40,6 @@ data:
 - **update**: Update weather data for specified zones  
 - **irrigate**: Fire irrigation start event for specified zones
 
-### Seasonal Adjustments
-
-Automatically adjust irrigation parameters based on the season or time of year.
-
-#### Adjustment Types
-
-1. **Multiplier Adjustments**: Modify the irrigation multiplier for zones
-2. **Threshold Adjustments**: Adjust the irrigation threshold (bucket level)
-
-#### Example Configuration
-
-```yaml
-service: smart_irrigation.create_seasonal_adjustment
-data:
-  name: "Summer Boost"
-  month_start: 6  # June
-  month_end: 8    # August
-  multiplier_adjustment: 1.5
-  threshold_adjustment: -5.0
-  zones: "all"
-  enabled: true
-```
-
 ## Irrigation Unlimited Integration
 
 ### Overview
@@ -179,10 +156,8 @@ A comprehensive blueprint that automatically syncs Smart Irrigation zones with I
 ### Weather-Responsive Scheduling  
 
 An advanced blueprint that implements weather-responsive irrigation with:
-- Seasonal multiplier adjustments
 - Temperature and wind speed thresholds
 - Rain sensor integration
-- Automatic seasonal adjustment creation
 
 ## API Reference
 
@@ -193,9 +168,6 @@ An advanced blueprint that implements weather-responsive irrigation with:
 - `smart_irrigation.create_recurring_schedule`
 - `smart_irrigation.update_recurring_schedule`
 - `smart_irrigation.delete_recurring_schedule`
-- `smart_irrigation.create_seasonal_adjustment`
-- `smart_irrigation.update_seasonal_adjustment`
-- `smart_irrigation.delete_seasonal_adjustment`
 
 #### Irrigation Unlimited Integration Services
 
@@ -208,7 +180,6 @@ An advanced blueprint that implements weather-responsive irrigation with:
 #### Enhanced Scheduling Events
 
 - `smart_irrigation_recurring_schedule_triggered`
-- `smart_irrigation_seasonal_adjustment_applied`
 
 #### Integration Events
 
@@ -222,8 +193,7 @@ An advanced blueprint that implements weather-responsive irrigation with:
 
 1. **Zones Not Syncing**: Check entity name patterns and zone ID matching
 2. **Schedules Not Running**: Verify schedule configuration and enabled status
-3. **Seasonal Adjustments Not Applied**: Check month ranges and zone specifications
-4. **IU Integration Not Working**: Verify Irrigation Unlimited is installed and entities exist
+3. **IU Integration Not Working**: Verify Irrigation Unlimited is installed and entities exist
 
 ### Debug Logging
 
@@ -271,19 +241,6 @@ data:
   type: "daily" 
   time: "06:00"
   action: "calculate"
-  zones: "all"
-```
-
-### Seasonal Adjustment
-
-```yaml
-# Summer irrigation boost
-service: smart_irrigation.create_seasonal_adjustment
-data:
-  name: "Summer Heat Adjustment"
-  month_start: 6
-  month_end: 8
-  multiplier_adjustment: 1.3
   zones: "all"
 ```
 
