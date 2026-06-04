@@ -108,8 +108,10 @@ try {
   Invoke-Checked { npx babel dist/smart-irrigation.js --out-file dist/smart-irrigation.js }
 } finally { Pop-Location }
 
-if (-not (Select-String -Path $DistPath -Pattern ([regex]::Escape($Version)) -Quiet)) {
-  throw "Built bundle does not contain $Version - aborting before commit."
+# const.ts embeds `v${pkg.version}`, which rollup keeps as `v${"<VerNoPrefix>"}`,
+# so the contiguous literal in the bundle is the no-prefix version.
+if (-not (Select-String -Path $DistPath -Pattern ([regex]::Escape($VerNoPrefix)) -Quiet)) {
+  throw "Built bundle does not contain $VerNoPrefix - aborting before commit."
 }
 Write-Host "Frontend rebuilt and verified to embed $Version"
 
