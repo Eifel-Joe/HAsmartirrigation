@@ -334,6 +334,39 @@
         "all_linked_zones": "Alle verknüpften Zonen",
         "toast_started": "Bewässerung gestartet",
         "toast_failed": "Bewässerung fehlgeschlagen"
+      },
+      "status": {
+        "decision_disabled": "Ausgeschaltet — diese Zone wird nicht automatisch bewässert.",
+        "decision_water": "Bewässerung nötig: etwa {duration} beim nächsten geplanten Lauf.",
+        "decision_no_water": "Derzeit keine Bewässerung nötig — der Boden hat genug Feuchtigkeit.",
+        "decision_unknown": "Noch nicht berechnet — auf Aktualisieren und dann Berechnen drücken.",
+        "last_checked": "Zuletzt geprüft",
+        "never": "nie",
+        "saved": "Gespeichert"
+      },
+      "help": {
+        "bucket": "Bodenfeuchte-Bilanz (Vorrat). Ein negativer Wert bedeutet, dass der Boden trocken ist und die Zone Wasser braucht.",
+        "calculate": "Berechnet aus den neuesten Daten, wie lange bewässert wird. Nach dem Aktualisieren ausführen.",
+        "update": "Ruft die neuesten Wetter-/Sensordaten für diese Zone ab.",
+        "irrigate_link_entity": "Verknüpfe in den Zoneneinstellungen einen Schalter/ein Ventil, um manuelle Bewässerung zu ermöglichen."
+      },
+      "calendar": {
+        "no_data": "Keine Bewässerungskalender-Daten für diese Zone verfügbar.",
+        "error_prefix": "Fehler beim Erstellen des Kalenders:",
+        "month": "Monat",
+        "et": "ET (mm)",
+        "precipitation": "Niederschlag (mm)",
+        "watering": "Bewässerung (L)",
+        "avg_temp": "Ø Temp (°C)",
+        "method_prefix": "Methode:"
+      },
+      "confirm_action": {
+        "reset_bucket_title": "Vorrat dieser Zone zurücksetzen?",
+        "reset_bucket_body": "Dies setzt den Vorrat auf 0 zurück und verwirft die angesammelte Feuchtigkeitsbilanz dieser Zone.",
+        "reset_all_buckets_title": "Alle Vorräte zurücksetzen?",
+        "reset_all_buckets_body": "Dies setzt den Vorrat jeder Zone auf 0 zurück und verwirft die angesammelte Feuchtigkeitsbilanz. Die Bewässerungsberechnung beginnt beim nächsten Update neu.",
+        "clear_weather_title": "Alle Wetterdaten löschen?",
+        "clear_weather_body": "Dies löscht alle gesammelten Wetter- und Sensordaten aller Zonen. Die Zonen benötigen neue Daten, bevor sie wieder berechnen können."
       }
     },
     "schedules": {
@@ -640,6 +673,12 @@
         "go_zones": "Zu „Zonen“",
         "go_setup": "Zur Einrichtung"
       }
+    },
+    "stepper": {
+      "weather": "Wetter",
+      "module": "Modul",
+      "mapping": "Sensorgruppe",
+      "zone": "Zone"
     }
   }
 }

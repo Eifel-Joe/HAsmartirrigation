@@ -335,6 +335,39 @@
         "all_linked_zones": "Alle tilkoblede soner",
         "toast_started": "Vanning startet",
         "toast_failed": "Vanning mislyktes"
+      },
+      "status": {
+        "decision_disabled": "Avslått — denne sonen vannes ikke automatisk.",
+        "decision_water": "Vanning nødvendig: omtrent {duration} ved neste planlagte kjøring.",
+        "decision_no_water": "Ingen vanning nødvendig nå — jorda har nok fuktighet.",
+        "decision_unknown": "Ikke beregnet ennå — trykk Oppdater og deretter Beregn for å sjekke.",
+        "last_checked": "Sist sjekket",
+        "never": "aldri",
+        "saved": "Lagret"
+      },
+      "help": {
+        "bucket": "Jordfuktighetsbalanse (bøtte). En negativ verdi betyr at jorda er tørr og sonen trenger vann.",
+        "calculate": "Beregner hvor lenge det skal vannes ut fra de nyeste dataene. Kjør dette etter Oppdater.",
+        "update": "Henter de nyeste vær-/sensordataene for denne sonen.",
+        "irrigate_link_entity": "Koble en bryter/ventil i sonens innstillinger for å aktivere manuell vanning."
+      },
+      "calendar": {
+        "no_data": "Ingen vanningskalenderdata tilgjengelig for denne sonen.",
+        "error_prefix": "Feil ved generering av kalender:",
+        "month": "Måned",
+        "et": "ET (mm)",
+        "precipitation": "Nedbør (mm)",
+        "watering": "Vanning (L)",
+        "avg_temp": "Gj.sn. temp. (°C)",
+        "method_prefix": "Metode:"
+      },
+      "confirm_action": {
+        "reset_bucket_title": "Nullstille bøtta for denne sonen?",
+        "reset_bucket_body": "Dette setter bøtta tilbake til 0 og forkaster den oppsamlede fuktighetsbalansen for denne sonen.",
+        "reset_all_buckets_title": "Nullstille alle bøtter?",
+        "reset_all_buckets_body": "Dette setter bøtta for hver sone tilbake til 0 og forkaster den oppsamlede fuktighetsbalansen. Vanningsberegningene starter på nytt ved neste oppdatering.",
+        "clear_weather_title": "Slette alle værdata?",
+        "clear_weather_body": "Dette sletter alle innsamlede vær- og sensordata for alle soner. Sonene trenger nye data før de kan beregne igjen."
       }
     },
     "title": "Smart vanning",
@@ -642,6 +675,12 @@
         "go_zones": "Gå til Soner",
         "go_setup": "Gå til Oppsett"
       }
+    },
+    "stepper": {
+      "weather": "Vær",
+      "module": "Modul",
+      "mapping": "Sensorgruppe",
+      "zone": "Sone"
     }
   }
 }

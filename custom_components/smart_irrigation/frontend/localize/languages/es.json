@@ -335,6 +335,39 @@
         "all_linked_zones": "Todas las zonas vinculadas",
         "toast_started": "Riego iniciado",
         "toast_failed": "Error en el riego"
+      },
+      "status": {
+        "decision_disabled": "Desactivada — esta zona no se regará automáticamente.",
+        "decision_water": "Riego necesario: unos {duration} en el próximo riego programado.",
+        "decision_no_water": "No se necesita riego ahora mismo — el suelo tiene suficiente humedad.",
+        "decision_unknown": "Aún sin calcular — pulsa Actualizar y luego Calcular para comprobar.",
+        "last_checked": "Última comprobación",
+        "never": "nunca",
+        "saved": "Guardado"
+      },
+      "help": {
+        "bucket": "Balance de humedad del suelo (cubo). Un valor negativo significa que el suelo está seco y la zona necesita agua.",
+        "calculate": "Calcula cuánto tiempo regar a partir de los últimos datos. Ejecútalo después de Actualizar.",
+        "update": "Obtiene los últimos datos meteorológicos/de sensores de esta zona.",
+        "irrigate_link_entity": "Vincula un interruptor/válvula en los ajustes de esta zona para permitir el riego manual."
+      },
+      "calendar": {
+        "no_data": "No hay datos de calendario de riego disponibles para esta zona.",
+        "error_prefix": "Error al generar el calendario:",
+        "month": "Mes",
+        "et": "ET (mm)",
+        "precipitation": "Precipitación (mm)",
+        "watering": "Riego (L)",
+        "avg_temp": "Temp. media (°C)",
+        "method_prefix": "Método:"
+      },
+      "confirm_action": {
+        "reset_bucket_title": "¿Restablecer el cubo de esta zona?",
+        "reset_bucket_body": "Esto restablece el cubo a 0, descartando el balance de humedad acumulado de esta zona.",
+        "reset_all_buckets_title": "¿Restablecer todos los cubos?",
+        "reset_all_buckets_body": "Esto restablece a 0 el cubo de cada zona, descartando el balance de humedad acumulado. Los cálculos de riego empezarán de nuevo en la próxima actualización.",
+        "clear_weather_title": "¿Borrar todos los datos meteorológicos?",
+        "clear_weather_body": "Esto elimina todos los registros meteorológicos y de sensores de todas las zonas. Las zonas necesitarán datos nuevos antes de poder calcular de nuevo."
       }
     },
     "schedules": {
@@ -641,6 +674,12 @@
         "go_zones": "Ir a Zonas",
         "go_setup": "Ir a Configuración"
       }
+    },
+    "stepper": {
+      "weather": "Meteorología",
+      "module": "Módulo",
+      "mapping": "Grupo de sensores",
+      "zone": "Zona"
     }
   }
 }

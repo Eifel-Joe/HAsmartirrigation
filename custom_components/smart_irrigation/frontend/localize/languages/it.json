@@ -379,6 +379,39 @@
         "all_linked_zones": "Tutte le zone collegate",
         "toast_started": "Irrigazione avviata",
         "toast_failed": "Irrigazione non riuscita"
+      },
+      "status": {
+        "decision_disabled": "Disattivata — questa zona non verrà irrigata automaticamente.",
+        "decision_water": "Irrigazione necessaria: circa {duration} alla prossima esecuzione programmata.",
+        "decision_no_water": "Nessuna irrigazione necessaria ora — il terreno ha umidità sufficiente.",
+        "decision_unknown": "Non ancora calcolato — premi Aggiorna, poi Calcola per verificare.",
+        "last_checked": "Ultimo controllo",
+        "never": "mai",
+        "saved": "Salvato"
+      },
+      "help": {
+        "bucket": "Bilancio di umidità del suolo (secchio). Un valore negativo significa che il terreno è asciutto e la zona ha bisogno d'acqua.",
+        "calculate": "Calcola la durata dell'irrigazione dai dati più recenti. Eseguilo dopo Aggiorna.",
+        "update": "Recupera i dati meteo/sensori più recenti per questa zona.",
+        "irrigate_link_entity": "Collega un interruttore/una valvola nelle impostazioni di questa zona per abilitare l'irrigazione manuale."
+      },
+      "calendar": {
+        "no_data": "Nessun dato del calendario di irrigazione disponibile per questa zona.",
+        "error_prefix": "Errore nella generazione del calendario:",
+        "month": "Mese",
+        "et": "ET (mm)",
+        "precipitation": "Precipitazioni (mm)",
+        "watering": "Irrigazione (L)",
+        "avg_temp": "Temp. media (°C)",
+        "method_prefix": "Metodo:"
+      },
+      "confirm_action": {
+        "reset_bucket_title": "Azzerare il secchio di questa zona?",
+        "reset_bucket_body": "Questo riporta il secchio a 0, scartando il bilancio di umidità accumulato per questa zona.",
+        "reset_all_buckets_title": "Azzerare tutti i secchi?",
+        "reset_all_buckets_body": "Questo riporta a 0 il secchio di ogni zona, scartando il bilancio di umidità accumulato. I calcoli di irrigazione ripartiranno dal prossimo aggiornamento.",
+        "clear_weather_title": "Cancellare tutti i dati meteo?",
+        "clear_weather_body": "Questo elimina tutti i record meteo e dei sensori di tutte le zone. Le zone avranno bisogno di nuovi dati prima di poter ricalcolare."
       }
     },
     "schedules": {
@@ -645,6 +678,12 @@
         "go_zones": "Vai a Zone",
         "go_setup": "Vai a Configurazione"
       }
+    },
+    "stepper": {
+      "weather": "Meteo",
+      "module": "Modulo",
+      "mapping": "Gruppo di sensori",
+      "zone": "Zona"
     }
   }
 }

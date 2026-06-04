@@ -334,6 +334,39 @@
         "all_linked_zones": "Všetky prepojené zóny",
         "toast_started": "Zavlažovanie spustené",
         "toast_failed": "Zavlažovanie zlyhalo"
+      },
+      "status": {
+        "decision_disabled": "Vypnuté — táto zóna sa nebude automaticky zavlažovať.",
+        "decision_water": "Potrebné zavlažovanie: približne {duration} pri ďalšom plánovanom spustení.",
+        "decision_no_water": "Momentálne nie je potrebné zavlažovanie — pôda má dostatok vlhkosti.",
+        "decision_unknown": "Ešte nevypočítané — stlačte Aktualizovať a potom Vypočítať na kontrolu.",
+        "last_checked": "Naposledy skontrolované",
+        "never": "nikdy",
+        "saved": "Uložené"
+      },
+      "help": {
+        "bucket": "Bilancia vlhkosti pôdy (vedro). Záporná hodnota znamená, že pôda je suchá a zóna potrebuje vodu.",
+        "calculate": "Vypočíta dĺžku zavlažovania z najnovších údajov. Spustite po Aktualizovať.",
+        "update": "Načíta najnovšie meteorologické/senzorové údaje pre túto zónu.",
+        "irrigate_link_entity": "Priraďte v nastaveniach tejto zóny spínač/ventil, aby ste umožnili manuálne zavlažovanie."
+      },
+      "calendar": {
+        "no_data": "Pre túto zónu nie sú k dispozícii žiadne údaje kalendára zavlažovania.",
+        "error_prefix": "Chyba pri generovaní kalendára:",
+        "month": "Mesiac",
+        "et": "ET (mm)",
+        "precipitation": "Zrážky (mm)",
+        "watering": "Zavlažovanie (L)",
+        "avg_temp": "Priem. teplota (°C)",
+        "method_prefix": "Metóda:"
+      },
+      "confirm_action": {
+        "reset_bucket_title": "Vynulovať vedro tejto zóny?",
+        "reset_bucket_body": "Týmto sa vedro nastaví späť na 0 a zruší sa nahromadená bilancia vlhkosti pre túto zónu.",
+        "reset_all_buckets_title": "Vynulovať všetky vedrá?",
+        "reset_all_buckets_body": "Týmto sa vedro každej zóny nastaví späť na 0 a zruší sa nahromadená bilancia vlhkosti. Výpočty zavlažovania začnú odznova pri ďalšej aktualizácii.",
+        "clear_weather_title": "Vymazať všetky meteorologické údaje?",
+        "clear_weather_body": "Týmto sa odstránia všetky zhromaždené meteorologické a senzorové záznamy pre všetky zóny. Zóny budú pred ďalším výpočtom potrebovať nové údaje."
       }
     },
     "schedules": {
@@ -640,6 +673,12 @@
         "go_zones": "Prejsť na Zóny",
         "go_setup": "Prejsť na Nastavenie"
       }
+    },
+    "stepper": {
+      "weather": "Počasie",
+      "module": "Modul",
+      "mapping": "Skupina senzorov",
+      "zone": "Zóna"
     }
   }
 }

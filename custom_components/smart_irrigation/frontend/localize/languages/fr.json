@@ -336,6 +336,39 @@
         "all_linked_zones": "Toutes les zones liées",
         "toast_started": "Arrosage démarré",
         "toast_failed": "Échec de l'arrosage"
+      },
+      "status": {
+        "decision_disabled": "Désactivée — cette zone ne sera pas arrosée automatiquement.",
+        "decision_water": "Arrosage nécessaire : environ {duration} au prochain cycle programmé.",
+        "decision_no_water": "Aucun arrosage nécessaire pour le moment — le sol a assez d'humidité.",
+        "decision_unknown": "Pas encore calculé — appuyez sur Mettre à jour, puis Calculer pour vérifier.",
+        "last_checked": "Dernière vérification",
+        "never": "jamais",
+        "saved": "Enregistré"
+      },
+      "help": {
+        "bucket": "Bilan d'humidité du sol (seau). Une valeur négative signifie que le sol est sec et que la zone a besoin d'eau.",
+        "calculate": "Calcule la durée d'arrosage à partir des dernières données. À lancer après Mettre à jour.",
+        "update": "Récupère les dernières données météo/capteurs pour cette zone.",
+        "irrigate_link_entity": "Associez un interrupteur/une vanne dans les réglages de cette zone pour activer l'arrosage manuel."
+      },
+      "calendar": {
+        "no_data": "Aucune donnée de calendrier d'arrosage disponible pour cette zone.",
+        "error_prefix": "Erreur lors de la génération du calendrier :",
+        "month": "Mois",
+        "et": "ET (mm)",
+        "precipitation": "Précipitations (mm)",
+        "watering": "Arrosage (L)",
+        "avg_temp": "Temp. moy. (°C)",
+        "method_prefix": "Méthode :"
+      },
+      "confirm_action": {
+        "reset_bucket_title": "Réinitialiser le seau de cette zone ?",
+        "reset_bucket_body": "Cela remet le seau à 0 et supprime le bilan d'humidité accumulé pour cette zone.",
+        "reset_all_buckets_title": "Réinitialiser tous les seaux ?",
+        "reset_all_buckets_body": "Cela remet à 0 le seau de chaque zone et supprime le bilan d'humidité accumulé. Les calculs d'arrosage repartiront de zéro à la prochaine mise à jour.",
+        "clear_weather_title": "Effacer toutes les données météo ?",
+        "clear_weather_body": "Cela supprime tous les relevés météo et capteurs de toutes les zones. Les zones auront besoin de nouvelles données avant de pouvoir recalculer."
       }
     },
     "schedules": {
@@ -642,6 +675,12 @@
         "go_zones": "Aller aux Zones",
         "go_setup": "Aller à la Configuration"
       }
+    },
+    "stepper": {
+      "weather": "Météo",
+      "module": "Module",
+      "mapping": "Groupe de capteurs",
+      "zone": "Zone"
     }
   }
 }

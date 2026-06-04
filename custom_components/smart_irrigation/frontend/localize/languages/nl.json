@@ -334,6 +334,39 @@
         "all_linked_zones": "Alle gekoppelde zones",
         "toast_started": "Irrigatie gestart",
         "toast_failed": "Irrigatie mislukt"
+      },
+      "status": {
+        "decision_disabled": "Uitgeschakeld — deze zone wordt niet automatisch bewaterd.",
+        "decision_water": "Bewatering nodig: ongeveer {duration} bij de volgende geplande beurt.",
+        "decision_no_water": "Nu geen bewatering nodig — de bodem heeft genoeg vocht.",
+        "decision_unknown": "Nog niet berekend — druk op Bijwerken en daarna Bereken om te controleren.",
+        "last_checked": "Laatst gecontroleerd",
+        "never": "nooit",
+        "saved": "Opgeslagen"
+      },
+      "help": {
+        "bucket": "Bodemvochtbalans (voorraad). Een negatieve waarde betekent dat de bodem droog is en de zone water nodig heeft.",
+        "calculate": "Berekent op basis van de nieuwste gegevens hoe lang er bewaterd wordt. Voer dit uit na Bijwerken.",
+        "update": "Haalt de nieuwste weer-/sensorgegevens voor deze zone op.",
+        "irrigate_link_entity": "Koppel een schakelaar/klep in de instellingen van deze zone om handmatig bewateren mogelijk te maken."
+      },
+      "calendar": {
+        "no_data": "Geen bewateringskalendergegevens beschikbaar voor deze zone.",
+        "error_prefix": "Fout bij het genereren van de kalender:",
+        "month": "Maand",
+        "et": "ET (mm)",
+        "precipitation": "Neerslag (mm)",
+        "watering": "Bewatering (L)",
+        "avg_temp": "Gem. temp. (°C)",
+        "method_prefix": "Methode:"
+      },
+      "confirm_action": {
+        "reset_bucket_title": "Voorraad van deze zone resetten?",
+        "reset_bucket_body": "Dit zet de voorraad terug op 0 en verwijdert de opgebouwde vochtbalans voor deze zone.",
+        "reset_all_buckets_title": "Alle voorraden resetten?",
+        "reset_all_buckets_body": "Dit zet de voorraad van elke zone terug op 0 en verwijdert de opgebouwde vochtbalans. De bewateringsberekening begint opnieuw bij de volgende update.",
+        "clear_weather_title": "Alle weergegevens wissen?",
+        "clear_weather_body": "Dit verwijdert alle verzamelde weer- en sensorgegevens van alle zones. De zones hebben nieuwe gegevens nodig voordat ze opnieuw kunnen berekenen."
       }
     },
     "schedules": {
@@ -640,6 +673,12 @@
         "go_zones": "Naar Zones",
         "go_setup": "Naar Instellen"
       }
+    },
+    "stepper": {
+      "weather": "Weer",
+      "module": "Module",
+      "mapping": "Sensorgroep",
+      "zone": "Zone"
     }
   }
 }
