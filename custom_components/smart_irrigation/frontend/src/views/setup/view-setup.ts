@@ -83,7 +83,8 @@ export class SmartIrrigationViewSetup extends LitElement {
             @click="${this._openWizard}"
             title="${localize("wizard.title", this.hass.language)}"
           >
-            ✦ ${localize("wizard.open_button", this.hass.language)}
+            <ha-icon icon="mdi:creation"></ha-icon>
+            ${localize("wizard.open_button", this.hass.language)}
           </button>
         </nav>
         <div class="setup-content">${this._renderContent(activeTab)}</div>
@@ -235,6 +236,10 @@ export class SmartIrrigationViewSetup extends LitElement {
         color: var(--primary-color);
         border-bottom-color: transparent;
         font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        --mdc-icon-size: 18px;
       }
 
       .setup-nav-btn.wizard-btn:hover {

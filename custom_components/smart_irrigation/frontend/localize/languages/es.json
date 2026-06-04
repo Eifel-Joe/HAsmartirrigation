@@ -148,7 +148,13 @@
         }
       },
       "description": "Esta página provee configuraciones globales.",
-      "title": "General"
+      "title": "General",
+      "sections": {
+        "weather": "Meteorología",
+        "automation": "Automatización",
+        "location": "Ubicación",
+        "watering": "Comportamiento de riego"
+      }
     },
     "help": {
       "title": "Ayuda",
@@ -681,6 +687,11 @@
       "module": "Módulo",
       "mapping": "Grupo de sensores",
       "zone": "Zona"
+    },
+    "confirm_close": {
+      "body": "¿Cerrar el asistente de configuración? Tu progreso se ha guardado.",
+      "keep": "Seguir editando",
+      "close": "Cerrar"
     }
   }
 }

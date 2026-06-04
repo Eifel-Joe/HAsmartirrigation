@@ -148,7 +148,13 @@
         }
       },
       "description": "Denne siden gir globale innstillinger.",
-      "title": "Generelt"
+      "title": "Generelt",
+      "sections": {
+        "weather": "Vær",
+        "automation": "Automatisering",
+        "location": "Plassering",
+        "watering": "Vanningsatferd"
+      }
     },
     "help": {
       "title": "Hjelp",
@@ -682,6 +688,11 @@
       "module": "Modul",
       "mapping": "Sensorgruppe",
       "zone": "Sone"
+    },
+    "confirm_close": {
+      "body": "Lukke oppsettsveiviseren? Fremgangen din er lagret.",
+      "keep": "Fortsett",
+      "close": "Lukk"
     }
   }
 }

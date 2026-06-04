@@ -147,7 +147,13 @@
         }
       },
       "description": "Táto stránka poskytuje globálne nastavenia.",
-      "title": "Všeobecné"
+      "title": "Všeobecné",
+      "sections": {
+        "weather": "Počasie",
+        "automation": "Automatizácia",
+        "location": "Poloha",
+        "watering": "Správanie zavlažovania"
+      }
     },
     "help": {
       "title": "Pomoc",
@@ -680,6 +686,11 @@
       "module": "Modul",
       "mapping": "Skupina senzorov",
       "zone": "Zóna"
+    },
+    "confirm_close": {
+      "body": "Zavrieť sprievodcu nastavením? Váš doterajší postup je uložený.",
+      "keep": "Pokračovať",
+      "close": "Zavrieť"
     }
   }
 }

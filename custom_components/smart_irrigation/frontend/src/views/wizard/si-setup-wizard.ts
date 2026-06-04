@@ -68,6 +68,8 @@ export class SiSetupWizard extends LitElement {
   @state() private _step: WizardStep = WizardStep.Welcome;
   @state() private _saving = false;
   @state() private _error = "";
+  // Confirm-before-close when the user clicks the backdrop mid-flow (UX N4).
+  @state() private _confirmClose = false;
 
   @state() private _siConfig: SmartIrrigationConfig | null = null;
 
@@ -369,8 +371,9 @@ export class SiSetupWizard extends LitElement {
               class="wizard-close-btn"
               @click="${this._close}"
               title="${localize("wizard.close", lang)}"
+              aria-label="${localize("wizard.close", lang)}"
             >
-              ✕
+              <ha-icon icon="mdi:close"></ha-icon>
             </button>
           </div>
           ${this._step !== WizardStep.Welcome && this._step !== WizardStep.Done
@@ -383,13 +386,48 @@ export class SiSetupWizard extends LitElement {
               : ""}
           </div>
           <div class="wizard-footer">${this._renderFooter(lang)}</div>
+          ${this._confirmClose
+            ? html`
+                <div class="wizard-confirm-close">
+                  <div class="wizard-confirm-box">
+                    <p>${localize("wizard.confirm_close.body", lang)}</p>
+                    <div class="wizard-confirm-actions">
+                      <button
+                        class="wizard-btn secondary"
+                        @click="${() => {
+                          this._confirmClose = false;
+                        }}"
+                      >
+                        ${localize("wizard.confirm_close.keep", lang)}
+                      </button>
+                      <button
+                        class="wizard-btn primary"
+                        @click="${() => {
+                          this._confirmClose = false;
+                          this._close();
+                        }}"
+                      >
+                        ${localize("wizard.confirm_close.close", lang)}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `
+            : ""}
         </div>
       </div>
     `;
   }
 
   private _onOverlayClick(e: Event) {
-    if (e.target === e.currentTarget) this._close();
+    if (e.target !== e.currentTarget) return;
+    // Mid-flow, confirm before discarding the in-progress setup. Steps save as
+    // they go, but an accidental backdrop click shouldn't drop the user out.
+    if (this._step > WizardStep.Welcome && this._step < WizardStep.Done) {
+      this._confirmClose = true;
+    } else {
+      this._close();
+    }
   }
 
   private _renderStepper(): TemplateResult {
@@ -969,7 +1007,9 @@ export class SiSetupWizard extends LitElement {
   private _renderDone(lang: string): TemplateResult {
     return html`
       <div class="done-wrapper">
-        <div class="done-icon">✓</div>
+        <div class="done-icon">
+          <ha-icon icon="mdi:check-circle"></ha-icon>
+        </div>
         <h2 class="step-title">${localize("wizard.steps.done.title", lang)}</h2>
         <p class="step-desc">
           ${localize("wizard.steps.done.description", lang)}
@@ -1026,6 +1066,7 @@ export class SiSetupWizard extends LitElement {
 
       /* Dialog box */
       .wizard-dialog {
+        position: relative;
         background: var(--card-background-color);
         border-radius: 12px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -1058,15 +1099,51 @@ export class SiSetupWizard extends LitElement {
         border: none;
         cursor: pointer;
         color: var(--secondary-text-color);
-        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
         padding: 4px 8px;
         border-radius: 4px;
         transition: background 0.15s;
+        --mdc-icon-size: 20px;
       }
 
       .wizard-close-btn:hover {
         background: var(--secondary-background-color);
         color: var(--primary-text-color);
+      }
+
+      /* Confirm-before-close overlay (UX N4) */
+      .wizard-confirm-close {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+
+      .wizard-confirm-box {
+        background: var(--card-background-color);
+        border-radius: 10px;
+        padding: 20px;
+        max-width: 360px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      }
+
+      .wizard-confirm-box p {
+        margin: 0 0 16px;
+        font-size: 0.9rem;
+        color: var(--primary-text-color);
+        line-height: 1.5;
+      }
+
+      .wizard-confirm-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
       }
 
       /* Stepper */
@@ -1271,9 +1348,9 @@ export class SiSetupWizard extends LitElement {
       }
 
       .done-icon {
-        font-size: 3rem;
         color: #4caf50;
         margin-bottom: 12px;
+        --mdc-icon-size: 56px;
       }
 
       .done-actions {

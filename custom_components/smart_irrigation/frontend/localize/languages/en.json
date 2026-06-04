@@ -145,7 +145,13 @@
         }
       },
       "description": "This page provides global settings.",
-      "title": "General"
+      "title": "General",
+      "sections": {
+        "weather": "Weather",
+        "automation": "Automation",
+        "location": "Location",
+        "watering": "Watering behavior"
+      }
     },
     "schedules": {
       "title": "Schedules",
@@ -678,6 +684,11 @@
         "go_zones": "Go to Zones",
         "go_setup": "Go to Setup"
       }
+    },
+    "confirm_close": {
+      "body": "Close the setup wizard? Your progress so far is saved.",
+      "keep": "Keep editing",
+      "close": "Close"
     }
   }
 }

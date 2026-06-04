@@ -147,7 +147,13 @@
         }
       },
       "description": "Dit zijn de algemene instellingen.",
-      "title": "Algemeen"
+      "title": "Algemeen",
+      "sections": {
+        "weather": "Weer",
+        "automation": "Automatisering",
+        "location": "Locatie",
+        "watering": "Bewateringsgedrag"
+      }
     },
     "help": {
       "title": "Hulp",
@@ -680,6 +686,11 @@
       "module": "Module",
       "mapping": "Sensorgroep",
       "zone": "Zone"
+    },
+    "confirm_close": {
+      "body": "Configuratiewizard sluiten? Je voortgang is opgeslagen.",
+      "keep": "Doorgaan",
+      "close": "Sluiten"
     }
   }
 }

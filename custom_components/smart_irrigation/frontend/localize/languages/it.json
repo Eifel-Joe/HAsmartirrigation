@@ -148,7 +148,13 @@
         }
       },
       "description": "Questa pagina fornisce le impostazioni globali.",
-      "title": "Generale"
+      "title": "Generale",
+      "sections": {
+        "weather": "Meteo",
+        "automation": "Automazione",
+        "location": "Posizione",
+        "watering": "Comportamento di irrigazione"
+      }
     },
     "help": {
       "title": "Aiuto",
@@ -685,6 +691,11 @@
       "module": "Modulo",
       "mapping": "Gruppo di sensori",
       "zone": "Zona"
+    },
+    "confirm_close": {
+      "body": "Chiudere la procedura guidata? I progressi finora sono salvati.",
+      "keep": "Continua",
+      "close": "Chiudi"
     }
   }
 }

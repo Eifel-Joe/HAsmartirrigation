@@ -15,7 +15,7 @@ import {
 import "../../components/si-field";
 import { SubscribeMixin } from "../../subscribe-mixin";
 import { localize } from "../../../localize/localize";
-import { output_unit, pick, handleError, showErrorToast } from "../../helpers";
+import { output_unit, pick, showErrorToast } from "../../helpers";
 import { loadHaForm } from "../../load-ha-elements";
 import { SmartIrrigationConfig } from "../../types";
 import { globalStyle } from "../../styles/global-style";
@@ -198,12 +198,24 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
       </div>`;
     }
     return html`
-      ${this._renderSaveStatus()} ${this._renderWeatherServiceCard()}
-      ${this._renderAutoUpdateCard()} ${this._renderAutoCalcCard()}
-      ${this._renderAutoClearCard()} ${this._renderContinuousUpdatesCard()}
-      ${this._renderWeatherSkipCard()} ${this._renderCoordinateCard()}
+      ${this._renderSaveStatus()} ${this._renderSection("weather")}
+      ${this._renderWeatherServiceCard()} ${this._renderWeatherSkipCard()}
+      ${this._renderSection("automation")} ${this._renderAutoUpdateCard()}
+      ${this._renderAutoCalcCard()} ${this._renderAutoClearCard()}
+      ${this._renderContinuousUpdatesCard()} ${this._renderSection("location")}
+      ${this._renderCoordinateCard()} ${this._renderSection("watering")}
       ${this._renderDaysBetweenIrrigationCard()}
       ${this._renderZoneSequencingCard()}
+    `;
+  }
+
+  /** Labelled section divider grouping the settings cards (UX N5). */
+  private _renderSection(key: string): TemplateResult {
+    if (!this.hass) return html``;
+    return html`
+      <div class="settings-section-header">
+        ${localize(`panels.general.sections.${key}`, this.hass.language)}
+      </div>
     `;
   }
 
@@ -1263,10 +1275,7 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
     } catch (error) {
       console.error("Error saving config:", error);
       this._saveStatus = "idle";
-      handleError(
-        error,
-        this.shadowRoot!.querySelector("ha-card") as HTMLElement,
-      );
+      showErrorToast(this, this.hass, "common.errors.save_failed", error);
       await this._fetchData();
     } finally {
       this.isSaving = false;
@@ -1346,6 +1355,16 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
 
       .save-status-float.saved {
         color: var(--success-color, #2e7d32);
+      }
+
+      /* Section divider (UX N5) */
+      .settings-section-header {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--primary-color);
+        margin: 16px 4px 4px;
       }
 
       .description-text {

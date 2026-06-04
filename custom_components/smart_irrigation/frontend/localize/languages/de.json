@@ -147,7 +147,13 @@
         }
       },
       "description": "Diese Seite ist für allgemeine Einstellungen.",
-      "title": "Allgemein"
+      "title": "Allgemein",
+      "sections": {
+        "weather": "Wetter",
+        "automation": "Automatisierung",
+        "location": "Standort",
+        "watering": "Bewässerungsverhalten"
+      }
     },
     "help": {
       "title": "Hilfe",
@@ -680,6 +686,11 @@
       "module": "Modul",
       "mapping": "Sensorgruppe",
       "zone": "Zone"
+    },
+    "confirm_close": {
+      "body": "Setup-Assistenten schließen? Dein bisheriger Fortschritt ist gespeichert.",
+      "keep": "Weiter bearbeiten",
+      "close": "Schließen"
     }
   }
 }

@@ -180,13 +180,7 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
       this.mappingCache.clear();
     } catch (error) {
       console.error("Error fetching data:", error);
-      handleError(
-        {
-          body: { message: "Failed to load mapping data" },
-          error: "Data fetch error",
-        },
-        this.shadowRoot?.querySelector("ha-card") as HTMLElement,
-      );
+      showErrorToast(this, this.hass, "common.errors.load_failed", error);
     } finally {
       if (isInitial) this.isLoading = false;
       this._scheduleUpdate();

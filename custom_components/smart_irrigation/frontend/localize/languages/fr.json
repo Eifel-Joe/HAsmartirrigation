@@ -148,7 +148,13 @@
         }
       },
       "description": "Cette page fournit les réglages globaux.",
-      "title": "Général"
+      "title": "Général",
+      "sections": {
+        "weather": "Météo",
+        "automation": "Automatisation",
+        "location": "Emplacement",
+        "watering": "Comportement darrosage"
+      }
     },
     "help": {
       "title": "Aide",
@@ -682,6 +688,11 @@
       "module": "Module",
       "mapping": "Groupe de capteurs",
       "zone": "Zone"
+    },
+    "confirm_close": {
+      "body": "Fermer lassistant de configuration ? Votre progression est enregistrée.",
+      "keep": "Continuer",
+      "close": "Fermer"
     }
   }
 }
