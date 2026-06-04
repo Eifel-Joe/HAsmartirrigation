@@ -279,7 +279,8 @@
         "view-weather-info": "Se værdata",
         "view-weather-info-message": "Værdata tilgjengelig for",
         "view-watering-calendar": "Vanningskalender",
-        "irrigate_all": "Kjør alle soner nå"
+        "irrigate_all": "Kjør alle soner nå",
+        "open_settings": "Rediger innstillinger"
       },
       "cards": {
         "add-zone": {

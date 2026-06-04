@@ -341,6 +341,18 @@ export function extractErrorMessage(err: unknown): string {
  * rather than via fireEvent because custom-card-helpers' typed event map does
  * not include "hass-notification".
  */
+/**
+ * Format a duration in seconds for display (UX N1).
+ * < 60s -> "45 s"; otherwise "6 min" or "6 min 30 s".
+ */
+export function formatDuration(seconds: number): string {
+  const s = Math.round(seconds);
+  if (s < 60) return `${s} s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem ? `${m} min ${rem} s` : `${m} min`;
+}
+
 export function showToast(node: HTMLElement, message: string): void {
   node.dispatchEvent(
     new CustomEvent("hass-notification", {

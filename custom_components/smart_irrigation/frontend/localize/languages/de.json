@@ -278,7 +278,8 @@
         "view-weather-info": "Wetterdaten anzeigen",
         "view-weather-info-message": "Wetterdaten verfügbar für",
         "view-watering-calendar": "Bewässerungskalender",
-        "irrigate_all": "Alle Zonen jetzt ausführen"
+        "irrigate_all": "Alle Zonen jetzt ausführen",
+        "open_settings": "Einstellungen bearbeiten"
       },
       "cards": {
         "add-zone": {

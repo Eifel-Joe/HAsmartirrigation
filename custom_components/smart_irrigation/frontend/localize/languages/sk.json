@@ -278,7 +278,8 @@
         "view-weather-info": "Zobraziť počasie",
         "view-weather-info-message": "Poveternostné údaje dostupné pre",
         "view-watering-calendar": "Kalendár zavlažovania",
-        "irrigate_all": "Spustiť všetky zóny teraz"
+        "irrigate_all": "Spustiť všetky zóny teraz",
+        "open_settings": "Upraviť nastavenia"
       },
       "cards": {
         "add-zone": {

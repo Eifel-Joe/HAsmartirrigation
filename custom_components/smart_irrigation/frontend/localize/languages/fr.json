@@ -280,7 +280,8 @@
         "view-weather-info": "Voir données météo",
         "view-weather-info-message": "Données météo disponibles pour",
         "view-watering-calendar": "Calendrier d'arrosage",
-        "irrigate_all": "Lancer toutes les zones maintenant"
+        "irrigate_all": "Lancer toutes les zones maintenant",
+        "open_settings": "Modifier les réglages"
       },
       "cards": {
         "add-zone": {

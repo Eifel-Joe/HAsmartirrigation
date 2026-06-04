@@ -3,6 +3,7 @@ import { property, customElement } from "lit/decorators.js";
 import { HomeAssistant } from "custom-card-helpers";
 
 import "../general/view-general.ts";
+import "../zones/view-zone-settings.ts";
 import "../modules/view-modules.ts";
 import "../mappings/view-mappings.ts";
 import "../schedules/view-schedules.ts";
@@ -17,6 +18,7 @@ const DOCS_URL = "https://justchr.github.io/HAsmartirrigation/";
 
 enum ESetupTab {
   General = "general",
+  Zones = "zones",
   Modules = "modules",
   Mappings = "mappings",
   Schedules = "schedules",
@@ -25,6 +27,7 @@ enum ESetupTab {
 
 const SETUP_TAB_LABELS: Record<ESetupTab, string> = {
   [ESetupTab.General]: "panels.general.title",
+  [ESetupTab.Zones]: "panels.zones.title",
   [ESetupTab.Modules]: "panels.modules.title",
   [ESetupTab.Mappings]: "panels.mappings.title",
   [ESetupTab.Schedules]: "panels.schedules.title",
@@ -96,6 +99,12 @@ export class SmartIrrigationViewSetup extends LitElement {
           .hass="${this.hass}"
           .narrow="${this.narrow}"
         ></smart-irrigation-view-general>`;
+      case ESetupTab.Zones:
+        return html`<smart-irrigation-view-zone-settings
+          .hass="${this.hass}"
+          .narrow="${this.narrow}"
+          .path="${this.path}"
+        ></smart-irrigation-view-zone-settings>`;
       case ESetupTab.Modules:
         return html`<smart-irrigation-view-modules
           .hass="${this.hass}"

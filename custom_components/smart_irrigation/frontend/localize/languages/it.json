@@ -322,7 +322,8 @@
         "view-weather-info-message": "Informazioni meteo disponibili per",
         "view-weather-info-todo": "TODO: Implementare la navigazione ai dettagli del gruppo di sensori",
         "view-watering-calendar": "Calendario irrigazione",
-        "irrigate_all": "Esegui tutte le zone ora"
+        "irrigate_all": "Esegui tutte le zone ora",
+        "open_settings": "Modifica impostazioni"
       },
       "cards": {
         "add-zone": {
