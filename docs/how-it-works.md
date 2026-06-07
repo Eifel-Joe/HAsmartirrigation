@@ -39,5 +39,12 @@ Initially, the bucket is `0`, so the duration for irrigation is set to `0s`.
 |6|`0`|`0.4`|`-0.4`|`0` (reset)|`-0.4`|`300`|Since `Bu < 0` irrigation is required and bucket is reset afterwards|
 |7|`0.5`|`0.2`|`0.3`|`0` (reset)|`0.3`|`0`|No irrigation required|
 
+## Live status estimate
+The `bucket` above is recalculated once a day, at the configured calculation time, so the stored value can be hours old. For a more current picture, the [dashboard](usage-dashboard.md#live-estimate) also shows a read-only **live estimate** of each zone's deficit *since the last calculation*.
+
+Where hourly solar-radiation data is available (for example from Open-Meteo) it accumulates evapotranspiration using the dedicated **hourly** FAO-56 Penman-Monteith equation — not the daily equation run more often, which would be physically incorrect. With other providers it falls back to a lighter approximation based on the day's temperature range, distributed across the day by sun position.
+
+This estimate is **display-only**: it does not change the stored `bucket`, does not trigger irrigation, and is anchored to the last calculation so it never double-counts the evapotranspiration the daily calculation has already applied.
+
 ## When to irrigate
 You should irrigate when the irrigation tells you to, but keep in mind that for grass, experts say you should water deeply but infrequently to avoid overwatering and encourage deep rooting. It might be a good idea to create an automation that starts early enough to finish before sunrise and run that only once per week if `duration is 0` or if the `bucket < -25 mm (~1")`. Adjust to your specific needs. See [Example automation](example-automations) for examples.

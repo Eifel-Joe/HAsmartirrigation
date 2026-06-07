@@ -20,10 +20,13 @@ This integration calculates how long to run your irrigation system to compensate
 - Works with **Open-Meteo** (free, no API key), Open Weather Map, Pirate Weather, or your own local sensors
 - **Guided setup wizard** — a first-run wizard walks you through weather, calculation module, sensor group, and your first zone in a few steps
 - **Direct valve control** — link a `switch` or `valve` entity to each zone; the integration turns it on, waits the calculated duration, and turns it off — no automations needed
-- **Everyday dashboard** — the **Zones** tab is an at-a-glance dashboard showing, per zone, whether it will water and why, with one-tap Update / Calculate / Irrigate; full configuration lives under **Setup → Zones**
+- **Everyday dashboard** — the **Zones** tab is an at-a-glance [dashboard](https://JustChr.github.io/HAsmartirrigation/usage-dashboard.html) showing, per zone, whether it will water and why, with one-tap Update / Calculate / Irrigate; full configuration lives under **Setup → Zones**
+- **Forward-looking outlook** — a banner shows the next scheduled run and whether it will likely be skipped (tap **“Why?”** for the reasons); per-zone decisions are honest about skip conditions
+- **Live status estimate** — a read-only "Now ≈ −X mm" estimate of each zone's deficit *since the last calculation*, using the hourly FAO-56 equation where hourly solar data is available — so the status isn't stale between daily calculations
+- **Lovelace card** — a [`custom:smart-irrigation-zones-card`](https://JustChr.github.io/HAsmartirrigation/usage-lovelace-card.html) that mirrors the dashboard for **non-admin** users, addable to any dashboard
 - **Irrigate Now** — trigger immediate irrigation from the dashboard (all zones or per zone), bypassing skip conditions
 - **Schedules tab** — create daily/weekly/monthly/interval recurring schedules entirely from the UI — no automations needed
-- **Skip conditions** — skip irrigation based on forecasted rain, low temperature, high wind speed, or a rain sensor
+- **Skip conditions** — skip irrigation based on forecasted rain (with a configurable forecast look-ahead window), low temperature, high wind speed, or a rain sensor
 - Enforces a configurable minimum number of days between irrigation events
 - Still fires HA events for power users who prefer automation-based control
 
