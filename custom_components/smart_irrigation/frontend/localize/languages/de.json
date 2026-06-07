@@ -284,7 +284,7 @@
         "view-weather-info": "Wetterdaten anzeigen",
         "view-weather-info-message": "Wetterdaten verfügbar für",
         "view-watering-calendar": "Bewässerungskalender",
-        "irrigate_all": "Alle Zonen jetzt ausführen",
+        "irrigate_all": "Alle Zonen jetzt bewässern",
         "open_settings": "Einstellungen bearbeiten"
       },
       "cards": {
@@ -296,8 +296,8 @@
         },
         "zone-actions": {
           "actions": {
-            "calculate-all": "Alle Zonen berechnen",
-            "update-all": "Alle Zonen aktualisieren",
+            "calculate-all": "Dauern neu berechnen",
+            "update-all": "Wetterdaten aktualisieren",
             "reset-all-buckets": "Alle Vorräte zurücksetzen",
             "clear-all-weatherdata": "Alle Wetterdaten löschen"
           },
@@ -345,6 +345,9 @@
       "status": {
         "decision_disabled": "Ausgeschaltet — diese Zone wird nicht automatisch bewässert.",
         "decision_water": "Bewässerung nötig: etwa {duration} beim nächsten geplanten Lauf.",
+        "decision_water_at": "Bewässert etwa {duration} um {time}.",
+        "decision_water_skip": "Defizit ~{duration}, aber der nächste Lauf wird wahrscheinlich übersprungen ({reason}).",
+        "decision_water_no_schedule": "Defizit ~{duration} — kein Zeitplan bewässert diese Zone; manuell starten.",
         "decision_no_water": "Derzeit keine Bewässerung nötig — der Boden hat genug Feuchtigkeit.",
         "decision_unknown": "Noch nicht berechnet — auf Aktualisieren und dann Berechnen drücken.",
         "last_checked": "Zuletzt geprüft",
@@ -355,7 +358,45 @@
         "bucket": "Bodenfeuchte-Bilanz (Vorrat). Ein negativer Wert bedeutet, dass der Boden trocken ist und die Zone Wasser braucht.",
         "calculate": "Berechnet aus den neuesten Daten, wie lange bewässert wird. Nach dem Aktualisieren ausführen.",
         "update": "Ruft die neuesten Wetter-/Sensordaten für diese Zone ab.",
-        "irrigate_link_entity": "Verknüpfe in den Zoneneinstellungen einen Schalter/ein Ventil, um manuelle Bewässerung zu ermöglichen."
+        "irrigate_link_entity": "Verknüpfe in den Zoneneinstellungen einen Schalter/ein Ventil, um manuelle Bewässerung zu ermöglichen.",
+        "irrigate_all": "Öffnet jetzt die verknüpften Ventile für jede Zone mit Defizit. Überspring-Bedingungen (Regen, Wind, Temperatur) werden ignoriert.",
+        "update_all": "Sammelt die neuesten Wetter-/Sensordaten für alle Zonen. Ändert die Dauern nicht von selbst.",
+        "calculate_all": "Berechnet die Bewässerungsdauer jeder automatischen Zone aus den bisher gesammelten Daten neu."
+      },
+      "outlook": {
+        "next_run": "Nächster Lauf",
+        "no_schedule": "Kein automatischer Zeitplan — Zonen bewässern nur, wenn du sie auslöst.",
+        "setup_schedule": "Zeitplan einrichten",
+        "targets_all": "alle Zonen",
+        "targets_zones": "{count} Zonen",
+        "will_skip": "Nächster Lauf wird wahrscheinlich übersprungen",
+        "will_run": "Bedingungen für den nächsten Lauf sehen gut aus.",
+        "provisional": "Vorhersage — kann sich ändern",
+        "active_guards": "Aktive Bedingungen",
+        "last_run": "Letzter Lauf",
+        "last_run_skipped": "übersprungen",
+        "last_run_ran": "ausgeführt",
+        "today": "heute",
+        "tomorrow": "morgen",
+        "actions": {
+          "irrigate": "Bewässern",
+          "calculate": "Neu berechnen",
+          "update": "Daten aktualisieren"
+        },
+        "checks": {
+          "precipitation": "Regenvorhersage",
+          "days_between": "Tage zwischen Bewässerungen",
+          "temperature": "Niedrige Temperatur",
+          "wind": "Starker Wind",
+          "rain_sensor": "Regensensor"
+        },
+        "check_detail": {
+          "precipitation": "{observed} mm (≥ {threshold} mm)",
+          "days_between": "{observed}/{threshold} Tage",
+          "temperature": "{observed}° (unter {threshold}°)",
+          "wind": "{observed} (über {threshold})",
+          "rain_sensor": "{observed}"
+        }
       },
       "calendar": {
         "no_data": "Keine Bewässerungskalender-Daten für diese Zone verfügbar.",

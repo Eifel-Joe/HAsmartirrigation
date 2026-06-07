@@ -7,6 +7,7 @@ import { mdiCog, mdiClose } from "@mdi/js";
 import {
   fetchConfig,
   fetchZones,
+  fetchIrrigationOutlook,
   calculateZone,
   updateZone,
   calculateAllZones,
@@ -19,6 +20,9 @@ import {
   SmartIrrigationConfig,
   SmartIrrigationZone,
   SmartIrrigationZoneState,
+  IrrigationOutlook,
+  UpcomingRun,
+  SkipCheck,
 } from "../../types";
 import {
   output_unit,
@@ -47,6 +51,8 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
 
   @property({ type: Array })
   private zones: SmartIrrigationZone[] = [];
+
+  @state() private _outlook?: IrrigationOutlook;
 
   @property({ type: Boolean })
   private isLoading = true;
@@ -105,13 +111,19 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
     try {
       if (isInitial) this.isLoading = true;
 
-      const [config, zones] = await Promise.all([
+      const [config, zones, outlook] = await Promise.all([
         fetchConfig(this.hass),
         fetchZones(this.hass),
+        fetchIrrigationOutlook(this.hass).catch((e) => {
+          // Outlook is supplementary — never block the dashboard on it.
+          console.error("Failed to fetch irrigation outlook:", e);
+          return undefined;
+        }),
       ]);
 
       this.config = config;
       this.zones = zones;
+      this._outlook = outlook;
       this._initialLoadDone = true;
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -243,9 +255,252 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
     );
   }
 
+  // --- outlook helpers -----------------------------------------------------
+
+  /** Whether an upcoming run targets this zone ("all" or its id in the list). */
+  private _runTargetsZone(
+    run: UpcomingRun,
+    zone: SmartIrrigationZone,
+  ): boolean {
+    if (run.zones === "all") return true;
+    if (Array.isArray(run.zones) && zone.id !== undefined) {
+      return run.zones.map((z) => Number(z)).includes(Number(zone.id));
+    }
+    return false;
+  }
+
+  /** Soonest scheduled *irrigate* run with a known clock time (overall). */
+  private get _nextIrrigateRun(): UpcomingRun | undefined {
+    return this._outlook?.upcoming_runs.find(
+      (r) => r.action === "irrigate" && r.next_run_utc,
+    );
+  }
+
+  /** Soonest scheduled irrigate run with a known time that targets this zone. */
+  private _nextIrrigateRunForZone(
+    zone: SmartIrrigationZone,
+  ): UpcomingRun | undefined {
+    return this._outlook?.upcoming_runs.find(
+      (r) =>
+        r.action === "irrigate" &&
+        r.next_run_utc &&
+        this._runTargetsZone(r, zone),
+    );
+  }
+
+  /** Skip guards that are enabled (active), regardless of current verdict. */
+  private get _activeGuards(): SkipCheck[] {
+    return this._outlook?.skip_preview.checks.filter((c) => c.enabled) ?? [];
+  }
+
+  /** Enabled guards that would currently skip the next run. */
+  private get _triggeredGuards(): SkipCheck[] {
+    return this._activeGuards.filter((c) => c.would_skip);
+  }
+
+  /** Per-zone irrigation gate, mirroring the backend runner. */
+  private _zoneHasDeficit(zone: SmartIrrigationZone): boolean {
+    const duration = zone.duration ?? 0;
+    const bucket = Number(zone.bucket ?? 0);
+    const threshold = Number(zone.bucket_threshold ?? 0);
+    return duration > 0 && bucket < threshold;
+  }
+
+  /** Compact local time for a run, e.g. "today 06:00" / "tomorrow 06:00". */
+  private _formatRunTime(utc: string): string {
+    if (!this.hass) return "";
+    const lang = this.hass.language;
+    const m = moment(utc);
+    const time = m.format("HH:mm");
+    const now = moment();
+    if (m.isSame(now, "day")) {
+      return `${localize("panels.zones.outlook.today", lang)} ${time}`;
+    }
+    if (m.isSame(now.clone().add(1, "day"), "day")) {
+      return `${localize("panels.zones.outlook.tomorrow", lang)} ${time}`;
+    }
+    return m.format("ddd HH:mm");
+  }
+
+  private _guardLabel(check: SkipCheck): string {
+    return localize(
+      `panels.zones.outlook.checks.${check.id}`,
+      this.hass!.language,
+    );
+  }
+
+  /** Short observed-vs-threshold detail for a guard chip, or "" if unavailable. */
+  private _guardDetail(check: SkipCheck): string {
+    if (!check.available || check.observed === null) return "";
+    return localize(
+      `panels.zones.outlook.check_detail.${check.id}`,
+      this.hass!.language,
+      "{observed}",
+      String(check.observed),
+      "{threshold}",
+      String(check.threshold ?? ""),
+    );
+  }
+
+  private _guardChip(check: SkipCheck): TemplateResult {
+    const detail = this._guardDetail(check);
+    return html`
+      <span class="guard-chip ${check.would_skip ? "triggered" : ""}">
+        ${this._guardLabel(check)}${detail ? html` · ${detail}` : ""}
+      </span>
+    `;
+  }
+
+  private _openSchedules(): void {
+    navigate(this, exportPath("setup", "schedules"));
+  }
+
+  /** Human label for a run's action verb (Water / Recalculate / Refresh data). */
+  private _runActionLabel(run: UpcomingRun): string {
+    return localize(
+      `panels.zones.outlook.actions.${run.action}`,
+      this.hass!.language,
+    );
+  }
+
+  private _runTargetsLabel(run: UpcomingRun): string {
+    const lang = this.hass!.language;
+    if (run.zones === "all") {
+      return localize("panels.zones.outlook.targets_all", lang);
+    }
+    const count = Array.isArray(run.zones) ? run.zones.length : 0;
+    return localize(
+      "panels.zones.outlook.targets_zones",
+      lang,
+      "{count}",
+      String(count),
+    );
+  }
+
   /**
-   * At-a-glance answer to "will this zone water, and why" — the daily question.
-   * Derived from existing zone fields (state / duration / last_calculated).
+   * Global outlook banner: what runs next, whether it will be skipped, which
+   * guards are active, and the most recent real run decision. Schedules and
+   * skip conditions are global, so they live here rather than per card.
+   */
+  private _renderOutlookBanner(): TemplateResult {
+    if (!this.hass || !this._outlook) return html``;
+    const lang = this.hass.language;
+    const nextRun = this._nextIrrigateRun;
+    const triggered = this._triggeredGuards;
+    const guards = this._activeGuards;
+    const last = this._outlook.last_skip_evaluation;
+
+    // No automatic irrigate schedule → make the manual-only reality explicit.
+    if (!nextRun || !nextRun.next_run_utc) {
+      return html`
+        <ha-card class="outlook-card">
+          <div class="outlook">
+            <div class="outlook-line outlook-headline">
+              <ha-icon icon="mdi:calendar-alert"></ha-icon>
+              <span>${localize("panels.zones.outlook.no_schedule", lang)}</span>
+              <button class="outlook-link" @click="${this._openSchedules}">
+                ${localize("panels.zones.outlook.setup_schedule", lang)}
+              </button>
+            </div>
+            ${guards.length > 0 ? this._renderGuardsLine(guards) : ""}
+            ${last ? this._renderLastRunLine(last) : ""}
+          </div>
+        </ha-card>
+      `;
+    }
+
+    return html`
+      <ha-card class="outlook-card">
+        <div class="outlook">
+          <div class="outlook-line outlook-headline">
+            <ha-icon icon="mdi:calendar-clock"></ha-icon>
+            <span>
+              <strong
+                >${localize("panels.zones.outlook.next_run", lang)}:</strong
+              >
+              ${this._runActionLabel(nextRun)}
+              ${this._formatRunTime(nextRun.next_run_utc)}
+              <span class="outlook-dim"
+                >· ${nextRun.name} · ${this._runTargetsLabel(nextRun)}</span
+              >
+            </span>
+          </div>
+
+          ${triggered.length > 0
+            ? html`
+                <div class="outlook-line outlook-skip">
+                  <ha-icon icon="mdi:alert"></ha-icon>
+                  <span>
+                    ${localize("panels.zones.outlook.will_skip", lang)}
+                    <span class="outlook-dim"
+                      >(${localize(
+                        "panels.zones.outlook.provisional",
+                        lang,
+                      )})</span
+                    >
+                  </span>
+                  <span class="guard-chips">
+                    ${triggered.map((c) => this._guardChip(c))}
+                  </span>
+                </div>
+              `
+            : html`
+                <div class="outlook-line outlook-clear">
+                  <ha-icon icon="mdi:check-circle-outline"></ha-icon>
+                  <span
+                    >${localize("panels.zones.outlook.will_run", lang)}</span
+                  >
+                </div>
+              `}
+          ${guards.length > 0 ? this._renderGuardsLine(guards) : ""}
+          ${last ? this._renderLastRunLine(last) : ""}
+        </div>
+      </ha-card>
+    `;
+  }
+
+  private _renderGuardsLine(guards: SkipCheck[]): TemplateResult {
+    const lang = this.hass!.language;
+    return html`
+      <div class="outlook-line outlook-guards">
+        <span class="outlook-dim"
+          >${localize("panels.zones.outlook.active_guards", lang)}:</span
+        >
+        <span class="guard-chips">
+          ${guards.map((c) => this._guardChip(c))}
+        </span>
+      </div>
+    `;
+  }
+
+  private _renderLastRunLine(last: {
+    timestamp: string;
+    would_skip: boolean;
+    checks: SkipCheck[];
+  }): TemplateResult {
+    const lang = this.hass!.language;
+    const when = moment(last.timestamp).fromNow();
+    const reasons = last.checks
+      .filter((c) => c.enabled && c.would_skip)
+      .map((c) => this._guardLabel(c).toLowerCase())
+      .join(", ");
+    const verdict = last.would_skip
+      ? `${localize("panels.zones.outlook.last_run_skipped", lang)}${reasons ? ` (${reasons})` : ""}`
+      : localize("panels.zones.outlook.last_run_ran", lang);
+    return html`
+      <div class="outlook-line outlook-last">
+        <span class="outlook-dim"
+          >${localize("panels.zones.outlook.last_run", lang)}:</span
+        >
+        <span>${verdict} · ${when}</span>
+      </div>
+    `;
+  }
+
+  /**
+   * At-a-glance answer to "will this zone water, when, and if not why?" — the
+   * daily question. Combines the per-zone deficit gate with the global skip
+   * preview and the next scheduled run.
    */
   private _renderZoneDecision(zone: SmartIrrigationZone): TemplateResult {
     if (!this.hass) return html``;
@@ -255,27 +510,56 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
     let text: string;
     let cls: string;
     let icon: string;
+
     if (zone.state === SmartIrrigationZoneState.Disabled) {
       text = localize("panels.zones.status.decision_disabled", lang);
       cls = "neutral";
       icon = "mdi:power-off";
-    } else if (duration > 0) {
-      text = localize(
-        "panels.zones.status.decision_water",
-        lang,
-        "{duration}",
-        formatDuration(duration),
-      );
-      cls = "water";
-      icon = "mdi:water";
-    } else if (zone.last_calculated) {
+    } else if (!zone.last_calculated) {
+      text = localize("panels.zones.status.decision_unknown", lang);
+      cls = "unknown";
+      icon = "mdi:help-circle-outline";
+    } else if (!this._zoneHasDeficit(zone)) {
       text = localize("panels.zones.status.decision_no_water", lang);
       cls = "ok";
       icon = "mdi:check-circle-outline";
     } else {
-      text = localize("panels.zones.status.decision_unknown", lang);
-      cls = "unknown";
-      icon = "mdi:help-circle-outline";
+      // Deficit exists — but will the next run actually water it?
+      const dur = formatDuration(duration);
+      const triggered = this._triggeredGuards;
+      const nextRun = this._nextIrrigateRunForZone(zone);
+      if (triggered.length > 0) {
+        text = localize(
+          "panels.zones.status.decision_water_skip",
+          lang,
+          "{duration}",
+          dur,
+          "{reason}",
+          this._guardLabel(triggered[0]).toLowerCase(),
+        );
+        cls = "skip";
+        icon = "mdi:weather-rainy";
+      } else if (nextRun && nextRun.next_run_utc) {
+        text = localize(
+          "panels.zones.status.decision_water_at",
+          lang,
+          "{duration}",
+          dur,
+          "{time}",
+          this._formatRunTime(nextRun.next_run_utc),
+        );
+        cls = "water";
+        icon = "mdi:water";
+      } else {
+        text = localize(
+          "panels.zones.status.decision_water_no_schedule",
+          lang,
+          "{duration}",
+          dur,
+        );
+        cls = "water";
+        icon = "mdi:water-alert";
+      }
     }
 
     return html`
@@ -283,6 +567,28 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
         <ha-icon icon="${icon}"></ha-icon>
         <span>${text}</span>
       </div>
+    `;
+  }
+
+  /** Per-zone "next run" fragment for the status line, when one is scheduled. */
+  private _renderZoneNextRun(zone: SmartIrrigationZone): TemplateResult {
+    if (!this.hass) return html``;
+    const run = this._nextIrrigateRunForZone(zone);
+    if (!run || !run.next_run_utc) return html``;
+    // Avoid duplication: the "Will water … at <time>" decision line already
+    // shows this time, so only add it here when the decision doesn't.
+    const decisionShowsTime =
+      zone.state !== SmartIrrigationZoneState.Disabled &&
+      zone.last_calculated &&
+      this._zoneHasDeficit(zone) &&
+      this._triggeredGuards.length === 0;
+    if (decisionShowsTime) return html``;
+    return html`
+      <span class="status-sep">·</span>
+      <span>
+        ${localize("panels.zones.outlook.next_run", this.hass.language)}:
+        <strong>${this._formatRunTime(run.next_run_utc)}</strong>
+      </span>
     `;
   }
 
@@ -348,6 +654,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
               )}:
               <strong>${lastChecked}</strong>
             </span>
+            ${this._renderZoneNextRun(zone)}
           </div>
         </div>
 
@@ -486,6 +793,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
             </ha-card>
           `
         : ""}
+      ${!isFirstTime ? this._renderOutlookBanner() : ""}
 
       <!-- Zones header card: run-all operational actions -->
       <ha-card>
@@ -498,6 +806,10 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
           <button
             class="action-btn"
             raised
+            title="${localize(
+              "panels.zones.help.irrigate_all",
+              this.hass.language,
+            )}"
             @click="${() => {
               this._confirmIrrigate = "all";
             }}"
@@ -507,6 +819,10 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
           </button>
           <button
             class="action-btn"
+            title="${localize(
+              "panels.zones.help.update_all",
+              this.hass.language,
+            )}"
             @click="${this.handleUpdateAllZones}"
             ?disabled="${this.isSaving}"
           >
@@ -517,6 +833,10 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
           </button>
           <button
             class="action-btn"
+            title="${localize(
+              "panels.zones.help.calculate_all",
+              this.hass.language,
+            )}"
             @click="${this.handleCalculateAllZones}"
             ?disabled="${this.isSaving}"
           >
@@ -657,6 +977,91 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
       .zone-decision.unknown {
         background: rgba(255, 152, 0, 0.12);
         color: var(--warning-color, #ed6c02);
+      }
+
+      .zone-decision.skip {
+        background: rgba(255, 152, 0, 0.12);
+        color: var(--warning-color, #ed6c02);
+      }
+
+      /* Global outlook banner */
+      .outlook-card {
+        border-left: 4px solid var(--primary-color);
+      }
+
+      .outlook {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 14px 16px;
+      }
+
+      .outlook-line {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 0.875rem;
+        line-height: 1.35;
+      }
+
+      .outlook-line ha-icon {
+        flex-shrink: 0;
+        --mdc-icon-size: 20px;
+      }
+
+      .outlook-headline {
+        font-size: 0.95rem;
+      }
+
+      .outlook-headline ha-icon {
+        color: var(--primary-color);
+      }
+
+      .outlook-skip {
+        color: var(--warning-color, #ed6c02);
+      }
+
+      .outlook-clear {
+        color: var(--success-color, #2e7d32);
+      }
+
+      .outlook-dim {
+        color: var(--secondary-text-color);
+        font-weight: 400;
+      }
+
+      .guard-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .guard-chip {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: var(--secondary-background-color);
+        color: var(--secondary-text-color);
+        white-space: nowrap;
+      }
+
+      .guard-chip.triggered {
+        background: rgba(255, 152, 0, 0.18);
+        color: var(--warning-color, #ed6c02);
+        font-weight: 500;
+      }
+
+      .outlook-link {
+        background: transparent;
+        border: none;
+        color: var(--primary-color);
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.875rem;
+        font-weight: 500;
+        padding: 0;
+        text-decoration: underline;
       }
 
       /* Compact one-line status */

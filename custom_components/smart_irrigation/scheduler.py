@@ -284,6 +284,61 @@ class RecurringScheduleManager:
             candidate += datetime.timedelta(days=1)
         return None
 
+    async def async_get_upcoming_runs(self) -> list[dict[str, Any]]:
+        """Compute the next fire time for each enabled schedule (for the dashboard).
+
+        Reuses the same target/anchor math the trackers use:
+          - start anchor → next_run = target
+          - finish anchor (irrigate only) → next_run = target − estimated duration
+        Interval schedules have no fixed clock target (phase depends on when HA
+        started), so they report ``next_run_utc=None`` plus ``interval_hours``.
+        Sorted soonest-first; entries that can't be resolved are dropped.
+        """
+        runs: list[dict[str, Any]] = []
+        for schedule in self._schedules:
+            if not schedule.get(const.SCHEDULE_CONF_ENABLED, True):
+                continue
+            stype = schedule[const.SCHEDULE_CONF_TYPE]
+            action = schedule.get(const.SCHEDULE_CONF_ACTION, "calculate")
+            zones = schedule.get(const.SCHEDULE_CONF_ZONES, "all")
+            anchor = self._time_anchor(schedule)
+
+            entry = {
+                "schedule_id": schedule[const.SCHEDULE_CONF_ID],
+                "name": schedule.get(const.SCHEDULE_CONF_NAME),
+                "action": action,
+                "zones": zones,
+                "type": stype,
+                "time_anchor": anchor,
+                "next_run_utc": None,
+                "target_utc": None,
+                "duration_seconds": 0,
+            }
+
+            if stype == const.SCHEDULE_TYPE_INTERVAL:
+                entry["interval_hours"] = schedule.get(
+                    const.SCHEDULE_CONF_INTERVAL_HOURS, 24
+                )
+                runs.append(entry)
+                continue
+
+            target = await self._next_target_time(schedule)
+            if target is None:
+                continue
+
+            next_run = target
+            if anchor == const.SCHEDULE_TIME_ANCHOR_FINISH and action == "irrigate":
+                duration = await self._estimate_duration(schedule)
+                entry["duration_seconds"] = int(duration)
+                next_run = target - datetime.timedelta(seconds=duration)
+
+            entry["next_run_utc"] = next_run.isoformat()
+            entry["target_utc"] = target.isoformat()
+            runs.append(entry)
+
+        runs.sort(key=lambda r: r["next_run_utc"] or "9999")
+        return runs
+
     async def _setup_finish_tracker(self, schedule: dict[str, Any]) -> Any:
         """One-shot tracker that fires at (target − duration) so the run ends at
         the configured time. Re-arms itself for the next occurrence."""

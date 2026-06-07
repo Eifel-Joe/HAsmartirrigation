@@ -284,7 +284,7 @@
         "view-weather-info": "Weergegevens bekijken",
         "view-weather-info-message": "Weergegevens beschikbaar voor",
         "view-watering-calendar": "Bewateringskalender",
-        "irrigate_all": "Alle zones nu uitvoeren",
+        "irrigate_all": "Alle zones nu bewateren",
         "open_settings": "Instellingen bewerken"
       },
       "cards": {
@@ -296,8 +296,8 @@
         },
         "zone-actions": {
           "actions": {
-            "calculate-all": "Bereken alle zones",
-            "update-all": "Werk alle zone data bij",
+            "calculate-all": "Duur herberekenen",
+            "update-all": "Weergegevens vernieuwen",
             "reset-all-buckets": "Leeg alle voorraden",
             "clear-all-weatherdata": "Verwijder alle weersinformatie"
           },
@@ -345,6 +345,9 @@
       "status": {
         "decision_disabled": "Uitgeschakeld — deze zone wordt niet automatisch bewaterd.",
         "decision_water": "Bewatering nodig: ongeveer {duration} bij de volgende geplande beurt.",
+        "decision_water_at": "Bewatert ongeveer {duration} om {time}.",
+        "decision_water_skip": "Tekort ~{duration}, maar de volgende beurt wordt waarschijnlijk overgeslagen ({reason}).",
+        "decision_water_no_schedule": "Tekort ~{duration} — geen schema bewatert deze zone; start handmatig.",
         "decision_no_water": "Nu geen bewatering nodig — de bodem heeft genoeg vocht.",
         "decision_unknown": "Nog niet berekend — druk op Bijwerken en daarna Bereken om te controleren.",
         "last_checked": "Laatst gecontroleerd",
@@ -355,7 +358,45 @@
         "bucket": "Bodemvochtbalans (voorraad). Een negatieve waarde betekent dat de bodem droog is en de zone water nodig heeft.",
         "calculate": "Berekent op basis van de nieuwste gegevens hoe lang er bewaterd wordt. Voer dit uit na Bijwerken.",
         "update": "Haalt de nieuwste weer-/sensorgegevens voor deze zone op.",
-        "irrigate_link_entity": "Koppel een schakelaar/klep in de instellingen van deze zone om handmatig bewateren mogelijk te maken."
+        "irrigate_link_entity": "Koppel een schakelaar/klep in de instellingen van deze zone om handmatig bewateren mogelijk te maken.",
+        "irrigate_all": "Opent nu de gekoppelde kleppen voor elke zone met een tekort. Uitsluitingsvoorwaarden (regen, wind, temperatuur) worden genegeerd.",
+        "update_all": "Verzamelt de nieuwste weer-/sensorgegevens voor alle zones. Verandert op zichzelf de duur niet.",
+        "calculate_all": "Herberekent de bewateringsduur van elke automatische zone op basis van de tot nu toe verzamelde gegevens."
+      },
+      "outlook": {
+        "next_run": "Volgende beurt",
+        "no_schedule": "Geen automatisch schema — zones worden alleen bewaterd wanneer je ze handmatig start.",
+        "setup_schedule": "Een schema instellen",
+        "targets_all": "alle zones",
+        "targets_zones": "{count} zones",
+        "will_skip": "Volgende beurt wordt waarschijnlijk overgeslagen",
+        "will_run": "De omstandigheden lijken gunstig voor de volgende beurt.",
+        "provisional": "voorspelling — kan veranderen",
+        "active_guards": "Actieve voorwaarden",
+        "last_run": "Laatste beurt",
+        "last_run_skipped": "overgeslagen",
+        "last_run_ran": "uitgevoerd",
+        "today": "vandaag",
+        "tomorrow": "morgen",
+        "actions": {
+          "irrigate": "Bewateren",
+          "calculate": "Herberekenen",
+          "update": "Gegevens vernieuwen"
+        },
+        "checks": {
+          "precipitation": "Regenverwachting",
+          "days_between": "Dagen tussen beurten",
+          "temperature": "Lage temperatuur",
+          "wind": "Harde wind",
+          "rain_sensor": "Regensensor"
+        },
+        "check_detail": {
+          "precipitation": "{observed} mm (≥ {threshold} mm)",
+          "days_between": "{observed}/{threshold} dagen",
+          "temperature": "{observed}° (onder {threshold}°)",
+          "wind": "{observed} (boven {threshold})",
+          "rain_sensor": "{observed}"
+        }
       },
       "calendar": {
         "no_data": "Geen bewateringskalendergegevens beschikbaar voor deze zone.",

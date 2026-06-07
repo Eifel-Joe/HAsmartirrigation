@@ -4,6 +4,7 @@ import {
   SmartIrrigationZone,
   SmartIrrigationModule,
   SmartIrrigationMapping,
+  IrrigationOutlook,
 } from "../types";
 import { DOMAIN } from "../const";
 
@@ -188,6 +189,12 @@ export const deleteSchedule = (
   schedule_id: string,
 ): Promise<any> =>
   hass.callWS({ type: DOMAIN + "/schedule_delete", schedule_id });
+
+// Dashboard outlook: next scheduled runs + live skip-condition preview
+export const fetchIrrigationOutlook = (
+  hass: HomeAssistant,
+): Promise<IrrigationOutlook> =>
+  hass.callWS({ type: DOMAIN + "/irrigation_outlook" });
 
 // Trigger immediate irrigation (bypasses all skip conditions)
 export const irrigateNow = (

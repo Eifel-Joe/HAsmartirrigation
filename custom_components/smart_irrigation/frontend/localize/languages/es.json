@@ -285,7 +285,7 @@
         "view-weather-info": "Ver datos meteorológicos",
         "view-weather-info-message": "Datos meteorológicos disponibles para",
         "view-watering-calendar": "Calendario de riego",
-        "irrigate_all": "Ejecutar todas las zonas ahora",
+        "irrigate_all": "Regar todas las zonas ahora",
         "open_settings": "Editar ajustes"
       },
       "cards": {
@@ -297,8 +297,8 @@
         },
         "zone-actions": {
           "actions": {
-            "calculate-all": "Calcular todas las zonas",
-            "update-all": "Actualizar todas las zonas",
+            "calculate-all": "Recalcular duraciones",
+            "update-all": "Actualizar datos meteorológicos",
             "reset-all-buckets": "Resetear todos los cubos",
             "clear-all-weatherdata": "Borrar todos los datos meteorológicos"
           },
@@ -346,6 +346,9 @@
       "status": {
         "decision_disabled": "Desactivada — esta zona no se regará automáticamente.",
         "decision_water": "Riego necesario: unos {duration} en el próximo riego programado.",
+        "decision_water_at": "Regará unos {duration} a las {time}.",
+        "decision_water_skip": "Déficit ~{duration}, pero el próximo riego probablemente se omitirá ({reason}).",
+        "decision_water_no_schedule": "Déficit ~{duration} — ningún horario riega esta zona; actívala manualmente.",
         "decision_no_water": "No se necesita riego ahora mismo — el suelo tiene suficiente humedad.",
         "decision_unknown": "Aún sin calcular — pulsa Actualizar y luego Calcular para comprobar.",
         "last_checked": "Última comprobación",
@@ -356,7 +359,45 @@
         "bucket": "Balance de humedad del suelo (cubo). Un valor negativo significa que el suelo está seco y la zona necesita agua.",
         "calculate": "Calcula cuánto tiempo regar a partir de los últimos datos. Ejecútalo después de Actualizar.",
         "update": "Obtiene los últimos datos meteorológicos/de sensores de esta zona.",
-        "irrigate_link_entity": "Vincula un interruptor/válvula en los ajustes de esta zona para permitir el riego manual."
+        "irrigate_link_entity": "Vincula un interruptor/válvula en los ajustes de esta zona para permitir el riego manual.",
+        "irrigate_all": "Abre ahora las válvulas vinculadas de cada zona con déficit. Se ignoran las condiciones de exclusión (lluvia, viento, temperatura).",
+        "update_all": "Recoge los últimos datos meteorológicos/de sensores de todas las zonas. No cambia las duraciones por sí solo.",
+        "calculate_all": "Recalcula la duración de riego de cada zona automática a partir de los datos recogidos hasta ahora."
+      },
+      "outlook": {
+        "next_run": "Próximo riego",
+        "no_schedule": "Sin horario automático — las zonas solo se riegan cuando lo activas tú.",
+        "setup_schedule": "Configurar un horario",
+        "targets_all": "todas las zonas",
+        "targets_zones": "{count} zonas",
+        "will_skip": "El próximo riego probablemente se omitirá",
+        "will_run": "Las condiciones parecen despejadas para el próximo riego.",
+        "provisional": "previsión — puede cambiar",
+        "active_guards": "Condiciones activas",
+        "last_run": "Último riego",
+        "last_run_skipped": "omitido",
+        "last_run_ran": "ejecutado",
+        "today": "hoy",
+        "tomorrow": "mañana",
+        "actions": {
+          "irrigate": "Regar",
+          "calculate": "Recalcular",
+          "update": "Actualizar datos"
+        },
+        "checks": {
+          "precipitation": "Lluvia prevista",
+          "days_between": "Días entre riegos",
+          "temperature": "Temperatura baja",
+          "wind": "Viento fuerte",
+          "rain_sensor": "Sensor de lluvia"
+        },
+        "check_detail": {
+          "precipitation": "{observed} mm (≥ {threshold} mm)",
+          "days_between": "{observed}/{threshold} días",
+          "temperature": "{observed}° (por debajo de {threshold}°)",
+          "wind": "{observed} (por encima de {threshold})",
+          "rain_sensor": "{observed}"
+        }
       },
       "calendar": {
         "no_data": "No hay datos de calendario de riego disponibles para esta zona.",

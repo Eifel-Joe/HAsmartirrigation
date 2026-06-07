@@ -285,7 +285,7 @@
         "view-weather-info": "Se værdata",
         "view-weather-info-message": "Værdata tilgjengelig for",
         "view-watering-calendar": "Vanningskalender",
-        "irrigate_all": "Kjør alle soner nå",
+        "irrigate_all": "Vann alle soner nå",
         "open_settings": "Rediger innstillinger"
       },
       "cards": {
@@ -297,8 +297,8 @@
         },
         "zone-actions": {
           "actions": {
-            "calculate-all": "Beregn alle soner",
-            "update-all": "Oppdater alle soner",
+            "calculate-all": "Beregn varigheter på nytt",
+            "update-all": "Oppdater værdata",
             "reset-all-buckets": "Nullstill alle bøtter",
             "clear-all-weatherdata": "Tøm alle værdata"
           },
@@ -346,6 +346,9 @@
       "status": {
         "decision_disabled": "Avslått — denne sonen vannes ikke automatisk.",
         "decision_water": "Vanning nødvendig: omtrent {duration} ved neste planlagte kjøring.",
+        "decision_water_at": "Vanner omtrent {duration} kl. {time}.",
+        "decision_water_skip": "Underskudd ~{duration}, men neste kjøring blir trolig hoppet over ({reason}).",
+        "decision_water_no_schedule": "Underskudd ~{duration} — ingen tidsplan vanner denne sonen; start den manuelt.",
         "decision_no_water": "Ingen vanning nødvendig nå — jorda har nok fuktighet.",
         "decision_unknown": "Ikke beregnet ennå — trykk Oppdater og deretter Beregn for å sjekke.",
         "last_checked": "Sist sjekket",
@@ -356,7 +359,45 @@
         "bucket": "Jordfuktighetsbalanse (bøtte). En negativ verdi betyr at jorda er tørr og sonen trenger vann.",
         "calculate": "Beregner hvor lenge det skal vannes ut fra de nyeste dataene. Kjør dette etter Oppdater.",
         "update": "Henter de nyeste vær-/sensordataene for denne sonen.",
-        "irrigate_link_entity": "Koble en bryter/ventil i sonens innstillinger for å aktivere manuell vanning."
+        "irrigate_link_entity": "Koble en bryter/ventil i sonens innstillinger for å aktivere manuell vanning.",
+        "irrigate_all": "Åpner nå de tilkoblede ventilene for hver sone med underskudd. Hoppe-over-betingelser (regn, vind, temperatur) ignoreres.",
+        "update_all": "Henter de nyeste vær-/sensordataene for alle soner. Endrer ikke varighetene i seg selv.",
+        "calculate_all": "Beregner vanningsvarigheten for hver automatisk sone på nytt ut fra dataene som er samlet så langt."
+      },
+      "outlook": {
+        "next_run": "Neste kjøring",
+        "no_schedule": "Ingen automatisk tidsplan — soner vannes bare når du starter dem.",
+        "setup_schedule": "Sett opp en tidsplan",
+        "targets_all": "alle soner",
+        "targets_zones": "{count} soner",
+        "will_skip": "Neste kjøring blir trolig hoppet over",
+        "will_run": "Forholdene ser klare ut for neste kjøring.",
+        "provisional": "varsel — kan endre seg",
+        "active_guards": "Aktive betingelser",
+        "last_run": "Forrige kjøring",
+        "last_run_skipped": "hoppet over",
+        "last_run_ran": "kjørt",
+        "today": "i dag",
+        "tomorrow": "i morgen",
+        "actions": {
+          "irrigate": "Vann",
+          "calculate": "Beregn på nytt",
+          "update": "Oppdater data"
+        },
+        "checks": {
+          "precipitation": "Regnvarsel",
+          "days_between": "Dager mellom vanninger",
+          "temperature": "Lav temperatur",
+          "wind": "Sterk vind",
+          "rain_sensor": "Regnsensor"
+        },
+        "check_detail": {
+          "precipitation": "{observed} mm (≥ {threshold} mm)",
+          "days_between": "{observed}/{threshold} dager",
+          "temperature": "{observed}° (under {threshold}°)",
+          "wind": "{observed} (over {threshold})",
+          "rain_sensor": "{observed}"
+        }
       },
       "calendar": {
         "no_data": "Ingen vanningskalenderdata tilgjengelig for denne sonen.",

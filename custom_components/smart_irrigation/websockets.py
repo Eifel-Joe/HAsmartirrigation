@@ -542,6 +542,26 @@ async def websocket_delete_schedule(hass: HomeAssistant, connection, msg):
 
 
 @async_response
+async def websocket_get_irrigation_outlook(hass: HomeAssistant, connection, msg):
+    """Return the dashboard irrigation outlook: upcoming runs + skip preview."""
+    coordinator = hass.data[const.DOMAIN]["coordinator"]
+    try:
+        outlook = await coordinator.async_get_irrigation_outlook()
+        connection.send_result(msg["id"], outlook)
+    except Exception as e:
+        _LOGGER.error("Error building irrigation outlook: %s", e)
+        connection.send_result(
+            msg["id"],
+            {
+                "weather_service_enabled": False,
+                "skip_preview": {"would_skip": False, "checks": []},
+                "last_skip_evaluation": None,
+                "upcoming_runs": [],
+            },
+        )
+
+
+@async_response
 async def websocket_irrigate_now(hass: HomeAssistant, connection, msg):
     """Trigger immediate irrigation for all zones or a single zone, bypassing skip conditions."""
     coordinator = hass.data[const.DOMAIN]["coordinator"]
@@ -778,6 +798,14 @@ async def async_register_websockets(hass: HomeAssistant):
                 vol.Required("type"): const.DOMAIN + "/schedule_delete",
                 vol.Required("schedule_id"): str,
             }
+        ),
+    )
+    async_register_command(
+        hass,
+        const.DOMAIN + "/irrigation_outlook",
+        websocket_get_irrigation_outlook,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {vol.Required("type"): const.DOMAIN + "/irrigation_outlook"}
         ),
     )
     async_register_command(

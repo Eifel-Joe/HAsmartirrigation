@@ -328,7 +328,7 @@
         "view-weather-info-message": "Informazioni meteo disponibili per",
         "view-weather-info-todo": "TODO: Implementare la navigazione ai dettagli del gruppo di sensori",
         "view-watering-calendar": "Calendario irrigazione",
-        "irrigate_all": "Esegui tutte le zone ora",
+        "irrigate_all": "Irriga tutte le zone ora",
         "open_settings": "Modifica impostazioni"
       },
       "cards": {
@@ -340,8 +340,8 @@
         },
         "zone-actions": {
           "actions": {
-            "calculate-all": "Calcola tutte le zone",
-            "update-all": "Aggiorna tutte le zone",
+            "calculate-all": "Ricalcola le durate",
+            "update-all": "Aggiorna i dati meteo",
             "reset-all-buckets": "Reimposta tutte le zone",
             "clear-all-weatherdata": "Cancella tutti i dati meteo"
           },
@@ -390,6 +390,9 @@
       "status": {
         "decision_disabled": "Disattivata — questa zona non verrà irrigata automaticamente.",
         "decision_water": "Irrigazione necessaria: circa {duration} alla prossima esecuzione programmata.",
+        "decision_water_at": "Irrigherà circa {duration} alle {time}.",
+        "decision_water_skip": "Deficit ~{duration}, ma la prossima esecuzione sarà probabilmente saltata ({reason}).",
+        "decision_water_no_schedule": "Deficit ~{duration} — nessuna pianificazione irriga questa zona; avviala manualmente.",
         "decision_no_water": "Nessuna irrigazione necessaria ora — il terreno ha umidità sufficiente.",
         "decision_unknown": "Non ancora calcolato — premi Aggiorna, poi Calcola per verificare.",
         "last_checked": "Ultimo controllo",
@@ -400,7 +403,45 @@
         "bucket": "Bilancio di umidità del suolo (secchio). Un valore negativo significa che il terreno è asciutto e la zona ha bisogno d'acqua.",
         "calculate": "Calcola la durata dell'irrigazione dai dati più recenti. Eseguilo dopo Aggiorna.",
         "update": "Recupera i dati meteo/sensori più recenti per questa zona.",
-        "irrigate_link_entity": "Collega un interruttore/una valvola nelle impostazioni di questa zona per abilitare l'irrigazione manuale."
+        "irrigate_link_entity": "Collega un interruttore/una valvola nelle impostazioni di questa zona per abilitare l'irrigazione manuale.",
+        "irrigate_all": "Apre subito le valvole collegate per ogni zona in deficit. Le condizioni di esclusione (pioggia, vento, temperatura) vengono ignorate.",
+        "update_all": "Raccoglie i dati meteo/sensori più recenti per tutte le zone. Non modifica da sola le durate.",
+        "calculate_all": "Ricalcola la durata di irrigazione di ogni zona automatica dai dati raccolti finora."
+      },
+      "outlook": {
+        "next_run": "Prossima esecuzione",
+        "no_schedule": "Nessuna pianificazione automatica — le zone si irrigano solo quando le avvii tu.",
+        "setup_schedule": "Configura una pianificazione",
+        "targets_all": "tutte le zone",
+        "targets_zones": "{count} zone",
+        "will_skip": "La prossima esecuzione sarà probabilmente saltata",
+        "will_run": "Le condizioni sembrano favorevoli per la prossima esecuzione.",
+        "provisional": "previsione — può cambiare",
+        "active_guards": "Condizioni attive",
+        "last_run": "Ultima esecuzione",
+        "last_run_skipped": "saltata",
+        "last_run_ran": "eseguita",
+        "today": "oggi",
+        "tomorrow": "domani",
+        "actions": {
+          "irrigate": "Irriga",
+          "calculate": "Ricalcola",
+          "update": "Aggiorna dati"
+        },
+        "checks": {
+          "precipitation": "Pioggia prevista",
+          "days_between": "Giorni tra le irrigazioni",
+          "temperature": "Temperatura bassa",
+          "wind": "Vento forte",
+          "rain_sensor": "Sensore di pioggia"
+        },
+        "check_detail": {
+          "precipitation": "{observed} mm (≥ {threshold} mm)",
+          "days_between": "{observed}/{threshold} giorni",
+          "temperature": "{observed}° (sotto {threshold}°)",
+          "wind": "{observed} (sopra {threshold})",
+          "rain_sensor": "{observed}"
+        }
       },
       "calendar": {
         "no_data": "Nessun dato del calendario di irrigazione disponibile per questa zona.",

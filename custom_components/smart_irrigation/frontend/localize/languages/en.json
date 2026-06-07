@@ -383,7 +383,7 @@
         "view-weather-info": "View weather data",
         "view-weather-info-message": "Weather data available for",
         "view-watering-calendar": "View watering calendar",
-        "irrigate_all": "Run All Zones Now",
+        "irrigate_all": "Water all zones now",
         "open_settings": "Edit settings"
       },
       "cards": {
@@ -395,8 +395,8 @@
         },
         "zone-actions": {
           "actions": {
-            "calculate-all": "Calculate all zones",
-            "update-all": "Update all zones",
+            "calculate-all": "Recalculate durations",
+            "update-all": "Refresh weather data",
             "reset-all-buckets": "Reset all buckets",
             "clear-all-weatherdata": "Clear all weather data"
           },
@@ -437,6 +437,9 @@
       "status": {
         "decision_disabled": "Turned off — this zone won't be watered automatically.",
         "decision_water": "Watering needed: about {duration} on the next scheduled run.",
+        "decision_water_at": "Will water about {duration} at {time}.",
+        "decision_water_skip": "Deficit ~{duration}, but the next run will likely be skipped ({reason}).",
+        "decision_water_no_schedule": "Deficit ~{duration} — no schedule waters this zone; trigger it manually.",
         "decision_no_water": "No watering needed right now — the soil has enough moisture.",
         "decision_unknown": "Not calculated yet — press Update, then Calculate to check.",
         "last_checked": "Last checked",
@@ -447,7 +450,45 @@
         "bucket": "Soil-moisture balance. A negative value means the soil is dry and the zone needs water.",
         "calculate": "Works out how long to water from the latest data. Run this after Update.",
         "update": "Fetches the latest weather/sensor data for this zone.",
-        "irrigate_link_entity": "Link a switch/valve in this zone's settings to enable manual watering."
+        "irrigate_link_entity": "Link a switch/valve in this zone's settings to enable manual watering.",
+        "irrigate_all": "Opens the linked valves now for every zone with a deficit. Skip conditions (rain, wind, temperature) are ignored.",
+        "update_all": "Collects the latest weather/sensor data for all zones. Does not change durations on its own.",
+        "calculate_all": "Recomputes each automatic zone's watering duration from the data collected so far."
+      },
+      "outlook": {
+        "next_run": "Next run",
+        "no_schedule": "No automatic schedule — zones water only when you trigger them.",
+        "setup_schedule": "Set up a schedule",
+        "targets_all": "all zones",
+        "targets_zones": "{count} zones",
+        "will_skip": "Next run will likely be skipped",
+        "will_run": "Conditions look clear for the next run.",
+        "provisional": "forecast — may change",
+        "active_guards": "Active guards",
+        "last_run": "Last run",
+        "last_run_skipped": "skipped",
+        "last_run_ran": "ran",
+        "today": "today",
+        "tomorrow": "tomorrow",
+        "actions": {
+          "irrigate": "Water",
+          "calculate": "Recalculate",
+          "update": "Refresh data"
+        },
+        "checks": {
+          "precipitation": "Rain forecast",
+          "days_between": "Days between watering",
+          "temperature": "Low temperature",
+          "wind": "High wind",
+          "rain_sensor": "Rain sensor"
+        },
+        "check_detail": {
+          "precipitation": "{observed} mm (≥ {threshold} mm)",
+          "days_between": "{observed}/{threshold} days",
+          "temperature": "{observed}° (below {threshold}°)",
+          "wind": "{observed} (above {threshold})",
+          "rain_sensor": "{observed}"
+        }
       },
       "calendar": {
         "no_data": "No watering calendar data available for this zone.",

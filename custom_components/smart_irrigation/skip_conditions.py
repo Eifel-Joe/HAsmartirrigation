@@ -9,9 +9,18 @@ by the scheduler and websockets.
 
 import logging
 
+import homeassistant.util.dt as dt_util
+
 from . import const
 
 _LOGGER = logging.getLogger(__name__)
+
+# Stable ids for each skip guard; mirrored by the frontend localization keys.
+SKIP_PRECIPITATION = "precipitation"
+SKIP_DAYS_BETWEEN = "days_between"
+SKIP_TEMPERATURE = "temperature"
+SKIP_WIND = "wind"
+SKIP_RAIN_SENSOR = "rain_sensor"
 
 
 class SkipConditionsMixin:
@@ -21,18 +30,220 @@ class SkipConditionsMixin:
     """
 
     async def _check_skip_conditions(self) -> bool:
-        """Return True if irrigation should be skipped (any condition is met)."""
-        if await self._check_precipitation_forecast():
-            _LOGGER.info("Irrigation skipped: forecasted precipitation")
-            return True
-        if await self._check_days_between_irrigation():
-            _LOGGER.info("Irrigation skipped: insufficient days since last irrigation")
-            return True
-        if await self._check_temp_threshold():
-            return True
-        if await self._check_wind_threshold():
-            return True
-        return bool(await self._check_rain_sensor())
+        """Return True if irrigation should be skipped (any condition is met).
+
+        Evaluates every guard (rather than short-circuiting) so the result can be
+        persisted as the dashboard's "last run" explanation; the return value is
+        unchanged (skip if any enabled guard is met).
+        """
+        evaluation = await self.async_evaluate_skip_conditions()
+        self._last_skip_evaluation = {
+            "timestamp": dt_util.utcnow().isoformat(),
+            "would_skip": evaluation["would_skip"],
+            "checks": evaluation["checks"],
+        }
+        if evaluation["would_skip"]:
+            reasons = [
+                c["id"]
+                for c in evaluation["checks"]
+                if c["enabled"] and c["would_skip"]
+            ]
+            _LOGGER.info("Irrigation skipped due to conditions: %s", ", ".join(reasons))
+        return evaluation["would_skip"]
+
+    # --- structured (no-side-effect) evaluation for the dashboard outlook ----
+
+    async def async_evaluate_skip_conditions(self) -> dict:
+        """Evaluate every skip guard and return structured results.
+
+        Unlike the boolean ``_check_*`` helpers this does not log skip decisions;
+        it is safe to call for a live preview. Each check is a dict with keys
+        ``id``, ``enabled``, ``would_skip``, ``available`` (could it be
+        evaluated), ``observed`` and ``threshold``. Precipitation/temperature/
+        wind reuse the in-memory weather-client cache, so this is normally cheap.
+        """
+        config = await self.store.async_get_config()
+        checks = [
+            await self._eval_precipitation(config),
+            await self._eval_days_between(config),
+            await self._eval_temp(config),
+            await self._eval_wind(config),
+            await self._eval_rain_sensor(config),
+        ]
+        would_skip = any(c["enabled"] and c["would_skip"] for c in checks)
+        return {"would_skip": would_skip, "checks": checks}
+
+    async def async_get_irrigation_outlook(self) -> dict:
+        """Assemble the dashboard outlook: next runs + skip preview + last run.
+
+        ``skip_preview`` is evaluated live (as of now — forecasts may change
+        before the run). ``last_skip_evaluation`` is the persisted result of the
+        most recent real scheduled-irrigate decision (None until one has run, or
+        after a restart).
+        """
+        config = await self.store.async_get_config()
+        skip_preview = await self.async_evaluate_skip_conditions()
+        upcoming = await self.recurring_schedule_manager.async_get_upcoming_runs()
+        return {
+            "weather_service_enabled": bool(
+                config.get(
+                    const.CONF_USE_WEATHER_SERVICE,
+                    const.CONF_DEFAULT_USE_WEATHER_SERVICE,
+                )
+            ),
+            "skip_preview": skip_preview,
+            "last_skip_evaluation": getattr(self, "_last_skip_evaluation", None),
+            "upcoming_runs": upcoming,
+        }
+
+    async def _eval_precipitation(self, config) -> dict:
+        """Structured precipitation-forecast guard (today+tomorrow vs threshold)."""
+        threshold = config.get(
+            const.CONF_PRECIPITATION_THRESHOLD_MM,
+            const.CONF_DEFAULT_PRECIPITATION_THRESHOLD_MM,
+        )
+        result = {
+            "id": SKIP_PRECIPITATION,
+            "enabled": bool(
+                config.get(
+                    const.CONF_SKIP_IRRIGATION_ON_PRECIPITATION,
+                    const.CONF_DEFAULT_SKIP_IRRIGATION_ON_PRECIPITATION,
+                )
+            ),
+            "would_skip": False,
+            "available": False,
+            "observed": None,
+            "threshold": threshold,
+        }
+        if not result["enabled"]:
+            return result
+        use_weather_service = config.get(
+            const.CONF_USE_WEATHER_SERVICE, const.CONF_DEFAULT_USE_WEATHER_SERVICE
+        )
+        if not use_weather_service or self._WeatherServiceClient is None:
+            return result
+        try:
+            forecast_data = await self.hass.async_add_executor_job(
+                self._WeatherServiceClient.get_forecast_data
+            )
+            if not forecast_data:
+                return result
+            total = 0.0
+            for day_data in forecast_data[:2]:
+                if const.MAPPING_PRECIPITATION in day_data:
+                    total += day_data[const.MAPPING_PRECIPITATION]
+            result["available"] = True
+            result["observed"] = round(total, 2)
+            result["would_skip"] = total >= threshold
+        except Exception as e:  # noqa: BLE001 — preview must never raise
+            _LOGGER.debug("Skip preview: precipitation eval failed: %s", e)
+        return result
+
+    async def _eval_days_between(self, config) -> dict:
+        """Structured days-between-irrigation guard (pure config math)."""
+        days_between = config.get(
+            const.CONF_DAYS_BETWEEN_IRRIGATION,
+            const.CONF_DEFAULT_DAYS_BETWEEN_IRRIGATION,
+        )
+        days_since = config.get(
+            const.CONF_DAYS_SINCE_LAST_IRRIGATION,
+            const.CONF_DEFAULT_DAYS_SINCE_LAST_IRRIGATION,
+        )
+        enabled = days_between > 0
+        return {
+            "id": SKIP_DAYS_BETWEEN,
+            "enabled": enabled,
+            "would_skip": enabled and days_since < days_between,
+            "available": True,
+            "observed": days_since,
+            "threshold": days_between,
+        }
+
+    async def _eval_temp(self, config) -> dict:
+        """Structured low-temperature guard (current conditions)."""
+        threshold = config.get(
+            const.CONF_TEMP_THRESHOLD, const.CONF_DEFAULT_TEMP_THRESHOLD
+        )
+        result = {
+            "id": SKIP_TEMPERATURE,
+            "enabled": bool(
+                config.get(
+                    const.CONF_SKIP_TEMP_ENABLED, const.CONF_DEFAULT_SKIP_TEMP_ENABLED
+                )
+            ),
+            "would_skip": False,
+            "available": False,
+            "observed": None,
+            "threshold": threshold,
+        }
+        if not result["enabled"] or self._WeatherServiceClient is None:
+            return result
+        try:
+            data = await self.hass.async_add_executor_job(
+                self._WeatherServiceClient.get_data
+            )
+            temp = (data or {}).get(const.MAPPING_TEMPERATURE)
+            if temp is not None:
+                result["available"] = True
+                result["observed"] = round(temp, 1)
+                result["would_skip"] = temp < threshold
+        except Exception as e:  # noqa: BLE001 — preview must never raise
+            _LOGGER.debug("Skip preview: temperature eval failed: %s", e)
+        return result
+
+    async def _eval_wind(self, config) -> dict:
+        """Structured high-wind guard (current conditions)."""
+        threshold = config.get(
+            const.CONF_WIND_THRESHOLD, const.CONF_DEFAULT_WIND_THRESHOLD
+        )
+        result = {
+            "id": SKIP_WIND,
+            "enabled": bool(
+                config.get(
+                    const.CONF_SKIP_WIND_ENABLED, const.CONF_DEFAULT_SKIP_WIND_ENABLED
+                )
+            ),
+            "would_skip": False,
+            "available": False,
+            "observed": None,
+            "threshold": threshold,
+        }
+        if not result["enabled"] or self._WeatherServiceClient is None:
+            return result
+        try:
+            data = await self.hass.async_add_executor_job(
+                self._WeatherServiceClient.get_data
+            )
+            wind = (data or {}).get(const.MAPPING_WINDSPEED)
+            if wind is not None:
+                result["available"] = True
+                result["observed"] = round(wind, 2)
+                result["would_skip"] = wind > threshold
+        except Exception as e:  # noqa: BLE001 — preview must never raise
+            _LOGGER.debug("Skip preview: wind eval failed: %s", e)
+        return result
+
+    async def _eval_rain_sensor(self, config) -> dict:
+        """Structured rain-sensor guard (live HA entity state)."""
+        sensor = config.get(const.CONF_RAIN_SENSOR, const.CONF_DEFAULT_RAIN_SENSOR)
+        result = {
+            "id": SKIP_RAIN_SENSOR,
+            "enabled": bool(sensor),
+            "would_skip": False,
+            "available": False,
+            "observed": None,
+            "threshold": None,
+            "entity_id": sensor or None,
+        }
+        if not sensor:
+            return result
+        state = self.hass.states.get(sensor)
+        if state is None:
+            return result
+        result["available"] = True
+        result["observed"] = state.state
+        result["would_skip"] = state.state == "on"
+        return result
 
     async def get_total_duration_all_enabled_zones(self):
         """Calculate the total duration for all enabled (automatic or manual) zones.

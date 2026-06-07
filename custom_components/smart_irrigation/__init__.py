@@ -343,6 +343,10 @@ class SmartIrrigationCoordinator(
         # async_setup_entry awaits after construction — see that method. Doing it
         # here previously required fire-and-forget tasks (unawaited, errors lost).
 
+        # Most recent persisted skip-condition decision (structured), surfaced as
+        # the dashboard's "last run" explanation. Reset on restart.
+        self._last_skip_evaluation = None
+
         # Initialize enhanced scheduling managers
         self.recurring_schedule_manager = RecurringScheduleManager(hass, self)
         self.irrigation_unlimited_integration = IrrigationUnlimitedIntegration(

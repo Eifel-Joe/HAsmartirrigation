@@ -77,3 +77,45 @@ async def test_irrigate_runs_and_resets_counter_when_not_skipped():
     await manager._perform_schedule_action("irrigate", "all", "sched")
     coordinator._irrigate_linked_entities.assert_awaited_once()
     coordinator._reset_days_since_irrigation.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_upcoming_runs_resolves_clock_and_marks_interval():
+    """Upcoming-runs computes a clock target, skips disabled, flags interval."""
+    manager, _ = _make_manager()
+    manager._schedules = [
+        {
+            const.SCHEDULE_CONF_ID: "a",
+            const.SCHEDULE_CONF_NAME: "Morning",
+            const.SCHEDULE_CONF_TYPE: const.SCHEDULE_TYPE_DAILY,
+            const.SCHEDULE_CONF_TIME: "06:00",
+            const.SCHEDULE_CONF_ACTION: "irrigate",
+            const.SCHEDULE_CONF_ZONES: "all",
+            const.SCHEDULE_CONF_ENABLED: True,
+        },
+        {
+            const.SCHEDULE_CONF_ID: "b",
+            const.SCHEDULE_CONF_NAME: "Every 6h",
+            const.SCHEDULE_CONF_TYPE: const.SCHEDULE_TYPE_INTERVAL,
+            const.SCHEDULE_CONF_INTERVAL_HOURS: 6,
+            const.SCHEDULE_CONF_ACTION: "update",
+            const.SCHEDULE_CONF_ENABLED: True,
+        },
+        {
+            const.SCHEDULE_CONF_ID: "c",
+            const.SCHEDULE_CONF_NAME: "Off",
+            const.SCHEDULE_CONF_TYPE: const.SCHEDULE_TYPE_DAILY,
+            const.SCHEDULE_CONF_TIME: "07:00",
+            const.SCHEDULE_CONF_ENABLED: False,
+        },
+    ]
+
+    runs = await manager.async_get_upcoming_runs()
+    by_id = {r["schedule_id"]: r for r in runs}
+
+    assert set(by_id) == {"a", "b"}  # disabled schedule excluded
+    assert by_id["a"]["next_run_utc"] is not None
+    assert by_id["a"]["action"] == "irrigate"
+    assert by_id["a"]["time_anchor"] == const.SCHEDULE_TIME_ANCHOR_START
+    assert by_id["b"]["next_run_utc"] is None  # interval has no fixed clock target
+    assert by_id["b"]["interval_hours"] == 6

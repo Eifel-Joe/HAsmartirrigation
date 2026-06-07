@@ -79,6 +79,49 @@ export class SmartIrrigationConfig {
   }
 }
 
+/** One skip-condition guard, evaluated either live (preview) or at run time. */
+export interface SkipCheck {
+  id:
+    | "precipitation"
+    | "days_between"
+    | "temperature"
+    | "wind"
+    | "rain_sensor"
+    | string;
+  enabled: boolean;
+  would_skip: boolean;
+  available: boolean;
+  observed: number | string | null;
+  threshold: number | null;
+  entity_id?: string | null;
+}
+
+export interface SkipPreview {
+  would_skip: boolean;
+  checks: SkipCheck[];
+}
+
+/** Next computed fire of a recurring schedule. */
+export interface UpcomingRun {
+  schedule_id: string;
+  name: string;
+  action: "irrigate" | "calculate" | "update" | string;
+  zones: "all" | number[];
+  type: string;
+  time_anchor: "start" | "finish" | string;
+  next_run_utc: string | null;
+  target_utc: string | null;
+  duration_seconds: number;
+  interval_hours?: number;
+}
+
+export interface IrrigationOutlook {
+  weather_service_enabled: boolean;
+  skip_preview: SkipPreview;
+  last_skip_evaluation: (SkipPreview & { timestamp: string }) | null;
+  upcoming_runs: UpcomingRun[];
+}
+
 export interface IrrigationStartTrigger {
   type: string;
   name: string;

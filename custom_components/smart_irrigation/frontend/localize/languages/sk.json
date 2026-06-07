@@ -284,7 +284,7 @@
         "view-weather-info": "Zobraziť počasie",
         "view-weather-info-message": "Poveternostné údaje dostupné pre",
         "view-watering-calendar": "Kalendár zavlažovania",
-        "irrigate_all": "Spustiť všetky zóny teraz",
+        "irrigate_all": "Zavlažiť všetky zóny teraz",
         "open_settings": "Upraviť nastavenia"
       },
       "cards": {
@@ -296,8 +296,8 @@
         },
         "zone-actions": {
           "actions": {
-            "calculate-all": "Vypočítajte všetky zóny",
-            "update-all": "Aktualizujte všetky zóny",
+            "calculate-all": "Prepočítať trvania",
+            "update-all": "Obnoviť údaje o počasí",
             "reset-all-buckets": "Obnovte všetky vedrá",
             "clear-all-weatherdata": "Vymazať všetky údaje o počasí"
           },
@@ -345,6 +345,9 @@
       "status": {
         "decision_disabled": "Vypnuté — táto zóna sa nebude automaticky zavlažovať.",
         "decision_water": "Potrebné zavlažovanie: približne {duration} pri ďalšom plánovanom spustení.",
+        "decision_water_at": "Zavlaží približne {duration} o {time}.",
+        "decision_water_skip": "Deficit ~{duration}, ale ďalšie spustenie sa pravdepodobne preskočí ({reason}).",
+        "decision_water_no_schedule": "Deficit ~{duration} — túto zónu nezavlažuje žiadny plán; spustite ju manuálne.",
         "decision_no_water": "Momentálne nie je potrebné zavlažovanie — pôda má dostatok vlhkosti.",
         "decision_unknown": "Ešte nevypočítané — stlačte Aktualizovať a potom Vypočítať na kontrolu.",
         "last_checked": "Naposledy skontrolované",
@@ -355,7 +358,45 @@
         "bucket": "Bilancia vlhkosti pôdy (vedro). Záporná hodnota znamená, že pôda je suchá a zóna potrebuje vodu.",
         "calculate": "Vypočíta dĺžku zavlažovania z najnovších údajov. Spustite po Aktualizovať.",
         "update": "Načíta najnovšie meteorologické/senzorové údaje pre túto zónu.",
-        "irrigate_link_entity": "Priraďte v nastaveniach tejto zóny spínač/ventil, aby ste umožnili manuálne zavlažovanie."
+        "irrigate_link_entity": "Priraďte v nastaveniach tejto zóny spínač/ventil, aby ste umožnili manuálne zavlažovanie.",
+        "irrigate_all": "Okamžite otvorí prepojené ventily pre každú zónu s deficitom. Podmienky preskočenia (dážď, vietor, teplota) sa ignorujú.",
+        "update_all": "Zhromaždí najnovšie meteorologické/senzorové údaje pre všetky zóny. Samo o sebe nemení trvania.",
+        "calculate_all": "Prepočíta trvanie zavlažovania každej automatickej zóny z doteraz zhromaždených údajov."
+      },
+      "outlook": {
+        "next_run": "Ďalšie spustenie",
+        "no_schedule": "Žiadny automatický plán — zóny sa zavlažujú len keď ich spustíte.",
+        "setup_schedule": "Nastaviť plán",
+        "targets_all": "všetky zóny",
+        "targets_zones": "{count} zón",
+        "will_skip": "Ďalšie spustenie sa pravdepodobne preskočí",
+        "will_run": "Podmienky pre ďalšie spustenie vyzerajú priaznivo.",
+        "provisional": "predpoveď — môže sa zmeniť",
+        "active_guards": "Aktívne podmienky",
+        "last_run": "Posledné spustenie",
+        "last_run_skipped": "preskočené",
+        "last_run_ran": "spustené",
+        "today": "dnes",
+        "tomorrow": "zajtra",
+        "actions": {
+          "irrigate": "Zavlažiť",
+          "calculate": "Prepočítať",
+          "update": "Obnoviť údaje"
+        },
+        "checks": {
+          "precipitation": "Predpoveď dažďa",
+          "days_between": "Dni medzi zavlažovaniami",
+          "temperature": "Nízka teplota",
+          "wind": "Silný vietor",
+          "rain_sensor": "Senzor dažďa"
+        },
+        "check_detail": {
+          "precipitation": "{observed} mm (≥ {threshold} mm)",
+          "days_between": "{observed}/{threshold} dní",
+          "temperature": "{observed}° (pod {threshold}°)",
+          "wind": "{observed} (nad {threshold})",
+          "rain_sensor": "{observed}"
+        }
       },
       "calendar": {
         "no_data": "Pre túto zónu nie sú k dispozícii žiadne údaje kalendára zavlažovania.",

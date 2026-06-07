@@ -508,3 +508,69 @@ class TestDaysBetweenIrrigation:
             raise SmartIrrigationError(error_message)
 
         assert str(exc_info.value) == error_message
+
+    async def test_evaluate_skip_conditions_structured(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry: ConfigEntry,
+        mock_session: AsyncMock,
+        mock_store_with_days_config: AsyncMock,
+    ) -> None:
+        """Structured skip evaluation reports per-guard detail (no weather here)."""
+        # Disable every weather-based guard so no weather client is needed.
+        mock_store_with_days_config.async_get_config.return_value.update(
+            {
+                const.CONF_SKIP_TEMP_ENABLED: False,
+                const.CONF_SKIP_WIND_ENABLED: False,
+                const.CONF_RAIN_SENSOR: None,
+            }
+        )
+        hass.data[const.DOMAIN] = {
+            const.CONF_USE_WEATHER_SERVICE: False,
+            const.CONF_WEATHER_SERVICE: None,
+        }
+        coordinator = SmartIrrigationCoordinator(
+            hass, mock_session, mock_config_entry, mock_store_with_days_config
+        )
+
+        result = await coordinator.async_evaluate_skip_conditions()
+        # 3 days required, only 1 elapsed → days-between guard skips.
+        assert result["would_skip"] is True
+        by_id = {c["id"]: c for c in result["checks"]}
+        assert by_id["days_between"]["enabled"] is True
+        assert by_id["days_between"]["would_skip"] is True
+        assert by_id["days_between"]["observed"] == 1
+        assert by_id["days_between"]["threshold"] == 3
+        # Precipitation is configured off → enabled False, no skip.
+        assert by_id["precipitation"]["enabled"] is False
+        assert by_id["precipitation"]["would_skip"] is False
+
+    async def test_check_skip_conditions_persists_last_evaluation(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry: ConfigEntry,
+        mock_session: AsyncMock,
+        mock_store_with_days_config: AsyncMock,
+    ) -> None:
+        """_check_skip_conditions stores the structured result for the dashboard."""
+        mock_store_with_days_config.async_get_config.return_value.update(
+            {
+                const.CONF_SKIP_TEMP_ENABLED: False,
+                const.CONF_SKIP_WIND_ENABLED: False,
+                const.CONF_RAIN_SENSOR: None,
+            }
+        )
+        hass.data[const.DOMAIN] = {
+            const.CONF_USE_WEATHER_SERVICE: False,
+            const.CONF_WEATHER_SERVICE: None,
+        }
+        coordinator = SmartIrrigationCoordinator(
+            hass, mock_session, mock_config_entry, mock_store_with_days_config
+        )
+
+        assert coordinator._last_skip_evaluation is None
+        skipped = await coordinator._check_skip_conditions()
+        assert skipped is True
+        assert coordinator._last_skip_evaluation is not None
+        assert coordinator._last_skip_evaluation["would_skip"] is True
+        assert "timestamp" in coordinator._last_skip_evaluation
