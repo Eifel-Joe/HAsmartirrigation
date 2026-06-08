@@ -3,6 +3,7 @@ import { property, state } from "lit/decorators.js";
 import { HomeAssistant } from "./types";
 import { SmartIrrigationViewZones } from "./views/zones/view-zones";
 import { VERSION } from "./const";
+import { ensureTranslations, isTranslationLoaded } from "../localize/localize";
 
 /**
  * Lovelace card that mirrors the everyday Zones dashboard for non-admin users.
@@ -45,6 +46,12 @@ export class SmartIrrigationZonesCard extends LitElement {
 
   protected render(): TemplateResult {
     if (!this.hass || !this._config) return html``;
+    // Only English is bundled; fetch the active language on demand and hold
+    // rendering until it is in (sub-second) to avoid an English flash.
+    if (!isTranslationLoaded(this.hass.language)) {
+      ensureTranslations(this.hass.language).then(() => this.requestUpdate());
+      return html``;
+    }
     const mode = this._config.actions ?? "irrigate";
     return html`
       <smart-irrigation-view-zones
