@@ -1,6 +1,6 @@
 import { LitElement, html, CSSResultGroup, css } from "lit";
 import { property, state, customElement } from "lit/decorators.js";
-import { HomeAssistant } from "custom-card-helpers";
+import { HomeAssistant } from "./types";
 import { loadHaForm } from "./load-ha-elements";
 import { navigate } from "./helpers";
 

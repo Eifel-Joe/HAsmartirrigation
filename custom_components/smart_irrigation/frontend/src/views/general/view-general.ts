@@ -1,7 +1,7 @@
 import { CSSResultGroup, LitElement, css, html, TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
 import { property, state, customElement } from "lit/decorators.js";
-import { HomeAssistant } from "custom-card-helpers";
+import { HomeAssistant } from "../../types";
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
 
 import {

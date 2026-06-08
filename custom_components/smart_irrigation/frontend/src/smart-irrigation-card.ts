@@ -1,6 +1,6 @@
 import { LitElement, html, TemplateResult } from "lit";
 import { property, state } from "lit/decorators.js";
-import { HomeAssistant } from "custom-card-helpers";
+import { HomeAssistant } from "./types";
 import { SmartIrrigationViewZones } from "./views/zones/view-zones";
 import { VERSION } from "./const";
 

@@ -1,6 +1,6 @@
 import { TemplateResult, LitElement, html, CSSResultGroup, css } from "lit";
 import { property, state } from "lit/decorators.js";
-import { HomeAssistant } from "custom-card-helpers";
+import { HomeAssistant } from "../../types";
 import { loadHaForm } from "../../load-ha-elements";
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
 import { mdiCog, mdiClose } from "@mdi/js";
@@ -37,7 +37,14 @@ import { exportPath } from "../../common/navigation";
 import { globalStyle } from "../../styles/global-style";
 import { localize } from "../../../localize/localize";
 import { DOMAIN, ZONE_BUCKET } from "../../const";
-import moment from "moment";
+import {
+  addDays,
+  formatDateTime,
+  formatTime,
+  formatWeekdayTime,
+  fromNow,
+  isSameDay,
+} from "../../common/datetime";
 
 /**
  * Everyday dashboard for zones: at-a-glance decision + status, and the
@@ -327,16 +334,16 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
   private _formatRunTime(utc: string): string {
     if (!this.hass) return "";
     const lang = this.hass.language;
-    const m = moment(utc);
-    const time = m.format("HH:mm");
-    const now = moment();
-    if (m.isSame(now, "day")) {
+    const d = new Date(utc);
+    const time = formatTime(d);
+    const now = new Date();
+    if (isSameDay(d, now)) {
       return `${localize("panels.zones.outlook.today", lang)} ${time}`;
     }
-    if (m.isSame(now.clone().add(1, "day"), "day")) {
+    if (isSameDay(d, addDays(now, 1))) {
       return `${localize("panels.zones.outlook.tomorrow", lang)} ${time}`;
     }
-    return m.format("ddd HH:mm");
+    return formatWeekdayTime(d, lang);
   }
 
   private _guardLabel(check: SkipCheck): string {
@@ -512,7 +519,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
     checks: SkipCheck[];
   }): TemplateResult {
     const lang = this.hass!.language;
-    const when = moment(last.timestamp).fromNow();
+    const when = fromNow(last.timestamp, lang);
     const reasons = last.checks
       .filter((c) => c.enabled && c.would_skip)
       .map((c) => this._guardLabel(c).toLowerCase())
@@ -624,7 +631,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
     const methodKey = est.method === "proxy" ? "proxy" : "hourly";
     const detail =
       localize(`panels.zones.status.estimate_method.${methodKey}`, lang) +
-      (est.as_of ? ` · ${moment(est.as_of).format("HH:mm")}` : "");
+      (est.as_of ? ` · ${formatTime(est.as_of)}` : "");
     return html`
       <span class="status-sep">·</span>
       <span class="zone-estimate" title="${detail}">
@@ -674,7 +681,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
           ? "state-manual"
           : "state-disabled";
     const lastChecked = zone.last_calculated
-      ? moment(zone.last_calculated).format("YYYY-MM-DD HH:mm")
+      ? formatDateTime(zone.last_calculated)
       : localize("panels.zones.status.never", this.hass.language);
 
     return html`
