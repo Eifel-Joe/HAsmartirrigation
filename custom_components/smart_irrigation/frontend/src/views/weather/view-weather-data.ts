@@ -6,14 +6,16 @@ import { HomeAssistant, SmartIrrigationMapping } from "../../types";
 import { SubscribeMixin } from "../../subscribe-mixin";
 import { localize } from "../../../localize/localize";
 import { globalStyle } from "../../styles/global-style";
-import { DOMAIN } from "../../const";
+import { DOMAIN, CONF_IMPERIAL } from "../../const";
 import {
+  fetchConfig,
   fetchWeatherForecast,
   WeatherForecast,
   fetchMappings,
   fetchMappingWeatherRecords,
 } from "../../data/websockets";
 import { formatMonthDayTime, isValidDate } from "../../common/datetime";
+import { convertWeather, formatWeather } from "../../common/units";
 
 /**
  * Read-only weather display for the Weather & Location tab: the forward-looking
@@ -30,6 +32,8 @@ export class SmartIrrigationViewWeatherData extends SubscribeMixin(LitElement) {
   @state() private _mappings: SmartIrrigationMapping[] = [];
   @state() private _records: Map<number, any[]> = new Map();
   @state() private _loading = true;
+  // Display unit system (false = imperial). Backend values are always metric.
+  @state() private _metric = true;
 
   public hassSubscribe(): Promise<UnsubscribeFunc>[] {
     this._fetch();
@@ -43,12 +47,14 @@ export class SmartIrrigationViewWeatherData extends SubscribeMixin(LitElement) {
   private async _fetch(): Promise<void> {
     if (!this.hass) return;
     try {
-      const [forecast, mappings] = await Promise.all([
+      const [forecast, mappings, config] = await Promise.all([
         fetchWeatherForecast(this.hass),
         fetchMappings(this.hass),
+        fetchConfig(this.hass),
       ]);
       this._forecast = forecast;
       this._mappings = mappings || [];
+      this._metric = config?.units !== CONF_IMPERIAL;
 
       const records = new Map<number, any[]>();
       await Promise.all(
@@ -119,25 +125,29 @@ export class SmartIrrigationViewWeatherData extends SubscribeMixin(LitElement) {
         return d.date;
       }
     })();
-    const num = (v: number | null, unit: string, decimals = 1) =>
-      v !== null && v !== undefined ? v.toFixed(decimals) + unit : "-";
+    const deg = (v: number | null) => {
+      const c = convertWeather(v, "temperature", this._metric);
+      return c ? `${Math.round(c.value)}°` : "-";
+    };
     return html`
       <div class="forecast-day">
         <div class="forecast-date">${label}</div>
         <div class="forecast-temps">
-          <span class="hi">${num(d.temp_max, "°")}</span>
-          <span class="lo">${num(d.temp_min, "°")}</span>
+          <span class="hi">${deg(d.temp_max)}</span>
+          <span class="lo">${deg(d.temp_min)}</span>
         </div>
         <div class="forecast-meta">
-          <ha-icon icon="mdi:weather-rainy"></ha-icon>${num(
+          <ha-icon icon="mdi:weather-rainy"></ha-icon>${formatWeather(
             d.precipitation,
-            " mm",
+            "precipitation",
+            this._metric,
           )}
         </div>
         <div class="forecast-meta">
-          <ha-icon icon="mdi:weather-windy"></ha-icon>${num(
+          <ha-icon icon="mdi:weather-windy"></ha-icon>${formatWeather(
             d.windspeed,
-            " m/s",
+            "windspeed",
+            this._metric,
           )}
         </div>
       </div>
@@ -188,8 +198,8 @@ export class SmartIrrigationViewWeatherData extends SubscribeMixin(LitElement) {
         return "-";
       }
     };
-    const n = (v: any, unit: string, decimals = 1) =>
-      v !== null && v !== undefined ? v.toFixed(decimals) + unit : "-";
+    const pct = (v: any) =>
+      v !== null && v !== undefined ? v.toFixed(1) + " %" : "-";
 
     return html`
       <ha-card header="${title}">
@@ -254,12 +264,42 @@ export class SmartIrrigationViewWeatherData extends SubscribeMixin(LitElement) {
                     (record) => html`
                       <div class="weather-row">
                         <span>${fmt(record.timestamp)}</span>
-                        <span>${n(record.temperature, "°C")}</span>
-                        <span>${n(record.humidity, "%")}</span>
-                        <span>${n(record.dewpoint, "°C")}</span>
-                        <span>${n(record.wind_speed, "m/s")}</span>
-                        <span>${n(record.pressure, "hPa", 0)}</span>
-                        <span>${n(record.precipitation, "mm")}</span>
+                        <span
+                          >${formatWeather(
+                            record.temperature,
+                            "temperature",
+                            this._metric,
+                          )}</span
+                        >
+                        <span>${pct(record.humidity)}</span>
+                        <span
+                          >${formatWeather(
+                            record.dewpoint,
+                            "temperature",
+                            this._metric,
+                          )}</span
+                        >
+                        <span
+                          >${formatWeather(
+                            record.wind_speed,
+                            "windspeed",
+                            this._metric,
+                          )}</span
+                        >
+                        <span
+                          >${formatWeather(
+                            record.pressure,
+                            "pressure",
+                            this._metric,
+                          )}</span
+                        >
+                        <span
+                          >${formatWeather(
+                            record.precipitation,
+                            "precipitation",
+                            this._metric,
+                          )}</span
+                        >
                         <span>${fmt(record.retrieval_time)}</span>
                       </div>
                     `,

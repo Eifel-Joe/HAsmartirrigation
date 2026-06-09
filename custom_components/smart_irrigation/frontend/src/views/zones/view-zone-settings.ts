@@ -50,7 +50,9 @@ import {
   ZONE_LINKED_ENTITY,
   ZONE_BUCKET_THRESHOLD,
   ZONE_FLOW_SENSOR,
+  CONF_IMPERIAL,
 } from "../../const";
+import { formatWeather, formatVolume } from "../../common/units";
 import "../../components/si-field";
 import "../../components/si-zone-form";
 
@@ -450,8 +452,9 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                     )}</span
                   >
                 </div>
-                ${monthlyEstimates.map(
-                  (estimate) => html`
+                ${monthlyEstimates.map((estimate) => {
+                  const metric = this.config?.units !== CONF_IMPERIAL;
+                  return html`
                     <div class="calendar-row">
                       <span
                         >${estimate.month_name ||
@@ -459,28 +462,35 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                         "-"}</span
                       >
                       <span
-                        >${estimate.estimated_et_mm
-                          ? estimate.estimated_et_mm.toFixed(1)
-                          : "-"}</span
+                        >${formatWeather(
+                          estimate.estimated_et_mm,
+                          "precipitation",
+                          metric,
+                        )}</span
                       >
                       <span
-                        >${estimate.average_precipitation_mm
-                          ? estimate.average_precipitation_mm.toFixed(1)
-                          : "-"}</span
+                        >${formatWeather(
+                          estimate.average_precipitation_mm,
+                          "precipitation",
+                          metric,
+                        )}</span
                       >
                       <span
-                        >${estimate.estimated_watering_volume_liters
-                          ? estimate.estimated_watering_volume_liters.toFixed(0)
-                          : "-"}</span
+                        >${formatVolume(
+                          estimate.estimated_watering_volume_liters,
+                          metric,
+                        )}</span
                       >
                       <span
-                        >${estimate.average_temperature_c
-                          ? estimate.average_temperature_c.toFixed(1)
-                          : "-"}</span
+                        >${formatWeather(
+                          estimate.average_temperature_c,
+                          "temperature",
+                          metric,
+                        )}</span
                       >
                     </div>
-                  `,
-                )}
+                  `;
+                })}
               </div>
               ${zoneCalendar?.calculation_method
                 ? html`
