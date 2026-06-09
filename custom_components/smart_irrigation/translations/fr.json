@@ -59,6 +59,9 @@
           "manual_elevation": "Altitude au-dessus du niveau de la mer (mètres, optionnel)"
         }
       }
+    },
+    "abort": {
+      "configure_in_panel": "Configurez Smart Irrigation depuis son panneau dans la barre latérale (Configuration → Météo et emplacement)."
     }
   },
   "services": {

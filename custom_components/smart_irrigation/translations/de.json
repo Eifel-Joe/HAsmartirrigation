@@ -59,6 +59,9 @@
           "manual_elevation": "Höhe über dem Meeresspiegel (Meter, optional)"
         }
       }
+    },
+    "abort": {
+      "configure_in_panel": "Konfiguriere Smart Irrigation über das Panel in der Seitenleiste (Einrichtung → Wetter & Standort)."
     }
   },
   "services": {

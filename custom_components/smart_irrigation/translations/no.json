@@ -59,6 +59,9 @@
           "manual_elevation": "Høyde over havet (meter, valgfritt)"
         }
       }
+    },
+    "abort": {
+      "configure_in_panel": "Konfigurer Smart Irrigation fra panelet i sidefeltet (Oppsett → Vær og posisjon)."
     }
   },
   "services": {

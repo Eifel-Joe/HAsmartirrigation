@@ -59,6 +59,9 @@
           "manual_elevation": "Nadmorská výška (metre, voliteľné)"
         }
       }
+    },
+    "abort": {
+      "configure_in_panel": "Nakonfigurujte Smart Irrigation cez panel v bočnom paneli (Nastavenie → Počasie a poloha)."
     }
   },
   "services": {

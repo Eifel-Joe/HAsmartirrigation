@@ -59,6 +59,9 @@
           "manual_elevation": "Hoogte boven zeeniveau (meters, optioneel)"
         }
       }
+    },
+    "abort": {
+      "configure_in_panel": "Configureer Smart Irrigation via het paneel in de zijbalk (Instellen → Weer & locatie)."
     }
   },
   "services": {

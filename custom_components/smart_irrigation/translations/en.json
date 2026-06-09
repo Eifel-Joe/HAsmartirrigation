@@ -59,13 +59,16 @@
           "manual_elevation": "Elevation above sea level (meters, optional)"
         }
       }
+    },
+    "abort": {
+      "configure_in_panel": "Configure Smart Irrigation from its panel in the sidebar (Setup → Weather & Location)."
     }
   },
   "services": {
     "calculate_all_zones": {
       "name": "Calculate all zones",
       "description": "Calculate all zones in automatic mode",
-      "fields":{
+      "fields": {
         "delete_weather_data": {
           "name": "Delete weather data",
           "description": "Delete weather data after calculation"

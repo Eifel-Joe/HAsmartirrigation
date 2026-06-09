@@ -1,384 +1,48 @@
-"""Test the Smart Irrigation options flow."""
+"""Test the Smart Irrigation options flow.
 
-from unittest.mock import Mock, patch
+Weather + location config moved to the integration's panel (single source of
+truth), so the options flow no longer configures anything — it just points the
+user to the panel via an abort.
+"""
 
-import pytest
+from unittest.mock import Mock
+
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.smart_irrigation.const import (
-    CONF_USE_WEATHER_SERVICE,
-    CONF_WEATHER_SERVICE,
-    CONF_WEATHER_SERVICE_API_KEY,
-    CONF_WEATHER_SERVICE_API_VERSION,
-    CONF_WEATHER_SERVICE_OWM,
-)
-from custom_components.smart_irrigation.helpers import CannotConnect, InvalidAuth
 from custom_components.smart_irrigation.options_flow import (
     SmartIrrigationOptionsFlowHandler,
 )
 from tests.common import MockConfigEntry
 
 
-class TestSmartIrrigationOptionsFlow:
-    """Test Smart Irrigation options flow."""
-
-    @pytest.fixture
-    def mock_hass(self):
-        """Return a mock Home Assistant instance."""
-        hass = Mock()
-        hass.data = {}
-        return hass
-
-    @pytest.fixture
-    def mock_config_entry(self):
-        """Return a mock config entry."""
-        return MockConfigEntry(
-            domain="smart_irrigation",
-            title="Smart Irrigation",
-            data={
-                CONF_USE_WEATHER_SERVICE: False,
-                CONF_WEATHER_SERVICE: None,
-                CONF_WEATHER_SERVICE_API_KEY: None,
-                CONF_WEATHER_SERVICE_API_VERSION: None,
-            },
-            options={},
-            entry_id="test_entry_id",
-        )
-
-    @pytest.fixture
-    def mock_config_entry_with_weather(self):
-        """Return a mock config entry with weather service enabled."""
-        return MockConfigEntry(
-            domain="smart_irrigation",
-            title="Smart Irrigation",
-            data={
-                CONF_USE_WEATHER_SERVICE: True,
-                CONF_WEATHER_SERVICE: CONF_WEATHER_SERVICE_OWM,
-                CONF_WEATHER_SERVICE_API_KEY: "validate_api_key",
-                CONF_WEATHER_SERVICE_API_VERSION: "3.0",
-            },
-            options={},
-            entry_id="test_entry_id",
-        )
-
-    @pytest.fixture
-    def options_flow(self, mock_hass, mock_config_entry):
-        """Return a SmartIrrigationOptionsFlowHandler instance."""
-        flow = SmartIrrigationOptionsFlowHandler(mock_config_entry)
-        flow.hass = mock_hass
-        return flow
-
-    @pytest.fixture
-    def options_flow_with_weather(self, mock_hass, mock_config_entry_with_weather):
-        """Return a SmartIrrigationOptionsFlowHandler instance with weather service."""
-        flow = SmartIrrigationOptionsFlowHandler(mock_config_entry_with_weather)
-        flow.hass = mock_hass
-        return flow
-
-    def test_options_flow_initialization(self, options_flow):
-        """Test options flow initialization.
-
-        Note: `config_entry` is no longer stored on the handler (deprecated in
-        HA 2025.12 — accessing the property before the flow is attached raises),
-        so this only checks the values __init__ derives from the entry.
-        """
-        assert options_flow._use_weather_service is False
-        assert options_flow._weather_service is None
-        assert options_flow._weather_service_api_key is None
-
-    def test_options_flow_initialization_with_weather(self, options_flow_with_weather):
-        """Test options flow initialization with weather service."""
-        assert options_flow_with_weather._use_weather_service is True
-        assert options_flow_with_weather._weather_service == CONF_WEATHER_SERVICE_OWM
-        assert options_flow_with_weather._weather_service_api_key == "validate_api_key"
-
-    async def test_async_step_init_no_weather_service(self, options_flow):
-        """Test init step without weather service."""
-        user_input = {CONF_USE_WEATHER_SERVICE: False}
-
-        result = await options_flow.async_step_init(user_input)
-
-        assert result["type"] == FlowResultType.CREATE_ENTRY
-        assert result["data"][CONF_USE_WEATHER_SERVICE] is False
-        assert result["data"][CONF_WEATHER_SERVICE_API_KEY] is None
-
-    async def test_async_step_init_with_weather_service(self, options_flow):
-        """Test init step with weather service."""
-        user_input = {CONF_USE_WEATHER_SERVICE: True}
-
-        with patch.object(options_flow, "_show_step_1") as mock_show_step_1:
-            mock_show_step_1.return_value = {"type": "form", "step_id": "step1"}
-
-            result = await options_flow.async_step_init(user_input)
-
-            assert result["type"] == "form"
-            assert result["step_id"] == "step1"
-            mock_show_step_1.assert_called_once_with(user_input)
-
-    async def test_async_step_init_no_input(self, options_flow):
-        """Test init step without user input."""
-        result = await options_flow.async_step_init(None)
-
-        assert result["type"] == FlowResultType.FORM
-        assert result["step_id"] == "init"
-        assert CONF_USE_WEATHER_SERVICE in result["data_schema"].schema
-
-    async def test_async_step_step1_valid_api_key(self, options_flow):
-        """Step1 creates the entry directly now (the coordinate step was removed —
-        manual coordinates are owned by the panel)."""
-        options_flow._use_weather_service = True
-        user_input = {
-            CONF_WEATHER_SERVICE: CONF_WEATHER_SERVICE_OWM,
-            CONF_WEATHER_SERVICE_API_KEY: "valid_api_key",
-        }
-
-        with patch(
-            "custom_components.smart_irrigation.options_flow.validate_api_key"
-        ) as mock_test_api:
-            mock_test_api.return_value = True
-
-            result = await options_flow.async_step_step1(user_input)
-
-            assert result["type"] == FlowResultType.CREATE_ENTRY
-            assert result["data"][CONF_WEATHER_SERVICE] == CONF_WEATHER_SERVICE_OWM
-            assert result["data"][CONF_WEATHER_SERVICE_API_KEY] == "valid_api_key"
-            assert result["data"][CONF_USE_WEATHER_SERVICE] is True
-
-    async def test_step1_preserves_manual_coordinate_options(self, mock_hass):
-        """Editing weather via the options flow must NOT drop manual coordinates
-        configured in the panel (entry.options). Regression guard for the
-        create-entry-wipes-options behavior."""
-        from custom_components.smart_irrigation.const import (
-            CONF_MANUAL_COORDINATES_ENABLED,
-            CONF_MANUAL_ELEVATION,
-            CONF_MANUAL_LATITUDE,
-            CONF_MANUAL_LONGITUDE,
-        )
-
-        entry = MockConfigEntry(
-            domain="smart_irrigation",
-            title="Smart Irrigation",
-            data={CONF_USE_WEATHER_SERVICE: True},
-            options={
-                CONF_MANUAL_COORDINATES_ENABLED: True,
-                CONF_MANUAL_LATITUDE: 12.34,
-                CONF_MANUAL_LONGITUDE: 56.78,
-                CONF_MANUAL_ELEVATION: 100,
-            },
-            entry_id="test_entry_id",
-        )
-        flow = SmartIrrigationOptionsFlowHandler(entry)
-        flow.hass = mock_hass
-        flow._use_weather_service = True
-        user_input = {
-            CONF_WEATHER_SERVICE: CONF_WEATHER_SERVICE_OWM,
-            CONF_WEATHER_SERVICE_API_KEY: "k",
-        }
-
-        with patch(
-            "custom_components.smart_irrigation.options_flow.validate_api_key"
-        ) as mock_validate:
-            mock_validate.return_value = True
-            result = await flow.async_step_step1(user_input)
-
-        assert result["type"] == FlowResultType.CREATE_ENTRY
-        assert result["data"][CONF_MANUAL_COORDINATES_ENABLED] is True
-        assert result["data"][CONF_MANUAL_LATITUDE] == 12.34
-        assert result["data"][CONF_MANUAL_LONGITUDE] == 56.78
-        assert result["data"][CONF_MANUAL_ELEVATION] == 100
-
-    async def test_init_no_weather_preserves_coordinate_options(self, mock_hass):
-        """Disabling weather via the options flow must also preserve coords."""
-        from custom_components.smart_irrigation.const import (
-            CONF_MANUAL_COORDINATES_ENABLED,
-            CONF_MANUAL_LATITUDE,
-        )
-
-        entry = MockConfigEntry(
-            domain="smart_irrigation",
-            title="Smart Irrigation",
-            data={},
-            options={
-                CONF_MANUAL_COORDINATES_ENABLED: True,
-                CONF_MANUAL_LATITUDE: 9.9,
-            },
-            entry_id="test_entry_id",
-        )
-        flow = SmartIrrigationOptionsFlowHandler(entry)
-        flow.hass = mock_hass
-
-        result = await flow.async_step_init({CONF_USE_WEATHER_SERVICE: False})
-
-        assert result["type"] == FlowResultType.CREATE_ENTRY
-        assert result["data"][CONF_MANUAL_COORDINATES_ENABLED] is True
-        assert result["data"][CONF_MANUAL_LATITUDE] == 9.9
-
-    async def test_async_step_step1_invalid_api_key(self, options_flow):
-        """Test step1 with invalid API key."""
-        options_flow._use_weather_service = True
-        user_input = {
-            CONF_WEATHER_SERVICE: CONF_WEATHER_SERVICE_OWM,
-            CONF_WEATHER_SERVICE_API_KEY: "invalid_api_key",
-        }
-
-        with patch(
-            "custom_components.smart_irrigation.options_flow.validate_api_key"
-        ) as mock_test_api:
-            mock_test_api.side_effect = InvalidAuth()
-
-            with patch.object(options_flow, "_show_step_1") as mock_show_step_1:
-                mock_show_step_1.return_value = {"type": "form", "step_id": "step1"}
-
-                result = await options_flow.async_step_step1(user_input)
-
-                assert options_flow._errors["base"] == "auth"
-                assert result["type"] == "form"
-                mock_show_step_1.assert_called()
-
-    async def test_async_step_step1_cannot_connect(self, options_flow):
-        """Test step1 with connection error."""
-        options_flow._use_weather_service = True
-        user_input = {
-            CONF_WEATHER_SERVICE: CONF_WEATHER_SERVICE_OWM,
-            CONF_WEATHER_SERVICE_API_KEY: "validate_api_key",
-        }
-
-        with patch(
-            "custom_components.smart_irrigation.options_flow.validate_api_key"
-        ) as mock_test_api:
-            mock_test_api.side_effect = CannotConnect()
-
-            with patch.object(options_flow, "_show_step_1") as mock_show_step_1:
-                mock_show_step_1.return_value = {"type": "form", "step_id": "step1"}
-
-                result = await options_flow.async_step_step1(user_input)
-
-                assert options_flow._errors["base"] == "auth"
-                assert result["type"] == "form"
-
-    async def test_async_step_step1_no_input(self, options_flow):
-        """Test step1 without user input."""
-        with patch.object(options_flow, "_show_step_1") as mock_show_step_1:
-            mock_show_step_1.return_value = {"type": "form", "step_id": "step1"}
-
-            result = await options_flow.async_step_step1(None)
-
-            assert result["type"] == "form"
-            mock_show_step_1.assert_called()
-
-    def test_options_flow_migration_from_owm(self, mock_hass):
-        """Test options flow migration from old OWM config."""
-        mock_config_entry = MockConfigEntry(
-            version=1,
-            domain="smart_irrigation",
-            title="Smart Irrigation",
-            data={
-                "use_owm": True,
-                "owm_api_key": "old_api_key",
-            },
-            options={},
-            source="user",
-            entry_id="test_entry_id",
-        )
-
-        flow = SmartIrrigationOptionsFlowHandler(mock_config_entry)
-
-        assert flow._use_weather_service is True
-        assert flow._weather_service == CONF_WEATHER_SERVICE_OWM
-        assert flow._weather_service_api_key == "old_api_key"
-
-    def test_options_flow_with_options_override(self, mock_hass):
-        """Test options flow with options overriding data."""
-        mock_config_entry = MockConfigEntry(
-            version=1,
-            domain="smart_irrigation",
-            title="Smart Irrigation",
-            data={
-                CONF_USE_WEATHER_SERVICE: False,
-            },
-            options={
-                CONF_USE_WEATHER_SERVICE: True,
-                CONF_WEATHER_SERVICE: CONF_WEATHER_SERVICE_OWM,
-                CONF_WEATHER_SERVICE_API_KEY: "options_api_key",
-            },
-            source="user",
-            entry_id="test_entry_id",
-        )
-
-        flow = SmartIrrigationOptionsFlowHandler(mock_config_entry)
-
-        assert flow._use_weather_service is True
-        assert flow._weather_service == CONF_WEATHER_SERVICE_OWM
-        assert flow._weather_service_api_key == "options_api_key"
-
-    def validate_api_key_whitespace_stripping(self, mock_hass):
-        """Test that API keys are stripped of whitespace."""
-        mock_config_entry = MockConfigEntry(
-            version=1,
-            domain="smart_irrigation",
-            title="Smart Irrigation",
-            data={
-                CONF_WEATHER_SERVICE_API_KEY: "  api_key_with_spaces  ",
-            },
-            options={},
-            source="user",
-            entry_id="test_entry_id",
-        )
-
-        flow = SmartIrrigationOptionsFlowHandler(mock_config_entry)
-
-        assert flow._weather_service_api_key == "api_key_with_spaces"
-
-    @pytest.mark.skip(
-        reason="OptionsFlowHandler no longer sets _days_between_irrigation at init; revive in Phase C (A6)"
+def _make_flow():
+    entry = MockConfigEntry(
+        domain="smart_irrigation",
+        title="Smart Irrigation",
+        data={},
+        options={},
+        entry_id="test_entry_id",
     )
-    def test_days_between_irrigation_initialization(self, mock_hass):
-        """Test that days between irrigation setting is properly initialized."""
-        from custom_components.smart_irrigation.const import (
-            CONF_DAYS_BETWEEN_IRRIGATION,
-            CONF_DEFAULT_DAYS_BETWEEN_IRRIGATION,
-        )
+    flow = SmartIrrigationOptionsFlowHandler(entry)
+    flow.hass = Mock()
+    return flow
 
-        # Test with no existing setting (should use default)
-        mock_config_entry = MockConfigEntry(
-            version=1,
-            domain="smart_irrigation",
-            title="Smart Irrigation",
-            data={},
-            options={},
-            source="user",
-            entry_id="test_entry_id",
-        )
 
-        flow = SmartIrrigationOptionsFlowHandler(mock_config_entry)
-        assert flow._days_between_irrigation == CONF_DEFAULT_DAYS_BETWEEN_IRRIGATION
+async def test_options_flow_aborts_to_panel():
+    """The options flow points the user to the panel instead of configuring."""
+    flow = _make_flow()
 
-        # Test with existing setting in data
-        mock_config_entry_with_data = MockConfigEntry(
-            version=1,
-            domain="smart_irrigation",
-            title="Smart Irrigation",
-            data={CONF_DAYS_BETWEEN_IRRIGATION: 5},
-            options={},
-            source="user",
-            entry_id="test_entry_id",
-        )
+    result = await flow.async_step_init()
 
-        flow_with_data = SmartIrrigationOptionsFlowHandler(mock_config_entry_with_data)
-        assert flow_with_data._days_between_irrigation == 5
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "configure_in_panel"
 
-        # Test with existing setting in options (should override data)
-        mock_config_entry_with_options = MockConfigEntry(
-            version=1,
-            domain="smart_irrigation",
-            title="Smart Irrigation",
-            data={CONF_DAYS_BETWEEN_IRRIGATION: 5},
-            options={CONF_DAYS_BETWEEN_IRRIGATION: 3},
-            source="user",
-            entry_id="test_entry_id",
-        )
 
-        flow_with_options = SmartIrrigationOptionsFlowHandler(
-            mock_config_entry_with_options
-        )
-        assert flow_with_options._days_between_irrigation == 3
+async def test_options_flow_aborts_with_user_input_too():
+    """Even if input is somehow supplied, the step still aborts to the panel."""
+    flow = _make_flow()
+
+    result = await flow.async_step_init({"anything": True})
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "configure_in_panel"
