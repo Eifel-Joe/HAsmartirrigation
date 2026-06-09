@@ -25,6 +25,8 @@ from .et_estimate import (
     rigorous_et_since,
 )
 from .helpers import convert_between
+from .weather_aggregate import _parse as _wa_parse
+from .weather_aggregate import aggregate_window
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,16 +73,18 @@ class LiveEstimateMixin:
                 _LOGGER.debug("intraday: get_forecast_data failed: %s", e)
         return {"client": client, "rows": rows, "tz": tz, "forecast": forecast}
 
-    def _observed_precip_since_mm(self, zone, last_calc):
-        """Sum observed precipitation (mm) collected for the zone's sensor group
+    def _observed_precip_since_mm(self, zone):
+        """Observed precipitation (mm) collected for the zone's sensor group
         since its last calculation.
 
         Used by the proxy path (OWM / PirateWeather), where there's no hourly
-        precip series — so intraday rain would otherwise be ignored. Read-only:
-        sums the shared per-mapping buffer, never advances the consume
-        watermark. Precip is stored in mm and already includes snow as
-        water-equivalent (Open-Meteo's ``precipitation`` and the OWM/PW forecast
-        parsers both fold snow in).
+        precip series — so intraday rain would otherwise be ignored. Delegates
+        to the same ``aggregate_window`` the daily calc uses, over the zone's
+        un-consumed window, so precipitation is aggregated correctly per source:
+        weather-service precip is a rate (mm/h) integrated by RIEMANN sum
+        (time-weighted), and a cumulative rain-gauge sensor is summed by DELTA.
+        A plain sum would over-count sub-hourly rate readings. Read-only — never
+        advances the consume watermark. Includes snow as water-equivalent.
         """
         mapping_id = zone.get(const.ZONE_MAPPING)
         if mapping_id is None:
@@ -88,17 +92,16 @@ class LiveEstimateMixin:
         mapping = self.store.get_mapping(mapping_id)
         if not mapping:
             return 0.0
-        total = 0.0
-        for r in mapping.get(const.MAPPING_DATA) or []:
-            if not isinstance(r, dict):
-                continue
-            rt = _parse_utc_naive(r.get(const.RETRIEVED_AT))
-            if rt is None or rt <= last_calc:
-                continue
-            p = r.get(const.MAPPING_PRECIPITATION)
-            if isinstance(p, (int, float)):
-                total += p
-        return total
+        readings = mapping.get(const.MAPPING_DATA) or []
+        if not readings:
+            return 0.0
+        watermark = _wa_parse(zone.get(const.ZONE_LAST_CONSUMED))
+        agg = aggregate_window(
+            readings, watermark, mapping.get(const.MAPPING_MAPPINGS) or {}
+        )
+        if not agg:
+            return 0.0
+        return agg.get(const.MAPPING_PRECIPITATION, 0.0) or 0.0
 
     @staticmethod
     def _rows_since(rows, last_calc_utc, tz_offset_h):
@@ -198,10 +201,10 @@ class LiveEstimateMixin:
                 daily = estimate_daily_et0_hargreaves(tmin, tmax, lat, doy)
                 et_mm = proxy_et_since(daily, lat, lon, doy, tz, elapsed)
                 # No hourly precip series on this source — use the precipitation
-                # actually collected into the sensor group since the last calc
-                # (rain + snow water-equivalent). Falls back to 0 when nothing
-                # has been collected yet.
-                precip_mm = self._observed_precip_since_mm(zone, last_calc)
+                # actually collected into the sensor group since the last calc,
+                # aggregated the same way the daily calc does (rate->Riemann /
+                # gauge->delta), so it's time-weighted. 0 when nothing collected.
+                precip_mm = self._observed_precip_since_mm(zone)
                 method = "proxy"
                 as_of = local.isoformat()
 

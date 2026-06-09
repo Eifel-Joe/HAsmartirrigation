@@ -106,46 +106,51 @@ def test_intraday_imperial_converts_units():
     assert abs(est["live_deficit"] - round(expected_live_in, 3)) < 1e-3
 
 
-def test_observed_precip_since_sums_buffer_after_last_calc():
-    """Proxy-path precip: sum observed precipitation collected after last calc.
-
-    Readings at/before the last-calc are already folded into the bucket and must
-    be excluded; only later readings count.
+def test_observed_precip_is_time_weighted_not_plain_sum():
+    """Weather-service precip is a rate (mm/h), so it must be integrated by time
+    (Riemann), not plain-summed. The helper delegates to the same
+    aggregate_window the daily calc uses.
     """
+    from custom_components.smart_irrigation.weather_aggregate import (
+        _parse,
+        aggregate_window,
+    )
+
     coord = _Coord(METRIC_SYSTEM)
-    last_calc = datetime.datetime(2026, 6, 7, 9, 0)  # naive UTC
-    mapping = {
-        const.MAPPING_DATA: [
-            {
-                const.RETRIEVED_AT: "2026-06-07T08:00:00",
-                const.MAPPING_PRECIPITATION: 5.0,
-            },
-            {
-                const.RETRIEVED_AT: "2026-06-07T09:00:00",
-                const.MAPPING_PRECIPITATION: 9.0,
-            },
-            {
-                const.RETRIEVED_AT: "2026-06-07T10:00:00",
-                const.MAPPING_PRECIPITATION: 2.0,
-            },
-            {
-                const.RETRIEVED_AT: "2026-06-07T11:00:00",
-                const.MAPPING_PRECIPITATION: 1.5,
-            },
-        ]
+    readings = [
+        {
+            const.RETRIEVED_AT: "2026-06-07T10:00:00.000000",
+            const.MAPPING_PRECIPITATION: 4.0,
+        },
+        {
+            const.RETRIEVED_AT: "2026-06-07T10:30:00.000000",
+            const.MAPPING_PRECIPITATION: 4.0,
+        },
+    ]
+    mappings_config = {
+        const.MAPPING_PRECIPITATION: {
+            const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_WEATHER_SERVICE
+        }
     }
+    mapping = {const.MAPPING_DATA: readings, const.MAPPING_MAPPINGS: mappings_config}
     coord.store = SimpleNamespace(get_mapping=lambda _mid: mapping)
-    zone = {const.ZONE_MAPPING: 0}
-    # 08:00 (before) and 09:00 (== last_calc) excluded; 10:00 + 11:00 included.
-    assert coord._observed_precip_since_mm(zone, last_calc) == 3.5
+    watermark = "2026-06-07T09:00:00.000000"
+    zone = {const.ZONE_MAPPING: 0, const.ZONE_LAST_CONSUMED: watermark}
+
+    result = coord._observed_precip_since_mm(zone)
+    expected = aggregate_window(readings, _parse(watermark), mappings_config).get(
+        const.MAPPING_PRECIPITATION
+    )
+    assert result == expected
+    # Two 4 mm/h rates 30 min apart integrate to far less than their plain sum (8).
+    assert 0 < result < 8.0
 
 
-def test_observed_precip_since_handles_no_mapping():
+def test_observed_precip_handles_no_mapping():
     coord = _Coord(METRIC_SYSTEM)
     coord.store = SimpleNamespace(get_mapping=lambda _mid: None)
-    last_calc = datetime.datetime(2026, 6, 7, 9, 0)
-    assert coord._observed_precip_since_mm({}, last_calc) == 0.0
-    assert coord._observed_precip_since_mm({const.ZONE_MAPPING: 7}, last_calc) == 0.0
+    assert coord._observed_precip_since_mm({}) == 0.0
+    assert coord._observed_precip_since_mm({const.ZONE_MAPPING: 7}) == 0.0
 
 
 def test_intraday_unavailable_until_first_calc():
