@@ -30,11 +30,23 @@ let implPromise: Promise<unknown> | undefined;
  * Lazy-load the heavy implementation bundle. The URL is passed through a
  * function boundary so the bundler emits a real runtime import (a string
  * literal would be statically resolved/bundled, defeating the split).
+ *
+ * Crucially, a FAILED import is not cached: if the impl bundle can't be fetched
+ * (e.g. its static path isn't registered yet during a HACS update / HA restart)
+ * we clear the cache so a later attempt retries instead of the card staying
+ * permanently broken until a full page reload.
  */
 function loadImpl(): Promise<unknown> {
   if (!implPromise) {
-    const url: string = FULL_CARD_URL;
-    implPromise = import(/* @vite-ignore */ url);
+    // Cache-bust per attempt: the browser's module map pins a URL that failed to
+    // fetch, so a plain retry of the same URL would keep serving the cached
+    // failure. A fresh query string forces a real re-fetch on retry. (The impl
+    // is served no-cache anyway, so this adds no extra network cost.)
+    const url: string = FULL_CARD_URL + "?v=" + Date.now();
+    implPromise = import(/* @vite-ignore */ url).catch((e) => {
+      implPromise = undefined;
+      throw e;
+    });
   }
   return implPromise;
 }
@@ -42,6 +54,7 @@ function loadImpl(): Promise<unknown> {
 class SmartIrrigationZonesCardStub extends HTMLElement {
   private _config?: ZonesCardConfig;
   private _hass?: unknown;
+  private _mounting = false;
   private _inner?: HTMLElement & {
     hass?: unknown;
     setConfig?: (c: ZonesCardConfig) => void;
@@ -49,14 +62,23 @@ class SmartIrrigationZonesCardStub extends HTMLElement {
 
   public setConfig(config: ZonesCardConfig): void {
     this._config = config;
-    void this._mount();
+    if (this._inner) {
+      this._inner.setConfig?.(config);
+    } else {
+      void this._mount();
+    }
   }
 
   // Lovelace assigns hass frequently; forward it to the inner element once it
-  // exists (and cache it for the pre-load window).
+  // exists. While it doesn't (impl still loading, or a previous load failed),
+  // each hass update retries the mount so the card self-heals.
   set hass(hass: unknown) {
     this._hass = hass;
-    if (this._inner) this._inner.hass = hass;
+    if (this._inner) {
+      this._inner.hass = hass;
+    } else if (this._config) {
+      void this._mount();
+    }
   }
 
   public getCardSize(): number {
@@ -74,18 +96,31 @@ class SmartIrrigationZonesCardStub extends HTMLElement {
   }
 
   private async _mount(): Promise<void> {
-    await loadImpl();
-    if (!this._inner) {
-      this._inner = document.createElement(
-        "smart-irrigation-zones-card-impl",
-      ) as HTMLElement & {
-        hass?: unknown;
-        setConfig?: (c: ZonesCardConfig) => void;
-      };
-      this.appendChild(this._inner);
+    if (this._mounting || this._inner) return;
+    this._mounting = true;
+    try {
+      await loadImpl();
+      if (!this._inner) {
+        this._inner = document.createElement(
+          "smart-irrigation-zones-card-impl",
+        ) as HTMLElement & {
+          hass?: unknown;
+          setConfig?: (c: ZonesCardConfig) => void;
+        };
+        this.appendChild(this._inner);
+      }
+      if (this._hass) this._inner.hass = this._hass;
+      if (this._config) this._inner.setConfig?.(this._config);
+    } catch (e) {
+      // Leave _inner unset so the next hass update (HA pushes them often)
+      // retries — never get stuck on a transient load failure.
+      console.error(
+        "smart-irrigation-zones-card: failed to load card implementation, will retry",
+        e,
+      );
+    } finally {
+      this._mounting = false;
     }
-    if (this._hass) this._inner.hass = this._hass;
-    if (this._config) this._inner.setConfig?.(this._config);
   }
 }
 

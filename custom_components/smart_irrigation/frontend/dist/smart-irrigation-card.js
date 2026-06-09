@@ -3,12 +3,16 @@
 
   const t = `v${"2026.06.15"}`;
   let i;
-  class s extends HTMLElement {
+  class n extends HTMLElement {
+    constructor() {
+      super(...arguments), this._mounting = !1;
+    }
     setConfig(t) {
-      this._config = t, this._mount();
+      var i, n;
+      this._config = t, this._inner ? null === (n = (i = this._inner).setConfig) || void 0 === n || n.call(i, t) : this._mount();
     }
     set hass(t) {
-      this._hass = t, this._inner && (this._inner.hass = t);
+      this._hass = t, this._inner ? this._inner.hass = t : this._config && this._mount();
     }
     getCardSize() {
       return 6;
@@ -24,16 +28,30 @@
       return {};
     }
     async _mount() {
-      var t, s;
-      await function () {
-        i || (i = import("/smart_irrigation_card/smart-irrigation-card-impl.js"));
-        return i;
-      }(), this._inner || (this._inner = document.createElement("smart-irrigation-zones-card-impl"), this.appendChild(this._inner)), this._hass && (this._inner.hass = this._hass), this._config && (null === (s = (t = this._inner).setConfig) || void 0 === s || s.call(t, this._config));
+      var t, n;
+      if (!this._mounting && !this._inner) {
+        this._mounting = !0;
+        try {
+          await function () {
+            if (!i) {
+              const t = "/smart_irrigation_card/smart-irrigation-card-impl.js?v=" + Date.now();
+              i = import(t).catch(t => {
+                throw i = void 0, t;
+              });
+            }
+            return i;
+          }(), this._inner || (this._inner = document.createElement("smart-irrigation-zones-card-impl"), this.appendChild(this._inner)), this._hass && (this._inner.hass = this._hass), this._config && (null === (n = (t = this._inner).setConfig) || void 0 === n || n.call(t, this._config));
+        } catch (t) {
+          console.error("smart-irrigation-zones-card: failed to load card implementation, will retry", t);
+        } finally {
+          this._mounting = !1;
+        }
+      }
     }
   }
-  customElements.get("smart-irrigation-zones-card") || customElements.define("smart-irrigation-zones-card", s);
-  const n = window;
-  n.customCards = n.customCards || [], n.customCards.some(t => "smart-irrigation-zones-card" === t.type) || (n.customCards.push({
+  customElements.get("smart-irrigation-zones-card") || customElements.define("smart-irrigation-zones-card", n);
+  const s = window;
+  s.customCards = s.customCards || [], s.customCards.some(t => "smart-irrigation-zones-card" === t.type) || (s.customCards.push({
     type: "smart-irrigation-zones-card",
     name: "Smart Irrigation Zones",
     description: "Everyday zone status and manual irrigation, usable by non-admin users.",
