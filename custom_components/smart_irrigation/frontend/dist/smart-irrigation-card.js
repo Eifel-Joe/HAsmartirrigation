@@ -1,7 +1,7 @@
 !function () {
   "use strict";
 
-  const t = `v${"2026.06.14"}`;
+  const t = `v${"2026.06.15"}`;
   let i;
   class s extends HTMLElement {
     setConfig(t) {
