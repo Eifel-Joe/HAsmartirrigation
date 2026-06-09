@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
 
+from custom_components.smart_irrigation import const
 from custom_components.smart_irrigation.et_estimate import rigorous_et_since
 from custom_components.smart_irrigation.live_estimate import (
     LiveEstimateMixin,
@@ -103,6 +104,48 @@ def test_intraday_imperial_converts_units():
     # result is reported in inches; ET is positive, so deficit grows (more negative)
     assert est["live_deficit"] < -0.1
     assert abs(est["live_deficit"] - round(expected_live_in, 3)) < 1e-3
+
+
+def test_observed_precip_since_sums_buffer_after_last_calc():
+    """Proxy-path precip: sum observed precipitation collected after last calc.
+
+    Readings at/before the last-calc are already folded into the bucket and must
+    be excluded; only later readings count.
+    """
+    coord = _Coord(METRIC_SYSTEM)
+    last_calc = datetime.datetime(2026, 6, 7, 9, 0)  # naive UTC
+    mapping = {
+        const.MAPPING_DATA: [
+            {
+                const.RETRIEVED_AT: "2026-06-07T08:00:00",
+                const.MAPPING_PRECIPITATION: 5.0,
+            },
+            {
+                const.RETRIEVED_AT: "2026-06-07T09:00:00",
+                const.MAPPING_PRECIPITATION: 9.0,
+            },
+            {
+                const.RETRIEVED_AT: "2026-06-07T10:00:00",
+                const.MAPPING_PRECIPITATION: 2.0,
+            },
+            {
+                const.RETRIEVED_AT: "2026-06-07T11:00:00",
+                const.MAPPING_PRECIPITATION: 1.5,
+            },
+        ]
+    }
+    coord.store = SimpleNamespace(get_mapping=lambda _mid: mapping)
+    zone = {const.ZONE_MAPPING: 0}
+    # 08:00 (before) and 09:00 (== last_calc) excluded; 10:00 + 11:00 included.
+    assert coord._observed_precip_since_mm(zone, last_calc) == 3.5
+
+
+def test_observed_precip_since_handles_no_mapping():
+    coord = _Coord(METRIC_SYSTEM)
+    coord.store = SimpleNamespace(get_mapping=lambda _mid: None)
+    last_calc = datetime.datetime(2026, 6, 7, 9, 0)
+    assert coord._observed_precip_since_mm({}, last_calc) == 0.0
+    assert coord._observed_precip_since_mm({const.ZONE_MAPPING: 7}, last_calc) == 0.0
 
 
 def test_intraday_unavailable_until_first_calc():

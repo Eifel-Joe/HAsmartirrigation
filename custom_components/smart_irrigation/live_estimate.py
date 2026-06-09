@@ -71,6 +71,35 @@ class LiveEstimateMixin:
                 _LOGGER.debug("intraday: get_forecast_data failed: %s", e)
         return {"client": client, "rows": rows, "tz": tz, "forecast": forecast}
 
+    def _observed_precip_since_mm(self, zone, last_calc):
+        """Sum observed precipitation (mm) collected for the zone's sensor group
+        since its last calculation.
+
+        Used by the proxy path (OWM / PirateWeather), where there's no hourly
+        precip series — so intraday rain would otherwise be ignored. Read-only:
+        sums the shared per-mapping buffer, never advances the consume
+        watermark. Precip is stored in mm and already includes snow as
+        water-equivalent (Open-Meteo's ``precipitation`` and the OWM/PW forecast
+        parsers both fold snow in).
+        """
+        mapping_id = zone.get(const.ZONE_MAPPING)
+        if mapping_id is None:
+            return 0.0
+        mapping = self.store.get_mapping(mapping_id)
+        if not mapping:
+            return 0.0
+        total = 0.0
+        for r in mapping.get(const.MAPPING_DATA) or []:
+            if not isinstance(r, dict):
+                continue
+            rt = _parse_utc_naive(r.get(const.RETRIEVED_AT))
+            if rt is None or rt <= last_calc:
+                continue
+            p = r.get(const.MAPPING_PRECIPITATION)
+            if isinstance(p, (int, float)):
+                total += p
+        return total
+
     @staticmethod
     def _rows_since(rows, last_calc_utc, tz_offset_h):
         """Hourly rows whose hour ends after ``last_calc`` (window = since calc).
@@ -168,7 +197,11 @@ class LiveEstimateMixin:
                 elapsed = [h + 0.5 for h in range(start_hour, local.hour + 1)]
                 daily = estimate_daily_et0_hargreaves(tmin, tmax, lat, doy)
                 et_mm = proxy_et_since(daily, lat, lon, doy, tz, elapsed)
-                precip_mm = 0.0  # no reliable "precip so far" without hourly data
+                # No hourly precip series on this source — use the precipitation
+                # actually collected into the sensor group since the last calc
+                # (rain + snow water-equivalent). Falls back to 0 when nothing
+                # has been collected yet.
+                precip_mm = self._observed_precip_since_mm(zone, last_calc)
                 method = "proxy"
                 as_of = local.isoformat()
 
