@@ -123,11 +123,9 @@ class TestSmartIrrigationOptionsFlow:
         assert result["step_id"] == "init"
         assert CONF_USE_WEATHER_SERVICE in result["data_schema"].schema
 
-    @pytest.mark.skip(
-        reason="Step1 returns FORM not CREATE_ENTRY on modern flow; revive in Phase C (A6)"
-    )
     async def test_async_step_step1_valid_api_key(self, options_flow):
-        """Test step1 with valid API key."""
+        """Step1 creates the entry directly now (the coordinate step was removed —
+        manual coordinates are owned by the panel)."""
         options_flow._use_weather_service = True
         user_input = {
             CONF_WEATHER_SERVICE: CONF_WEATHER_SERVICE_OWM,
@@ -145,6 +143,75 @@ class TestSmartIrrigationOptionsFlow:
             assert result["data"][CONF_WEATHER_SERVICE] == CONF_WEATHER_SERVICE_OWM
             assert result["data"][CONF_WEATHER_SERVICE_API_KEY] == "valid_api_key"
             assert result["data"][CONF_USE_WEATHER_SERVICE] is True
+
+    async def test_step1_preserves_manual_coordinate_options(self, mock_hass):
+        """Editing weather via the options flow must NOT drop manual coordinates
+        configured in the panel (entry.options). Regression guard for the
+        create-entry-wipes-options behavior."""
+        from custom_components.smart_irrigation.const import (
+            CONF_MANUAL_COORDINATES_ENABLED,
+            CONF_MANUAL_ELEVATION,
+            CONF_MANUAL_LATITUDE,
+            CONF_MANUAL_LONGITUDE,
+        )
+
+        entry = MockConfigEntry(
+            domain="smart_irrigation",
+            title="Smart Irrigation",
+            data={CONF_USE_WEATHER_SERVICE: True},
+            options={
+                CONF_MANUAL_COORDINATES_ENABLED: True,
+                CONF_MANUAL_LATITUDE: 12.34,
+                CONF_MANUAL_LONGITUDE: 56.78,
+                CONF_MANUAL_ELEVATION: 100,
+            },
+            entry_id="test_entry_id",
+        )
+        flow = SmartIrrigationOptionsFlowHandler(entry)
+        flow.hass = mock_hass
+        flow._use_weather_service = True
+        user_input = {
+            CONF_WEATHER_SERVICE: CONF_WEATHER_SERVICE_OWM,
+            CONF_WEATHER_SERVICE_API_KEY: "k",
+        }
+
+        with patch(
+            "custom_components.smart_irrigation.options_flow.validate_api_key"
+        ) as mock_validate:
+            mock_validate.return_value = True
+            result = await flow.async_step_step1(user_input)
+
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        assert result["data"][CONF_MANUAL_COORDINATES_ENABLED] is True
+        assert result["data"][CONF_MANUAL_LATITUDE] == 12.34
+        assert result["data"][CONF_MANUAL_LONGITUDE] == 56.78
+        assert result["data"][CONF_MANUAL_ELEVATION] == 100
+
+    async def test_init_no_weather_preserves_coordinate_options(self, mock_hass):
+        """Disabling weather via the options flow must also preserve coords."""
+        from custom_components.smart_irrigation.const import (
+            CONF_MANUAL_COORDINATES_ENABLED,
+            CONF_MANUAL_LATITUDE,
+        )
+
+        entry = MockConfigEntry(
+            domain="smart_irrigation",
+            title="Smart Irrigation",
+            data={},
+            options={
+                CONF_MANUAL_COORDINATES_ENABLED: True,
+                CONF_MANUAL_LATITUDE: 9.9,
+            },
+            entry_id="test_entry_id",
+        )
+        flow = SmartIrrigationOptionsFlowHandler(entry)
+        flow.hass = mock_hass
+
+        result = await flow.async_step_init({CONF_USE_WEATHER_SERVICE: False})
+
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        assert result["data"][CONF_MANUAL_COORDINATES_ENABLED] is True
+        assert result["data"][CONF_MANUAL_LATITUDE] == 9.9
 
     async def test_async_step_step1_invalid_api_key(self, options_flow):
         """Test step1 with invalid API key."""

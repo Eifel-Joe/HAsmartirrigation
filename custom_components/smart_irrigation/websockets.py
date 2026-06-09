@@ -693,6 +693,76 @@ async def websocket_save_weather_config(hass: HomeAssistant, connection, msg):
     connection.send_result(msg["id"], {"success": True})
 
 
+@async_response
+async def websocket_get_coordinates(hass: HomeAssistant, connection, msg):
+    """Return the configured manual coordinates plus HA's coordinates for display.
+
+    Manual coordinates are the source of truth in the config-entry options (read
+    by the coordinator at setup); this exposes them to the panel so the Location
+    card can show + edit the same values the calculation actually uses.
+    """
+    entry = hass.data[const.DOMAIN].get("entry")
+    options = dict(entry.options) if entry is not None else {}
+    data = dict(entry.data) if entry is not None else {}
+
+    def _resolve(key, default=None):
+        # options win over entry.data (matches resolve_weather_config precedence)
+        if key in options:
+            return options.get(key)
+        if key in data:
+            return data.get(key)
+        return default
+
+    ha = hass.config.as_dict()
+    connection.send_result(
+        msg["id"],
+        {
+            "manual_coordinates_enabled": bool(
+                _resolve(const.CONF_MANUAL_COORDINATES_ENABLED, False)
+            ),
+            "manual_latitude": _resolve(const.CONF_MANUAL_LATITUDE),
+            "manual_longitude": _resolve(const.CONF_MANUAL_LONGITUDE),
+            "manual_elevation": _resolve(const.CONF_MANUAL_ELEVATION),
+            "ha_latitude": ha.get("latitude"),
+            "ha_longitude": ha.get("longitude"),
+            "ha_elevation": ha.get("elevation"),
+        },
+    )
+
+
+@async_response
+async def websocket_save_coordinates(hass: HomeAssistant, connection, msg):
+    """Persist manual coordinates to the config-entry options (single source of truth).
+
+    Writing the options fires the entry update listener, which reloads the
+    integration so the new coordinates are picked up — they are baked into the
+    weather clients and cached on the coordinator at setup time, so a reload is
+    required for a change to take effect.
+    """
+    entry = hass.data[const.DOMAIN].get("entry")
+    if entry is None:
+        connection.send_result(msg["id"], {"success": False, "error": "no_entry"})
+        return
+
+    enabled = bool(msg["manual_coordinates_enabled"])
+    new_options = dict(entry.options)
+    new_options[const.CONF_MANUAL_COORDINATES_ENABLED] = enabled
+    if enabled:
+        new_options[const.CONF_MANUAL_LATITUDE] = msg.get("manual_latitude")
+        new_options[const.CONF_MANUAL_LONGITUDE] = msg.get("manual_longitude")
+        new_options[const.CONF_MANUAL_ELEVATION] = msg.get("manual_elevation")
+    else:
+        for key in (
+            const.CONF_MANUAL_LATITUDE,
+            const.CONF_MANUAL_LONGITUDE,
+            const.CONF_MANUAL_ELEVATION,
+        ):
+            new_options.pop(key, None)
+
+    hass.config_entries.async_update_entry(entry, options=new_options)
+    connection.send_result(msg["id"], {"success": True})
+
+
 async def async_register_websockets(hass: HomeAssistant):
     """Register Smart Irrigation HTTP views and websocket commands."""
     hass.http.register_view(SmartIrrigationConfigView)
@@ -846,6 +916,28 @@ async def async_register_websockets(hass: HomeAssistant):
                 vol.Required("type"): const.DOMAIN + "/weather_config_test",
                 vol.Optional("weather_service"): vol.Any(str, None),
                 vol.Optional("api_key"): vol.Any(str, None),
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        const.DOMAIN + "/coordinates",
+        websocket_get_coordinates,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {vol.Required("type"): const.DOMAIN + "/coordinates"}
+        ),
+    )
+    async_register_command(
+        hass,
+        const.DOMAIN + "/coordinates_save",
+        websocket_save_coordinates,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): const.DOMAIN + "/coordinates_save",
+                vol.Required("manual_coordinates_enabled"): bool,
+                vol.Optional("manual_latitude"): vol.Any(float, int, None),
+                vol.Optional("manual_longitude"): vol.Any(float, int, None),
+                vol.Optional("manual_elevation"): vol.Any(float, int, None),
             }
         ),
     )

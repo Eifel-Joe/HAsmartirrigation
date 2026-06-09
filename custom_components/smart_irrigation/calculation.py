@@ -298,6 +298,18 @@ class CalculationMixin:
                     self.hass, description=m["description"], config=m["config"]
                 )
                 break
+        # Honor manually-configured coordinates. Calc modules that derive solar
+        # radiation from latitude/elevation (e.g. PyETO) build those from
+        # hass.config at construction; override with the integration's effective
+        # coordinates so manual coordinates are respected here too — previously
+        # they only reached the weather client, not the PyETO solar-radiation math.
+        if modinst is not None:
+            eff_lat = getattr(self, "_effective_latitude", None)
+            eff_elev = getattr(self, "_effective_elevation", None)
+            if eff_lat is not None and hasattr(modinst, "_latitude"):
+                modinst._latitude = eff_lat
+            if eff_elev is not None and hasattr(modinst, "_elevation"):
+                modinst._elevation = eff_elev
         return modinst
 
     async def calculate_module(self, zone, weatherdata, forecastdata):

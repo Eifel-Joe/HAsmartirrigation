@@ -9,10 +9,13 @@ import {
   saveConfig,
   fetchWeatherConfig,
   saveWeatherConfig,
-  testWeatherConfig,
   WeatherConfig,
+  fetchCoordinates,
+  saveCoordinates,
+  CoordinatesConfig,
 } from "../../data/websockets";
 import "../../components/si-field";
+import "../../components/si-weather-source-config";
 import { SubscribeMixin } from "../../subscribe-mixin";
 import { localize } from "../../../localize/localize";
 import { output_unit, pick, showErrorToast } from "../../helpers";
@@ -31,10 +34,6 @@ import {
   CONF_AUTO_UPDATE_TIME,
   CONF_CALC_TIME,
   CONF_PRECIPITATION_THRESHOLD_MM,
-  CONF_MANUAL_COORDINATES_ENABLED,
-  CONF_MANUAL_LATITUDE,
-  CONF_MANUAL_LONGITUDE,
-  CONF_MANUAL_ELEVATION,
   CONF_DAYS_BETWEEN_IRRIGATION,
   CONF_ZONE_SEQUENCING,
   CONF_ZONE_SEQUENCING_SEQUENTIAL,
@@ -42,8 +41,6 @@ import {
   CONF_ZONE_SEQUENCING_ROTATING,
   CONF_ZONE_SEQUENCING_MAX_CONSECUTIVE_DURATION,
   CONF_ZONE_SEQUENCING_MIN_ABSORPTION_TIME,
-  CONF_WEATHER_SERVICE_OWM,
-  CONF_WEATHER_SERVICE_PW,
   CONF_WEATHER_SERVICE_OPENMETEO,
   DOMAIN,
 } from "../../const";
@@ -80,10 +77,15 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
   @property({ type: Boolean })
   private _weatherSaving = false;
 
-  @state() private _testingApi = false;
-  @state() private _testResult: { success: boolean; error?: string } | null =
-    null;
-  private _testResultTimer: number | null = null;
+  // Manual coordinates: source of truth is the config-entry options (read by
+  // the coordinator at setup), NOT the store — so they have their own
+  // fetch/save with an explicit Save button (saving reloads the integration).
+  @state() private _coords: CoordinatesConfig | null = null;
+  @state() private _coordsEnabled = false;
+  @state() private _coordsLat = "";
+  @state() private _coordsLon = "";
+  @state() private _coordsElev = "";
+  @state() private _coordsSaving = false;
 
   // Transient feedback for debounced auto-save of settings (UX H3).
   @state() private _saveStatus: "idle" | "saving" | "saved" = "idle";
@@ -134,15 +136,18 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
       this._scheduleUpdate();
     }
     try {
-      const [configResult, weatherConfigResult] = await Promise.all([
-        fetchConfig(this.hass),
-        fetchWeatherConfig(this.hass),
-      ]);
+      const [configResult, weatherConfigResult, coordsResult] =
+        await Promise.all([
+          fetchConfig(this.hass),
+          fetchWeatherConfig(this.hass),
+          fetchCoordinates(this.hass),
+        ]);
       this.config = configResult;
       this._weatherConfig = weatherConfigResult;
       this._useWeatherService = weatherConfigResult.use_weather_service;
       this._weatherService =
         weatherConfigResult.weather_service ?? CONF_WEATHER_SERVICE_OPENMETEO;
+      this._applyCoordinates(coordsResult);
       this.data = pick(this.config, [
         CONF_CALC_TIME,
         CONF_AUTO_CALC_ENABLED,
@@ -150,10 +155,6 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
         CONF_AUTO_UPDATE_SCHEDULE,
         CONF_AUTO_UPDATE_TIME,
         CONF_AUTO_UPDATE_INTERVAL,
-        CONF_MANUAL_COORDINATES_ENABLED,
-        CONF_MANUAL_LATITUDE,
-        CONF_MANUAL_LONGITUDE,
-        CONF_MANUAL_ELEVATION,
         CONF_DAYS_BETWEEN_IRRIGATION,
       ]);
       this._initialLoadDone = true;
@@ -232,46 +233,8 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
     }
   }
 
-  private async _testWeatherConfig(): Promise<void> {
-    if (!this.hass || this._testingApi) return;
-    this._testingApi = true;
-    this._testResult = null;
-    if (this._testResultTimer) {
-      clearTimeout(this._testResultTimer);
-      this._testResultTimer = null;
-    }
-    this._scheduleUpdate();
-    try {
-      const result = await testWeatherConfig(
-        this.hass,
-        this._weatherService,
-        this._newApiKey || null,
-      );
-      this._testResult = result;
-      // Auto-clear after 12 s
-      this._testResultTimer = window.setTimeout(() => {
-        this._testResult = null;
-        this._testResultTimer = null;
-        this._scheduleUpdate();
-      }, 12000);
-    } catch (e) {
-      this._testResult = { success: false, error: "unknown" };
-    } finally {
-      this._testingApi = false;
-      this._scheduleUpdate();
-    }
-  }
-
   private _renderWeatherServiceCard(): TemplateResult {
     if (!this.hass) return html``;
-    const noApiKeyServices = this._weatherConfig?.no_api_key_services ?? [
-      CONF_WEATHER_SERVICE_OPENMETEO,
-    ];
-    const needsApiKey =
-      this._useWeatherService &&
-      this._weatherService &&
-      !noApiKeyServices.includes(this._weatherService);
-
     return html`
       <ha-card
         header="${localize("weather_service_config.title", this.hass.language)}"
@@ -280,185 +243,22 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
           ${localize("weather_service_config.description", this.hass.language)}
         </div>
         <div class="card-content">
-          <div class="setting-row">
-            <label>
-              ${localize(
-                "weather_service_config.enabled_label",
-                this.hass.language,
-              )}
-            </label>
-            <ha-switch
-              .checked="${this._useWeatherService}"
-              @change="${(e: Event) => {
-                this._useWeatherService = (
-                  e.target as HTMLInputElement
-                ).checked;
-              }}"
-            ></ha-switch>
-          </div>
-          ${this._useWeatherService
-            ? html`
-                <div class="setting-row">
-                  <label>
-                    ${localize(
-                      "weather_service_config.service_label",
-                      this.hass.language,
-                    )}
-                  </label>
-                  <select
-                    class="settings-input"
-                    .value="${live(
-                      this._weatherService || CONF_WEATHER_SERVICE_OPENMETEO,
-                    )}"
-                    @change="${(e: Event) => {
-                      this._weatherService = (
-                        e.target as HTMLSelectElement
-                      ).value;
-                    }}"
-                  >
-                    <option
-                      value="${CONF_WEATHER_SERVICE_OPENMETEO}"
-                      ?selected="${(this._weatherService ||
-                        CONF_WEATHER_SERVICE_OPENMETEO) ===
-                      CONF_WEATHER_SERVICE_OPENMETEO}"
-                    >
-                      ${localize(
-                        "weather_service_config.openmeteo",
-                        this.hass.language,
-                      )}
-                    </option>
-                    <option
-                      value="${CONF_WEATHER_SERVICE_OWM}"
-                      ?selected="${this._weatherService ===
-                      CONF_WEATHER_SERVICE_OWM}"
-                    >
-                      ${localize(
-                        "weather_service_config.owm",
-                        this.hass.language,
-                      )}
-                    </option>
-                    <option
-                      value="${CONF_WEATHER_SERVICE_PW}"
-                      ?selected="${this._weatherService ===
-                      CONF_WEATHER_SERVICE_PW}"
-                    >
-                      ${localize(
-                        "weather_service_config.pw",
-                        this.hass.language,
-                      )}
-                    </option>
-                  </select>
-                </div>
-                ${needsApiKey
-                  ? html`
-                      <si-field
-                        label="${localize(
-                          "weather_service_config.api_key_label",
-                          this.hass.language,
-                        )}"
-                        help="${localize(
-                          "weather_service_config.api_key_help",
-                          this.hass.language,
-                        )}"
-                      >
-                        <div class="api-key-status">
-                          ${(() => {
-                            const svc = this._weatherService;
-                            const cfg = this._weatherConfig;
-                            const hasKey =
-                              svc === CONF_WEATHER_SERVICE_OWM
-                                ? cfg?.has_owm_api_key
-                                : svc === CONF_WEATHER_SERVICE_PW
-                                  ? cfg?.has_pw_api_key
-                                  : false;
-                            return hasKey
-                              ? html`<span class="api-key-badge configured"
-                                  >${localize(
-                                    "weather_service_config.api_key_configured",
-                                    this.hass.language,
-                                  )}</span
-                                >`
-                              : html`<span class="api-key-badge missing"
-                                  >${localize(
-                                    "weather_service_config.api_key_not_configured",
-                                    this.hass.language,
-                                  )}</span
-                                >`;
-                          })()}
-                        </div>
-                        <div class="api-key-row">
-                          <input
-                            type="password"
-                            class="settings-input api-key-input"
-                            placeholder="${localize(
-                              "weather_service_config.api_key_placeholder",
-                              this.hass.language,
-                            )}"
-                            .value="${this._newApiKey}"
-                            @input="${(e: Event) => {
-                              this._newApiKey = (
-                                e.target as HTMLInputElement
-                              ).value;
-                              this._testResult = null;
-                            }}"
-                          />
-                          <button
-                            class="action-btn secondary test-btn"
-                            type="button"
-                            ?disabled="${this._testingApi ||
-                            (!this._newApiKey &&
-                              !(this._weatherService ===
-                              CONF_WEATHER_SERVICE_OWM
-                                ? this._weatherConfig?.has_owm_api_key
-                                : this._weatherService ===
-                                    CONF_WEATHER_SERVICE_PW
-                                  ? this._weatherConfig?.has_pw_api_key
-                                  : false))}"
-                            @click="${this._testWeatherConfig}"
-                          >
-                            ${this._testingApi
-                              ? localize(
-                                  "weather_service_config.test_button_testing",
-                                  this.hass.language,
-                                )
-                              : localize(
-                                  "weather_service_config.test_button",
-                                  this.hass.language,
-                                )}
-                          </button>
-                        </div>
-                        ${this._testResult !== null
-                          ? html`
-                              <div
-                                class="test-result ${this._testResult.success
-                                  ? "success"
-                                  : "error"}"
-                              >
-                                ${this._testResult.success
-                                  ? localize(
-                                      "weather_service_config.test_success",
-                                      this.hass.language,
-                                    )
-                                  : localize(
-                                      "weather_service_config.test_error_" +
-                                        (this._testResult.error ?? "unknown"),
-                                      this.hass.language,
-                                    )}
-                              </div>
-                            `
-                          : ""}
-                      </si-field>
-                    `
-                  : html`
-                      <div class="description-text" style="padding: 8px 0;">
-                        ${localize(
-                          "weather_service_config.no_api_key_needed",
-                          this.hass.language,
-                        )}
-                      </div>
-                    `}
-              `
-            : ""}
+          <si-weather-source-config
+            .hass="${this.hass}"
+            .useWeather="${this._useWeatherService}"
+            .service="${this._weatherService ?? CONF_WEATHER_SERVICE_OPENMETEO}"
+            .apiKey="${this._newApiKey}"
+            .weatherConfig="${this._weatherConfig}"
+            @useweather-changed="${(e: CustomEvent) => {
+              this._useWeatherService = e.detail.value;
+            }}"
+            @service-changed="${(e: CustomEvent) => {
+              this._weatherService = e.detail.value;
+            }}"
+            @apikey-changed="${(e: CustomEvent) => {
+              this._newApiKey = e.detail.value;
+            }}"
+          ></si-weather-source-config>
           <div style="margin-top: 12px;">
             <button
               class="action-btn"
@@ -865,13 +665,47 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
     `;
   }
 
-  private _renderCoordinateCard(): TemplateResult {
-    if (!this.hass || !this.config || !this.data) return html``;
+  /** Populate the editable coordinate fields from a fetched config. */
+  private _applyCoordinates(c: CoordinatesConfig): void {
+    this._coords = c;
+    this._coordsEnabled = c.manual_coordinates_enabled;
+    const orHa = (m: number | null, ha: number | null) =>
+      m != null ? String(m) : ha != null ? String(ha) : "";
+    this._coordsLat = orHa(c.manual_latitude, c.ha_latitude);
+    this._coordsLon = orHa(c.manual_longitude, c.ha_longitude);
+    this._coordsElev = orHa(c.manual_elevation, c.ha_elevation);
+  }
 
-    const haCoords = this.hass.config as any;
-    const haLatitude = haCoords?.latitude || 0;
-    const haLongitude = haCoords?.longitude || 0;
-    const haElevation = haCoords?.elevation || 0;
+  /**
+   * Persist coordinates to the config-entry options. This reloads the
+   * integration server-side (coordinates are baked into the weather clients at
+   * setup), so it's an explicit Save rather than per-keystroke auto-save.
+   */
+  private async _saveCoordinates(): Promise<void> {
+    if (!this.hass) return;
+    this._coordsSaving = true;
+    this._scheduleUpdate();
+    try {
+      await saveCoordinates(
+        this.hass,
+        this._coordsEnabled,
+        this._coordsEnabled ? parseFloat(this._coordsLat) : null,
+        this._coordsEnabled ? parseFloat(this._coordsLon) : null,
+        this._coordsEnabled ? parseFloat(this._coordsElev) : null,
+      );
+      this._applyCoordinates(await fetchCoordinates(this.hass));
+    } catch (error) {
+      console.error("Failed to save coordinates:", error);
+      showErrorToast(this, this.hass, "common.errors.save_failed", error);
+    } finally {
+      this._coordsSaving = false;
+      this._scheduleUpdate();
+    }
+  }
+
+  private _renderCoordinateCard(): TemplateResult {
+    if (!this.hass || !this._coords) return html``;
+    const c = this._coords;
 
     return html`
       <ha-card
@@ -889,15 +723,13 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
               )}
             </label>
             <ha-switch
-              .checked="${this.config.manual_coordinates_enabled}"
-              @change="${(e: Event) =>
-                this.handleConfigChange({
-                  manual_coordinates_enabled: (e.target as HTMLInputElement)
-                    .checked,
-                })}"
+              .checked="${this._coordsEnabled}"
+              @change="${(e: Event) => {
+                this._coordsEnabled = (e.target as HTMLInputElement).checked;
+              }}"
             ></ha-switch>
           </div>
-          ${this.config.manual_coordinates_enabled
+          ${this._coordsEnabled
             ? html`
                 <div class="setting-row">
                   <label>
@@ -913,13 +745,9 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
                     max="90"
                     step="0.000001"
                     inputmode="decimal"
-                    .value="${this.config.manual_latitude ?? haLatitude}"
+                    .value="${this._coordsLat}"
                     @input="${(e: Event) => {
-                      const v = parseFloat(
-                        (e.target as HTMLInputElement).value,
-                      );
-                      if (!isNaN(v))
-                        this.handleConfigChange({ manual_latitude: v });
+                      this._coordsLat = (e.target as HTMLInputElement).value;
                     }}"
                   />
                 </div>
@@ -937,13 +765,9 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
                     max="180"
                     step="0.000001"
                     inputmode="decimal"
-                    .value="${this.config.manual_longitude ?? haLongitude}"
+                    .value="${this._coordsLon}"
                     @input="${(e: Event) => {
-                      const v = parseFloat(
-                        (e.target as HTMLInputElement).value,
-                      );
-                      if (!isNaN(v))
-                        this.handleConfigChange({ manual_longitude: v });
+                      this._coordsLon = (e.target as HTMLInputElement).value;
                     }}"
                   />
                 </div>
@@ -961,13 +785,9 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
                     max="9000"
                     step="1"
                     inputmode="numeric"
-                    .value="${this.config.manual_elevation ?? haElevation}"
+                    .value="${this._coordsElev}"
                     @input="${(e: Event) => {
-                      const v = parseFloat(
-                        (e.target as HTMLInputElement).value,
-                      );
-                      if (!isNaN(v))
-                        this.handleConfigChange({ manual_elevation: v });
+                      this._coordsElev = (e.target as HTMLInputElement).value;
                     }}"
                   />
                 </div>
@@ -982,19 +802,31 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
                     this.hass.language,
                   )}:
                   ${localize("coordinate_config.latitude", this.hass.language)}:
-                  ${haLatitude},
+                  ${c.ha_latitude ?? 0},
                   ${localize(
                     "coordinate_config.longitude",
                     this.hass.language,
                   )}:
-                  ${haLongitude},
+                  ${c.ha_longitude ?? 0},
                   ${localize(
                     "coordinate_config.elevation",
                     this.hass.language,
                   )}:
-                  ${haElevation}m
+                  ${c.ha_elevation ?? 0}m
                 </div>
               `}
+          <div style="margin-top: 12px;">
+            <button
+              class="action-btn"
+              raised
+              ?disabled="${this._coordsSaving}"
+              @click="${this._saveCoordinates}"
+            >
+              ${this._coordsSaving
+                ? localize("common.saving-messages.saving", this.hass.language)
+                : localize("common.actions.save", this.hass.language)}
+            </button>
+          </div>
         </div>
       </ha-card>
     `;

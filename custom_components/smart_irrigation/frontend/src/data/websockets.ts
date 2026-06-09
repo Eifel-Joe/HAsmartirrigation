@@ -247,3 +247,32 @@ export const saveWeatherConfig = (
     weather_service: weather_service ?? null,
     api_key: api_key ?? null,
   });
+
+export interface CoordinatesConfig {
+  manual_coordinates_enabled: boolean;
+  manual_latitude: number | null;
+  manual_longitude: number | null;
+  manual_elevation: number | null;
+  ha_latitude: number | null;
+  ha_longitude: number | null;
+  ha_elevation: number | null;
+}
+
+export const fetchCoordinates = (
+  hass: HomeAssistant,
+): Promise<CoordinatesConfig> => hass.callWS({ type: DOMAIN + "/coordinates" });
+
+export const saveCoordinates = (
+  hass: HomeAssistant,
+  manual_coordinates_enabled: boolean,
+  manual_latitude?: number | null,
+  manual_longitude?: number | null,
+  manual_elevation?: number | null,
+): Promise<any> =>
+  hass.callWS({
+    type: DOMAIN + "/coordinates_save",
+    manual_coordinates_enabled,
+    manual_latitude: manual_latitude ?? null,
+    manual_longitude: manual_longitude ?? null,
+    manual_elevation: manual_elevation ?? null,
+  });

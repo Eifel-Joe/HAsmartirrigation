@@ -35,9 +35,6 @@ import { localize } from "../../../localize/localize";
 import {
   CONF_METRIC,
   DOMAIN,
-  UNIT_LPM,
-  UNIT_GPM,
-  UNIT_SQ_FT,
   UNIT_SECONDS,
   ZONE_BUCKET,
   ZONE_DRAINAGE_RATE,
@@ -58,6 +55,7 @@ import {
 } from "../../const";
 import { formatMonthDayTime, isValidDate } from "../../common/datetime";
 import "../../components/si-field";
+import "../../components/si-zone-form";
 
 /**
  * Setup → Zones: full zone configuration, reporting (weather / calendar) and
@@ -1242,56 +1240,22 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
         )}"
       >
         <div class="add-zone-form">
-          <si-field
-            label="${localize("panels.zones.labels.name", this.hass.language)}"
-            required
-          >
-            <input
-              type="text"
-              class="settings-input add-zone-input"
-              .value="${this._newZoneName}"
-              @input="${(e: Event) => {
-                this._newZoneName = (e.target as HTMLInputElement).value;
-              }}"
-            />
-          </si-field>
-          <si-field
-            label="${localize("panels.zones.labels.size", this.hass.language)}"
-            unit="${this.config?.units === CONF_METRIC ? "m²" : UNIT_SQ_FT}"
-            help="${localize("field_help.zone_size", this.hass.language)}"
-          >
-            <input
-              type="number"
-              class="settings-input add-zone-input"
-              step="0.1"
-              min="0"
-              inputmode="decimal"
-              .value="${this._newZoneSize}"
-              @input="${(e: Event) => {
-                this._newZoneSize = (e.target as HTMLInputElement).value;
-              }}"
-            />
-          </si-field>
-          <si-field
-            label="${localize(
-              "panels.zones.labels.throughput",
-              this.hass.language,
-            )}"
-            unit="${this.config?.units === CONF_METRIC ? UNIT_LPM : UNIT_GPM}"
-            help="${localize("field_help.zone_throughput", this.hass.language)}"
-          >
-            <input
-              type="number"
-              class="settings-input add-zone-input"
-              step="0.1"
-              min="0"
-              inputmode="decimal"
-              .value="${this._newZoneThroughput}"
-              @input="${(e: Event) => {
-                this._newZoneThroughput = (e.target as HTMLInputElement).value;
-              }}"
-            />
-          </si-field>
+          <si-zone-form
+            .hass="${this.hass}"
+            .metric="${this.config?.units === CONF_METRIC}"
+            .name="${this._newZoneName}"
+            .size="${this._newZoneSize}"
+            .throughput="${this._newZoneThroughput}"
+            @name-changed="${(e: CustomEvent) => {
+              this._newZoneName = e.detail.value;
+            }}"
+            @size-changed="${(e: CustomEvent) => {
+              this._newZoneSize = e.detail.value;
+            }}"
+            @throughput-changed="${(e: CustomEvent) => {
+              this._newZoneThroughput = e.detail.value;
+            }}"
+          ></si-zone-form>
         </div>
         <div class="dialog-footer">
           <button

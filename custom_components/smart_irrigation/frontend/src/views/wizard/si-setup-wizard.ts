@@ -12,7 +12,6 @@ import {
   saveZone,
   fetchWeatherConfig,
   saveWeatherConfig,
-  testWeatherConfig,
   WeatherConfig,
   SaveResult,
 } from "../../data/websockets";
@@ -22,20 +21,11 @@ import {
   SmartIrrigationMapping,
   SmartIrrigationZoneState,
 } from "../../types";
-import {
-  CONF_METRIC,
-  UNIT_LPM,
-  UNIT_GPM,
-  UNIT_M2,
-  UNIT_SQ_FT,
-} from "../../const";
 import { localize } from "../../../localize/localize";
 import { globalStyle } from "../../styles/global-style";
 import { extractErrorMessage } from "../../helpers";
 import {
   CONF_WEATHER_SERVICE_OPENMETEO,
-  CONF_WEATHER_SERVICE_OWM,
-  CONF_WEATHER_SERVICE_PW,
   MAPPING_TEMPERATURE,
   MAPPING_HUMIDITY,
   MAPPING_PRECIPITATION,
@@ -44,6 +34,8 @@ import {
   MAPPING_CONF_SOURCE_NONE,
 } from "../../const";
 import "../../components/si-field";
+import "../../components/si-weather-source-config";
+import "../../components/si-zone-form";
 
 enum WizardStep {
   Welcome = 0,
@@ -77,11 +69,7 @@ export class SiSetupWizard extends LitElement {
   @state() private _useWeather = false;
   @state() private _weatherService: string = CONF_WEATHER_SERVICE_OPENMETEO;
   @state() private _apiKey = "";
-  @state() private _testingApi = false;
-  @state() private _testResult: { success: boolean; error?: string } | null =
-    null;
-  private _testResultTimer: number | null = null;
-  private _weatherConfig: WeatherConfig | null = null;
+  @state() private _weatherConfig: WeatherConfig | null = null;
 
   // Step 3 — Module
   @state() private _availableModules: SmartIrrigationModule[] = [];
@@ -328,33 +316,6 @@ export class SiSetupWizard extends LitElement {
     });
   }
 
-  // ---- test API key ----
-
-  private async _testApiKey() {
-    if (!this.hass || this._testingApi) return;
-    this._testingApi = true;
-    this._testResult = null;
-    if (this._testResultTimer) clearTimeout(this._testResultTimer);
-    this.requestUpdate();
-    try {
-      const result = await testWeatherConfig(
-        this.hass,
-        this._weatherService,
-        this._apiKey || null,
-      );
-      this._testResult = result;
-      this._testResultTimer = window.setTimeout(() => {
-        this._testResult = null;
-        this.requestUpdate();
-      }, 12000);
-    } catch {
-      this._testResult = { success: false, error: "unknown" };
-    } finally {
-      this._testingApi = false;
-      this.requestUpdate();
-    }
-  }
-
   // ---- render ----
 
   render() {
@@ -535,9 +496,6 @@ export class SiSetupWizard extends LitElement {
   }
 
   private _renderWeather(lang: string): TemplateResult {
-    const noApiKeyServices = [CONF_WEATHER_SERVICE_OPENMETEO];
-    const needsKey =
-      this._useWeather && !noApiKeyServices.includes(this._weatherService);
     return html`
       <h2 class="step-title">
         ${localize("wizard.steps.weather.title", lang)}
@@ -546,149 +504,22 @@ export class SiSetupWizard extends LitElement {
         ${localize("wizard.steps.weather.description", lang)}
       </p>
 
-      <si-field
-        label="${localize("weather_service_config.enabled_label", lang)}"
-      >
-        <ha-switch
-          .checked="${this._useWeather}"
-          @change="${(e: Event) => {
-            this._useWeather = (e.target as HTMLInputElement).checked;
-          }}"
-        ></ha-switch>
-      </si-field>
-
-      ${this._useWeather
-        ? html`
-            <si-field
-              label="${localize("weather_service_config.service_label", lang)}"
-            >
-              <select
-                class="wizard-input"
-                .value="${this._weatherService}"
-                @change="${(e: Event) => {
-                  this._weatherService = (e.target as HTMLSelectElement).value;
-                  this._testResult = null;
-                }}"
-              >
-                <option
-                  value="${CONF_WEATHER_SERVICE_OPENMETEO}"
-                  ?selected="${this._weatherService ===
-                  CONF_WEATHER_SERVICE_OPENMETEO}"
-                >
-                  ${localize("weather_service_config.openmeteo", lang)}
-                </option>
-                <option
-                  value="${CONF_WEATHER_SERVICE_OWM}"
-                  ?selected="${this._weatherService ===
-                  CONF_WEATHER_SERVICE_OWM}"
-                >
-                  ${localize("weather_service_config.owm", lang)}
-                </option>
-                <option
-                  value="${CONF_WEATHER_SERVICE_PW}"
-                  ?selected="${this._weatherService ===
-                  CONF_WEATHER_SERVICE_PW}"
-                >
-                  ${localize("weather_service_config.pw", lang)}
-                </option>
-              </select>
-            </si-field>
-
-            ${needsKey
-              ? html`
-                  <si-field
-                    label="${localize(
-                      "weather_service_config.api_key_label",
-                      lang,
-                    )}"
-                    help="${localize(
-                      "weather_service_config.api_key_help",
-                      lang,
-                    )}"
-                  >
-                    ${(
-                      this._weatherService === CONF_WEATHER_SERVICE_OWM
-                        ? this._weatherConfig?.has_owm_api_key
-                        : this._weatherService === CONF_WEATHER_SERVICE_PW
-                          ? this._weatherConfig?.has_pw_api_key
-                          : false
-                    )
-                      ? html`<span class="api-badge configured"
-                          >${localize(
-                            "weather_service_config.api_key_configured",
-                            lang,
-                          )}</span
-                        >`
-                      : ""}
-                    <div class="api-row">
-                      <input
-                        type="password"
-                        class="wizard-input flex1"
-                        placeholder="${localize(
-                          "weather_service_config.api_key_placeholder",
-                          lang,
-                        )}"
-                        .value="${this._apiKey}"
-                        @input="${(e: Event) => {
-                          this._apiKey = (e.target as HTMLInputElement).value;
-                          this._testResult = null;
-                        }}"
-                      />
-                      <button
-                        class="wizard-btn secondary"
-                        type="button"
-                        ?disabled="${this._testingApi ||
-                        (!this._apiKey &&
-                          !(this._weatherService === CONF_WEATHER_SERVICE_OWM
-                            ? this._weatherConfig?.has_owm_api_key
-                            : this._weatherService === CONF_WEATHER_SERVICE_PW
-                              ? this._weatherConfig?.has_pw_api_key
-                              : false))}"
-                        @click="${this._testApiKey}"
-                      >
-                        ${this._testingApi
-                          ? localize(
-                              "weather_service_config.test_button_testing",
-                              lang,
-                            )
-                          : localize(
-                              "weather_service_config.test_button",
-                              lang,
-                            )}
-                      </button>
-                    </div>
-                    ${this._testResult !== null
-                      ? html`
-                          <div
-                            class="test-result ${this._testResult.success
-                              ? "success"
-                              : "error"}"
-                          >
-                            ${this._testResult.success
-                              ? localize(
-                                  "weather_service_config.test_success",
-                                  lang,
-                                )
-                              : localize(
-                                  "weather_service_config.test_error_" +
-                                    (this._testResult.error ?? "unknown"),
-                                  lang,
-                                )}
-                          </div>
-                        `
-                      : ""}
-                  </si-field>
-                `
-              : html`
-                  <div class="info-note">
-                    ${localize(
-                      "weather_service_config.no_api_key_needed",
-                      lang,
-                    )}
-                  </div>
-                `}
-          `
-        : ""}
+      <si-weather-source-config
+        .hass="${this.hass}"
+        .useWeather="${this._useWeather}"
+        .service="${this._weatherService}"
+        .apiKey="${this._apiKey}"
+        .weatherConfig="${this._weatherConfig}"
+        @useweather-changed="${(e: CustomEvent) => {
+          this._useWeather = e.detail.value;
+        }}"
+        @service-changed="${(e: CustomEvent) => {
+          this._weatherService = e.detail.value;
+        }}"
+        @apikey-changed="${(e: CustomEvent) => {
+          this._apiKey = e.detail.value;
+        }}"
+      ></si-weather-source-config>
     `;
   }
 
@@ -930,77 +761,33 @@ export class SiSetupWizard extends LitElement {
 
   private _renderZone(lang: string): TemplateResult {
     const isMetric = this._siConfig?.units !== "imperial";
-    const sizeUnit = isMetric ? "m²" : UNIT_SQ_FT;
-    const throughputUnit = isMetric ? UNIT_LPM : UNIT_GPM;
-
     return html`
       <h2 class="step-title">${localize("wizard.steps.zone.title", lang)}</h2>
       <p class="step-desc">
         ${localize("wizard.steps.zone.description", lang)}
       </p>
 
-      <si-field
-        label="${localize("wizard.steps.zone.name_label", lang)}"
-        required
-      >
-        <input
-          type="text"
-          class="wizard-input"
-          .value="${this._zoneName}"
-          @input="${(e: Event) => {
-            this._zoneName = (e.target as HTMLInputElement).value;
-          }}"
-        />
-      </si-field>
-
-      <si-field
-        label="${localize("wizard.steps.zone.size_label", lang)}"
-        unit="${sizeUnit}"
-        help="${localize("field_help.zone_size", lang)}"
-      >
-        <input
-          type="number"
-          class="wizard-input"
-          min="0"
-          step="0.1"
-          .value="${this._zoneSize}"
-          @input="${(e: Event) => {
-            this._zoneSize = (e.target as HTMLInputElement).value;
-          }}"
-        />
-      </si-field>
-
-      <si-field
-        label="${localize("wizard.steps.zone.throughput_label", lang)}"
-        unit="${throughputUnit}"
-        help="${localize("field_help.zone_throughput", lang)}"
-      >
-        <input
-          type="number"
-          class="wizard-input"
-          min="0"
-          step="0.1"
-          .value="${this._zoneThroughput}"
-          @input="${(e: Event) => {
-            this._zoneThroughput = (e.target as HTMLInputElement).value;
-          }}"
-        />
-      </si-field>
-
-      <si-field
-        label="${localize("wizard.steps.zone.entity_label", lang)}"
-        help="${localize("field_help.zone_linked_entity", lang)}"
-      >
-        <ha-entity-picker
-          .hass="${this.hass}"
-          .value="${this._zoneEntity}"
-          .includeDomains="${["switch", "valve"]}"
-          allow-custom-entity
-          @value-changed="${(e: CustomEvent) => {
-            this._zoneEntity = e.detail.value || "";
-          }}"
-        ></ha-entity-picker>
-      </si-field>
+      <si-zone-form
+        .hass="${this.hass}"
+        .metric="${isMetric}"
+        .name="${this._zoneName}"
+        .size="${this._zoneSize}"
+        .throughput="${this._zoneThroughput}"
+        .linkedEntity="${this._zoneEntity}"
+        showEntity
+        @name-changed="${(e: CustomEvent) => {
+          this._zoneName = e.detail.value;
+        }}"
+        @size-changed="${(e: CustomEvent) => {
+          this._zoneSize = e.detail.value;
+        }}"
+        @throughput-changed="${(e: CustomEvent) => {
+          this._zoneThroughput = e.detail.value;
+        }}"
+        @entity-changed="${(e: CustomEvent) => {
+          this._zoneEntity = e.detail.value;
+        }}"
+      ></si-zone-form>
     `;
   }
 
