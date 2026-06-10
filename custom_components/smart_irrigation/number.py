@@ -16,6 +16,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import slugify
 
 from . import const
+from .entity import zone_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -142,27 +143,7 @@ class SmartIrrigationZoneMultiplierEntity(NumberEntity, RestoreEntity):
     @property
     def device_info(self) -> dict:
         """Return device info matching the zone duration sensor."""
-        coordinator_id = "smart_irrigation"
-        if (
-            hasattr(self, "hass")
-            and self.hass is not None
-            and hasattr(self.hass, "data")
-            and const.DOMAIN in self.hass.data
-        ):
-            try:
-                coordinator = self.hass.data[const.DOMAIN].get("coordinator")
-                if coordinator and hasattr(coordinator, "id"):
-                    coordinator_id = coordinator.id
-            except (KeyError, AttributeError, RuntimeError):
-                pass
-
-        return {
-            "identifiers": {(const.DOMAIN, coordinator_id)},
-            "name": const.NAME,
-            "model": const.NAME,
-            "sw_version": const.VERSION,
-            "manufacturer": const.MANUFACTURER,
-        }
+        return zone_device_info(self._hass, self._zone_id, self._zone_name)
 
     async def async_added_to_hass(self) -> None:
         """Restore previous state if available."""

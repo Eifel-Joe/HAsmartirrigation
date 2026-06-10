@@ -111,12 +111,13 @@ class TestSmartIrrigationZoneEntity:
         assert attrs["state"] == "automatic"
 
     def test_device_info(self, hass: HomeAssistant) -> None:
-        """device_info is per-integration (one device for all zones)."""
+        """device_info is a per-zone device hanging off the hub via via_device."""
         info = self._make_entity(hass).device_info
-        assert info["identifiers"] == {(const.DOMAIN, "smart_irrigation")}
-        assert info["name"] == const.NAME
-        assert info["model"] == const.NAME
+        assert info["identifiers"] == {(const.DOMAIN, "smart_irrigation_zone_1")}
+        assert info["name"] == f"{const.NAME}: Test Zone"
+        assert info["model"] == "Irrigation zone"
         assert info["manufacturer"] == const.MANUFACTURER
+        assert info["via_device"] == (const.DOMAIN, "smart_irrigation")
 
     def test_async_handle_unit_system_change(self, hass: HomeAssistant) -> None:
         """The unit-system-change handler schedules a forced state refresh."""

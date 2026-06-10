@@ -17,6 +17,7 @@ from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import slugify
 
 from . import const
+from .entity import zone_device_info
 from .performance import async_timer
 
 _LOGGER = logging.getLogger(__name__)
@@ -233,32 +234,8 @@ class SmartIrrigationZoneEntity(SensorEntity, RestoreEntity):
 
     @property
     def device_info(self) -> dict:
-        """Return info for device registry."""
-        # Use a safe approach to get coordinator ID without blocking
-        coordinator_id = "smart_irrigation"  # Default fallback
-
-        # Only access hass.data if we're certain it's available and won't block
-        if (
-            hasattr(self, "hass")
-            and self.hass is not None
-            and hasattr(self.hass, "data")
-            and const.DOMAIN in self.hass.data
-        ):
-            try:
-                coordinator = self.hass.data[const.DOMAIN].get("coordinator")
-                if coordinator and hasattr(coordinator, "id"):
-                    coordinator_id = coordinator.id
-            except (KeyError, AttributeError, RuntimeError):
-                # Fall back to default if anything goes wrong
-                pass
-
-        return {
-            "identifiers": {(const.DOMAIN, coordinator_id)},
-            "name": const.NAME,
-            "model": const.NAME,
-            "sw_version": const.VERSION,
-            "manufacturer": const.MANUFACTURER,
-        }
+        """Return info for device registry (per-zone device)."""
+        return zone_device_info(self._hass, self._id, self._name)
 
     @property
     def unique_id(self):
@@ -451,27 +428,7 @@ class SmartIrrigationZoneBucketEntity(SensorEntity, RestoreEntity):
     @property
     def device_info(self) -> dict:
         """Return device info matching the zone duration sensor."""
-        coordinator_id = "smart_irrigation"
-        if (
-            hasattr(self, "hass")
-            and self.hass is not None
-            and hasattr(self.hass, "data")
-            and const.DOMAIN in self.hass.data
-        ):
-            try:
-                coordinator = self.hass.data[const.DOMAIN].get("coordinator")
-                if coordinator and hasattr(coordinator, "id"):
-                    coordinator_id = coordinator.id
-            except (KeyError, AttributeError, RuntimeError):
-                pass
-
-        return {
-            "identifiers": {(const.DOMAIN, coordinator_id)},
-            "name": const.NAME,
-            "model": const.NAME,
-            "sw_version": const.VERSION,
-            "manufacturer": const.MANUFACTURER,
-        }
+        return zone_device_info(self._hass, self._zone_id, self._zone_name)
 
     async def async_added_to_hass(self):
         """Restore previous state if available."""
