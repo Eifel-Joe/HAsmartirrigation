@@ -534,6 +534,10 @@
         "forecast_title": "Predpoveď",
         "forecast_none": "Predpoveď je dostupná, keď je zapnutá poveternostná služba.",
         "seasonal_title": "Sezónny výhľad"
+      },
+      "advanced": {
+        "used_by_zones": "Používané v {count, plural, one {# zóne} few {# zónach} other {# zónach}}",
+        "not_used": "Nepoužívané"
       }
     }
   },

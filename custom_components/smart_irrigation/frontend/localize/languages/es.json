@@ -535,6 +535,10 @@
         "forecast_title": "Pronóstico",
         "forecast_none": "El pronóstico está disponible cuando hay un servicio meteorológico activado.",
         "seasonal_title": "Perspectiva estacional"
+      },
+      "advanced": {
+        "used_by_zones": "Usado por {count, plural, one {# zona} other {# zonas}}",
+        "not_used": "Sin usar"
       }
     }
   },

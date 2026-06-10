@@ -24,7 +24,6 @@ import { globalStyle } from "../../styles/global-style";
 import { localize } from "../../../localize/localize";
 import { DOMAIN } from "../../const";
 import { prettyPrint, getPart, showErrorToast } from "../../helpers";
-import { mdiDelete } from "@mdi/js";
 
 @customElement("smart-irrigation-view-modules")
 class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
@@ -243,20 +242,24 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
       return html``;
     }
 
-    // Use cache for better performance
-    const cacheKey = `module-${module.id || index}-${JSON.stringify(module)}`;
-    if (this.moduleCache.has(cacheKey)) {
-      return this.moduleCache.get(cacheKey)!;
-    }
-
     const numberofzonesusingthismodule = this.zones.filter(
       (o) => o.module === module.id,
     ).length;
 
+    // Use cache for better performance (usage count affects the header chip)
+    const cacheKey = `module-${module.id || index}-${numberofzonesusingthismodule}-${JSON.stringify(module)}`;
+    if (this.moduleCache.has(cacheKey)) {
+      return this.moduleCache.get(cacheKey)!;
+    }
+
     const result = html`
-      <ha-card header="${module.id}: ${module.name}">
+      <ha-card>
+        <div class="card-header">
+          <div class="name">${module.name}</div>
+          ${this.renderUsageChip(numberofzonesusingthismodule)}
+        </div>
         <div class="card-content">
-          <div class="moduledescription${index}">${module.description}</div>
+          <div class="item-description">${module.description}</div>
           <div class="moduleconfig">
             <label class="subheader"
               >${localize(
@@ -275,30 +278,47 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
                 )
               : null}
           </div>
-          ${numberofzonesusingthismodule
-            ? html`<div class="weather-note">
-                ${localize(
-                  "panels.modules.cards.module.errors.cannot-delete-module-because-zones-use-it",
-                  this.hass.language,
-                )}
-              </div>`
-            : html` <div
-                class="action-button"
-                @click="${(e: Event) => this.handleRemoveModule(e, index)}"
-              >
-                <svg style="width:24px;height:24px" viewBox="0 0 24 24">
-                  <path fill="#404040" d="${mdiDelete}" />
-                </svg>
-                <span class="action-button-label">
+          <div class="card-footer">
+            ${numberofzonesusingthismodule
+              ? html`<div class="weather-note">
+                  ${localize(
+                    "panels.modules.cards.module.errors.cannot-delete-module-because-zones-use-it",
+                    this.hass.language,
+                  )}
+                </div>`
+              : html`<button
+                  class="action-btn danger"
+                  @click="${(e: Event) => this.handleRemoveModule(e, index)}"
+                >
+                  <ha-icon icon="mdi:delete"></ha-icon>
                   ${localize("common.actions.delete", this.hass.language)}
-                </span>
-              </div>`}
+                </button>`}
+          </div>
         </div>
       </ha-card>
     `;
 
     this.moduleCache.set(cacheKey, result);
     return result;
+  }
+
+  private renderUsageChip(count: number): TemplateResult {
+    if (!this.hass) return html``;
+    return count
+      ? html`<span class="usage-chip"
+          >${localize(
+            "panels.setup.advanced.used_by_zones",
+            this.hass.language,
+            "{count}",
+            count,
+          )}</span
+        >`
+      : html`<span class="usage-chip unused"
+          >${localize(
+            "panels.setup.advanced.not_used",
+            this.hass.language,
+          )}</span
+        >`;
   }
 
   /*
@@ -326,94 +346,95 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
     if (name in mod.config) {
       val = mod.config[name];
     }
-    let r = html`<label for="${name + index}"
-      >${prettyName} </label
-    `;
+    let control = html``;
     if (schemaline["type"] == "boolean") {
-      r = html`${r}<input
-          type="checkbox"
-          id="${name + index}"
-          .checked=${val}
-          @input="${(e: Event) =>
-            this.handleEditConfig(index, {
-              ...mod,
-              config: {
-                ...mod.config,
-                [name]: (e.target as HTMLInputElement).checked,
-              },
-            })}"
-        />`;
+      control = html`<input
+        type="checkbox"
+        id="${name + index}"
+        .checked=${val}
+        @input="${(e: Event) =>
+          this.handleEditConfig(index, {
+            ...mod,
+            config: {
+              ...mod.config,
+              [name]: (e.target as HTMLInputElement).checked,
+            },
+          })}"
+      />`;
     } else if (
       schemaline["type"] == "float" ||
       schemaline["type"] == "integer"
     ) {
-      r = html`${r}<input
-          type="number"
-          class="shortinput"
-          id="${schemaline["name"] + index}"
-          .value="${mod.config[schemaline["name"]]}"
-          @input="${(e: Event) =>
-            this.handleEditConfig(index, {
-              ...mod,
-              config: {
-                ...mod.config,
-                [name]: (e.target as HTMLInputElement).value,
-              },
-            })}"
-        />`;
+      control = html`<input
+        type="number"
+        class="settings-input shortfield"
+        id="${schemaline["name"] + index}"
+        .value="${mod.config[schemaline["name"]]}"
+        @input="${(e: Event) =>
+          this.handleEditConfig(index, {
+            ...mod,
+            config: {
+              ...mod.config,
+              [name]: (e.target as HTMLInputElement).value,
+            },
+          })}"
+      />`;
     } else if (schemaline["type"] == "string") {
-      r = html`${r}<input
-          type="text"
-          id="${name + index}"
-          .value="${val}"
-          @input="${(e: Event) =>
-            this.handleEditConfig(index, {
-              ...mod,
-              config: {
-                ...mod.config,
-                [name]: (e.target as HTMLInputElement).value,
-              },
-            })}"
-        />`;
+      control = html`<input
+        type="text"
+        class="settings-input"
+        id="${name + index}"
+        .value="${val}"
+        @input="${(e: Event) =>
+          this.handleEditConfig(index, {
+            ...mod,
+            config: {
+              ...mod.config,
+              [name]: (e.target as HTMLInputElement).value,
+            },
+          })}"
+      />`;
     } else if (schemaline["type"] == "select") {
       const hasslanguage = this.hass.language;
       //@change
-      r = html`${r}<select
-          id="${name + index}"
-          .value="${live(val)}"
-          @change="${(e: Event) =>
-            this.handleEditConfig(index, {
-              ...mod,
-              config: {
-                ...mod.config,
-                [name]: (e.target as HTMLSelectElement).value,
-              },
-            })}"
-        >
-          ${Object.entries(schemaline["options"]).map(
-            ([key, value]) =>
-              html`<option
-                value="${getPart(value, 0)}"
-                ?selected="${val === getPart(value, 0)}"
-              >
-                ${localize(
-                  "panels.modules.cards.module.translated-options." +
-                    getPart(value, 1),
-                  hasslanguage,
-                )}
-              </option>`,
-          )}
-        </select>`;
+      control = html`<select
+        class="settings-input"
+        id="${name + index}"
+        .value="${live(val)}"
+        @change="${(e: Event) =>
+          this.handleEditConfig(index, {
+            ...mod,
+            config: {
+              ...mod.config,
+              [name]: (e.target as HTMLSelectElement).value,
+            },
+          })}"
+      >
+        ${Object.entries(schemaline["options"]).map(
+          ([key, value]) =>
+            html`<option
+              value="${getPart(value, 0)}"
+              ?selected="${val === getPart(value, 0)}"
+            >
+              ${localize(
+                "panels.modules.cards.module.translated-options." +
+                  getPart(value, 1),
+                hasslanguage,
+              )}
+            </option>`,
+        )}
+      </select>`;
     }
 
-    if (schemaline["required"]) {
-      r = html`${r}`;
-    }
-    const hint = schemaline["description"]
-      ? html`<div class="field-hint">${schemaline["description"]}</div>`
-      : html``;
-    r = html`<div class="schemaline">${r}${hint}</div>`;
-    return r;
+    return html`<ha-settings-row>
+      <span slot="heading"
+        >${prettyName}${schemaline["required"] ? " *" : ""}</span
+      >
+      ${schemaline["description"]
+        ? html`<span slot="description">${schemaline["description"]}</span>`
+        : ""}
+      ${control}
+    </ha-settings-row>`;
   }
 
   handleEditConfig(index: number, updatedModule: SmartIrrigationModule) {
@@ -430,13 +451,6 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
     this.debouncedSave(updatedModule);
   }
 
-  private renderOption(value: any, description: any): TemplateResult {
-    if (!this.hass) {
-      return html``;
-    } else {
-      return html`<option value="${value}>${description}</option>`;
-    }
-  }
   render(): TemplateResult {
     if (!this.hass) {
       return html``;
@@ -446,16 +460,6 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
       <ha-card header="${localize("panels.modules.title", this.hass.language)}">
         <div class="card-content">
           ${localize("panels.modules.description", this.hass.language)}
-        </div>
-      </ha-card>
-
-      <ha-card
-        header="${localize(
-          "panels.modules.cards.add-module.header",
-          this.hass.language,
-        )}"
-      >
-        <div class="card-content">
           ${this.isLoading
             ? html`<div class="loading-indicator">
                 ${localize(
@@ -464,14 +468,16 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
                 )}
               </div>`
             : html`
-                <div class="zoneline">
-                  <label for="moduleInput"
-                    >${localize(
+                <div class="add-row">
+                  <select
+                    id="moduleInput"
+                    class="settings-input"
+                    aria-label="${localize(
                       "common.labels.module",
                       this.hass.language,
-                    )}:</label
+                    )}"
+                    ?disabled="${this.isSaving}"
                   >
-                  <select id="moduleInput" ?disabled="${this.isSaving}">
                     ${Object.entries(this.allmodules).map(
                       ([key, value]) =>
                         html`<option value="${value.id}">
@@ -479,14 +485,12 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
                         </option>`,
                     )}
                   </select>
-                </div>
-                <div class="zoneline">
-                  <span></span>
                   <button
                     @click="${this.handleAddModule}"
                     ?disabled="${this.isSaving}"
-                    class="${this.isSaving ? "saving" : ""}"
+                    class="action-btn ${this.isSaving ? "saving" : ""}"
                   >
+                    <ha-icon icon="mdi:plus"></ha-icon>
                     ${this.isSaving
                       ? localize(
                           "common.saving-messages.adding",
@@ -503,9 +507,7 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
       </ha-card>
 
       ${this.isLoading
-        ? html`<div class="loading-indicator">
-            ${localize("common.loading-messages.modules", this.hass.language)}
-          </div>`
+        ? html``
         : Object.entries(this.modules).map(([key, value]) =>
             this.renderModule(value, parseInt(key)),
           )}

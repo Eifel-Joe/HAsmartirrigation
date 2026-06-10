@@ -591,6 +591,98 @@ export const globalStyle = css`
     color: var(--primary-text-color);
     white-space: nowrap;
   }
+
+  /* ---- Shared "item card" chrome (Advanced: modules / sensor groups) ---- */
+
+  /* Danger variant of the shared action button (destructive actions) */
+  button.action-btn.danger {
+    background: transparent;
+    border: 1px solid var(--error-color);
+    color: var(--error-color);
+  }
+
+  button.action-btn.danger:hover {
+    background: rgba(var(--rgb-error-color, 244, 67, 54), 0.08);
+    opacity: 1;
+  }
+
+  /* Usage chip shown in item card headers ("Used by 2 zones" / "Not used") */
+  .usage-chip {
+    flex-shrink: 0;
+    align-self: center;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    color: var(--primary-color);
+    white-space: nowrap;
+  }
+
+  .usage-chip.unused {
+    background: var(--secondary-background-color);
+    color: var(--secondary-text-color);
+  }
+
+  /* Muted one-liner under an item card header */
+  .item-description {
+    color: var(--secondary-text-color);
+    font-size: 0.9em;
+    margin-bottom: 8px;
+  }
+
+  /* Inline "add new item" row inside the intro card */
+  .add-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .add-row > input,
+  .add-row > select {
+    flex: 1 1 220px;
+    max-width: 320px;
+  }
+
+  /* Item card footer hosting the destructive action / in-use note */
+  .card-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  /* Shared input look (matches the zone-settings .settings-input) */
+  .settings-input {
+    background: var(--input-fill-color, var(--secondary-background-color));
+    border: 1px solid var(--input-ink-color, var(--secondary-text-color));
+    border-radius: 4px;
+    color: var(--primary-text-color);
+    padding: 6px 10px;
+    font-family: var(--mdc-typography-body1-font-family, Roboto, sans-serif);
+    font-size: 0.9375rem;
+    box-sizing: border-box;
+  }
+
+  .settings-input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+  }
+
+  .settings-input.shortfield {
+    width: 110px;
+  }
+
+  select.settings-input {
+    cursor: pointer;
+    min-width: 140px;
+  }
 `;
 
 export const dialogStyle = css`

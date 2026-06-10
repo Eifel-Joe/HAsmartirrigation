@@ -59,7 +59,6 @@ import {
   handleError,
   showErrorToast,
 } from "../../helpers";
-import { mdiConsoleNetworkOutline, mdiDelete } from "@mdi/js";
 
 @customElement("smart-irrigation-view-mappings")
 class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
@@ -359,74 +358,6 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
     const { id, name, mappings } = mapping;
     await saveMapping(this.hass, { id, name, mappings });
   }
-  private renderMapping(
-    mapping: SmartIrrigationMapping,
-    index: number,
-  ): TemplateResult {
-    if (!this.hass) {
-      return html``;
-    }
-
-    // Use caching to avoid re-rendering unchanged mappings
-    const cacheKey = `${mapping.id}_${JSON.stringify(mapping).slice(0, 100)}`;
-    if (this.mappingCache.has(cacheKey)) {
-      return this.mappingCache.get(cacheKey)!;
-    }
-
-    const numberofzonesusingthismapping = this.zones.filter(
-      (o) => o.mapping === mapping.id,
-    ).length;
-
-    const result = html`
-      <ha-card header="${mapping.id}: ${mapping.name}">
-        <div class="card-content">
-          <div class="card-content">
-            <label for="name${mapping.id}"
-              >${localize(
-                "panels.mappings.labels.mapping-name",
-                this.hass.language,
-              )}:</label
-            >
-            <input
-              id="name${mapping.id}"
-              type="text"
-              .value="${mapping.name}"
-              @input="${(e: Event) =>
-                this.handleEditMapping(index, {
-                  ...mapping,
-                  name: (e.target as HTMLInputElement).value,
-                })}"
-            />
-            ${Object.entries(mapping.mappings).map(([value]) =>
-              this.renderMappingSetting(index, value),
-            )}
-            ${numberofzonesusingthismapping
-              ? html`<div class="weather-note">
-                  ${localize(
-                    "panels.mappings.cards.mapping.errors.cannot-delete-mapping-because-zones-use-it",
-                    this.hass.language,
-                  )}
-                </div>`
-              : html` <div
-                  class="action-button"
-                  @click="${(e: Event) => this.handleRemoveMapping(e, index)}"
-                >
-                  <svg style="width:24px;height:24px" viewBox="0 0 24 24">
-                    <path fill="#404040" d="${mdiDelete}" />
-                  </svg>
-                  <span class="action-button-label">
-                    ${localize("common.actions.delete", this.hass.language)}
-                  </span>
-                </div>`}
-          </div>
-        </div>
-      </ha-card>
-    `;
-
-    // Cache the result for next render
-    this.mappingCache.set(cacheKey, result);
-    return result;
-  }
   renderMappingSetting(index: number, value: string): TemplateResult {
     const mapping = this.mappings[index];
     if (!mapping || !this.hass) {
@@ -544,66 +475,6 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
     `;
   }
 
-  /*private renderMappingInputsSimple(
-    index: number,
-    value: string,
-    mappingline: any,
-  ): TemplateResult {
-    if (!this.hass) return html``;
-
-    const source = mappingline[MAPPING_CONF_SOURCE];
-
-    if (source === MAPPING_CONF_SOURCE_SENSOR) {
-      return html`
-        <div class="mappingsettingline">
-          <label
-            >${localize(
-              "panels.mappings.cards.mapping.sensor-entity",
-              this.hass.language,
-            )}:</label
-          >
-          <input
-            type="text"
-            .value="${mappingline[MAPPING_CONF_SENSOR] || ""}"
-            @change="${(e: Event) =>
-              this.handleSimpleInputChange(
-                index,
-                value,
-                MAPPING_CONF_SENSOR,
-                e,
-              )}"
-          />
-        </div>
-      `;
-    }
-
-    if (source === MAPPING_CONF_SOURCE_STATIC_VALUE) {
-      return html`
-        <div class="mappingsettingline">
-          <label
-            >${localize(
-              "panels.mappings.cards.mapping.static_value",
-              this.hass.language,
-            )}:</label
-          >
-          <input
-            type="text"
-            .value="${mappingline[MAPPING_CONF_STATIC_VALUE] || ""}"
-            @input="${(e: Event) =>
-              this.handleSimpleInputChange(
-                index,
-                value,
-                MAPPING_CONF_STATIC_VALUE,
-                e,
-              )}"
-          />
-        </div>
-      `;
-    }
-
-    return html``;
-  }*/
-
   private handleSimpleSourceChange(
     index: number,
     value: string,
@@ -641,175 +512,6 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
         [value]: {
           ...mapping.mappings[value],
           [configKey]: newValue,
-        },
-      },
-    });
-  }
-
-  private renderSourceOptions(
-    index: number,
-    value: string,
-    mappingline: any,
-  ): TemplateResult {
-    if (!this.hass) return html``;
-
-    const baseId = `${value}_${index}`;
-    const isSpecialMapping =
-      value === MAPPING_EVAPOTRANSPIRATION || value === MAPPING_SOLRAD;
-
-    return html`
-      <div class="mappingsettingline">
-        <label for="${baseId}_source">
-          ${localize(
-            "panels.mappings.cards.mapping.source",
-            this.hass.language,
-          )}:
-        </label>
-      </div>
-      <div class="radio-group">
-        ${!isSpecialMapping
-          ? this.renderWeatherServiceOption(index, value, mappingline)
-          : ""}
-        ${isSpecialMapping
-          ? this.renderNoneOption(index, value, mappingline)
-          : ""}
-        ${this.renderSensorOption(index, value, mappingline)}
-        ${this.renderStaticValueOption(index, value, mappingline)}
-      </div>
-    `;
-  }
-
-  private renderWeatherServiceOption(
-    index: number,
-    value: string,
-    mappingline: any,
-  ): TemplateResult {
-    if (!this.hass || !this.config) return html``;
-
-    const baseId = `${value}_${index}`;
-    const isDisabled = !this.config.use_weather_service;
-    const isChecked =
-      this.config.use_weather_service &&
-      mappingline[MAPPING_CONF_SOURCE] === MAPPING_CONF_SOURCE_WEATHER_SERVICE;
-
-    return html`
-      <label class="${isDisabled ? "strikethrough" : ""}">
-        <input
-          type="radio"
-          id="${baseId}_weather"
-          value="${MAPPING_CONF_SOURCE_WEATHER_SERVICE}"
-          name="${baseId}_source"
-          ?checked="${isChecked}"
-          ?disabled="${isDisabled}"
-          @change="${(e: Event) => this.handleSourceChange(index, value, e)}"
-        />
-        ${localize(
-          "panels.mappings.cards.mapping.sources.weather_service",
-          this.hass.language,
-        )}
-      </label>
-    `;
-  }
-
-  private renderNoneOption(
-    index: number,
-    value: string,
-    mappingline: any,
-  ): TemplateResult {
-    if (!this.hass) return html``;
-
-    const baseId = `${value}_${index}`;
-    const isChecked =
-      mappingline[MAPPING_CONF_SOURCE] === MAPPING_CONF_SOURCE_NONE;
-
-    return html`
-      <label>
-        <input
-          type="radio"
-          id="${baseId}_none"
-          value="${MAPPING_CONF_SOURCE_NONE}"
-          name="${baseId}_source"
-          ?checked="${isChecked}"
-          @change="${(e: Event) => this.handleSourceChange(index, value, e)}"
-        />
-        ${localize(
-          "panels.mappings.cards.mapping.sources.none",
-          this.hass.language,
-        )}
-      </label>
-    `;
-  }
-
-  private renderSensorOption(
-    index: number,
-    value: string,
-    mappingline: any,
-  ): TemplateResult {
-    if (!this.hass) return html``;
-
-    const baseId = `${value}_${index}`;
-    const isChecked =
-      mappingline[MAPPING_CONF_SOURCE] === MAPPING_CONF_SOURCE_SENSOR;
-
-    return html`
-      <label>
-        <input
-          type="radio"
-          id="${baseId}_sensor"
-          value="${MAPPING_CONF_SOURCE_SENSOR}"
-          name="${baseId}_source"
-          ?checked="${isChecked}"
-          @change="${(e: Event) => this.handleSourceChange(index, value, e)}"
-        />
-        ${localize(
-          "panels.mappings.cards.mapping.sources.sensor",
-          this.hass.language,
-        )}
-      </label>
-    `;
-  }
-
-  private renderStaticValueOption(
-    index: number,
-    value: string,
-    mappingline: any,
-  ): TemplateResult {
-    if (!this.hass) return html``;
-
-    const baseId = `${value}_${index}`;
-    const isChecked =
-      mappingline[MAPPING_CONF_SOURCE] === MAPPING_CONF_SOURCE_STATIC_VALUE;
-
-    return html`
-      <label>
-        <input
-          type="radio"
-          id="${baseId}_static"
-          value="${MAPPING_CONF_SOURCE_STATIC_VALUE}"
-          name="${baseId}_source"
-          ?checked="${isChecked}"
-          @change="${(e: Event) => this.handleSourceChange(index, value, e)}"
-        />
-        ${localize(
-          "panels.mappings.cards.mapping.sources.static",
-          this.hass.language,
-        )}
-      </label>
-    `;
-  }
-
-  private handleSourceChange(index: number, value: string, e: Event): void {
-    const mapping = this.mappings[index];
-    const newSource = (e.target as HTMLInputElement).value;
-
-    this.handleEditMapping(index, {
-      ...mapping,
-      mappings: {
-        ...mapping.mappings,
-        [value]: {
-          ...mapping.mappings[value],
-          [MAPPING_CONF_SOURCE]: newSource,
-          [MAPPING_CONF_SENSOR]: "", // Clear sensor when changing source
         },
       },
     });
@@ -866,6 +568,7 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
         </label>
         <input
           type="text"
+          class="settings-input"
           id="${baseId}_sensor_entity"
           .value="${mappingline[MAPPING_CONF_SENSOR] || ""}"
           @change="${(e: Event) => this.handleSensorChange(index, value, e)}"
@@ -893,6 +596,7 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
         </label>
         <input
           type="text"
+          class="settings-input"
           id="${baseId}_static_value"
           .value="${mappingline[MAPPING_CONF_STATIC_VALUE] || ""}"
           @input="${(e: Event) =>
@@ -921,6 +625,7 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
         </label>
         <select
           id="${baseId}_unit"
+          class="settings-input"
           @change="${(e: Event) => this.handleUnitChange(index, value, e)}"
         >
           ${this.renderUnitOptionsForMapping(value, mappingline)}
@@ -948,6 +653,7 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
         </label>
         <select
           id="${baseId}_pressure_type"
+          class="settings-input"
           @change="${(e: Event) =>
             this.handlePressureTypeChange(index, value, e)}"
         >
@@ -976,6 +682,7 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
         </label>
         <select
           id="${baseId}_aggregate"
+          class="settings-input"
           @change="${(e: Event) => this.handleAggregateChange(index, value, e)}"
         >
           ${this.renderAggregateOptionsForMapping(value, mappingline)}
@@ -1205,28 +912,22 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
       >
         <div class="card-content">
           ${localize("panels.mappings.description", this.hass.language)}
-        </div>
-      </ha-card>
-
-      <ha-card
-        header="${localize(
-          "panels.mappings.cards.add-mapping.header",
-          this.hass.language,
-        )}"
-      >
-        <div class="card-content">
-          <div class="zoneline">
-            <label for="mappingNameInput"
-              >${localize(
+          <div class="add-row">
+            <input
+              id="mappingNameInput"
+              class="settings-input"
+              type="text"
+              placeholder="${localize(
                 "panels.mappings.labels.mapping-name",
                 this.hass.language,
-              )}:</label
+              )}"
+            />
+            <button
+              class="action-btn ${this.isSaving ? "saving" : ""}"
+              ?disabled="${this.isSaving}"
+              @click="${this.handleAddMapping}"
             >
-            <input id="mappingNameInput" type="text" />
-          </div>
-          <div class="zoneline">
-            <span></span>
-            <button @click="${this.handleAddMapping}">
+              <ha-icon icon="mdi:plus"></ha-icon>
               ${localize(
                 "panels.mappings.cards.add-mapping.actions.add",
                 this.hass.language,
@@ -1238,6 +939,25 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
 
       ${this.renderMappingsList()}
     `;
+  }
+
+  private renderUsageChip(count: number): TemplateResult {
+    if (!this.hass) return html``;
+    return count
+      ? html`<span class="usage-chip"
+          >${localize(
+            "panels.setup.advanced.used_by_zones",
+            this.hass.language,
+            "{count}",
+            count,
+          )}</span
+        >`
+      : html`<span class="usage-chip unused"
+          >${localize(
+            "panels.setup.advanced.not_used",
+            this.hass.language,
+          )}</span
+        >`;
   }
 
   private renderMappingsList(): TemplateResult {
@@ -1277,17 +997,22 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
     ).length;
 
     return html`
-      <ha-card header="${mapping.id}: ${mapping.name}">
+      <ha-card>
+        <div class="card-header">
+          <div class="name">${mapping.name}</div>
+          ${this.renderUsageChip(numberofzonesusingthismapping)}
+        </div>
         <div class="card-content">
-          <div class="card-content">
-            <label for="name${mapping.id}"
+          <ha-settings-row>
+            <span slot="heading"
               >${localize(
                 "panels.mappings.labels.mapping-name",
                 this.hass.language,
-              )}:</label
+              )}</span
             >
             <input
               id="name${mapping.id}"
+              class="settings-input"
               type="text"
               .value="${mapping.name}"
               @input="${(e: Event) =>
@@ -1296,7 +1021,9 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
                   name: (e.target as HTMLInputElement).value,
                 })}"
             />
-            ${this.renderMappingSettings(mapping, index)}
+          </ha-settings-row>
+          ${this.renderMappingSettings(mapping, index)}
+          <div class="card-footer">
             ${numberofzonesusingthismapping
               ? html`<div class="weather-note">
                   ${localize(
@@ -1304,17 +1031,13 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
                     this.hass.language,
                   )}
                 </div>`
-              : html` <div
-                  class="action-button"
+              : html`<button
+                  class="action-btn danger"
                   @click="${(e: Event) => this.handleRemoveMapping(e, index)}"
                 >
-                  <svg style="width:24px;height:24px" viewBox="0 0 24 24">
-                    <path fill="#404040" d="${mdiDelete}" />
-                  </svg>
-                  <span class="action-button-label">
-                    ${localize("common.actions.delete", this.hass.language)}
-                  </span>
-                </div>`}
+                  <ha-icon icon="mdi:delete"></ha-icon>
+                  ${localize("common.actions.delete", this.hass.language)}
+                </button>`}
           </div>
         </div>
       </ha-card>
@@ -1348,7 +1071,17 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
 
   static get styles(): CSSResultGroup {
     return css`
-      ${globalStyle}/* View-specific styles only - most common styles are now in globalStyle */
+      ${globalStyle}
+
+      /* Parameter section header inside a sensor-group card */
+      .mappingsettingname {
+        font-weight: 500;
+        font-size: 0.95rem;
+        color: var(--primary-text-color);
+        padding-bottom: 6px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid var(--divider-color);
+      }
     `;
   }
 

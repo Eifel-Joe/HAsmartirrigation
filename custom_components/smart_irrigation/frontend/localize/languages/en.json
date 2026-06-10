@@ -223,6 +223,10 @@
         "forecast_title": "Forecast",
         "forecast_none": "Forecast is available when a weather service is enabled.",
         "seasonal_title": "Seasonal outlook"
+      },
+      "advanced": {
+        "used_by_zones": "Used by {count, plural, one {# zone} other {# zones}}",
+        "not_used": "Not used"
       }
     },
     "help": {

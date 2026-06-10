@@ -536,6 +536,10 @@
         "forecast_title": "Værvarsel",
         "forecast_none": "Værvarsel er tilgjengelig når en værtjeneste er aktivert.",
         "seasonal_title": "Sesongutsikt"
+      },
+      "advanced": {
+        "used_by_zones": "Brukt av {count, plural, one {# sone} other {# soner}}",
+        "not_used": "Ikke i bruk"
       }
     }
   },

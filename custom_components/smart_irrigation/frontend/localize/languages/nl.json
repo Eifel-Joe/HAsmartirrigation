@@ -534,6 +534,10 @@
         "forecast_title": "Verwachting",
         "forecast_none": "De verwachting is beschikbaar wanneer een weerdienst is ingeschakeld.",
         "seasonal_title": "Seizoensvooruitzicht"
+      },
+      "advanced": {
+        "used_by_zones": "Gebruikt door {count, plural, one {# zone} other {# zones}}",
+        "not_used": "Niet gebruikt"
       }
     }
   },

@@ -534,6 +534,10 @@
         "forecast_title": "Vorhersage",
         "forecast_none": "Die Vorhersage ist verfügbar, wenn ein Wetterdienst aktiviert ist.",
         "seasonal_title": "Saisonaler Ausblick"
+      },
+      "advanced": {
+        "used_by_zones": "Wird von {count, plural, one {# Zone} other {# Zonen}} verwendet",
+        "not_used": "Nicht verwendet"
       }
     }
   },
