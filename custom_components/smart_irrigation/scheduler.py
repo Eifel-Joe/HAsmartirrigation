@@ -8,7 +8,10 @@ from typing import Any
 import homeassistant.util.dt as dt_util
 from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.dispatcher import (
+    async_dispatcher_connect,
+    async_dispatcher_send,
+)
 from homeassistant.helpers.event import (
     async_track_point_in_utc_time,
     async_track_sunrise,
@@ -621,6 +624,8 @@ class RecurringScheduleManager:
         await self.coordinator.store.async_update_config(
             {const.CONF_RECURRING_SCHEDULES: self._schedules}
         )
+        # Let the next-irrigation sensors recompute their upcoming run.
+        async_dispatcher_send(self.hass, const.DOMAIN + "_schedules_updated")
 
     def _validate_schedule_data(self, schedule_data: dict[str, Any]) -> None:
         """Validate schedule data."""

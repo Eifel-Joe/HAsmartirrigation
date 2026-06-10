@@ -1,11 +1,14 @@
 """Sensor platform for Smart Irrigation integration."""
 
+import datetime
 import logging
 
+import homeassistant.util.dt as dt_util
 from homeassistant.components.sensor import DOMAIN as PLATFORM
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.sensor.const import SensorDeviceClass, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
@@ -15,6 +18,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import slugify
+from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
 from .entity import zone_device_info
@@ -77,13 +81,39 @@ async def async_setup_entry(
             zone_name=config[const.ZONE_NAME],
             bucket=config[const.ZONE_BUCKET],
         )
+
+        def child_id(suffix: str) -> str:
+            return "{}.{}_{}".format(
+                PLATFORM, const.DOMAIN + "_" + slugify(config["name"]), suffix
+            )
+
+        extra_entities = [
+            SmartIrrigationZoneETSensor(hass, child_id("et"), config),
+            SmartIrrigationZoneLiveDeficitSensor(
+                hass, child_id("live_deficit"), config
+            ),
+            SmartIrrigationZoneLastIrrigationSensor(
+                hass, child_id("last_irrigation"), config
+            ),
+            SmartIrrigationZoneNextIrrigationSensor(
+                hass, child_id("next_irrigation"), config
+            ),
+        ]
+        extra_entities.extend(
+            SmartIrrigationZoneDiagnosticSensor(hass, child_id(spec[1]), config, *spec)
+            for spec in ZONE_DIAGNOSTIC_SENSORS
+        )
+
         if const.DOMAIN in hass.data:
             if not check_zone_entity_in_hass_data(hass, entity_id):
                 hass.data[const.DOMAIN]["zones"][config["id"]] = sensor_entity
                 hass.data[const.DOMAIN].setdefault("bucket_sensors", {})[
                     config["id"]
                 ] = bucket_entity
-                async_add_devices([sensor_entity, bucket_entity])
+                hass.data[const.DOMAIN].setdefault("zone_extra_sensors", {})[
+                    config["id"]
+                ] = extra_entities
+                async_add_devices([sensor_entity, bucket_entity, *extra_entities])
 
     config_entry.async_on_unload(
         async_dispatcher_connect(
@@ -440,3 +470,329 @@ class SmartIrrigationZoneBucketEntity(SensorEntity, RestoreEntity):
         """Handle removal."""
         await super().async_will_remove_from_hass()
         _LOGGER.debug("%s is removed from hass", self.entity_id)
+
+
+def _to_aware_datetime(value):
+    """Parse a stored timestamp (datetime or ISO string) to an aware datetime.
+
+    The store writes naive local datetimes (``datetime.now()``) for
+    last_calculated/last_updated and aware ones (``dt_util.now()``) for
+    last_irrigation; naive values are interpreted as local time.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = datetime.datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    if not isinstance(value, datetime.datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+    return value
+
+
+class SmartIrrigationZoneChildSensor(SensorEntity):
+    """Base for the additional per-zone sensors.
+
+    Holds zone identity, groups under the per-zone device and refreshes from
+    the store when the zone's ``_config_updated`` signal fires.
+    """
+
+    _attr_should_poll = False
+    suffix = ""
+
+    def __init__(self, hass: HomeAssistant, entity_id: str, zone: dict) -> None:
+        """Initialize from the zone config dict."""
+        self._hass = hass
+        self.entity_id = entity_id
+        self._zone_id = zone[const.ZONE_ID]
+        self._zone_name = zone[const.ZONE_NAME]
+        self._update_from_zone(zone)
+
+        async_dispatcher_connect(
+            hass, const.DOMAIN + "_config_updated", self._async_zone_updated
+        )
+
+    def _update_from_zone(self, zone: dict) -> None:
+        """Pull this sensor's value(s) from the zone dict (override)."""
+
+    @callback
+    def _async_zone_updated(self, zone_id=None):
+        """Refresh from the store when this zone changes."""
+        if self._zone_id != zone_id or not (self.hass and self.hass.data):
+            return
+        zone = self.hass.data[const.DOMAIN]["coordinator"].store.get_zone(self._zone_id)
+        if zone:
+            self._zone_name = zone.get(const.ZONE_NAME, self._zone_name)
+            self._update_from_zone(zone)
+            self.async_schedule_update_ha_state(force_refresh=True)
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID."""
+        return f"{const.DOMAIN}_{self._zone_id}_{self.suffix}"
+
+    @property
+    def device_info(self) -> dict:
+        """Group under the per-zone device."""
+        return zone_device_info(self._hass, self._zone_id, self._zone_name)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return zone identification attributes."""
+        return {
+            "zone_id": self._zone_id,
+            "zone_name": self._zone_name,
+        }
+
+    @property
+    def _depth_unit(self) -> str:
+        """Stored water-depth values are in the display unit system."""
+        return "mm" if self._hass.config.units is METRIC_SYSTEM else "in"
+
+    async def async_added_to_hass(self):
+        """Push the initial state."""
+        _LOGGER.debug("%s is added to hass", self.entity_id)
+        await super().async_added_to_hass()
+        self.async_schedule_update_ha_state(force_refresh=True)
+
+
+class SmartIrrigationZoneETSensor(SmartIrrigationZoneChildSensor):
+    """The zone's last calculated ET delta (the bucket change, was et_value)."""
+
+    suffix = "et"
+    _attr_icon = "mdi:waves-arrow-up"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _update_from_zone(self, zone: dict) -> None:
+        self._delta = zone.get(const.ZONE_DELTA)
+
+    @property
+    def name(self) -> str:
+        """Return friendly name."""
+        return f"{self._zone_name} Evapotranspiration delta"
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Depth per day in the display unit system."""
+        return self._depth_unit
+
+    @property
+    def native_value(self):
+        """Return the last calculated delta."""
+        return round(self._delta, 2) if self._delta is not None else None
+
+
+class SmartIrrigationZoneLiveDeficitSensor(SmartIrrigationZoneChildSensor):
+    """Intra-day live deficit estimate, served from the coordinator's cache.
+
+    The cache is refreshed by the weather-update and daily-calculation cycles
+    (see LiveEstimateMixin.async_refresh_zone_estimates) — the same data the
+    panel outlook shows.
+    """
+
+    suffix = "live_deficit"
+    _attr_icon = "mdi:water-minus"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, hass: HomeAssistant, entity_id: str, zone: dict) -> None:
+        """Initialize and listen for estimate-cache refreshes."""
+        super().__init__(hass, entity_id, zone)
+        async_dispatcher_connect(
+            hass, const.DOMAIN + "_estimates_updated", self._async_estimates_updated
+        )
+
+    @callback
+    def _async_estimates_updated(self):
+        """The estimate cache was refreshed — re-read it."""
+        if self.hass:
+            self.async_schedule_update_ha_state(force_refresh=True)
+
+    def _estimate(self) -> dict:
+        """This zone's entry in the coordinator's estimate cache."""
+        try:
+            coordinator = self._hass.data[const.DOMAIN]["coordinator"]
+            cache = coordinator._zone_estimates_cache or {}  # noqa: SLF001
+            return cache.get(str(self._zone_id)) or {}
+        except (KeyError, AttributeError, TypeError):
+            return {}
+
+    @property
+    def name(self) -> str:
+        """Return friendly name."""
+        return f"{self._zone_name} Live deficit"
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Estimates are reported in the display unit system."""
+        return self._depth_unit
+
+    @property
+    def native_value(self):
+        """Return the cached live deficit (None until a cycle has run)."""
+        return self._estimate().get("live_deficit")
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Zone identity plus how/when the estimate was computed."""
+        est = self._estimate()
+        return {
+            **super().extra_state_attributes,
+            "method": est.get("method"),
+            "et_since_calculation": est.get("et_since"),
+            "precipitation_since_calculation": est.get("precip_since"),
+            "as_of": est.get("as_of"),
+        }
+
+
+class SmartIrrigationZoneLastIrrigationSensor(SmartIrrigationZoneChildSensor):
+    """When this zone last completed an irrigation run."""
+
+    suffix = "last_irrigation"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def _update_from_zone(self, zone: dict) -> None:
+        self._last_irrigation = _to_aware_datetime(zone.get(const.ZONE_LAST_IRRIGATION))
+
+    @property
+    def name(self) -> str:
+        """Return friendly name."""
+        return f"{self._zone_name} Last irrigation"
+
+    @property
+    def native_value(self):
+        """Return the last run-completion time (None until the zone waters)."""
+        return self._last_irrigation
+
+
+class SmartIrrigationZoneNextIrrigationSensor(SmartIrrigationZoneChildSensor):
+    """The next scheduled irrigation run that targets this zone.
+
+    Computed from the recurring schedules (start/finish anchor math included);
+    interval schedules have no fixed clock target and are not considered. None
+    when no enabled irrigation schedule targets the zone.
+    """
+
+    suffix = "next_irrigation"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, hass: HomeAssistant, entity_id: str, zone: dict) -> None:
+        """Initialize and recompute when schedules change."""
+        self._next_run = None
+        super().__init__(hass, entity_id, zone)
+        async_dispatcher_connect(
+            hass, const.DOMAIN + "_schedules_updated", self._async_schedules_updated
+        )
+
+    @callback
+    def _async_schedules_updated(self):
+        """Schedules changed — recompute the upcoming run."""
+        if self.hass:
+            self.async_schedule_update_ha_state(force_refresh=True)
+
+    async def async_update(self):
+        """Recompute the next irrigation run targeting this zone."""
+        try:
+            coordinator = self._hass.data[const.DOMAIN]["coordinator"]
+            runs = (
+                await coordinator.recurring_schedule_manager.async_get_upcoming_runs()
+            )
+        except (KeyError, AttributeError):
+            return
+        next_run = None
+        for run in runs:
+            if run.get("action") != "irrigate" or not run.get("next_run_utc"):
+                continue
+            zones = run.get("zones", "all")
+            if zones != "all":
+                try:
+                    if int(self._zone_id) not in {int(z) for z in zones}:
+                        continue
+                except (TypeError, ValueError):
+                    continue
+            when = _to_aware_datetime(run["next_run_utc"])
+            if when and (next_run is None or when < next_run):
+                next_run = when
+        self._next_run = next_run
+
+    @property
+    def name(self) -> str:
+        """Return friendly name."""
+        return f"{self._zone_name} Next irrigation"
+
+    @property
+    def native_value(self):
+        """Return the next scheduled run (None when nothing is scheduled)."""
+        return self._next_run
+
+
+# (zone key, entity suffix, name suffix, kind: "timestamp" | "number")
+ZONE_DIAGNOSTIC_SENSORS = (
+    (const.ZONE_LAST_CALCULATED, "last_calculated", "Last calculated", "timestamp"),
+    (const.ZONE_LAST_UPDATED, "last_updated", "Last weather update", "timestamp"),
+    (
+        const.ZONE_NUMBER_OF_DATA_POINTS,
+        "data_points",
+        "Weather data points",
+        "number",
+    ),
+    (
+        const.ZONE_CURRENT_DRAINAGE,
+        "current_drainage",
+        "Current drainage",
+        "number",
+    ),
+)
+
+
+class SmartIrrigationZoneDiagnosticSensor(SmartIrrigationZoneChildSensor):
+    """Per-zone diagnostic sensor (default-disabled, diagnostic category)."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entity_id: str,
+        zone: dict,
+        zone_key: str,
+        suffix: str,
+        name_suffix: str,
+        kind: str,
+    ) -> None:
+        """Initialize from the diagnostic spec tuple."""
+        self._zone_key = zone_key
+        self.suffix = suffix
+        self._name_suffix = name_suffix
+        self._kind = kind
+        super().__init__(hass, entity_id, zone)
+
+    def _update_from_zone(self, zone: dict) -> None:
+        value = zone.get(self._zone_key)
+        if self._kind == "timestamp":
+            self._value = _to_aware_datetime(value)
+        else:
+            self._value = value
+
+    @property
+    def device_class(self):
+        """Timestamps get the timestamp device class."""
+        return SensorDeviceClass.TIMESTAMP if self._kind == "timestamp" else None
+
+    @property
+    def state_class(self):
+        """Numeric diagnostics are measurements."""
+        return SensorStateClass.MEASUREMENT if self._kind == "number" else None
+
+    @property
+    def name(self) -> str:
+        """Return friendly name."""
+        return f"{self._zone_name} {self._name_suffix}"
+
+    @property
+    def native_value(self):
+        """Return the diagnostic value."""
+        return self._value
