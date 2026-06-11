@@ -14,6 +14,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
+from .et_estimate import drained_over_window
 from .helpers import convert_between, loadModules, parse_datetime
 from .localize import localize
 from .weather_aggregate import aggregate_window, select_window
@@ -404,21 +405,20 @@ class CalculationMixin:
                 const.UNIT_INCH, const.UNIT_MM, drainage_rate
             )
         _LOGGER.debug("[calculate-module]: drainage_rate: %s", drainage_rate)
-        # drainage only applies above field capacity (bucket > 0)
-        drainage = 0
-        if newbucket > 0:
-            # drainage rate is related to water level, such that full drainage_rate
-            # occurs at saturation (maximum_bucket), but is reduced below that point.
-            # if maximum_bucket is not set, ignore this relationship and just
-            # drain at a constant rate.
-            drainage = drainage_rate * hour_multiplier * 24
-            if maximum_bucket is not None and maximum_bucket > 0:
-                # gamma is set by uniformity of soil particle size,
-                # but 2 is a reasonable approximation.
-                gamma = 2
-                drainage *= (newbucket / maximum_bucket) ** ((2 + 3 * gamma) / gamma)
-            _LOGGER.debug("[calculate-module]: current_drainage: %s", drainage)
-            newbucket = max(0, newbucket - drainage)
+        # Drainage only acts on water above field capacity (surplus > 0) and is
+        # integrated analytically over the elapsed window (see
+        # ``drained_over_window``). This replaces the previous single
+        # explicit-Euler step, which over-drained because the rate was sampled
+        # once at the end-of-window surplus and charged for the whole window.
+        elapsed_hours = hour_multiplier * 24
+        drainage = drained_over_window(
+            bucket_plus_delta_capped,
+            drainage_rate,
+            elapsed_hours,
+            maximum_bucket if maximum_bucket and maximum_bucket > 0 else None,
+        )
+        newbucket = bucket_plus_delta_capped - drainage
+        _LOGGER.debug("[calculate-module]: current_drainage: %s", drainage)
 
         data[const.ZONE_CURRENT_DRAINAGE] = drainage
         _LOGGER.debug("[calculate-module]: newbucket: %s", newbucket)
@@ -489,16 +489,23 @@ class CalculationMixin:
                 self.hass.config.language,
             )
             if maximum_bucket is None or maximum_bucket <= 0:
-                explanation += f" [{drainage_rate_loc}] * {hours_loc} = {drainage_rate:.1f} * {24 * hour_multiplier:.2f} = {drainage:.2f}"
+                # constant-rate drainage, capped at the available surplus
+                explanation += f" min([{old_bucket_loc}] + [{delta_loc}], [{drainage_rate_loc}] * [{hours_loc}]) = min({bucket_plus_delta_capped:.2f}, {drainage_rate:.1f} * {elapsed_hours:.2f}) = {drainage:.2f}"
             else:
-                explanation += f" [{drainage_rate_loc}] * [{hours_loc}] * (min([{old_bucket_loc}] + [{delta_loc}], [{max_bucket_loc}]) / [{max_bucket_loc}])^4 = {drainage_rate:.1f} * {24 * hour_multiplier:.2f} * ({bucket_plus_delta_capped:.2f} / {maximum_bucket:.1f})^4 = {drainage:.2f}"
+                # closed-form Brooks-Corey decay integrated over the window;
+                # report the surplus before/after and the water actually drained
+                explanation += await localize(
+                    "module.calculation.explanation.drainage-integrated",
+                    self.hass.config.language,
+                )
+                explanation += f" ([{drainage_rate_loc}] * (W/[{max_bucket_loc}])^4, {elapsed_hours:.2f} [{hours_loc}]): W = {bucket_plus_delta_capped:.2f} &rarr; {newbucket:.2f}, [{drainage_loc}] = {drainage:.2f}"
         explanation += ".<br/>" + await localize(
             "module.calculation.explanation.new-bucket-values-is",
             self.hass.config.language,
         )
 
         if maximum_bucket is not None and maximum_bucket > 0:
-            explanation += f" max(0, min([{old_bucket_loc}] + [{delta_loc}], {max_bucket_loc}) - [{drainage_loc}]) = max(0, min({old_bucket:.2f}{data[const.ZONE_DELTA]:+.2f}, {maximum_bucket:.1f}) - {drainage:.2f}) = {newbucket:.2f}.<br/>"
+            explanation += f" min([{old_bucket_loc}] + [{delta_loc}], {max_bucket_loc}) - [{drainage_loc}] = min({old_bucket:.2f}{data[const.ZONE_DELTA]:+.2f}, {maximum_bucket:.1f}) - {drainage:.2f} = {newbucket:.2f}.<br/>"
         else:
             explanation += f" [{old_bucket_loc}] + [{delta_loc}] - [{drainage_loc}] = {old_bucket:.2f} + {data[const.ZONE_DELTA]:.2f} - {drainage:.2f} = {newbucket:.2f}.<br/>"
 

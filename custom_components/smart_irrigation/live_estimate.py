@@ -160,6 +160,7 @@ class LiveEstimateMixin:
 
             bucket_mm = to_mm(bucket)
             max_bucket_mm = to_mm(max_bucket)
+            drainage_rate_mm = to_mm(zone.get(const.ZONE_DRAINAGE_RATE)) or 0.0
             last_calc = _parse_utc_naive(zone.get(const.ZONE_LAST_CALCULATED))
             # A never-calculated zone has no anchor for the "since calc" window;
             # showing a whole-day estimate would be misleading (and looks like a
@@ -209,7 +210,20 @@ class LiveEstimateMixin:
                 method = "proxy"
                 as_of = local.isoformat()
 
-            live_mm = live_deficit(bucket_mm, et_mm, precip_mm, max_bucket_mm)
+            # Hours elapsed since the last daily calc — the same window the ET
+            # and precip deltas cover — so any surplus above field capacity is
+            # drained over exactly that window (mirrors the daily calc's
+            # capacity cap + drainage, integrated analytically).
+            now_utc = dt_util.utcnow().replace(tzinfo=None)
+            elapsed_hours = max(0.0, (now_utc - last_calc).total_seconds() / 3600.0)
+            live_mm = live_deficit(
+                bucket_mm,
+                et_mm,
+                precip_mm,
+                max_bucket_mm,
+                drainage_rate=drainage_rate_mm,
+                elapsed_hours=elapsed_hours,
+            )
             ndigits = 2 if metric else 3
             result.update(
                 available=True,

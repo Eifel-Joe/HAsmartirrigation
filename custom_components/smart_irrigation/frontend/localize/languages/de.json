@@ -82,6 +82,7 @@
         "hours": "Stunden",
         "drainage-rate-is": "Drainagerate bei Sättigung (Eimer am Maximum) beträgt",
         "current-drainage-is": "Aktuelle Drainage berechnet als",
+        "drainage-integrated": "der Überschuss über der Feldkapazität versickert kontinuierlich über das Zeitfenster (Brooks–Corey), die Rate sinkt also beim Abfließen",
         "no-drainage": "Aktuelle Drainage ist 0, weil"
       }
     }

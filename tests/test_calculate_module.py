@@ -103,20 +103,22 @@ async def test_surplus_is_capped_at_maximum_bucket():
 
 
 async def test_drainage_reduces_positive_bucket():
-    """Drainage applies above field capacity with the gamma=2 (4th power) term.
+    """Drainage applies above field capacity, integrated over the window.
 
     delta = -et = 0 (et=0). bucket 5 + 0 = 5 (<= max 10, no cap).
-    drainage = drainage_rate(1) * hour_multiplier(1) * 24 * (5/10)^4
-             = 24 * 0.0625 = 1.5.
-    newbucket = max(0, 5 - 1.5) = 3.5. bucket >= 0 -> duration 0.
+    Brooks-Corey closed form (n=4) over elapsed_hours = mult(1)*24 = 24h:
+      denom = 1 + 3*rate(1)*24*W0(5)^3/max(10)^4 = 1 + 9000/10000 = 1.9
+      W_end = 5 / 1.9^(1/3) = 4.0369
+      drainage = 5 - 4.0369 = 0.9631
+    bucket >= 0 -> duration 0.
     """
     coord = _make_coordinator()
     data = await coord.calculate_module(
         _zone(bucket=5.0, drainage_rate=1.0), _weather(0.0), None
     )
 
-    assert data[const.ZONE_CURRENT_DRAINAGE] == pytest.approx(1.5)
-    assert data[const.ZONE_BUCKET] == pytest.approx(3.5)
+    assert data[const.ZONE_CURRENT_DRAINAGE] == pytest.approx(0.96306, abs=1e-4)
+    assert data[const.ZONE_BUCKET] == pytest.approx(4.03694, abs=1e-4)
     assert data[const.ZONE_DURATION] == 0
 
 

@@ -82,6 +82,7 @@
         "hours": "hodiny",
         "drainage-rate-is": "Rýchlosť odtoku pri nasýtení (zásobník na maxime) je",
         "current-drainage-is": "Aktuálna drenáž vypočítaná ako",
+        "drainage-integrated": "prebytok nad poľnou kapacitou sa priebežne odvodňuje počas intervalu (Brooks–Corey), takže rýchlosť klesá počas odvodňovania",
         "no-drainage": "Aktuálna drenáž je 0, pretože"
       }
     }

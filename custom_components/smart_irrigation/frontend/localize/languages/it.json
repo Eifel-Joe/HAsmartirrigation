@@ -82,6 +82,7 @@
         "maximum-bucket-is": "la dimensione massima del secchio è",
         "drainage-rate-is": "Il tasso di drenaggio a saturazione (serbatoio al massimo) è",
         "current-drainage-is": "Il drenaggio attuale è calcolato come",
+        "drainage-integrated": "l'eccedenza sopra la capacità di campo drena in modo continuo sull'intervallo (Brooks–Corey), quindi la portata diminuisce mentre drena",
         "no-drainage": "Il drenaggio attuale è 0 perché"
       }
     }

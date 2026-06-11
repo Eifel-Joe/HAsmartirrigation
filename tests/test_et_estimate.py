@@ -1,6 +1,9 @@
 """Tests for the intra-day ET accumulation / proxy (et_estimate)."""
 
+import pytest
+
 from custom_components.smart_irrigation.et_estimate import (
+    drained_over_window,
     estimate_daily_et0_hargreaves,
     live_deficit,
     proxy_et_since,
@@ -90,3 +93,37 @@ def test_live_deficit_balance_and_cap():
     assert live_deficit(20.0, 0.0, 10.0, maximum_bucket=24.0) == 24.0
     # below the cap it passes through
     assert abs(live_deficit(5.0, 0.0, 3.0, maximum_bucket=24.0) - 8.0) < 1e-9
+
+
+def test_drained_over_window_noop_cases():
+    # no surplus, no rate, or no elapsed time -> nothing drains
+    assert drained_over_window(0.0, 1.0, 24.0, 10.0) == 0.0
+    assert drained_over_window(-3.0, 1.0, 24.0, 10.0) == 0.0
+    assert drained_over_window(5.0, 0.0, 24.0, 10.0) == 0.0
+    assert drained_over_window(5.0, 1.0, 0.0, 10.0) == 0.0
+
+
+def test_drained_over_window_brooks_corey_closed_form():
+    # W0=5, rate=1, 24h, max=10, n=4:
+    # denom = 1 + 3*1*24*5^3/10^4 = 1.9 ; W_end = 5/1.9^(1/3) = 4.0369
+    drained = drained_over_window(5.0, 1.0, 24.0, 10.0)
+    assert drained == pytest.approx(0.96306, abs=1e-4)
+    # never drains more than the available surplus, even over a long window
+    assert drained_over_window(5.0, 1.0, 100000.0, 10.0) < 5.0
+
+
+def test_drained_over_window_constant_rate_without_max():
+    # no maximum bucket -> constant rate, clamped at the surplus
+    assert drained_over_window(5.0, 1.0, 3.0, None) == pytest.approx(3.0)
+    assert drained_over_window(5.0, 1.0, 100.0, None) == pytest.approx(5.0)
+
+
+def test_live_deficit_drains_surplus():
+    # surplus 8 mm above field capacity drains over 24h (max 24)
+    no_drain = live_deficit(5.0, 0.0, 3.0, maximum_bucket=24.0)
+    drained = live_deficit(
+        5.0, 0.0, 3.0, maximum_bucket=24.0, drainage_rate=1.0, elapsed_hours=24.0
+    )
+    assert 0.0 < drained < no_drain
+    # a deficit (negative) is never touched by drainage
+    assert live_deficit(-2.0, 1.0, 0.0, drainage_rate=5.0, elapsed_hours=24.0) == -3.0

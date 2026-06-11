@@ -82,6 +82,7 @@
         "hours": "timer",
         "drainage-rate-is": "Dreneringshastigheten ved metning (beholder på maks) er",
         "current-drainage-is": "Gjeldende drenering beregnet som",
+        "drainage-integrated": "overskuddet over feltkapasiteten dreneres kontinuerlig over vinduet (Brooks–Corey), så raten faller etter hvert som det dreneres",
         "no-drainage": "Gjeldende drenering er 0 fordi"
       }
     }

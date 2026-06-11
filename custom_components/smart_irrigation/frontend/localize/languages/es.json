@@ -82,6 +82,7 @@
         "hours": "horas",
         "drainage-rate-is": "La tasa de drenaje cuando está saturado (depósito al máximo) es",
         "current-drainage-is": "El drenaje actual se calcula como",
+        "drainage-integrated": "el excedente por encima de la capacidad de campo drena de forma continua durante el intervalo (Brooks–Corey), por lo que la tasa disminuye a medida que drena",
         "no-drainage": "El drenaje actual es 0 porque"
       }
     }

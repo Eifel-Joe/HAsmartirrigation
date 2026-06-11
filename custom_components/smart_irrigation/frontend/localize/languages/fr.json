@@ -82,6 +82,7 @@
         "hours": "heures",
         "drainage-rate-is": "Le taux de drainage à saturation (réservoir au maximum) est",
         "current-drainage-is": "Le drainage actuel est calculé comme",
+        "drainage-integrated": "l'excédent au-dessus de la capacité au champ se draine en continu sur l'intervalle (Brooks–Corey), le débit diminue donc à mesure qu'il s'écoule",
         "no-drainage": "Le drainage actuel est 0 parce que"
       }
     }

@@ -102,19 +102,65 @@ def rigorous_et_since(
     return total
 
 
+def drained_over_window(
+    surplus: float,
+    drainage_rate: float,
+    elapsed_hours: float,
+    maximum_bucket: float | None = None,
+) -> float:
+    """Water [mm] drained from a surplus above field capacity over a window.
+
+    Drainage only acts on water above field capacity (``surplus > 0``) and is
+    integrated analytically over the whole window, so it's exact regardless of
+    window length and never reports more than the available surplus:
+
+    * with a maximum bucket, the rate follows Brooks-Corey relative conductivity
+      ``dW/dt = -rate * (W/Wmax)^n`` (``n = (2+3*gamma)/gamma``, ``gamma = 2`` ->
+      ``n = 4``), whose closed form is
+      ``W(t) = W0 * (1 + (n-1)*rate*t*W0^(n-1)/Wmax^n)^(-1/(n-1))``;
+    * without one, it's a constant rate clamped at the available surplus.
+
+    Replaces the previous single explicit-Euler step (rate sampled once at the
+    end-of-window surplus, then charged for the whole window), which
+    systematically over-drained because the real rate falls as the surplus
+    drains. Shared by the daily calculation and the intraday live estimate.
+    """
+    if surplus <= 0 or drainage_rate <= 0 or elapsed_hours <= 0:
+        return 0.0
+    if maximum_bucket is not None and maximum_bucket > 0:
+        gamma = 2
+        n = (2 + 3 * gamma) / gamma
+        denom = 1 + (n - 1) * drainage_rate * elapsed_hours * (surplus ** (n - 1)) / (
+            maximum_bucket**n
+        )
+        w_end = surplus / (denom ** (1 / (n - 1)))
+    else:
+        w_end = max(0.0, surplus - drainage_rate * elapsed_hours)
+    return surplus - w_end
+
+
 def live_deficit(
     bucket: float,
     et_since: float,
     precip_since: float,
     maximum_bucket: float | None = None,
+    drainage_rate: float = 0.0,
+    elapsed_hours: float = 0.0,
 ) -> float:
     """Estimated current bucket = bucket − ET_so_far + precip_so_far (clamped).
 
-    Mirrors the daily bucket update's field-capacity cap. Drainage (which only
-    reduces a surplus) is intentionally not modelled here — this is an estimate
-    of the deficit, and the daily calculation remains the source of truth.
+    Mirrors the daily bucket update: cap any surplus at field capacity
+    (``maximum_bucket``), then drain the remaining surplus over the elapsed
+    window via :func:`drained_over_window`. With ``drainage_rate`` /
+    ``elapsed_hours`` left at 0 (the default) drainage is skipped, so callers
+    that only want the raw deficit are unaffected. The daily calculation
+    remains the source of truth for the stored bucket.
     """
     value = bucket - et_since + precip_since
     if maximum_bucket is not None and value > maximum_bucket:
-        return float(maximum_bucket)
+        value = float(maximum_bucket)
+    if value > 0:
+        value -= drained_over_window(
+            value, drainage_rate, elapsed_hours, maximum_bucket
+        )
     return value

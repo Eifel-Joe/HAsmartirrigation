@@ -82,6 +82,7 @@
         "maximum-bucket-is": "Maximum bucket size is",
         "drainage-rate-is": "Drainage rate when saturated (bucket at max) is",
         "current-drainage-is": "Current drainage is calculated as",
+        "drainage-integrated": "the surplus above field capacity drains continuously over the window (Brooks–Corey), so the rate falls as it drains",
         "no-drainage": "Current drainage is 0 because"
       }
     }

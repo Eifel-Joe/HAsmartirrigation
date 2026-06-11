@@ -82,6 +82,7 @@
         "hours": "uren",
         "drainage-rate-is": "Drainagesnelheid bij verzadiging (emmer op maximum) is",
         "current-drainage-is": "Huidige drainage berekend als",
+        "drainage-integrated": "het overschot boven veldcapaciteit draineert continu over het venster (Brooks–Corey), dus de snelheid neemt af naarmate het afvloeit",
         "no-drainage": "Huidige drainage is 0 omdat"
       }
     }
