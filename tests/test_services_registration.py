@@ -36,8 +36,8 @@ def test_register_services_wires_all_handlers_to_real_methods():
 
     async_register_services(hass)
 
-    # 17 unique handlers, a few services share handle_set_zone -> >= 17 registrations.
-    assert len(calls) >= 17
+    # 14 unique handlers, a few services share handle_set_zone -> >= 14 registrations.
+    assert len(calls) >= 14
     # every registration is for our domain
     assert all(domain == const.DOMAIN for domain, _service, _handler in calls)
     # no duplicate (domain, service) registrations
@@ -62,9 +62,6 @@ def test_all_handler_methods_present_on_mixin():
         "handle_create_recurring_schedule",
         "handle_update_recurring_schedule",
         "handle_delete_recurring_schedule",
-        "handle_sync_with_irrigation_unlimited",
-        "handle_send_zone_data_to_iu",
-        "handle_get_iu_schedule_status",
     ]
     for name in expected_handlers:
         assert callable(getattr(ServiceHandlersMixin, name)), name

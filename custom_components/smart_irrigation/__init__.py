@@ -44,7 +44,6 @@ from .helpers import (
     relative_to_absolute_pressure,
 )
 from .irrigation import IrrigationRunnerMixin
-from .irrigation_unlimited import IrrigationUnlimitedIntegration
 from .live_estimate import LiveEstimateMixin
 from .observed_watering import ObservedWateringMixin
 from .panel import async_register_panel, remove_panel
@@ -229,7 +228,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     # Initialize enhanced scheduling managers
     await coordinator.recurring_schedule_manager.async_load_schedules()
-    await coordinator.irrigation_unlimited_integration.async_initialize()
 
     return True
 
@@ -421,9 +419,6 @@ class SmartIrrigationCoordinator(
 
         # Initialize enhanced scheduling managers
         self.recurring_schedule_manager = RecurringScheduleManager(hass, self)
-        self.irrigation_unlimited_integration = IrrigationUnlimitedIntegration(
-            hass, self
-        )
 
         # set up midnight tracking
         self._track_midnight_time_unsub = async_track_time_change(

@@ -108,16 +108,6 @@ SCHEDULE_CONF_TIME_ANCHOR = "time_anchor"
 SCHEDULE_TIME_ANCHOR_START = "start"
 SCHEDULE_TIME_ANCHOR_FINISH = "finish"
 
-# Irrigation Unlimited Integration
-CONF_IRRIGATION_UNLIMITED_INTEGRATION = "irrigation_unlimited_integration"
-CONF_DEFAULT_IRRIGATION_UNLIMITED_INTEGRATION = False
-CONF_IU_ENTITY_PREFIX = "iu_entity_prefix"
-CONF_DEFAULT_IU_ENTITY_PREFIX = "switch.irrigation_unlimited"
-CONF_IU_SYNC_SCHEDULES = "iu_sync_schedules"
-CONF_DEFAULT_IU_SYNC_SCHEDULES = False
-CONF_IU_SHARE_ZONE_DATA = "iu_share_zone_data"
-CONF_DEFAULT_IU_SHARE_ZONE_DATA = False
-
 # Trigger types
 TRIGGER_TYPE_SUNRISE = "sunrise"
 TRIGGER_TYPE_SUNSET = "sunset"
@@ -460,10 +450,5 @@ SERVICE_GENERATE_WATERING_CALENDAR = "generate_watering_calendar"
 SERVICE_CREATE_RECURRING_SCHEDULE = "create_recurring_schedule"
 SERVICE_UPDATE_RECURRING_SCHEDULE = "update_recurring_schedule"
 SERVICE_DELETE_RECURRING_SCHEDULE = "delete_recurring_schedule"
-SERVICE_SYNC_WITH_IRRIGATION_UNLIMITED = "sync_with_irrigation_unlimited"
-SERVICE_SEND_ZONE_DATA_TO_IU = "send_zone_data_to_irrigation_unlimited"
-SERVICE_GET_IU_SCHEDULE_STATUS = "get_irrigation_unlimited_status"
-
 # Events
 EVENT_RECURRING_SCHEDULE_TRIGGERED = "recurring_schedule_triggered"
-EVENT_IU_SYNC_COMPLETED = "irrigation_unlimited_sync_completed"
