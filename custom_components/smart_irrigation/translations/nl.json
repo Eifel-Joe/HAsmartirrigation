@@ -223,5 +223,69 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "duration": {
+        "name": "Duur"
+      },
+      "bucket": {
+        "name": "Emmer"
+      },
+      "live_bucket": {
+        "name": "Live-emmer"
+      },
+      "bucket_delta": {
+        "name": "Emmer-delta"
+      },
+      "drainage": {
+        "name": "Drainage"
+      },
+      "last_irrigation": {
+        "name": "Laatste irrigatie"
+      },
+      "next_irrigation": {
+        "name": "Volgende irrigatie"
+      },
+      "last_calculated": {
+        "name": "Laatst berekend"
+      },
+      "last_weather_update": {
+        "name": "Laatste weerupdate"
+      },
+      "weather_data_points": {
+        "name": "Weergegevenspunten"
+      }
+    },
+    "binary_sensor": {
+      "irrigation_needed": {
+        "name": "Irrigatie nodig"
+      },
+      "watering_now": {
+        "name": "Watergeven bezig"
+      },
+      "any_irrigation_needed": {
+        "name": "Een zone heeft water nodig"
+      }
+    },
+    "number": {
+      "multiplier": {
+        "name": "Vermenigvuldiger"
+      }
+    },
+    "button": {
+      "irrigate_now": {
+        "name": "Nu irrigeren"
+      },
+      "irrigate_all": {
+        "name": "Alle zones water geven"
+      },
+      "calculate_all": {
+        "name": "Duur herberekenen"
+      },
+      "update_weather": {
+        "name": "Weergegevens vernieuwen"
+      }
+    }
   }
 }

@@ -223,5 +223,69 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "duration": {
+        "name": "Dauer"
+      },
+      "bucket": {
+        "name": "Eimer"
+      },
+      "live_bucket": {
+        "name": "Live-Eimer"
+      },
+      "bucket_delta": {
+        "name": "Eimer-Delta"
+      },
+      "drainage": {
+        "name": "Drainage"
+      },
+      "last_irrigation": {
+        "name": "Letzte Bewässerung"
+      },
+      "next_irrigation": {
+        "name": "Nächste Bewässerung"
+      },
+      "last_calculated": {
+        "name": "Zuletzt berechnet"
+      },
+      "last_weather_update": {
+        "name": "Letzte Wetteraktualisierung"
+      },
+      "weather_data_points": {
+        "name": "Wetterdatenpunkte"
+      }
+    },
+    "binary_sensor": {
+      "irrigation_needed": {
+        "name": "Bewässerung nötig"
+      },
+      "watering_now": {
+        "name": "Bewässert gerade"
+      },
+      "any_irrigation_needed": {
+        "name": "Eine Zone benötigt Wasser"
+      }
+    },
+    "number": {
+      "multiplier": {
+        "name": "Multiplikator"
+      }
+    },
+    "button": {
+      "irrigate_now": {
+        "name": "Jetzt bewässern"
+      },
+      "irrigate_all": {
+        "name": "Alle Zonen bewässern"
+      },
+      "calculate_all": {
+        "name": "Dauern neu berechnen"
+      },
+      "update_weather": {
+        "name": "Wetterdaten aktualisieren"
+      }
+    }
   }
 }

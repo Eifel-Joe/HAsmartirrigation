@@ -223,5 +223,69 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "duration": {
+        "name": "Varighet"
+      },
+      "bucket": {
+        "name": "Bøtte"
+      },
+      "live_bucket": {
+        "name": "Sanntidsbøtte"
+      },
+      "bucket_delta": {
+        "name": "Bøtte-delta"
+      },
+      "drainage": {
+        "name": "Drenering"
+      },
+      "last_irrigation": {
+        "name": "Siste vanning"
+      },
+      "next_irrigation": {
+        "name": "Neste vanning"
+      },
+      "last_calculated": {
+        "name": "Sist beregnet"
+      },
+      "last_weather_update": {
+        "name": "Siste væroppdatering"
+      },
+      "weather_data_points": {
+        "name": "Værdatapunkter"
+      }
+    },
+    "binary_sensor": {
+      "irrigation_needed": {
+        "name": "Vanning nødvendig"
+      },
+      "watering_now": {
+        "name": "Vanner nå"
+      },
+      "any_irrigation_needed": {
+        "name": "En sone trenger vann"
+      }
+    },
+    "number": {
+      "multiplier": {
+        "name": "Multiplikator"
+      }
+    },
+    "button": {
+      "irrigate_now": {
+        "name": "Vann nå"
+      },
+      "irrigate_all": {
+        "name": "Vann alle soner"
+      },
+      "calculate_all": {
+        "name": "Beregn varigheter på nytt"
+      },
+      "update_weather": {
+        "name": "Oppdater værdata"
+      }
+    }
   }
 }

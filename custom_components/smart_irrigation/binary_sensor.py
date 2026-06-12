@@ -81,6 +81,7 @@ async def async_setup_entry(
 class SmartIrrigationZoneBinarySensor(BinarySensorEntity):
     """Base for per-zone binary sensors (zone device + store refresh)."""
 
+    _attr_has_entity_name = True
     _attr_should_poll = False
     suffix = ""
 
@@ -139,15 +140,11 @@ class SmartIrrigationZoneIrrigationNeededSensor(SmartIrrigationZoneBinarySensor)
     """On when the zone would water if a run started now (deficit gate)."""
 
     suffix = "irrigation_needed"
+    _attr_translation_key = "irrigation_needed"
     _attr_icon = "mdi:water-alert"
 
     def _update_from_zone(self, zone: dict) -> None:
         self._needed = _zone_needs_irrigation(zone)
-
-    @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{self._zone_name} Irrigation needed"
 
     @property
     def is_on(self) -> bool:
@@ -159,6 +156,7 @@ class SmartIrrigationZoneWateringNowSensor(SmartIrrigationZoneBinarySensor):
     """On while the zone's linked valve/switch is actually running."""
 
     suffix = "watering_now"
+    _attr_translation_key = "watering_now"
     _attr_device_class = BinarySensorDeviceClass.RUNNING
 
     def __init__(self, hass: HomeAssistant, entity_id: str, zone: dict) -> None:
@@ -187,11 +185,6 @@ class SmartIrrigationZoneWateringNowSensor(SmartIrrigationZoneBinarySensor):
     def _async_linked_state_changed(self, _event) -> None:
         """The valve/switch changed state — mirror it."""
         self.async_schedule_update_ha_state()
-
-    @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{self._zone_name} Watering now"
 
     @property
     def is_on(self) -> bool:
@@ -225,6 +218,8 @@ class SmartIrrigationZoneWateringNowSensor(SmartIrrigationZoneBinarySensor):
 class SmartIrrigationGlobalIrrigationNeededSensor(BinarySensorEntity):
     """On when any zone needs irrigation (hub device)."""
 
+    _attr_has_entity_name = True
+    _attr_translation_key = "any_irrigation_needed"
     _attr_should_poll = False
     _attr_icon = "mdi:water-alert"
 
@@ -263,11 +258,6 @@ class SmartIrrigationGlobalIrrigationNeededSensor(BinarySensorEntity):
     def unique_id(self) -> str:
         """Return a unique ID."""
         return f"{const.DOMAIN}_irrigation_needed"
-
-    @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{const.NAME} Irrigation needed"
 
     @property
     def device_info(self) -> dict:

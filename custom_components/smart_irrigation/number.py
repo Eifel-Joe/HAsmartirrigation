@@ -59,6 +59,8 @@ async def async_setup_entry(
 class SmartIrrigationZoneMultiplierEntity(NumberEntity, RestoreEntity):
     """Number entity exposing the per-zone irrigation multiplier."""
 
+    _attr_has_entity_name = True
+    _attr_translation_key = "multiplier"
     _attr_native_min_value = 0.0
     _attr_native_max_value = 10.0
     _attr_native_step = 0.1
@@ -99,11 +101,6 @@ class SmartIrrigationZoneMultiplierEntity(NumberEntity, RestoreEntity):
     def unique_id(self) -> str:
         """Return a unique ID."""
         return f"{const.DOMAIN}_{self._zone_id}_multiplier"
-
-    @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{self._zone_name} Multiplier"
 
     @property
     def icon(self) -> str:

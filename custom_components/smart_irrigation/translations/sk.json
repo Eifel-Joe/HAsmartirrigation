@@ -223,5 +223,69 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "duration": {
+        "name": "Trvanie"
+      },
+      "bucket": {
+        "name": "Vedro"
+      },
+      "live_bucket": {
+        "name": "Živé vedro"
+      },
+      "bucket_delta": {
+        "name": "Delta vedra"
+      },
+      "drainage": {
+        "name": "Odvodnenie"
+      },
+      "last_irrigation": {
+        "name": "Posledné zavlažovanie"
+      },
+      "next_irrigation": {
+        "name": "Ďalšie zavlažovanie"
+      },
+      "last_calculated": {
+        "name": "Naposledy vypočítané"
+      },
+      "last_weather_update": {
+        "name": "Posledná aktualizácia počasia"
+      },
+      "weather_data_points": {
+        "name": "Body údajov o počasí"
+      }
+    },
+    "binary_sensor": {
+      "irrigation_needed": {
+        "name": "Potrebné zavlažovanie"
+      },
+      "watering_now": {
+        "name": "Práve zavlažuje"
+      },
+      "any_irrigation_needed": {
+        "name": "Niektorá zóna potrebuje vodu"
+      }
+    },
+    "number": {
+      "multiplier": {
+        "name": "Násobič"
+      }
+    },
+    "button": {
+      "irrigate_now": {
+        "name": "Zavlažiť teraz"
+      },
+      "irrigate_all": {
+        "name": "Zavlažiť všetky zóny"
+      },
+      "calculate_all": {
+        "name": "Prepočítať trvania"
+      },
+      "update_weather": {
+        "name": "Obnoviť údaje o počasí"
+      }
+    }
   }
 }

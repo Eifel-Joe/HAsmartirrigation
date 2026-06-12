@@ -223,5 +223,69 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "duration": {
+        "name": "Duración"
+      },
+      "bucket": {
+        "name": "Depósito"
+      },
+      "live_bucket": {
+        "name": "Depósito en vivo"
+      },
+      "bucket_delta": {
+        "name": "Delta del depósito"
+      },
+      "drainage": {
+        "name": "Drenaje"
+      },
+      "last_irrigation": {
+        "name": "Último riego"
+      },
+      "next_irrigation": {
+        "name": "Próximo riego"
+      },
+      "last_calculated": {
+        "name": "Último cálculo"
+      },
+      "last_weather_update": {
+        "name": "Última actualización del tiempo"
+      },
+      "weather_data_points": {
+        "name": "Puntos de datos meteorológicos"
+      }
+    },
+    "binary_sensor": {
+      "irrigation_needed": {
+        "name": "Riego necesario"
+      },
+      "watering_now": {
+        "name": "Regando ahora"
+      },
+      "any_irrigation_needed": {
+        "name": "Alguna zona necesita agua"
+      }
+    },
+    "number": {
+      "multiplier": {
+        "name": "Multiplicador"
+      }
+    },
+    "button": {
+      "irrigate_now": {
+        "name": "Regar ahora"
+      },
+      "irrigate_all": {
+        "name": "Regar todas las zonas"
+      },
+      "calculate_all": {
+        "name": "Recalcular duraciones"
+      },
+      "update_weather": {
+        "name": "Actualizar datos del tiempo"
+      }
+    }
   }
 }

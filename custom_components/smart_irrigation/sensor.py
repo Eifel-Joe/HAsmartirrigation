@@ -137,7 +137,10 @@ def check_zone_entity_in_hass_data(hass: HomeAssistant | None, entity_id: str) -
 
 
 class SmartIrrigationZoneEntity(SensorEntity, RestoreEntity):
-    """Sensor entity representing a Smart Irrigation zone."""
+    """Sensor entity representing a Smart Irrigation zone (irrigation duration)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "duration"
 
     def __init__(
         self,
@@ -269,19 +272,19 @@ class SmartIrrigationZoneEntity(SensorEntity, RestoreEntity):
 
     @property
     def unique_id(self):
-        """Return a unique ID to use for this entity."""
+        """Return a unique ID to use for this entity.
 
-        return f"{self.entity_id}"
+        Migrated from the legacy entity-id-based id to the per-zone scheme
+        ``smart_irrigation_<zone_id>_duration`` (matches every other entity).
+        The one-time registry migration in ``__init__`` rewrites existing
+        installs so the entity_id and history carry over.
+        """
+        return f"{const.DOMAIN}_{self._id}_duration"
 
     @property
     def icon(self):
         """Return icon."""
         return const.SENSOR_ICON
-
-    @property
-    def name(self):
-        """Return the friendly name to use for this entity."""
-        return self._name
 
     @property
     def should_poll(self) -> bool:
@@ -371,6 +374,9 @@ class SmartIrrigationZoneEntity(SensorEntity, RestoreEntity):
 class SmartIrrigationZoneBucketEntity(SensorEntity, RestoreEntity):
     """Sensor showing the current bucket value (mm) for a Smart Irrigation zone."""
 
+    _attr_has_entity_name = True
+    _attr_translation_key = "bucket"
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -406,11 +412,6 @@ class SmartIrrigationZoneBucketEntity(SensorEntity, RestoreEntity):
     def unique_id(self) -> str:
         """Return a unique ID."""
         return f"{const.DOMAIN}_{self._zone_id}_bucket"
-
-    @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{self._zone_name} Bucket"
 
     @property
     def icon(self) -> str:
@@ -500,6 +501,7 @@ class SmartIrrigationZoneChildSensor(SensorEntity):
     the store when the zone's ``_config_updated`` signal fires.
     """
 
+    _attr_has_entity_name = True
     _attr_should_poll = False
     suffix = ""
 
@@ -560,19 +562,15 @@ class SmartIrrigationZoneChildSensor(SensorEntity):
 
 
 class SmartIrrigationZoneETSensor(SmartIrrigationZoneChildSensor):
-    """The zone's last calculated ET delta (the bucket change, was et_value)."""
+    """The zone's last calculated bucket delta (net daily change; data key et_value)."""
 
     suffix = "et"
+    _attr_translation_key = "bucket_delta"
     _attr_icon = "mdi:waves-arrow-up"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def _update_from_zone(self, zone: dict) -> None:
         self._delta = zone.get(const.ZONE_DELTA)
-
-    @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{self._zone_name} Evapotranspiration delta"
 
     @property
     def native_unit_of_measurement(self) -> str:
@@ -594,6 +592,7 @@ class SmartIrrigationZoneLiveDeficitSensor(SmartIrrigationZoneChildSensor):
     """
 
     suffix = "live_deficit"
+    _attr_translation_key = "live_bucket"
     _attr_icon = "mdi:water-minus"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
@@ -618,11 +617,6 @@ class SmartIrrigationZoneLiveDeficitSensor(SmartIrrigationZoneChildSensor):
             return cache.get(str(self._zone_id)) or {}
         except (KeyError, AttributeError, TypeError):
             return {}
-
-    @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{self._zone_name} Live deficit"
 
     @property
     def native_unit_of_measurement(self) -> str:
@@ -651,15 +645,11 @@ class SmartIrrigationZoneLastIrrigationSensor(SmartIrrigationZoneChildSensor):
     """When this zone last completed an irrigation run."""
 
     suffix = "last_irrigation"
+    _attr_translation_key = "last_irrigation"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
     def _update_from_zone(self, zone: dict) -> None:
         self._last_irrigation = _to_aware_datetime(zone.get(const.ZONE_LAST_IRRIGATION))
-
-    @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{self._zone_name} Last irrigation"
 
     @property
     def native_value(self):
@@ -676,6 +666,7 @@ class SmartIrrigationZoneNextIrrigationSensor(SmartIrrigationZoneChildSensor):
     """
 
     suffix = "next_irrigation"
+    _attr_translation_key = "next_irrigation"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
     def __init__(self, hass: HomeAssistant, entity_id: str, zone: dict) -> None:
@@ -718,30 +709,25 @@ class SmartIrrigationZoneNextIrrigationSensor(SmartIrrigationZoneChildSensor):
         self._next_run = next_run
 
     @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{self._zone_name} Next irrigation"
-
-    @property
     def native_value(self):
         """Return the next scheduled run (None when nothing is scheduled)."""
         return self._next_run
 
 
-# (zone key, entity suffix, name suffix, kind: "timestamp" | "number")
+# (zone key, entity suffix (data key / unique_id), translation_key, kind)
 ZONE_DIAGNOSTIC_SENSORS = (
-    (const.ZONE_LAST_CALCULATED, "last_calculated", "Last calculated", "timestamp"),
-    (const.ZONE_LAST_UPDATED, "last_updated", "Last weather update", "timestamp"),
+    (const.ZONE_LAST_CALCULATED, "last_calculated", "last_calculated", "timestamp"),
+    (const.ZONE_LAST_UPDATED, "last_updated", "last_weather_update", "timestamp"),
     (
         const.ZONE_NUMBER_OF_DATA_POINTS,
         "data_points",
-        "Weather data points",
+        "weather_data_points",
         "number",
     ),
     (
         const.ZONE_CURRENT_DRAINAGE,
         "current_drainage",
-        "Current drainage",
+        "drainage",
         "number",
     ),
 )
@@ -760,13 +746,13 @@ class SmartIrrigationZoneDiagnosticSensor(SmartIrrigationZoneChildSensor):
         zone: dict,
         zone_key: str,
         suffix: str,
-        name_suffix: str,
+        translation_key: str,
         kind: str,
     ) -> None:
         """Initialize from the diagnostic spec tuple."""
         self._zone_key = zone_key
         self.suffix = suffix
-        self._name_suffix = name_suffix
+        self._attr_translation_key = translation_key
         self._kind = kind
         super().__init__(hass, entity_id, zone)
 
@@ -786,11 +772,6 @@ class SmartIrrigationZoneDiagnosticSensor(SmartIrrigationZoneChildSensor):
     def state_class(self):
         """Numeric diagnostics are measurements."""
         return SensorStateClass.MEASUREMENT if self._kind == "number" else None
-
-    @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{self._zone_name} {self._name_suffix}"
 
     @property
     def native_value(self):

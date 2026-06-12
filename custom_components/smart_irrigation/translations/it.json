@@ -223,5 +223,69 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "duration": {
+        "name": "Durata"
+      },
+      "bucket": {
+        "name": "Secchio"
+      },
+      "live_bucket": {
+        "name": "Secchio in tempo reale"
+      },
+      "bucket_delta": {
+        "name": "Delta secchio"
+      },
+      "drainage": {
+        "name": "Drenaggio"
+      },
+      "last_irrigation": {
+        "name": "Ultima irrigazione"
+      },
+      "next_irrigation": {
+        "name": "Prossima irrigazione"
+      },
+      "last_calculated": {
+        "name": "Ultimo calcolo"
+      },
+      "last_weather_update": {
+        "name": "Ultimo aggiornamento meteo"
+      },
+      "weather_data_points": {
+        "name": "Punti dati meteo"
+      }
+    },
+    "binary_sensor": {
+      "irrigation_needed": {
+        "name": "Irrigazione necessaria"
+      },
+      "watering_now": {
+        "name": "Irrigazione in corso"
+      },
+      "any_irrigation_needed": {
+        "name": "Una zona necessita acqua"
+      }
+    },
+    "number": {
+      "multiplier": {
+        "name": "Moltiplicatore"
+      }
+    },
+    "button": {
+      "irrigate_now": {
+        "name": "Irriga ora"
+      },
+      "irrigate_all": {
+        "name": "Irriga tutte le zone"
+      },
+      "calculate_all": {
+        "name": "Ricalcola durate"
+      },
+      "update_weather": {
+        "name": "Aggiorna dati meteo"
+      }
+    }
   }
 }

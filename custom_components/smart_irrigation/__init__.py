@@ -67,6 +67,49 @@ async def async_setup(hass: HomeAssistant, config):
     return True
 
 
+async def _migrate_duration_unique_ids(hass: HomeAssistant, entry, store) -> None:
+    """Migrate the zone duration sensor's legacy unique_id.
+
+    The duration sensor historically used its own entity_id as unique_id
+    (``sensor.smart_irrigation_<slug>`` — the only entity that did). Rewrite it
+    to ``smart_irrigation_<zone_id>_duration`` to match every other entity. The
+    registry entry (hence the entity_id + recorded history) carries over.
+
+    Idempotent: already-migrated ids don't start with ``sensor.`` so they're
+    skipped. The ``sensor.`` prefix uniquely identifies the legacy duration ids
+    (bucket/et/etc. use ``smart_irrigation_<id>_<suffix>`` without it).
+    """
+    from homeassistant.util import slugify
+
+    legacy_prefix = f"{PLATFORM}.{const.DOMAIN}_"  # "sensor.smart_irrigation_"
+    try:
+        zone_ids = list(getattr(store, "zones", None) or [])
+    except TypeError:  # store not fully initialized (e.g. mocked) — nothing to migrate
+        zone_ids = []
+    slug_to_zone_id = {}
+    for zone_id in zone_ids:
+        zone = store.get_zone(zone_id)
+        name = zone.get(const.ZONE_NAME) if zone else None
+        if name:
+            slug_to_zone_id.setdefault(slugify(name), zone.get(const.ZONE_ID, zone_id))
+
+    @callback
+    def _migrator(reg_entry):
+        uid = reg_entry.unique_id
+        if (
+            reg_entry.domain != PLATFORM
+            or not isinstance(uid, str)
+            or not uid.startswith(legacy_prefix)
+        ):
+            return None
+        zone_id = slug_to_zone_id.get(uid[len(legacy_prefix) :])
+        if zone_id is None:
+            return None
+        return {"new_unique_id": f"{const.DOMAIN}_{zone_id}_duration"}
+
+    await er.async_migrate_entries(hass, entry.entry_id, _migrator)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up Smart Irrigation from a config entry."""
 
@@ -156,6 +199,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     if entry.unique_id is None:
         hass.config_entries.async_update_entry(entry, unique_id=coordinator.id, data={})
+
+    # One-time entity-registry migration: the zone duration sensor used to set
+    # its unique_id to its own entity_id (sensor.smart_irrigation_<slug>). Rewrite
+    # it to the per-zone scheme smart_irrigation_<zone_id>_duration so it matches
+    # every other entity; existing entity_ids + history carry over. Idempotent.
+    await _migrate_duration_unique_ids(hass, entry, store)
 
     _LOGGER.info("Calling async_forward_entry_setups")
     await hass.config_entries.async_forward_entry_setups(

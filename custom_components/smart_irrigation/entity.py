@@ -34,11 +34,16 @@ def hub_device_info(hass: HomeAssistant) -> dict:
 
 
 def zone_device_info(hass: HomeAssistant, zone_id, zone_name: str) -> dict:
-    """A per-zone device, parented to the hub via ``via_device``."""
+    """A per-zone device, parented to the hub via ``via_device``.
+
+    The device is named after the zone alone (e.g. "Front lawn"); with
+    ``has_entity_name`` the entities compose as "<zone> <descriptor>". The hub
+    device ("Smart Irrigation") supplies the integration-level grouping.
+    """
     cid = coordinator_id(hass)
     return {
         "identifiers": {(const.DOMAIN, f"{cid}_zone_{zone_id}")},
-        "name": f"{const.NAME}: {zone_name}",
+        "name": zone_name,
         "model": "Irrigation zone",
         "manufacturer": const.MANUFACTURER,
         "via_device": (const.DOMAIN, cid),

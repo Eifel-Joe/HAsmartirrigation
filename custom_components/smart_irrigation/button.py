@@ -72,6 +72,8 @@ def _coordinator(hass: HomeAssistant):
 class SmartIrrigationZoneIrrigateNowButton(ButtonEntity):
     """Start an immediate irrigation run for one zone."""
 
+    _attr_has_entity_name = True
+    _attr_translation_key = "irrigate_now"
     _attr_should_poll = False
     _attr_icon = "mdi:sprinkler"
 
@@ -102,11 +104,6 @@ class SmartIrrigationZoneIrrigateNowButton(ButtonEntity):
         return f"{const.DOMAIN}_{self._zone_id}_irrigate_now"
 
     @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{self._zone_name} Irrigate now"
-
-    @property
     def device_info(self) -> dict:
         """Group under the per-zone device."""
         return zone_device_info(self._hass, self._zone_id, self._zone_name)
@@ -129,26 +126,26 @@ class SmartIrrigationZoneIrrigateNowButton(ButtonEntity):
 
 
 class SmartIrrigationHubButton(ButtonEntity):
-    """Base for the global hub-device action buttons."""
+    """Base for the global hub-device action buttons.
 
+    ``suffix`` is both the unique_id/entity_id suffix and the entity
+    translation_key (they match for the hub buttons).
+    """
+
+    _attr_has_entity_name = True
     _attr_should_poll = False
     suffix = ""
-    label = ""
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the hub button."""
         self._hass = hass
         self.entity_id = f"{PLATFORM}.{const.DOMAIN}_{self.suffix}"
+        self._attr_translation_key = self.suffix
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID."""
         return f"{const.DOMAIN}_{self.suffix}"
-
-    @property
-    def name(self) -> str:
-        """Return friendly name."""
-        return f"{const.NAME} {self.label}"
 
     @property
     def device_info(self) -> dict:
@@ -160,7 +157,6 @@ class SmartIrrigationIrrigateAllButton(SmartIrrigationHubButton):
     """Water all zones now (bypasses skip conditions)."""
 
     suffix = "irrigate_all"
-    label = "Water all zones now"
     _attr_icon = "mdi:sprinkler-variant"
 
     async def async_press(self) -> None:
@@ -174,7 +170,6 @@ class SmartIrrigationCalculateAllButton(SmartIrrigationHubButton):
     """Recalculate the durations of all automatic zones."""
 
     suffix = "calculate_all"
-    label = "Recalculate durations"
     _attr_icon = "mdi:calculator"
 
     async def async_press(self) -> None:
@@ -188,7 +183,6 @@ class SmartIrrigationUpdateWeatherButton(SmartIrrigationHubButton):
     """Collect fresh weather data for all automatic zones."""
 
     suffix = "update_weather"
-    label = "Refresh weather data"
     _attr_icon = "mdi:weather-cloudy-arrow-right"
 
     async def async_press(self) -> None:

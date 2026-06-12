@@ -81,8 +81,12 @@ class TestSmartIrrigationZoneEntity:
         """Construction sets identity from the constructor args."""
         entity = self._make_entity(hass)
         assert entity.entity_id == f"{SENSOR_DOMAIN}.{const.DOMAIN}_test_zone"
-        assert entity.name == "Test Zone"
-        assert entity.unique_id == entity.entity_id
+        # has_entity_name: the friendly name is composed by HA from the zone
+        # device name + the "duration" translation key (no manual name).
+        assert entity.has_entity_name is True
+        assert entity.translation_key == "duration"
+        # unique_id migrated to the per-zone scheme (was the entity_id).
+        assert entity.unique_id == f"{const.DOMAIN}_1_duration"
 
     def test_basic_properties(self, hass: HomeAssistant) -> None:
         """should_poll/native_value/device_class reflect the duration sensor."""
@@ -115,7 +119,7 @@ class TestSmartIrrigationZoneEntity:
         """device_info is a per-zone device hanging off the hub via via_device."""
         info = self._make_entity(hass).device_info
         assert info["identifiers"] == {(const.DOMAIN, "smart_irrigation_zone_1")}
-        assert info["name"] == f"{const.NAME}: Test Zone"
+        assert info["name"] == "Test Zone"
         assert info["model"] == "Irrigation zone"
         assert info["manufacturer"] == const.MANUFACTURER
         assert info["via_device"] == (const.DOMAIN, "smart_irrigation")

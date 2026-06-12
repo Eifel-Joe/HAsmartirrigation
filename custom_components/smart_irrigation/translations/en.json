@@ -223,5 +223,33 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "duration": { "name": "Duration" },
+      "bucket": { "name": "Bucket" },
+      "live_bucket": { "name": "Live bucket" },
+      "bucket_delta": { "name": "Bucket delta" },
+      "drainage": { "name": "Drainage" },
+      "last_irrigation": { "name": "Last irrigation" },
+      "next_irrigation": { "name": "Next irrigation" },
+      "last_calculated": { "name": "Last calculated" },
+      "last_weather_update": { "name": "Last weather update" },
+      "weather_data_points": { "name": "Weather data points" }
+    },
+    "binary_sensor": {
+      "irrigation_needed": { "name": "Irrigation needed" },
+      "watering_now": { "name": "Watering now" },
+      "any_irrigation_needed": { "name": "Any zone needs water" }
+    },
+    "number": {
+      "multiplier": { "name": "Multiplier" }
+    },
+    "button": {
+      "irrigate_now": { "name": "Irrigate now" },
+      "irrigate_all": { "name": "Water all zones" },
+      "calculate_all": { "name": "Recalculate durations" },
+      "update_weather": { "name": "Refresh weather data" }
+    }
   }
 }

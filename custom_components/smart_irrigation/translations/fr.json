@@ -223,5 +223,69 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "duration": {
+        "name": "Durée"
+      },
+      "bucket": {
+        "name": "Réservoir"
+      },
+      "live_bucket": {
+        "name": "Réservoir en direct"
+      },
+      "bucket_delta": {
+        "name": "Delta du réservoir"
+      },
+      "drainage": {
+        "name": "Drainage"
+      },
+      "last_irrigation": {
+        "name": "Dernier arrosage"
+      },
+      "next_irrigation": {
+        "name": "Prochain arrosage"
+      },
+      "last_calculated": {
+        "name": "Dernier calcul"
+      },
+      "last_weather_update": {
+        "name": "Dernière mise à jour météo"
+      },
+      "weather_data_points": {
+        "name": "Points de données météo"
+      }
+    },
+    "binary_sensor": {
+      "irrigation_needed": {
+        "name": "Arrosage nécessaire"
+      },
+      "watering_now": {
+        "name": "Arrosage en cours"
+      },
+      "any_irrigation_needed": {
+        "name": "Une zone a besoin d'eau"
+      }
+    },
+    "number": {
+      "multiplier": {
+        "name": "Multiplicateur"
+      }
+    },
+    "button": {
+      "irrigate_now": {
+        "name": "Arroser maintenant"
+      },
+      "irrigate_all": {
+        "name": "Arroser toutes les zones"
+      },
+      "calculate_all": {
+        "name": "Recalculer les durées"
+      },
+      "update_weather": {
+        "name": "Actualiser les données météo"
+      }
+    }
   }
 }
