@@ -10,7 +10,7 @@ You configure the integration from the Smart Irrigation panel in the Home Assist
 
 ## First-run setup wizard
 
-The first time you open the panel — or any time from **Setup → Setup wizard** — a guided wizard walks you through the four building blocks in order:
+The first time you open the panel — or any time via the **Setup wizard** button (top-right of the Setup tabs) — a guided wizard walks you through the four building blocks in order:
 
 ![](assets/images/setup-wizard-1.png)
 
@@ -27,8 +27,8 @@ The panel has two top-level areas:
 
 - **Zones** — the everyday **dashboard**. For each zone it shows at a glance whether it will water and why, plus one-tap **Update**, **Calculate** and **Irrigate now**. A gear icon on each card jumps to that zone's settings. See [Zones](configuration-zones.md).
 - **Setup** — everything you configure once and rarely touch. The tabs are grouped around what you're trying to do rather than the internal data model:
-  1. **Weather & Location** — your [weather service](installation-weatherservice.md) and location coordinates, plus the forecast and seasonal outlook. See [General configuration](configuration-general.md).
-  2. **My Zones** — add, edit and delete [zones](configuration-zones.md), link each to a switch/valve entity, and view per-zone weather data and the watering calendar.
+  1. **Weather & Location** — your [weather service](installation-weatherservice.md) and location coordinates, plus the weather forecast, per-source weather records, the seasonal outlook and the watering calendar. See [General configuration](configuration-general.md).
+  2. **My Zones** — add, edit and delete [zones](configuration-zones.md), link each to a switch/valve entity, and view each zone's calculation explanation.
   3. **When to Water** — the automatic update/calculation times, [zone sequencing](configuration-general.md#zone-sequencing), [skip conditions](configuration-general.md#skip-conditions), days between irrigation, and [recurring schedules](configuration-schedules.md).
   4. **Advanced** — the raw [calculation modules](configuration-modules.md) (PyETO, Static, …) and [sensor groups](configuration-sensor-groups.md). Most setups never need to open these directly — the wizard wires them up for you.
   5. **Help** — links to this documentation and the community/issue trackers.

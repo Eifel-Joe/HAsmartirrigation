@@ -15,12 +15,12 @@ This page covers the global, set-once settings. In the panel they are spread acr
 The settings below are documented together by topic.
 
 ### Automatic weather data update
-If enabled, specify how often sensor update should happen (minutes, hours, days). You can also set up an update delay to be used to delay the first update. THis is useful in case your sensors do not provide a value immediately after Home Assistant starts.
+If enabled, specify how often the weather-data update should happen (minutes, hours, days). You can also set an update delay to postpone the first update — useful in case your sensors do not provide a value immediately after Home Assistant starts.
 
-As calculation needs weatherdata make sure to update your weather data at least once before calculating.
+As calculation needs weather data, make sure to update your weather data at least once before calculating.
 
 ### Automatic duration calculation
-If enabled, set the time of calculation (HH:MM). Calculation uses weatherdata that is collected in updates to determine irrigation duration. After automatic calculation has happened used weatherdata is deleted.
+If enabled, set the time of calculation (HH:MM). Calculation uses the weather data collected by updates to determine the irrigation duration. During calculation each zone consumes only the readings it needs (anchored to its own watermark) — the shared weather data is **not** wiped, so other zones keep their history.
 
 > **Note:** weather data is now pruned **automatically**. Each zone consumes the weather data it needs during calculation, and old readings are pruned from the shared buffer once every zone that needs them has consumed them (with a hard cap of a few days). There is no longer a "pruning time" to configure, and the old timed *auto-clear* setting has been removed. You can still wipe everything manually via **Setup → My Zones → Bulk Actions → Clear all weather data**.
 

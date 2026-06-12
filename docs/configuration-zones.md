@@ -20,7 +20,7 @@ Specify one or more irrigation zones here. The integration calculates irrigation
 Zones appear in two places:
 
 - The top-level **Zones** tab is the everyday **dashboard**. Each zone card shows an at-a-glance verdict (e.g. *"Watering needed: ~6 min"*, *"No watering needed"* or *"Turned off"*), a one-line status (bucket and when it was last checked), and the operational buttons **Update**, **Calculate** and **Irrigate now**. A gear icon on each card opens that zone's settings.
-- **Setup → My Zones** is where you **add, configure and delete** zones, and view per-zone reporting (calculation explanation, weather data, watering calendar). The sections below ("Adding a zone", "Configuring a zone") all live here.
+- **Setup → My Zones** is where you **add, configure and delete** zones, and view each zone's **calculation explanation**. (Weather records, the forecast and the watering calendar are no longer per-zone — they live once on the **Weather & Location** tab.) The sections below ("Adding a zone", "Configuring a zone") all live here.
 
 ## Multi-zone support
 For irrigation systems that have multiple zones which you want to run in series or independent you need to create multiple zones. The configuration should be done for each zone, including the area the zone covers and the corresponding settings.
@@ -32,18 +32,18 @@ Zones are added and configured under **Setup → My Zones**. Click the **+** but
 - **Size**: The size of this zone (m<sup>2</sup> or sq ft)
 - **Throughput**: The flow of this zone (liter/minute or gallon/minute)
 
-After clicking **Add**, the new zone appears in the list (and as an entity in Home Assistant). Expand its **Settings** to finish configuring it.
+After clicking **Add**, the new zone appears in the list (and as a device with entities in Home Assistant), with its settings shown directly underneath so you can finish configuring it.
 
 ![](assets/images/configuration-zones-1.png)
 
 ## Actions on all automatic Zones
 These bulk actions are split across the two surfaces:
 
-- **Update all zones** / **Calculate all zones** — on the **Zones** dashboard (top tab): collect weather data for, and recalculate the duration of, every automatic zone.
+- **Refresh weather data** / **Recalculate durations** / **Water all zones now** — on the **Zones** dashboard (top tab): collect weather data for, recalculate the duration of, or immediately irrigate every automatic zone.
 - **Reset all buckets** / **Clear all weather data** — under **Setup → My Zones → Bulk Actions**: reset every automatic zone's bucket to `0`, or remove all collected weather data for the [sensor groups](configuration-sensor-groups.md) in use. Both ask for confirmation first.
 
 ## Configuring a zone
-Open **Setup → My Zones**, expand a zone's **Settings**, and you can change:
+Open **Setup → My Zones**. Each zone's settings are shown directly under its name (no need to expand anything), and you can change:
 
 - **Name**: change the name of a zone
 - **Size**: change the size of a zone
@@ -55,6 +55,8 @@ Open **Setup → My Zones**, expand a zone's **Settings**, and you can change:
   - _Disabled_: The zone is disabled. No updating and calculation of that zone. Setting a [module](configuration-modules.md) and [sensor group](configuration-sensor-groups.md) on the zone is optional.
 - **Module**: Choose the [calculation module](configuration-modules.md) that should be used to calculate irrigation for the zone.
 - **Sensor group**: Choose the [sensor group](configuration-sensor-groups.md) that provides the weather data for this zone.
+- **Linked switch/valve entity**: Optionally control a valve directly — see [Linked entity](#linked-entity) below.
+- **Flow meter sensor** (optional): A sensor reporting the zone's actual water flow. When set, irrigation can run until the measured volume is reached instead of relying purely on the calculated time.
 - **Bucket**: Either calculated or manually set. If `bucket >= 0` then no irrigation is necesarry, if `bucket < 0` irrigation is necessary. See [automations](usage-automations.md) for examples on how to use this value to decide to irrigate.
 - **Maximum bucket**: You can manually set a maximum bucket size which represents the soil's water holding capacity. The maximum recommended bucket size is based on the type of soil:
     - clay soil: 30 mm (1.18")
@@ -66,7 +68,8 @@ This recommendation is based on the soil water holding capacity. See [this discu
 - **Multiplier**: Multiplies / divides the duration of the irrigation. For lawns, it is recommended to set the multiplier depending on your grass type (See [this discussion for more details](https://github.com/JustChr/HAsmartirrigation/discussions/448)):
     * Cool-reason grasses (such as fescue, bluegrass) should be set to `0.8`
     * Warm-season grasses (such as bermuda, zoysia) should be set to `0.7`. 
-- **Duration**: Irrigation duration in seconds. Either calculated or manually set.
+- **Minimum deficit to irrigate**: How large the moisture deficit must be before the zone is considered to need watering. It is stored as a 0-or-negative value (mm/inch); the default is `-10`, meaning the bucket must reach −10 mm before irrigation is triggered. Set it to `0` to irrigate as soon as there is any deficit, or to a more negative value to water less often but more deeply.
+- **Duration**: Irrigation duration in seconds. Either calculated or manually set (manual zones only).
 
 ### Linked entity {#linked-entity}
 
@@ -89,15 +92,15 @@ On the **Zones** dashboard, each zone card shows an at-a-glance verdict, a one-l
 ![](assets/images/configuration-zones-2.png)
 
 * **Update** — Collect weather data from the sensor group for the zone.
-* **Calculate** — Recalculate the zone's irrigation duration. Weather data for the zone's sensor group is deleted after calculation.
+* **Calculate** — Recalculate the zone's irrigation duration. The zone consumes only the weather data it needs (the shared buffer is kept for other zones and pruned automatically).
 * **Irrigate Now** — Immediately turn on the zone's [linked entity](#linked-entity) for the calculated duration, then turn it off. Bypasses all skip conditions. Shown disabled with a hint until the zone has a linked entity.
 
-The remaining per-zone tools live under **Setup → My Zones**, in each zone's expandable panels:
+The remaining per-zone tools live under **Setup → My Zones**:
 
-* **Calculation explanation** — After a calculation, a detailed breakdown of how the bucket was updated and how the lead time and multiplier affected the final duration.
-* **View weather data** — The last 10 weather data records for the zone's sensor group.
-* **View watering calendar** — View a 12-month estimated watering calendar based on the zone's location and typical weather patterns.
-* **Delete** — Remove the zone. 
+* **Calculation explanation** — Expand a zone's **Information** panel for a detailed breakdown of how the bucket was updated and how the lead time and multiplier affected the final duration.
+* **Delete** — Remove the zone.
+
+> Weather records, the forecast and the 12-month watering calendar are no longer shown per zone — they apply to your whole location, so they now live once on the **Weather & Location** tab.
 
 > Main page: [Configuration](configuration.md)<br/>
 > Previous: [General configuration](configuration-general.md)<br/>
