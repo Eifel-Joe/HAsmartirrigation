@@ -1232,6 +1232,24 @@
               EstimateFromSunHours: "Estimate from sun hours",
               EstimateFromTemp: "Estimate from temperature",
               EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
+            },
+            fields: {
+              coastal: {
+                name: "Coastal",
+                description: "Enable if the weather station is located near a coast or large body of water. Affects how atmospheric humidity is estimated."
+              },
+              solrad_behavior: {
+                name: "Solar radiation estimation",
+                description: "How solar radiation is estimated when it is not directly measured by a sensor."
+              },
+              forecast_days: {
+                name: "Forecast days",
+                description: "Number of future days to include in the ET calculation. 0 = current weather only (recommended — no extra API calls). Values > 0 average today's ET with forecasted ET for upcoming days (up to 4 days via the OWM free tier)."
+              },
+              delta: {
+                name: "Delta",
+                description: "Static evapotranspiration delta (mm) used directly without any weather-based calculation."
+              }
             }
           }
         },

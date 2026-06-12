@@ -268,6 +268,24 @@
             "EstimateFromSunHours": "Odhad zo slnečných hodín",
             "EstimateFromTemp": "Odhad z teploty",
             "EstimateFromSunHoursAndTemperature": "Odhad z priemeru hodín slnečného svitu a teploty"
+          },
+          "fields": {
+            "coastal": {
+              "name": "Pobrežné",
+              "description": "Povoľte, ak sa meteorologická stanica nachádza blízko pobrežia alebo veľkej vodnej plochy. Ovplyvňuje, ako sa odhaduje vlhkosť vzduchu."
+            },
+            "solrad_behavior": {
+              "name": "Odhad slnečného žiarenia",
+              "description": "Ako sa odhaduje slnečné žiarenie, keď ho priamo nemeria senzor."
+            },
+            "forecast_days": {
+              "name": "Dni predpovede",
+              "description": "Počet budúcich dní zahrnutých do výpočtu ET. 0 = iba aktuálne počasie (odporúčané — žiadne ďalšie volania API). Hodnoty > 0 spriemerujú dnešnú ET s predpovedanou ET pre nadchádzajúce dni (až 4 dni cez bezplatnú úroveň OWM)."
+            },
+            "delta": {
+              "name": "Delta",
+              "description": "Statická hodnota evapotranspirácie (delta, mm) použitá priamo bez výpočtu na základe počasia."
+            }
           }
         }
       },

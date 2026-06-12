@@ -270,6 +270,24 @@
             "EstimateFromSunHours": "Estimation à partir des heures d'ensoleillement",
             "EstimateFromTemp": "Estimation à partir de la température",
             "EstimateFromSunHoursAndTemperature": "Estimer à partir de la moyenne des heures d'ensoleillement et de la température"
+          },
+          "fields": {
+            "coastal": {
+              "name": "Côtier",
+              "description": "Activez cette option si la station météo est située près d'une côte ou d'une grande étendue d'eau. Influence la manière dont l'humidité atmosphérique est estimée."
+            },
+            "solrad_behavior": {
+              "name": "Estimation du rayonnement solaire",
+              "description": "Comment le rayonnement solaire est estimé lorsqu'il n'est pas directement mesuré par un capteur."
+            },
+            "forecast_days": {
+              "name": "Jours de prévision",
+              "description": "Nombre de jours futurs à inclure dans le calcul de l'ET. 0 = météo actuelle uniquement (recommandé — pas d'appels d'API supplémentaires). Les valeurs > 0 font la moyenne de l'ET d'aujourd'hui avec l'ET prévue pour les jours à venir (jusqu'à 4 jours via l'offre gratuite OWM)."
+            },
+            "delta": {
+              "name": "Delta",
+              "description": "Delta d'évapotranspiration statique (mm) utilisé directement sans aucun calcul basé sur la météo."
+            }
           }
         }
       },

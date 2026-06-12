@@ -268,6 +268,24 @@
             "EstimateFromSunHours": "Gebaseerd op zon uren",
             "EstimateFromTemp": "Gebaseerd op temperatuur",
             "EstimateFromSunHoursAndTemperature": "Schatten op basis van het gemiddelde van zonuren en temperatuur"
+          },
+          "fields": {
+            "coastal": {
+              "name": "Kustnabij",
+              "description": "Schakel dit in als het weerstation zich nabij een kust of een groot wateroppervlak bevindt. Beïnvloedt hoe de luchtvochtigheid wordt geschat."
+            },
+            "solrad_behavior": {
+              "name": "Schatting van zonnestraling",
+              "description": "Hoe de zonnestraling wordt geschat wanneer deze niet rechtstreeks door een sensor wordt gemeten."
+            },
+            "forecast_days": {
+              "name": "Voorspellingsdagen",
+              "description": "Aantal toekomstige dagen dat in de ET-berekening wordt meegenomen. 0 = alleen huidig weer (aanbevolen — geen extra API-aanroepen). Waarden > 0 middelen de ET van vandaag met de voorspelde ET voor komende dagen (tot 4 dagen via het gratis OWM-niveau)."
+            },
+            "delta": {
+              "name": "Delta",
+              "description": "Statische verdampingswaarde (delta, mm) die rechtstreeks wordt gebruikt zonder weergebaseerde berekening."
+            }
           }
         }
       },

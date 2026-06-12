@@ -1327,6 +1327,24 @@
               EstimateFromSunHours: "Estimate from sun hours",
               EstimateFromTemp: "Estimate from temperature",
               EstimateFromSunHoursAndTemperature: "Estimate from average of sun hours and temperature"
+            },
+            fields: {
+              coastal: {
+                name: "Coastal",
+                description: "Enable if the weather station is located near a coast or large body of water. Affects how atmospheric humidity is estimated."
+              },
+              solrad_behavior: {
+                name: "Solar radiation estimation",
+                description: "How solar radiation is estimated when it is not directly measured by a sensor."
+              },
+              forecast_days: {
+                name: "Forecast days",
+                description: "Number of future days to include in the ET calculation. 0 = current weather only (recommended — no extra API calls). Values > 0 average today's ET with forecasted ET for upcoming days (up to 4 days via the OWM free tier)."
+              },
+              delta: {
+                name: "Delta",
+                description: "Static evapotranspiration delta (mm) used directly without any weather-based calculation."
+              }
             }
           }
         },
@@ -7684,60 +7702,71 @@
         >` : F``;
     }
     renderConfig(e, t) {
-      const i = Object.values(this.modules).at(e);
-      if (!i || !this.hass) return;
-      const a = i.schema[t],
-        s = a.name,
-        n = function (e) {
+      var i, a;
+      const s = Object.values(this.modules).at(e);
+      if (!s || !this.hass) return;
+      const n = s.schema[t],
+        r = n.name,
+        o = e => {
+          try {
+            const t = Ca(e, this.hass.language);
+            return null == t ? void 0 : t;
+          } catch (e) {
+            return;
+          }
+        },
+        l = "panels.modules.cards.module.fields." + r,
+        c = null !== (i = o(l + ".name")) && void 0 !== i ? i : function (e) {
           if (e) return (e = e.replace("_", " ")).charAt(0).toUpperCase() + e.slice(1);
-        }(s);
-      let r = "";
-      null == i.config && (i.config = []), s in i.config && (r = i.config[s]);
-      let o = F``;
-      if ("boolean" == a.type) o = F`<input
+        }(r),
+        d = null !== (a = o(l + ".description")) && void 0 !== a ? a : n.description;
+      let h = "";
+      null == s.config && (s.config = []), r in s.config && (h = s.config[r]);
+      let u = F``;
+      if ("boolean" == n.type) u = F`<input
         type="checkbox"
-        id="${s + e}"
-        .checked=${r}
-        @input="${t => this.handleEditConfig(e, Object.assign(Object.assign({}, i), {
-        config: Object.assign(Object.assign({}, i.config), {
-          [s]: t.target.checked
+        id="${r + e}"
+        .checked=${h}
+        @input="${t => this.handleEditConfig(e, Object.assign(Object.assign({}, s), {
+        config: Object.assign(Object.assign({}, s.config), {
+          [r]: t.target.checked
         })
       }))}"
-      />`;else if ("float" == a.type || "integer" == a.type) o = F`<input
+      />`;else if ("float" == n.type || "integer" == n.type) u = F`<input
         type="number"
         class="settings-input shortfield"
-        id="${a.name + e}"
-        .value="${i.config[a.name]}"
-        @input="${t => this.handleEditConfig(e, Object.assign(Object.assign({}, i), {
-        config: Object.assign(Object.assign({}, i.config), {
-          [s]: t.target.value
+        id="${n.name + e}"
+        .value="${s.config[n.name]}"
+        @input="${t => this.handleEditConfig(e, Object.assign(Object.assign({}, s), {
+        config: Object.assign(Object.assign({}, s.config), {
+          [r]: t.target.value
         })
       }))}"
-      />`;else if ("string" == a.type) o = F`<input
+      />`;else if ("string" == n.type) u = F`<input
         type="text"
         class="settings-input"
-        id="${s + e}"
-        .value="${r}"
-        @input="${t => this.handleEditConfig(e, Object.assign(Object.assign({}, i), {
-        config: Object.assign(Object.assign({}, i.config), {
-          [s]: t.target.value
+        id="${r + e}"
+        .value="${h}"
+        @input="${t => this.handleEditConfig(e, Object.assign(Object.assign({}, s), {
+        config: Object.assign(Object.assign({}, s.config), {
+          [r]: t.target.value
         })
       }))}"
-      />`;else if ("select" == a.type) {
+      />`;else if ("select" == n.type) {
         const t = this.hass.language;
-        o = F`<select
+        u = F`<select
         class="settings-input"
-        id="${s + e}"
-        .value="${hs(r)}"
-        @change="${t => this.handleEditConfig(e, Object.assign(Object.assign({}, i), {
-          config: Object.assign(Object.assign({}, i.config), {
-            [s]: t.target.value
+        id="${r + e}"
+        .value="${hs(h)}"
+        @change="${t => this.handleEditConfig(e, Object.assign(Object.assign({}, s), {
+          config: Object.assign(Object.assign({}, s.config), {
+            [r]: t.target.value
           })
         }))}"
       >
-        ${Object.entries(a.options).map(([e, i]) => F`<option
+        ${Object.entries(n.options).map(([e, i]) => F`<option
               value="${Oa(i, 0)}"
-              ?selected="${r === Oa(i, 0)}"
+              ?selected="${h === Oa(i, 0)}"
             >
               ${Ca("panels.modules.cards.module.translated-options." + Oa(i, 1), t)}
             </option>`)}
@@ -7745,10 +7774,10 @@
       }
       return F`<ha-settings-row>
       <span slot="heading"
-        >${n}${a.required ? " *" : ""}</span
+        >${c}${n.required ? " *" : ""}</span
       >
-      ${a.description ? F`<span slot="description">${a.description}</span>` : ""}
-      ${o}
+      ${d ? F`<span slot="description">${d}</span>` : ""}
+      ${u}
     </ha-settings-row>`;
     }
     handleEditConfig(e, t) {

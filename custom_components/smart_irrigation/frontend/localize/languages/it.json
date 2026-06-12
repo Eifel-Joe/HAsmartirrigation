@@ -311,6 +311,24 @@
             "EstimateFromSunHours": "Stima dalle ore solari",
             "EstimateFromTemp": "Stima dalla temperatura",
             "EstimateFromSunHoursAndTemperature": "Stima dalla media delle ore di sole e della temperatura"
+          },
+          "fields": {
+            "coastal": {
+              "name": "Costiero",
+              "description": "Abilita se la stazione meteo si trova vicino a una costa o a un grande specchio d'acqua. Influisce su come viene stimata l'umidità atmosferica."
+            },
+            "solrad_behavior": {
+              "name": "Stima della radiazione solare",
+              "description": "Come viene stimata la radiazione solare quando non è misurata direttamente da un sensore."
+            },
+            "forecast_days": {
+              "name": "Giorni di previsione",
+              "description": "Numero di giorni futuri da includere nel calcolo dell'ET. 0 = solo meteo attuale (consigliato — nessuna chiamata API aggiuntiva). Valori > 0 mediano l'ET di oggi con l'ET prevista per i prossimi giorni (fino a 4 giorni tramite il piano gratuito OWM)."
+            },
+            "delta": {
+              "name": "Delta",
+              "description": "Delta di evapotraspirazione statico (mm) usato direttamente senza alcun calcolo basato sul meteo."
+            }
           }
         }
       },

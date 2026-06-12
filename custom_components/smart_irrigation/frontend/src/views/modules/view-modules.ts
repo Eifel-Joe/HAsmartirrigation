@@ -338,7 +338,20 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
     //loop over items in schema and output the right UI
     const schemaline = mod.schema[value];
     const name = schemaline["name"];
-    const prettyName = prettyPrint(name);
+    // Safe localize lookup: returns undefined for missing keys so we can fall
+    // back to the prettified key / backend-provided string.
+    const tr = (key: string): string | undefined => {
+      try {
+        const v = localize(key, this.hass!.language);
+        return v === undefined || v === null ? undefined : v;
+      } catch {
+        return undefined;
+      }
+    };
+    const fieldKey = "panels.modules.cards.module.fields." + name;
+    const prettyName = tr(fieldKey + ".name") ?? prettyPrint(name);
+    const fieldDescription =
+      tr(fieldKey + ".description") ?? schemaline["description"];
     let val = "";
     if (mod.config == null) {
       mod.config = [];
@@ -430,8 +443,8 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
       <span slot="heading"
         >${prettyName}${schemaline["required"] ? " *" : ""}</span
       >
-      ${schemaline["description"]
-        ? html`<span slot="description">${schemaline["description"]}</span>`
+      ${fieldDescription
+        ? html`<span slot="description">${fieldDescription}</span>`
         : ""}
       ${control}
     </ha-settings-row>`;

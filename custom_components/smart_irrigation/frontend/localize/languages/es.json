@@ -269,6 +269,24 @@
             "EstimateFromSunHours": "Estimar desde horas de sol",
             "EstimateFromTemp": "Estimar desde temperatura",
             "EstimateFromSunHoursAndTemperature": "Estimar a partir del promedio de horas de sol y temperatura"
+          },
+          "fields": {
+            "coastal": {
+              "name": "Costero",
+              "description": "Activa esta opción si la estación meteorológica está situada cerca de una costa o de una gran masa de agua. Afecta a cómo se estima la humedad atmosférica."
+            },
+            "solrad_behavior": {
+              "name": "Estimación de la radiación solar",
+              "description": "Cómo se estima la radiación solar cuando no la mide directamente un sensor."
+            },
+            "forecast_days": {
+              "name": "Días de pronóstico",
+              "description": "Número de días futuros a incluir en el cálculo de ET. 0 = solo el tiempo actual (recomendado, sin llamadas adicionales a la API). Valores > 0 promedian la ET de hoy con la ET pronosticada para los próximos días (hasta 4 días con el nivel gratuito de OWM)."
+            },
+            "delta": {
+              "name": "Delta",
+              "description": "Delta de evapotranspiración estático (mm) que se usa directamente sin ningún cálculo basado en el clima."
+            }
           }
         }
       },

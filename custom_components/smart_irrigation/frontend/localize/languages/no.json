@@ -269,6 +269,24 @@
             "EstimateFromSunHours": "Beregn fra soltimer",
             "EstimateFromTemp": "Beregn fra temperatur",
             "EstimateFromSunHoursAndTemperature": "Estimer fra gjennomsnittet av soltimer og temperatur"
+          },
+          "fields": {
+            "coastal": {
+              "name": "Kystnær",
+              "description": "Aktiver hvis værstasjonen ligger nær en kyst eller et stort vannområde. Påvirker hvordan luftfuktigheten estimeres."
+            },
+            "solrad_behavior": {
+              "name": "Estimering av solstråling",
+              "description": "Hvordan solstråling estimeres når den ikke måles direkte av en sensor."
+            },
+            "forecast_days": {
+              "name": "Værvarseldager",
+              "description": "Antall fremtidige dager som skal inkluderes i ET-beregningen. 0 = kun gjeldende vær (anbefalt — ingen ekstra API-kall). Verdier > 0 beregner gjennomsnittet av dagens ET og varslet ET for kommende dager (opptil 4 dager via OWM gratisnivå)."
+            },
+            "delta": {
+              "name": "Delta",
+              "description": "Statisk fordampningsverdi (delta, mm) som brukes direkte uten værbasert beregning."
+            }
           }
         }
       },

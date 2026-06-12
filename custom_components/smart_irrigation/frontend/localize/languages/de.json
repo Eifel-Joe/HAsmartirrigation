@@ -268,6 +268,24 @@
             "EstimateFromSunHours": "Basierend auf den Sonnenstunden",
             "EstimateFromTemp": "Basierend auf der Temperatur",
             "EstimateFromSunHoursAndTemperature": "Basierend auf dem Durchschnitt von Sonnenstunden und Temperatur"
+          },
+          "fields": {
+            "coastal": {
+              "name": "Küstennah",
+              "description": "Aktiviere dies, wenn sich die Wetterstation in der Nähe einer Küste oder eines großen Gewässers befindet. Beeinflusst, wie die Luftfeuchtigkeit geschätzt wird."
+            },
+            "solrad_behavior": {
+              "name": "Schätzung der Sonneneinstrahlung",
+              "description": "Wie die Sonneneinstrahlung geschätzt wird, wenn sie nicht direkt von einem Sensor gemessen wird."
+            },
+            "forecast_days": {
+              "name": "Vorhersagetage",
+              "description": "Anzahl der zukünftigen Tage, die in die ET-Berechnung einbezogen werden. 0 = nur aktuelles Wetter (empfohlen – keine zusätzlichen API-Aufrufe). Werte > 0 mitteln die heutige ET mit der vorhergesagten ET für die kommenden Tage (bis zu 4 Tage über das kostenlose OWM-Kontingent)."
+            },
+            "delta": {
+              "name": "Delta",
+              "description": "Statischer Verdunstungswert (Delta, mm), der direkt ohne wetterbasierte Berechnung verwendet wird."
+            }
           }
         }
       },
