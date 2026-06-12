@@ -1,12 +1,14 @@
 ---
 layout: default
-title: Configuration: Zones
+title: Configuration: My Zones
+redirect_from:
+  - /configuration-zones.html
 ---
-# Zone configuration
+# My Zones
 
 > Main page: [Configuration](configuration.md)<br/>
-> Previous: [General configuration](configuration-general.md)<br/>
-> Next: [Module configuration](configuration-modules.md)
+> Previous: [Weather & Location](configuration-weather-location.md)<br/>
+> Next: [When to Water](configuration-when-to-water.md)
 
 Specify one or more irrigation zones here. The integration calculates irrigation duration per zone, depending on size, throughput, state, [module](configuration-modules.md) and [sensor group](configuration-sensor-groups.md). A zone can be:
 * **disabled**: The zone is then not calculated and duration will be set to 0.
@@ -20,7 +22,7 @@ Specify one or more irrigation zones here. The integration calculates irrigation
 Zones appear in two places:
 
 - The top-level **Zones** tab is the everyday **dashboard**. Each zone card shows an at-a-glance verdict (e.g. *"Watering needed: ~6 min"*, *"No watering needed"* or *"Turned off"*), a one-line status (bucket and when it was last checked), and the operational buttons **Update**, **Calculate** and **Irrigate now**. A gear icon on each card opens that zone's settings.
-- **Setup → My Zones** is where you **add, configure and delete** zones, and view each zone's **calculation explanation**. (Weather records, the forecast and the watering calendar are no longer per-zone — they live once on the **Weather & Location** tab.) The sections below ("Adding a zone", "Configuring a zone") all live here.
+- **Setup → My Zones** is where you **add, configure and delete** zones, and view each zone's **calculation explanation**. (Weather records, the forecast and the watering calendar are no longer per-zone — they live once on the [**Weather & Location**](configuration-weather-location.md) tab.) The sections below ("Adding a zone", "Configuring a zone") all live here.
 
 ## Multi-zone support
 For irrigation systems that have multiple zones which you want to run in series or independent you need to create multiple zones. The configuration should be done for each zone, including the area the zone covers and the corresponding settings.
@@ -57,15 +59,15 @@ Open **Setup → My Zones**. Each zone's settings are shown directly under its n
 - **Sensor group**: Choose the [sensor group](configuration-sensor-groups.md) that provides the weather data for this zone.
 - **Linked switch/valve entity**: Optionally control a valve directly — see [Linked entity](#linked-entity) below.
 - **Flow meter sensor** (optional): A sensor reporting the zone's actual water flow. When set, irrigation can run until the measured volume is reached instead of relying purely on the calculated time.
-- **Bucket**: Either calculated or manually set. If `bucket >= 0` then no irrigation is necesarry, if `bucket < 0` irrigation is necessary. See [automations](usage-automations.md) for examples on how to use this value to decide to irrigate.
+- **Bucket**: Either calculated or manually set. The zone needs irrigation when the bucket falls below its **minimum deficit to irrigate** (see below; default −10 mm) — a bucket of 0 or above never needs watering. See [automations](usage-automations.md) for examples on how to use this value.
 - **Maximum bucket**: You can manually set a maximum bucket size which represents the soil's water holding capacity. The maximum recommended bucket size is based on the type of soil:
     - clay soil: 30 mm (1.18")
     - sandy soil: 12 mm (0.47"). 
-This recommendation is based on the soil water holding capacity. See [this discussion for more details](https://github.com/JustChr/HAsmartirrigation/discussions/448).
+This recommendation is based on the soil water holding capacity. See [this discussion for more details](https://github.com/jeroenterheerdt/HAsmartirrigation/discussions/448).
 
 - **Lead time**: Time needed to warm up your irrigation system (in seconds), e.g. time to establish a connection, start a pump, build pressure, etc. After the duration is calculated, the lead time is added but only if the duration is > 0.
 - **Maximum duration**: The maximum duration of the irrigation, to avoid flooding, wasting water, etc.
-- **Multiplier**: Multiplies / divides the duration of the irrigation. For lawns, it is recommended to set the multiplier depending on your grass type (See [this discussion for more details](https://github.com/JustChr/HAsmartirrigation/discussions/448)):
+- **Multiplier**: Multiplies / divides the duration of the irrigation. For lawns, it is recommended to set the multiplier depending on your grass type (See [this discussion for more details](https://github.com/jeroenterheerdt/HAsmartirrigation/discussions/448)):
     * Cool-reason grasses (such as fescue, bluegrass) should be set to `0.8`
     * Warm-season grasses (such as bermuda, zoysia) should be set to `0.7`. 
 - **Minimum deficit to irrigate**: How large the moisture deficit must be before the zone is considered to need watering. It is stored as a 0-or-negative value (mm/inch); the default is `-10`, meaning the bucket must reach −10 mm before irrigation is triggered. Set it to `0` to irrigate as soon as there is any deficit, or to a more negative value to water less often but more deeply.
@@ -79,11 +81,11 @@ Optionally link a Home Assistant `switch` or `valve` entity to a zone. When irri
 2. Wait for the calculated duration (in seconds)
 3. Call `turn_off` on the entity
 
-This means **no automation is needed** to control your valve — the integration does it directly. The [zone sequencing](configuration-general.md#zone-sequencing) setting in General controls whether multiple linked zones run in parallel or one after another.
+This means **no automation is needed** to control your valve — the integration does it directly. The [zone sequencing](configuration-when-to-water.md#zone-sequencing) setting on the **When to Water** tab controls whether multiple linked zones run in parallel or one after another.
 
 > **Tip:** Start typing `switch.` or `valve.` in the field and all matching entities in your HA instance will appear as autocomplete suggestions.
 
-If you prefer to keep using automations, simply leave this field empty. The integration will still fire the `smart_irrigation_start_irrigation_all_zones` event as usual.
+If you prefer to keep using automations, simply leave this field empty and listen for the `smart_irrigation_start_irrigation_all_zones` [event](usage-events.md), which fires whenever an irrigate [schedule](configuration-schedules.md) runs.
 
 ### Available actions per zone
 
@@ -100,8 +102,8 @@ The remaining per-zone tools live under **Setup → My Zones**:
 * **Calculation explanation** — Expand a zone's **Information** panel for a detailed breakdown of how the bucket was updated and how the lead time and multiplier affected the final duration.
 * **Delete** — Remove the zone.
 
-> Weather records, the forecast and the 12-month watering calendar are no longer shown per zone — they apply to your whole location, so they now live once on the **Weather & Location** tab.
+> Weather records, the forecast and the 12-month seasonal outlook are no longer shown per zone — they apply to your whole location, so they now live once on the [**Weather & Location**](configuration-weather-location.md) tab.
 
 > Main page: [Configuration](configuration.md)<br/>
-> Previous: [General configuration](configuration-general.md)<br/>
-> Next: [Module configuration](configuration-modules.md)
+> Previous: [Weather & Location](configuration-weather-location.md)<br/>
+> Next: [When to Water](configuration-when-to-water.md)

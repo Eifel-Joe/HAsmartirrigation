@@ -12,17 +12,17 @@ Smart Irrigation calculates *how long* to irrigate. You have two ways to act on 
 
 ## Option A — Linked entity (recommended, no automation needed)
 
-Set a **linked switch or valve entity** directly on each zone in the [Zones tab](configuration-zones.md#linked-entity). The integration then controls the valve itself:
+Set a **linked switch or valve entity** directly on each zone in the [Zones tab](configuration-my-zones.md#linked-entity). The integration then controls the valve itself:
 
-1. When an irrigation trigger fires (sunrise, schedule, or "Irrigate Now"), the integration calls `turn_on` on the linked entity.
+1. When a [recurring schedule](configuration-schedules.md) fires (or you press "Irrigate Now"), the integration calls `turn_on` on the linked entity.
 2. It waits for the calculated duration (in seconds).
 3. It calls `turn_off`.
 
 No automation is needed. The integration also resets the bucket automatically after irrigation.
 
-[Zone sequencing](configuration-general.md#zone-sequencing) (General Settings) controls whether multiple zones run **in parallel** (default) or **sequentially** one after another.
+[Zone sequencing](configuration-when-to-water.md#zone-sequencing) (Setup → When to Water) controls whether multiple zones run **in parallel** (default) or **sequentially** one after another.
 
-[Skip conditions](configuration-general.md#skip-conditions) (General Settings) let you automatically skip irrigation based on weather or a rain sensor — even in this mode.
+[Skip conditions](configuration-when-to-water.md#skip-conditions) (Setup → When to Water) let you automatically skip irrigation based on weather or a rain sensor — even in this mode.
 
 ### Irrigate Now
 
@@ -32,7 +32,12 @@ The **Zones dashboard** has a "Run all zones now" action that immediately irriga
 
 ## Option B — Automation-based (power users)
 
-If you prefer full control via HA automations, leave the linked entity field empty on each zone. The integration fires the `smart_irrigation_start_irrigation_all_zones` [event](usage-events.md) when irrigation should start. Your automation listens for that event, reads `sensor.smart_irrigation_[zone_name]` for the duration, controls the valve, and calls `smart_irrigation.reset_bucket` when done.
+If you prefer full control via HA automations, leave the linked entity field empty on each zone and:
+
+1. **Create an irrigate [schedule](configuration-schedules.md)** — the `smart_irrigation_start_irrigation_all_zones` [event](usage-events.md) is fired **by schedules**; without one, it never fires. For the classic "finish watering right at sunrise" pattern, use a **Sunrise**-type schedule with the time anchor set to **Finish**.
+2. Your automation listens for that event, reads `sensor.smart_irrigation_[zone_name]` for the duration, controls the valve, and calls `smart_irrigation.reset_bucket` when done. (Zones without a linked entity are left alone by the schedule itself — your automation does the watering.)
+
+Alternatively, skip the event entirely and trigger your automation on your own schedule (time trigger, workday sensor, …), using the duration sensor and bucket as conditions — see the examples below.
 
 > **Important:** Always call `smart_irrigation.reset_bucket` after irrigation so the integration knows irrigation happened and can reset the moisture deficit.
 
@@ -40,7 +45,7 @@ Experts recommend watering deeply but infrequently. Consider running automations
 
 Check out the [blueprints](https://github.com/JustChr/HAsmartirrigation/tree/master/blueprints) for ready-made automation templates.
 
-Also see [this discussion](https://github.com/JustChr/HAsmartirrigation/discussions/361) for an example using a timer helper for extra safety.
+Also see [this discussion](https://github.com/jeroenterheerdt/HAsmartirrigation/discussions/361) (upstream) for an example using a timer helper for extra safety.
 
 ### Example 1: one valve, once per week
 

@@ -8,6 +8,8 @@ title: Configuration: Sensor groups
 > Previous: [Module configuration](configuration-modules.md)<br/>
 > Next: [Usage](usage.md)
 
+Sensor groups live under **Setup → Advanced**. The setup wizard creates and wires a sensor group for you, so most setups never need this page — come here to mix sensors with a weather service or share one group across zones.
+
 Sensor groups define what sources provide the weather data to be collected and calculated on to determine irrigation duration. You can use any numeric Home Assistant sensor, regardless of its source. Additionally, if you [configured a weather service](installation-weatherservice.md) in this integration, you can retrieve the data from that as well.
 
 ## Adding a sensor group
@@ -51,7 +53,7 @@ Please note:
 ## Deleting a sensor group
 ![](assets/images/configuration-sensor-groups-1.png)
 
-Use the button at the bottom to delete a sensor group. Note you can only delete sensor groups that are not used by any [zones](configuration-zones.md).
+Use the button at the bottom to delete a sensor group. Note you can only delete sensor groups that are not used by any [zones](configuration-my-zones.md).
 
 
 

@@ -15,7 +15,7 @@ When you add the integration (**Settings → Devices & Services → Add Integrat
 Give the integration a name and choose whether to **use a weather service**.
 
 - **Leave it on** if you want the integration to pull weather data and/or forecasts from an online service. You'll pick the service in the next step.
-- **Turn it off** if you want to rely entirely on your own sensors (configured later in a [sensor group](configuration-sensor-groups.md)). In that case there are no forecasts, so forecast-based features — the precipitation [skip condition](configuration-general.md#skip-conditions) and PyETO's *forecast days* — won't be available.
+- **Turn it off** if you want to rely entirely on your own sensors (configured later in a [sensor group](configuration-sensor-groups.md)). In that case there are no forecasts, so forecast-based features — the precipitation [skip condition](configuration-when-to-water.md#skip-conditions) and PyETO's *forecast days* — won't be available.
 
 > If you use a weather service, make sure your Home Assistant **home-zone coordinates** are correct, as the data is fetched for that location. You can also set coordinates manually later in the panel.
 

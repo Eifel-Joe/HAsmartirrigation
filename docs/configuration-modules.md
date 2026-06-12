@@ -5,10 +5,12 @@ title: Configuration: Modules
 # Module configuration
 
 > Main page: [Configuration](configuration.md)<br/>
-> Previous: [Zone configuration](configuration-zones.md)<br/>
+> Previous: [Schedules](configuration-schedules.md)<br/>
 > Next: [Sensor group configuration](configuration-sensor-groups.md)
 
-Add one or more modules that calculate irrigation duration. Each module comes with its own configuration and can be used to calculate duration for one or more [zones](configuration-zones.md). Modules can't be deleted if they are used by one or more zones.
+Modules live under **Setup → Advanced**. The setup wizard creates and wires a module for you, so most setups never need this page — come here to tune the calculation or share one module across zones.
+
+Add one or more modules that calculate irrigation duration. Each module comes with its own configuration and can be used to calculate duration for one or more [zones](configuration-my-zones.md). Modules can't be deleted if they are used by one or more zones.
 
 ## Adding a module
 Select a module type and select `Add module`. Once added, you can configure the module
@@ -28,8 +30,8 @@ The following modules are available:
 
 ## Deleting a module
 ![](assets/images/configuration-modules-1.png)
-Use the button at the bottom to delete a module. Note you can only delete modules that are not used by any [zones](configuration-zones.md).
+Use the button at the bottom to delete a module. Note you can only delete modules that are not used by any [zones](configuration-my-zones.md).
 
 > Main page: [Configuration](configuration.md)<br/>
-> Previous: [Zone configuration](configuration-zones.md)<br/>
+> Previous: [Schedules](configuration-schedules.md)<br/>
 > Next: [Sensor group configuration](configuration-sensor-groups.md)

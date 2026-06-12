@@ -15,7 +15,7 @@ The **Zones** tab is the everyday dashboard. For each zone it answers the daily 
 Each card leads with a plain-language decision derived from the zone's state, its moisture balance and the next scheduled run:
 
 - **Will water ~X at &lt;time&gt;** — a deficit exists and the next run will irrigate it.
-- **Deficit ~X, but the next run will likely be skipped (…)** — a deficit exists, but a [skip condition](configuration-general.md#skip-conditions) will probably veto the run.
+- **Deficit ~X, but the next run will likely be skipped (…)** — a deficit exists, but a [skip condition](configuration-when-to-water.md#skip-conditions) will probably veto the run.
 - **No watering needed** — the soil has enough moisture.
 - **Deficit ~X — no schedule waters this zone; trigger manually** — there is a deficit but nothing scheduled targets the zone.
 - **Turned off / Not calculated yet** — the zone is disabled, or hasn't been calculated yet.
@@ -34,7 +34,7 @@ Above the zone cards, a banner summarises what happens next, globally:
 
 ## Live estimate {#live-estimate}
 
-The official **bucket** is recalculated once a day, at your [calculation time](configuration-general.md#automatic-duration-calculation). To give you a current picture in between, each zone also shows a small read-only **“Now ≈ −X mm (est.)”** chip next to the bucket — an estimate of how much the moisture balance has drifted **since the last calculation**.
+The official **bucket** is recalculated once a day, at your [calculation time](configuration-when-to-water.md#automatic-duration-calculation). To give you a current picture in between, each zone also shows a small read-only **“Now ≈ −X mm (est.)”** chip next to the bucket — an estimate of how much the moisture balance has drifted **since the last calculation**.
 
 ![](assets/images/usage-dashboard-2.png)
 
@@ -44,7 +44,7 @@ The official **bucket** is recalculated once a day, at your [calculation time](c
 
 ## Actions
 
-For automatic zones, each card offers **Update** (fetch the latest weather/sensor data), **Calculate** (recompute the watering duration), and **Irrigate now** (open the linked valve immediately — this **bypasses skip conditions**). A run-all row at the top applies the same actions to every zone at once.
+For automatic zones, each card offers **Update** (fetch the latest weather/sensor data), **Calculate** (recompute the watering duration), and **Irrigate now** (open the linked valve immediately — this **bypasses skip conditions**). A row at the top applies the same actions to every zone at once: **Refresh weather data**, **Recalculate durations** and **Water all zones now**.
 
 ## A card for non-admin users
 

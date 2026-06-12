@@ -25,10 +25,12 @@ When you finish, the wizard creates a fully wired, ready-to-calculate zone. You 
 
 The panel has two top-level areas:
 
-- **Zones** — the everyday **dashboard**. For each zone it shows at a glance whether it will water and why, plus one-tap **Update**, **Calculate** and **Irrigate now**. A gear icon on each card jumps to that zone's settings. See [Zones](configuration-zones.md).
-- **Setup** — everything you configure once and rarely touch. The tabs are grouped around what you're trying to do rather than the internal data model:
-  1. **Weather & Location** — your [weather service](installation-weatherservice.md) and location coordinates, plus the weather forecast, per-source weather records, the seasonal outlook and the watering calendar. See [General configuration](configuration-general.md).
-  2. **My Zones** — add, edit and delete [zones](configuration-zones.md), link each to a switch/valve entity, and view each zone's calculation explanation.
-  3. **When to Water** — the automatic update/calculation times, [zone sequencing](configuration-general.md#zone-sequencing), [skip conditions](configuration-general.md#skip-conditions), days between irrigation, and [recurring schedules](configuration-schedules.md).
+- **Zones** — the everyday **dashboard**. For each zone it shows at a glance whether it will water and why, plus one-tap **Update**, **Calculate** and **Irrigate now**. A gear icon on each card jumps to that zone's settings. See [Zones](configuration-my-zones.md).
+- **Setup** — everything you configure once and rarely touch. The tabs are grouped around what you're trying to do rather than the internal data model, and the docs follow the same structure:
+  1. [**Weather & Location**](configuration-weather-location.md) — your weather service and location coordinates, plus the weather forecast, per-source weather records and the seasonal outlook.
+  2. [**My Zones**](configuration-my-zones.md) — add, edit and delete zones, link each to a switch/valve entity, and view each zone's calculation explanation.
+  3. [**When to Water**](configuration-when-to-water.md) — the automatic update/calculation times, skip conditions, days between irrigation, zone sequencing, and [recurring schedules](configuration-schedules.md).
   4. **Advanced** — the raw [calculation modules](configuration-modules.md) (PyETO, Static, …) and [sensor groups](configuration-sensor-groups.md). Most setups never need to open these directly — the wizard wires them up for you.
   5. **Help** — links to this documentation and the community/issue trackers.
+
+Suggested reading order: [Weather & Location](configuration-weather-location.md) → [My Zones](configuration-my-zones.md) → [When to Water](configuration-when-to-water.md) → [Schedules](configuration-schedules.md) → [Modules](configuration-modules.md) and [Sensor groups](configuration-sensor-groups.md) if you need them.
