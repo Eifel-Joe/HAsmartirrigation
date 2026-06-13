@@ -434,7 +434,8 @@
           "temperature": "Nízka teplota",
           "wind": "Silný vietor",
           "rain_sensor": "Senzor dažďa",
-          "freeze": "Mráz"
+          "freeze": "Mráz",
+          "paused": "Pozastavené (oneskorenie pre dážď)"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -477,6 +478,20 @@
           "failed": "Zlyhalo",
           "skipped": "Preskočené"
         }
+      },
+      "rain_delay": {
+        "title": "Pozastaviť zavlažovanie",
+        "paused": "Pozastavené",
+        "until": "do",
+        "delay_24h": "Odložiť o 24 h",
+        "delay_48h": "Odložiť o 48 h",
+        "resume": "Pokračovať"
+      },
+      "run_zone": {
+        "run": "Spustiť",
+        "minutes": "min",
+        "help": "Zavlažovať túto zónu po vlastný čas, bez ohľadu na výpočet",
+        "toast_started": "Spustené zavlažovanie"
       }
     },
     "schedules": {

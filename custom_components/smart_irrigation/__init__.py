@@ -208,7 +208,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     _LOGGER.info("Calling async_forward_entry_setups")
     await hass.config_entries.async_forward_entry_setups(
-        entry, [PLATFORM, "number", "binary_sensor", "button"]
+        entry, [PLATFORM, "number", "binary_sensor", "button", "datetime"]
     )
     _LOGGER.info("Finished calling async_forward_entry_setups")
     # update listener for options flow
@@ -266,6 +266,7 @@ async def async_unload_entry(hass: HomeAssistant, entry):
             hass.config_entries.async_forward_entry_unload(entry, "number"),
             hass.config_entries.async_forward_entry_unload(entry, "binary_sensor"),
             hass.config_entries.async_forward_entry_unload(entry, "button"),
+            hass.config_entries.async_forward_entry_unload(entry, "datetime"),
         )
     )
     if not unload_ok:

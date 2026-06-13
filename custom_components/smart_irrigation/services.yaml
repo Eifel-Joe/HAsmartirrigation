@@ -111,6 +111,46 @@ generate_watering_calendar:
     entity:
       domain: sensor
 
+# Operational controls (WS-5)
+set_rain_delay:
+  name: Set rain delay
+  description: Pause all automatic/scheduled irrigation until a chosen moment (rain delay / vacation hold). Manual runs still work.
+  fields:
+    until:
+      required: false
+      example: "2026-07-01 06:00:00"
+      description: "Resume automatic irrigation at this date/time."
+      selector:
+        datetime:
+    hours:
+      required: false
+      example: 24
+      description: "Alternatively, pause for this many hours from now."
+      selector:
+        number:
+          min: 1
+          max: 720
+          unit_of_measurement: h
+clear_rain_delay:
+  name: Clear rain delay
+  description: Resume automatic irrigation by clearing any active rain delay / hold.
+run_zone:
+  name: Run zone
+  description: Water a specific zone for a custom duration (minutes), bypassing the calculation and any active rain delay.
+  target:
+    entity:
+      domain: sensor
+  fields:
+    duration:
+      required: true
+      example: 10
+      description: "How long to water, in minutes."
+      selector:
+        number:
+          min: 1
+          max: 600
+          unit_of_measurement: min
+
 # Enhanced Scheduling Services
 create_recurring_schedule:
   name: Create recurring schedule

@@ -436,7 +436,8 @@
           "temperature": "Température basse",
           "wind": "Vent fort",
           "rain_sensor": "Capteur de pluie",
-          "freeze": "Gel"
+          "freeze": "Gel",
+          "paused": "Suspendu (report pour pluie)"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -479,6 +480,20 @@
           "failed": "Échoué",
           "skipped": "Ignoré"
         }
+      },
+      "rain_delay": {
+        "title": "Suspendre l'arrosage",
+        "paused": "Suspendu",
+        "until": "jusqu'à",
+        "delay_24h": "Reporter 24 h",
+        "delay_48h": "Reporter 48 h",
+        "resume": "Reprendre"
+      },
+      "run_zone": {
+        "run": "Lancer",
+        "minutes": "min",
+        "help": "Arroser cette zone pendant une durée personnalisée, sans tenir compte du calcul",
+        "toast_started": "Arrosage lancé"
       }
     },
     "schedules": {

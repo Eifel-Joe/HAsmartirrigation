@@ -252,7 +252,13 @@
       "irrigate_now": { "name": "Irrigate now" },
       "irrigate_all": { "name": "Water all zones" },
       "calculate_all": { "name": "Recalculate durations" },
-      "update_weather": { "name": "Refresh weather data" }
+      "update_weather": { "name": "Refresh weather data" },
+      "delay_24h": { "name": "Delay watering 24 h" },
+      "delay_48h": { "name": "Delay watering 48 h" },
+      "resume_irrigation": { "name": "Resume watering" }
+    },
+    "datetime": {
+      "rain_delay": { "name": "Pause until" }
     }
   }
 }

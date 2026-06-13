@@ -294,6 +294,20 @@
       },
       "update_weather": {
         "name": "Oppdater værdata"
+      },
+      "delay_24h": {
+        "name": "Utsett vanning 24 t"
+      },
+      "delay_48h": {
+        "name": "Utsett vanning 48 t"
+      },
+      "resume_irrigation": {
+        "name": "Gjenoppta vanning"
+      }
+    },
+    "datetime": {
+      "rain_delay": {
+        "name": "Pause til"
       }
     }
   }

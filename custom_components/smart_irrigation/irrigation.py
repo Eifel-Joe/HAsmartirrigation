@@ -9,6 +9,7 @@ the rotating / sequential / parallel strategies based on config.
 
 import asyncio
 import logging
+from datetime import timedelta
 
 import homeassistant.util.dt as dt_util
 from homeassistant.core import callback
@@ -56,6 +57,51 @@ class IrrigationRunnerMixin:
         experimental forecast-weighting feature trimmed the last calculation.
         """
         return zone.get(const.ZONE_IRRIGATION_TARGET_BUCKET) or 0.0
+
+    # --- Rain delay / vacation hold (WS-5) ----------------------------------
+
+    def _rain_delay_until_dt(self):
+        """Parse the configured hold into an aware datetime, or None if unset."""
+        raw = getattr(self.store.config, "rain_delay_until", None)
+        if not raw:
+            return None
+        parsed = dt_util.parse_datetime(raw)
+        if parsed is None:
+            return None
+        return dt_util.as_local(parsed) if parsed.tzinfo is None else parsed
+
+    def _rain_delay_active(self) -> bool:
+        """True when a hold is set and still in the future."""
+        until = self._rain_delay_until_dt()
+        return until is not None and until > dt_util.now()
+
+    async def async_set_rain_delay(self, until_iso: str | None) -> None:
+        """Set (or clear, when None) the rain-delay / vacation hold."""
+        await self.store.async_update_config({const.CONF_RAIN_DELAY_UNTIL: until_iso})
+        _LOGGER.info("Rain delay set until %s", until_iso)
+        async_dispatcher_send(self.hass, const.DOMAIN + "_config_updated")
+        async_dispatcher_send(self.hass, const.DOMAIN + "_update_frontend")
+
+    async def async_clear_rain_delay(self) -> None:
+        """Resume automatic irrigation (clear any active hold)."""
+        await self.async_set_rain_delay(None)
+
+    async def async_delay_hours(self, hours: float) -> None:
+        """Quick-hold: pause automatic irrigation for ``hours`` from now."""
+        until = dt_util.now() + timedelta(hours=hours)
+        await self.async_set_rain_delay(until.isoformat())
+
+    def _run_trigger(self, zone_id) -> str:
+        """Run-log trigger for a zone: ``manual`` for a custom run, else schedule.
+
+        Consumes the one-shot marker set by ``async_run_zone`` so the next
+        scheduled run of the same zone is logged as a schedule again.
+        """
+        manual = getattr(self, "_manual_run_zones", None)
+        if manual and int(zone_id) in manual:
+            manual.discard(int(zone_id))
+            return "manual"
+        return "schedule"
 
     # --- Valve-run verification + per-zone fault state (WS-1) ---------------
 
@@ -150,6 +196,17 @@ class IrrigationRunnerMixin:
             _LOGGER.debug(
                 "No zones with linked entities and duration > 0 to irrigate directly"
             )
+            return
+
+        # Rain delay / vacation hold (WS-5): a user-set, time-boxed pause of all
+        # AUTOMATIC irrigation. Explicit manual runs (async_irrigate_now /
+        # async_run_zone) bypass this on purpose; only the scheduled path is gated.
+        if self._rain_delay_active():
+            _LOGGER.info(
+                "Irrigation paused (rain delay until %s); skipping scheduled run",
+                self._rain_delay_until_dt(),
+            )
+            await self._record_skipped_run(zone_ids, const.SKIP_REASON_PAUSED)
             return
 
         zones_to_irrigate = await self._apply_live_durations(zones_to_irrigate)
@@ -806,12 +863,17 @@ class IrrigationRunnerMixin:
                     duration,
                 )
                 self._note_si_valve(zone[const.ZONE_ID])
+                trigger = self._run_trigger(zone[const.ZONE_ID])
                 await self.hass.services.async_call(
                     domain, "turn_on", {"entity_id": entity_id}
                 )
 
                 async def _turn_off(
-                    eid=entity_id, dom=domain, dur=duration, zid=zone[const.ZONE_ID]
+                    eid=entity_id,
+                    dom=domain,
+                    dur=duration,
+                    zid=zone[const.ZONE_ID],
+                    trig=trigger,
                 ):
                     if await self._confirm_valve_running(zid, eid) is False:
                         # Valve never opened — abort without replenishing the
@@ -824,6 +886,7 @@ class IrrigationRunnerMixin:
                             zid,
                             result=const.RUN_RESULT_FAILED,
                             detail=const.FAULT_VALVE_NO_RESPONSE,
+                            trigger=trig,
                         )
                         return
                     await asyncio.sleep(dur)
@@ -841,6 +904,7 @@ class IrrigationRunnerMixin:
                         planned_s=dur,
                         actual_s=dur,
                         detail=run_zone.get(const.ZONE_EXPLANATION),
+                        trigger=trig,
                     )
 
                 asyncio.create_task(_turn_off())
@@ -875,3 +939,43 @@ class IrrigationRunnerMixin:
             asyncio.create_task(self._irrigate_zones_rotating(zones_to_irrigate))
         else:
             await self._irrigate_zones_parallel(zones_to_irrigate)
+
+    async def async_run_zone(self, zone_id, duration_minutes: float) -> None:
+        """Run one zone for an explicit duration, decoupled from the calc (WS-5).
+
+        Bypasses skip conditions, the deficit gate and the rain-delay hold (an
+        explicit manual action). The delivered water is credited to the bucket
+        via the WS-3 live-run path (``bucket += delivered``, capped) rather than
+        zeroed, so a custom run honestly reduces the deficit and the next daily
+        calc does not double-subtract.
+        """
+        seconds = round((duration_minutes or 0) * 60)
+        if seconds <= 0:
+            _LOGGER.warning("run_zone: non-positive duration, ignoring")
+            return
+        zone = self.store.get_zone(zone_id)
+        if not zone:
+            _LOGGER.warning("run_zone: zone %s not found", zone_id)
+            return
+        if not zone.get(const.ZONE_LINKED_ENTITY):
+            _LOGGER.warning("run_zone: zone %s has no linked entity", zone_id)
+            return
+        if zone.get(const.ZONE_STATE) == const.ZONE_STATE_DISABLED:
+            _LOGGER.info("run_zone: zone %s is disabled, ignoring", zone_id)
+            return
+
+        # Override the duration on a copy and credit the bucket by what we deliver.
+        run_zone = dict(zone)
+        run_zone[const.ZONE_DURATION] = seconds
+        live = getattr(self, "_live_run_zones", None)
+        if live is None:
+            live = self._live_run_zones = set()
+        live.add(int(zone_id))
+        manual = getattr(self, "_manual_run_zones", None)
+        if manual is None:
+            manual = self._manual_run_zones = set()
+        manual.add(int(zone_id))
+        _LOGGER.info(
+            "run_zone: watering zone %s for %s seconds (manual)", zone_id, seconds
+        )
+        await self._irrigate_zones_parallel([run_zone])

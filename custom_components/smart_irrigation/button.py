@@ -57,6 +57,9 @@ async def async_setup_entry(
             SmartIrrigationIrrigateAllButton(hass),
             SmartIrrigationCalculateAllButton(hass),
             SmartIrrigationUpdateWeatherButton(hass),
+            SmartIrrigationDelay24hButton(hass),
+            SmartIrrigationDelay48hButton(hass),
+            SmartIrrigationResumeButton(hass),
         ]
     )
 
@@ -190,3 +193,42 @@ class SmartIrrigationUpdateWeatherButton(SmartIrrigationHubButton):
         coordinator = _coordinator(self._hass)
         if coordinator is not None:
             await coordinator._async_update_all()  # noqa: SLF001
+
+
+class SmartIrrigationDelay24hButton(SmartIrrigationHubButton):
+    """Pause all automatic irrigation for 24 hours (rain delay)."""
+
+    suffix = "delay_24h"
+    _attr_icon = "mdi:weather-rainy"
+
+    async def async_press(self) -> None:
+        """Hold automatic irrigation for 24 hours from now."""
+        coordinator = _coordinator(self._hass)
+        if coordinator is not None:
+            await coordinator.async_delay_hours(24)
+
+
+class SmartIrrigationDelay48hButton(SmartIrrigationHubButton):
+    """Pause all automatic irrigation for 48 hours (rain delay)."""
+
+    suffix = "delay_48h"
+    _attr_icon = "mdi:weather-pouring"
+
+    async def async_press(self) -> None:
+        """Hold automatic irrigation for 48 hours from now."""
+        coordinator = _coordinator(self._hass)
+        if coordinator is not None:
+            await coordinator.async_delay_hours(48)
+
+
+class SmartIrrigationResumeButton(SmartIrrigationHubButton):
+    """Resume automatic irrigation (clear any active rain delay)."""
+
+    suffix = "resume_irrigation"
+    _attr_icon = "mdi:play-circle-outline"
+
+    async def async_press(self) -> None:
+        """Clear the rain-delay hold."""
+        coordinator = _coordinator(self._hass)
+        if coordinator is not None:
+            await coordinator.async_clear_rain_delay()

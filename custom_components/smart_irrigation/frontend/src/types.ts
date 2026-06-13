@@ -190,6 +190,9 @@ export interface IrrigationOutlook {
   upcoming_runs: UpcomingRun[];
   zone_estimates?: Record<string, ZoneEstimate>;
   zone_faults?: Record<string, ZoneFault>;
+  // Rain delay / vacation hold (WS-5): ISO datetime automatic irrigation
+  // resumes, or null/undefined when no hold is active.
+  rain_delay_until?: string | null;
 }
 
 export interface IrrigationStartTrigger {

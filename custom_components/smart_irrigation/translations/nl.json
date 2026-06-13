@@ -294,6 +294,20 @@
       },
       "update_weather": {
         "name": "Weergegevens vernieuwen"
+      },
+      "delay_24h": {
+        "name": "Bewatering 24 u uitstellen"
+      },
+      "delay_48h": {
+        "name": "Bewatering 48 u uitstellen"
+      },
+      "resume_irrigation": {
+        "name": "Bewatering hervatten"
+      }
+    },
+    "datetime": {
+      "rain_delay": {
+        "name": "Pauzeren tot"
       }
     }
   }

@@ -434,7 +434,8 @@
           "temperature": "Lage temperatuur",
           "wind": "Harde wind",
           "rain_sensor": "Regensensor",
-          "freeze": "Vorst"
+          "freeze": "Vorst",
+          "paused": "Gepauzeerd (regenvertraging)"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -477,6 +478,20 @@
           "failed": "Mislukt",
           "skipped": "Overgeslagen"
         }
+      },
+      "rain_delay": {
+        "title": "Bewatering pauzeren",
+        "paused": "Gepauzeerd",
+        "until": "tot",
+        "delay_24h": "24 u uitstellen",
+        "delay_48h": "48 u uitstellen",
+        "resume": "Hervatten"
+      },
+      "run_zone": {
+        "run": "Starten",
+        "minutes": "min",
+        "help": "Bewater deze zone voor een aangepaste tijd, los van de berekening",
+        "toast_started": "Beurt gestart"
       }
     },
     "schedules": {

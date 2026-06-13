@@ -223,6 +223,46 @@ class ServiceHandlersMixin:
                 },
             )
 
+    # Operational controls (WS-5)
+    async def handle_set_rain_delay(self, call):
+        """Pause automatic irrigation until a datetime (or for N hours)."""
+        until = call.data.get(const.ATTR_RAIN_DELAY_UNTIL)
+        hours = call.data.get(const.ATTR_RAIN_DELAY_HOURS)
+        if until is not None:
+            # call.data may carry a datetime (cv.datetime) — normalise to ISO.
+            iso = until.isoformat() if hasattr(until, "isoformat") else str(until)
+            await self.async_set_rain_delay(iso)
+        elif hours is not None:
+            await self.async_delay_hours(float(hours))
+        else:
+            raise SmartIrrigationError(
+                "set_rain_delay requires either 'until' or 'hours'"
+            )
+
+    async def handle_clear_rain_delay(self, call):
+        """Resume automatic irrigation (clear any active hold)."""
+        await self.async_clear_rain_delay()
+
+    async def handle_run_zone(self, call):
+        """Run a zone for an explicit duration (minutes), bypassing the calc."""
+        if const.SERVICE_ENTITY_ID not in call.data:
+            return
+        duration = call.data.get(const.ATTR_DURATION_MINUTES)
+        if duration is None:
+            raise SmartIrrigationError("run_zone requires a 'duration' (minutes)")
+        eid = call.data[const.SERVICE_ENTITY_ID]
+        if not isinstance(eid, list):
+            eid = [eid]
+        for entity in eid:
+            _LOGGER.info("Run zone service called for %s (%s min)", entity, duration)
+            state = self.hass.states.get(entity)
+            if not state:
+                raise SmartIrrigationError(f"No state found for entity {entity}")
+            zone_id = state.attributes.get(const.ZONE_ID)
+            if zone_id is None:
+                raise SmartIrrigationError("No zone_id found in state attributes.")
+            await self.async_run_zone(zone_id, float(duration))
+
     # Enhanced Scheduling Service Handlers
     async def handle_create_recurring_schedule(self, call):
         """Create recurring schedule service handler."""
@@ -335,6 +375,19 @@ def async_register_services(hass: HomeAssistant):
         const.DOMAIN,
         const.SERVICE_GENERATE_WATERING_CALENDAR,
         coordinator.handle_generate_watering_calendar,
+    )
+
+    # Operational controls (WS-5)
+    hass.services.async_register(
+        const.DOMAIN, const.SERVICE_SET_RAIN_DELAY, coordinator.handle_set_rain_delay
+    )
+    hass.services.async_register(
+        const.DOMAIN,
+        const.SERVICE_CLEAR_RAIN_DELAY,
+        coordinator.handle_clear_rain_delay,
+    )
+    hass.services.async_register(
+        const.DOMAIN, const.SERVICE_RUN_ZONE, coordinator.handle_run_zone
     )
 
     # Enhanced scheduling services

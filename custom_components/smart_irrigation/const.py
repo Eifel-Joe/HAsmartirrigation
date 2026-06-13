@@ -76,6 +76,16 @@ CONF_DEFAULT_LIVE_DURATION_ENABLED = False
 # fallback on load so an early opt-in is preserved across the rename.
 CONF_LEGACY_FRESH_DURATION_ENABLED = "fresh_duration_enabled"
 
+# Rain delay / vacation hold (WS-5): a user-initiated, time-boxed pause of all
+# AUTOMATIC/scheduled irrigation until a future datetime. Distinct from skip
+# conditions (which are weather-driven). Stored as an ISO-8601 string or None;
+# default None ⇒ no hold ⇒ behaviour unchanged. Explicit manual runs bypass it.
+CONF_RAIN_DELAY_UNTIL = "rain_delay_until"
+CONF_DEFAULT_RAIN_DELAY_UNTIL = None
+# Run-log / skip detail token recorded when a scheduled run is held back by the
+# rain delay (surfaced in the run history + outlook like the other skip ids).
+SKIP_REASON_PAUSED = "paused"
+
 # Days between irrigation configuration
 CONF_DAYS_BETWEEN_IRRIGATION = "days_between_irrigation"
 CONF_DEFAULT_DAYS_BETWEEN_IRRIGATION = 0  # 0 = no restriction (default behavior)
@@ -476,5 +486,13 @@ SERVICE_GENERATE_WATERING_CALENDAR = "generate_watering_calendar"
 SERVICE_CREATE_RECURRING_SCHEDULE = "create_recurring_schedule"
 SERVICE_UPDATE_RECURRING_SCHEDULE = "update_recurring_schedule"
 SERVICE_DELETE_RECURRING_SCHEDULE = "delete_recurring_schedule"
+# Operational controls (WS-5)
+SERVICE_SET_RAIN_DELAY = "set_rain_delay"
+SERVICE_CLEAR_RAIN_DELAY = "clear_rain_delay"
+SERVICE_RUN_ZONE = "run_zone"
+# run_zone / set_rain_delay call params
+ATTR_DURATION_MINUTES = "duration"  # whole minutes for a custom manual run
+ATTR_RAIN_DELAY_UNTIL = "until"  # ISO datetime to hold until
+ATTR_RAIN_DELAY_HOURS = "hours"  # convenience: hold for N hours from now
 # Events
 EVENT_RECURRING_SCHEDULE_TRIGGERED = "recurring_schedule_triggered"

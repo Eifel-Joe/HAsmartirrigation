@@ -435,7 +435,8 @@
           "temperature": "Lav temperatur",
           "wind": "Sterk vind",
           "rain_sensor": "Regnsensor",
-          "freeze": "Frost"
+          "freeze": "Frost",
+          "paused": "På pause (regnforsinkelse)"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -478,6 +479,20 @@
           "failed": "Mislyktes",
           "skipped": "Hoppet over"
         }
+      },
+      "rain_delay": {
+        "title": "Sett vanning på pause",
+        "paused": "På pause",
+        "until": "til",
+        "delay_24h": "Utsett 24 t",
+        "delay_48h": "Utsett 48 t",
+        "resume": "Gjenoppta"
+      },
+      "run_zone": {
+        "run": "Start",
+        "minutes": "min",
+        "help": "Vann denne sonen i en egendefinert tid, uavhengig av beregningen",
+        "toast_started": "Vanning startet"
       }
     },
     "title": "Smart vanning",

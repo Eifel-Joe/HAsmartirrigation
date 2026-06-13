@@ -108,6 +108,9 @@ class SkipConditionsMixin:
             "upcoming_runs": upcoming,
             "zone_estimates": zone_estimates,
             "zone_faults": faults,
+            # Rain delay / vacation hold (WS-5): ISO datetime the automatic
+            # irrigation resumes, or None when no hold is active.
+            "rain_delay_until": config.get(const.CONF_RAIN_DELAY_UNTIL),
         }
 
     async def _eval_precipitation(self, config) -> dict:

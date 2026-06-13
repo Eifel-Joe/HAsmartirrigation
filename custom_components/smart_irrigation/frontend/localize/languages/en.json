@@ -564,7 +564,8 @@
           "temperature": "Low temperature",
           "wind": "High wind",
           "rain_sensor": "Rain sensor",
-          "freeze": "Frost"
+          "freeze": "Frost",
+          "paused": "Paused (rain delay)"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -614,6 +615,20 @@
           "failed": "Failed",
           "skipped": "Skipped"
         }
+      },
+      "rain_delay": {
+        "title": "Pause watering",
+        "paused": "Paused",
+        "until": "until",
+        "delay_24h": "Delay 24 h",
+        "delay_48h": "Delay 48 h",
+        "resume": "Resume"
+      },
+      "run_zone": {
+        "run": "Run",
+        "minutes": "min",
+        "help": "Water this zone for a custom time, ignoring the calculation",
+        "toast_started": "Started run"
       }
     }
   },

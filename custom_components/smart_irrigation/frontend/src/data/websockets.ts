@@ -225,6 +225,28 @@ export const irrigateNow = (
     ...(zone_id !== undefined ? { zone_id } : {}),
   });
 
+// Operational controls (WS-5). The panel uses zone_id-direct WS commands; the
+// equivalent HA services (set_rain_delay / clear_rain_delay / run_zone) exist
+// in parallel for automations.
+
+/** Pause all automatic irrigation for N hours from now (rain delay). */
+export const setRainDelayHours = (
+  hass: HomeAssistant,
+  hours: number,
+): Promise<any> => hass.callWS({ type: DOMAIN + "/set_rain_delay", hours });
+
+/** Resume automatic irrigation (clear any active rain delay / hold). */
+export const clearRainDelay = (hass: HomeAssistant): Promise<any> =>
+  hass.callWS({ type: DOMAIN + "/clear_rain_delay" });
+
+/** Water a zone for a custom number of minutes (decoupled from the calc). */
+export const runZone = (
+  hass: HomeAssistant,
+  zone_id: string,
+  duration: number,
+): Promise<any> =>
+  hass.callWS({ type: DOMAIN + "/run_zone", zone_id, duration });
+
 export interface WeatherConfig {
   use_weather_service: boolean;
   weather_service: string | null;

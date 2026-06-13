@@ -13,6 +13,9 @@ import {
   calculateAllZones,
   updateAllZones,
   irrigateNow,
+  setRainDelayHours,
+  clearRainDelay,
+  runZone,
 } from "../../data/websockets";
 import { SubscribeMixin } from "../../subscribe-mixin";
 
@@ -91,6 +94,9 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
 
   // Whether the "why won't it run" skip reasons are expanded (tap-friendly).
   @state() private _skipDetailsOpen = false;
+
+  // Per-zone custom-run duration (minutes), keyed by zone id. Defaults to 10.
+  @state() private _runMinutes: Record<string, number> = {};
 
   private _updateScheduled = false;
   private _scheduleUpdate() {
@@ -221,6 +227,65 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
     } catch (err) {
       const msg = extractErrorMessage(err);
       console.error("irrigate_now failed", err);
+      showToast(
+        this,
+        `${localize("panels.zones.confirm_irrigate.toast_failed", this.hass.language)}: ${msg}`,
+      );
+    }
+  }
+
+  // --- rain delay / vacation hold (WS-5) -----------------------------------
+
+  /** The active hold's resume time (Date) when in the future, else null. */
+  private get _rainDelayUntil(): Date | null {
+    const raw = this._outlook?.rain_delay_until;
+    if (!raw) return null;
+    const d = new Date(raw);
+    return d.getTime() > Date.now() ? d : null;
+  }
+
+  private async _setRainDelay(hours: number): Promise<void> {
+    if (!this.hass) return;
+    try {
+      await setRainDelayHours(this.hass, hours);
+      await this._fetchData();
+    } catch (err) {
+      console.error("set_rain_delay failed", err);
+      showErrorToast(this, this.hass, "common.errors.action_failed", err);
+    }
+  }
+
+  private async _clearRainDelay(): Promise<void> {
+    if (!this.hass) return;
+    try {
+      await clearRainDelay(this.hass);
+      await this._fetchData();
+    } catch (err) {
+      console.error("clear_rain_delay failed", err);
+      showErrorToast(this, this.hass, "common.errors.action_failed", err);
+    }
+  }
+
+  // --- custom-duration manual run (WS-5) -----------------------------------
+
+  private _zoneRunMinutes(zone: SmartIrrigationZone): number {
+    const key = String(zone.id ?? "");
+    return this._runMinutes[key] ?? 10;
+  }
+
+  private async _runZoneFor(zone: SmartIrrigationZone): Promise<void> {
+    if (!this.hass || !zone.linked_entity || zone.id === undefined) return;
+    const minutes = this._zoneRunMinutes(zone);
+    if (!(minutes > 0)) return;
+    try {
+      await runZone(this.hass, zone.id.toString(), minutes);
+      showToast(
+        this,
+        `${localize("panels.zones.run_zone.toast_started", this.hass.language)}: ${zone.name} (${minutes} min)`,
+      );
+    } catch (err) {
+      const msg = extractErrorMessage(err);
+      console.error("run_zone failed", err);
       showToast(
         this,
         `${localize("panels.zones.confirm_irrigate.toast_failed", this.hass.language)}: ${msg}`,
@@ -522,6 +587,54 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
           ${last ? this._renderLastRunLine(last) : ""}
         </div>
       </ha-card>
+    `;
+  }
+
+  /**
+   * Rain delay / vacation hold control. When a hold is active it shows a
+   * prominent "Paused until …" banner with a Resume button; otherwise a compact
+   * "Delay 24h / 48h" row so the user can pause without leaving the dashboard.
+   * Automatic/scheduled runs are gated while paused — manual runs still work.
+   */
+  private _renderRainDelay(): TemplateResult {
+    if (!this.hass || this.actionsMode === "none") return html``;
+    const lang = this.hass.language;
+    const until = this._rainDelayUntil;
+
+    if (until) {
+      return html`
+        <ha-card class="rain-delay-card paused">
+          <div class="rain-delay">
+            <ha-icon icon="mdi:pause-circle"></ha-icon>
+            <span class="rain-delay-msg">
+              <strong
+                >${localize("panels.zones.rain_delay.paused", lang)}</strong
+              >
+              ${localize("panels.zones.rain_delay.until", lang)}
+              ${formatDateTime(until.toISOString())}
+            </span>
+            <button class="action-btn" @click="${() => this._clearRainDelay()}">
+              <ha-icon icon="mdi:play"></ha-icon>
+              ${localize("panels.zones.rain_delay.resume", lang)}
+            </button>
+          </div>
+        </ha-card>
+      `;
+    }
+
+    return html`
+      <div class="rain-delay-row">
+        <span class="rain-delay-label">
+          <ha-icon icon="mdi:weather-rainy"></ha-icon>
+          ${localize("panels.zones.rain_delay.title", lang)}
+        </span>
+        <button class="action-btn" @click="${() => this._setRainDelay(24)}">
+          ${localize("panels.zones.rain_delay.delay_24h", lang)}
+        </button>
+        <button class="action-btn" @click="${() => this._setRainDelay(48)}">
+          ${localize("panels.zones.rain_delay.delay_48h", lang)}
+        </button>
+      </div>
     `;
   }
 
@@ -862,8 +975,52 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                   </span>
                 `
               : ""}
+          ${this._renderRunZoneControl(zone)}
         </div>
       </ha-card>
+    `;
+  }
+
+  /** "Run for N min" inline control — a custom-duration manual run (WS-5). */
+  private _renderRunZoneControl(zone: SmartIrrigationZone): TemplateResult {
+    if (
+      !this.hass ||
+      this.actionsMode === "none" ||
+      !zone.linked_entity ||
+      zone.id === undefined
+    ) {
+      return html``;
+    }
+    const lang = this.hass.language;
+    const key = String(zone.id);
+    return html`
+      <div
+        class="run-zone-control"
+        title="${localize("panels.zones.run_zone.help", lang)}"
+      >
+        <input
+          class="run-zone-input"
+          type="number"
+          min="1"
+          max="600"
+          .value="${String(this._zoneRunMinutes(zone))}"
+          @input="${(e: Event) => {
+            const v = Number((e.target as HTMLInputElement).value);
+            this._runMinutes = { ...this._runMinutes, [key]: v };
+          }}"
+        />
+        <span class="run-zone-unit"
+          >${localize("panels.zones.run_zone.minutes", lang)}</span
+        >
+        <button
+          class="action-btn"
+          @click="${() => this._runZoneFor(zone)}"
+          ?disabled="${this.isSaving}"
+        >
+          <ha-icon icon="mdi:timer-play-outline"></ha-icon>
+          ${localize("panels.zones.run_zone.run", lang)}
+        </button>
+      </div>
     `;
   }
 
@@ -932,6 +1089,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
             `
         : ""}
       ${!isFirstTime ? this._renderOutlookBanner() : ""}
+      ${!isFirstTime ? this._renderRainDelay() : ""}
 
       <!-- Zones header card: run-all operational actions -->
       <ha-card>
@@ -1303,6 +1461,77 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
         gap: 8px;
         padding-top: 0;
         padding-bottom: 12px;
+      }
+
+      /* Custom-duration run control (WS-5) */
+      .run-zone-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: auto;
+      }
+
+      .run-zone-input {
+        width: 56px;
+        padding: 6px 8px;
+        border: 1px solid var(--divider-color);
+        border-radius: 6px;
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font: inherit;
+        text-align: right;
+      }
+
+      .run-zone-unit {
+        font-size: 0.8125rem;
+        color: var(--secondary-text-color);
+      }
+
+      /* Rain delay / vacation hold (WS-5) */
+      .rain-delay-card.paused {
+        border-left: 4px solid var(--warning-color, #ed6c02);
+        background: rgba(255, 152, 0, 0.08);
+      }
+
+      .rain-delay {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 12px 16px;
+      }
+
+      .rain-delay ha-icon {
+        flex-shrink: 0;
+        color: var(--warning-color, #ed6c02);
+        --mdc-icon-size: 22px;
+      }
+
+      .rain-delay-msg {
+        flex: 1;
+        font-size: 0.9rem;
+        line-height: 1.35;
+      }
+
+      .rain-delay-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0 4px 4px;
+        padding: 4px 0;
+      }
+
+      .rain-delay-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.8125rem;
+        color: var(--secondary-text-color);
+      }
+
+      .rain-delay-label ha-icon {
+        --mdc-icon-size: 18px;
       }
 
       /* State badge */

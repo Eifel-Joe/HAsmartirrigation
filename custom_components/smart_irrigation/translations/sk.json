@@ -294,6 +294,20 @@
       },
       "update_weather": {
         "name": "Obnoviť údaje o počasí"
+      },
+      "delay_24h": {
+        "name": "Odložiť zavlažovanie o 24 h"
+      },
+      "delay_48h": {
+        "name": "Odložiť zavlažovanie o 48 h"
+      },
+      "resume_irrigation": {
+        "name": "Pokračovať v zavlažovaní"
+      }
+    },
+    "datetime": {
+      "rain_delay": {
+        "name": "Pozastaviť do"
       }
     }
   }

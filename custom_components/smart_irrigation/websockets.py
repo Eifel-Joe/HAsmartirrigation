@@ -114,6 +114,7 @@ class SmartIrrigationConfigView(HomeAssistantView):
                 vol.Optional(const.CONF_FORECAST_WEIGHTING_ENABLED): cv.boolean,
                 vol.Optional(const.CONF_OBSERVED_WATERING_ENABLED): cv.boolean,
                 vol.Optional(const.CONF_LIVE_DURATION_ENABLED): cv.boolean,
+                vol.Optional(const.CONF_RAIN_DELAY_UNTIL): vol.Or(str, None),
                 vol.Optional(const.CONF_MANUAL_COORDINATES_ENABLED): cv.boolean,
                 vol.Optional(const.CONF_MANUAL_LATITUDE): vol.Or(float, int, None),
                 vol.Optional(const.CONF_MANUAL_LONGITUDE): vol.Or(float, int, None),
@@ -580,6 +581,47 @@ async def websocket_irrigate_now(hass: HomeAssistant, connection, msg):
 
 
 @async_response
+async def websocket_run_zone(hass: HomeAssistant, connection, msg):
+    """Run a single zone for a custom duration (minutes), bypassing the calc."""
+    coordinator = hass.data[const.DOMAIN]["coordinator"]
+    try:
+        await coordinator.async_run_zone(msg["zone_id"], float(msg["duration"]))
+        connection.send_result(msg["id"], {"success": True})
+    except Exception as e:
+        _LOGGER.error("Error running zone: %s", e)
+        connection.send_result(msg["id"], {"success": False, "error": str(e)})
+
+
+@async_response
+async def websocket_set_rain_delay(hass: HomeAssistant, connection, msg):
+    """Pause automatic irrigation: for ``hours`` from now, or until ``until``."""
+    coordinator = hass.data[const.DOMAIN]["coordinator"]
+    try:
+        if msg.get("hours") is not None:
+            await coordinator.async_delay_hours(float(msg["hours"]))
+        elif msg.get("until") is not None:
+            await coordinator.async_set_rain_delay(str(msg["until"]))
+        else:
+            await coordinator.async_clear_rain_delay()
+        connection.send_result(msg["id"], {"success": True})
+    except Exception as e:
+        _LOGGER.error("Error setting rain delay: %s", e)
+        connection.send_result(msg["id"], {"success": False, "error": str(e)})
+
+
+@async_response
+async def websocket_clear_rain_delay(hass: HomeAssistant, connection, msg):
+    """Resume automatic irrigation (clear any active rain delay)."""
+    coordinator = hass.data[const.DOMAIN]["coordinator"]
+    try:
+        await coordinator.async_clear_rain_delay()
+        connection.send_result(msg["id"], {"success": True})
+    except Exception as e:
+        _LOGGER.error("Error clearing rain delay: %s", e)
+        connection.send_result(msg["id"], {"success": False, "error": str(e)})
+
+
+@async_response
 async def websocket_get_weather_config(hass: HomeAssistant, connection, msg):
     """Return the current weather service configuration (without exposing the API key)."""
     use_weather_service = hass.data[const.DOMAIN].get(
@@ -939,6 +981,38 @@ async def async_register_websockets(hass: HomeAssistant):
                 vol.Required("type"): const.DOMAIN + "/irrigate_now",
                 vol.Optional("zone_id"): vol.Coerce(str),
             }
+        ),
+    )
+    async_register_command(
+        hass,
+        const.DOMAIN + "/run_zone",
+        websocket_run_zone,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): const.DOMAIN + "/run_zone",
+                vol.Required("zone_id"): vol.Coerce(str),
+                vol.Required("duration"): vol.Coerce(float),
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        const.DOMAIN + "/set_rain_delay",
+        websocket_set_rain_delay,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): const.DOMAIN + "/set_rain_delay",
+                vol.Optional("hours"): vol.Coerce(float),
+                vol.Optional("until"): vol.Any(str, None),
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        const.DOMAIN + "/clear_rain_delay",
+        websocket_clear_rain_delay,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {vol.Required("type"): const.DOMAIN + "/clear_rain_delay"}
         ),
     )
     async_register_command(

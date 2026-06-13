@@ -45,6 +45,7 @@ from .const import (
     CONF_DEFAULT_PLANT_TYPE,
     CONF_DEFAULT_PRECIPITATION_FORECAST_DAYS,
     CONF_DEFAULT_PRECIPITATION_THRESHOLD_MM,
+    CONF_DEFAULT_RAIN_DELAY_UNTIL,
     CONF_DEFAULT_RAIN_SENSOR,
     CONF_DEFAULT_RECURRING_SCHEDULES,
     CONF_DEFAULT_SKIP_FREEZE_ENABLED,
@@ -67,6 +68,7 @@ from .const import (
     CONF_OBSERVED_WATERING_ENABLED,
     CONF_PRECIPITATION_FORECAST_DAYS,
     CONF_PRECIPITATION_THRESHOLD_MM,
+    CONF_RAIN_DELAY_UNTIL,
     CONF_RAIN_SENSOR,
     CONF_RECURRING_SCHEDULES,
     CONF_SKIP_FREEZE_ENABLED,
@@ -288,6 +290,8 @@ class Config:
     live_duration_enabled = attr.ib(
         type=bool, default=CONF_DEFAULT_LIVE_DURATION_ENABLED
     )
+    # Rain delay / vacation hold (WS-5): ISO-8601 datetime string or None.
+    rain_delay_until = attr.ib(type=str, default=CONF_DEFAULT_RAIN_DELAY_UNTIL)
 
 
 class MigratableStore(Store):
@@ -562,6 +566,9 @@ class SmartIrrigationStorage:
                         CONF_LEGACY_FRESH_DURATION_ENABLED,
                         CONF_DEFAULT_LIVE_DURATION_ENABLED,
                     ),
+                ),
+                rain_delay_until=data["config"].get(
+                    CONF_RAIN_DELAY_UNTIL, CONF_DEFAULT_RAIN_DELAY_UNTIL
                 ),
                 # Recurring schedules are irrigation-only now; calculate/update
                 # are handled by the global daily settings. Drop any legacy

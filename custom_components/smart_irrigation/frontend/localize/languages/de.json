@@ -434,7 +434,8 @@
           "temperature": "Niedrige Temperatur",
           "wind": "Starker Wind",
           "rain_sensor": "Regensensor",
-          "freeze": "Frost"
+          "freeze": "Frost",
+          "paused": "Pausiert (Regenverzögerung)"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -477,6 +478,20 @@
           "failed": "Fehlgeschlagen",
           "skipped": "Übersprungen"
         }
+      },
+      "rain_delay": {
+        "title": "Bewässerung pausieren",
+        "paused": "Pausiert",
+        "until": "bis",
+        "delay_24h": "24 Std. pausieren",
+        "delay_48h": "48 Std. pausieren",
+        "resume": "Fortsetzen"
+      },
+      "run_zone": {
+        "run": "Starten",
+        "minutes": "Min.",
+        "help": "Diese Zone für eine bestimmte Zeit bewässern, unabhängig von der Berechnung",
+        "toast_started": "Lauf gestartet"
       }
     },
     "schedules": {

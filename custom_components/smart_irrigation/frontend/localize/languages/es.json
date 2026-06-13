@@ -435,7 +435,8 @@
           "temperature": "Temperatura baja",
           "wind": "Viento fuerte",
           "rain_sensor": "Sensor de lluvia",
-          "freeze": "Helada"
+          "freeze": "Helada",
+          "paused": "En pausa (retraso por lluvia)"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -478,6 +479,20 @@
           "failed": "Fallido",
           "skipped": "Omitido"
         }
+      },
+      "rain_delay": {
+        "title": "Pausar el riego",
+        "paused": "En pausa",
+        "until": "hasta",
+        "delay_24h": "Retrasar 24 h",
+        "delay_48h": "Retrasar 48 h",
+        "resume": "Reanudar"
+      },
+      "run_zone": {
+        "run": "Iniciar",
+        "minutes": "min",
+        "help": "Riega esta zona durante un tiempo personalizado, sin tener en cuenta el cálculo",
+        "toast_started": "Riego iniciado"
       }
     },
     "schedules": {

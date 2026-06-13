@@ -294,6 +294,20 @@
       },
       "update_weather": {
         "name": "Aggiorna dati meteo"
+      },
+      "delay_24h": {
+        "name": "Rinvia irrigazione 24 h"
+      },
+      "delay_48h": {
+        "name": "Rinvia irrigazione 48 h"
+      },
+      "resume_irrigation": {
+        "name": "Riprendi irrigazione"
+      }
+    },
+    "datetime": {
+      "rain_delay": {
+        "name": "Pausa fino a"
       }
     }
   }
