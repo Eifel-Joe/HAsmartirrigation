@@ -240,7 +240,9 @@
     "binary_sensor": {
       "irrigation_needed": { "name": "Irrigation needed" },
       "watering_now": { "name": "Watering now" },
-      "any_irrigation_needed": { "name": "Any zone needs water" }
+      "any_irrigation_needed": { "name": "Any zone needs water" },
+      "problem": { "name": "Problem" },
+      "any_problem": { "name": "Any zone has a problem" }
     },
     "number": {
       "multiplier": { "name": "Multiplier" }

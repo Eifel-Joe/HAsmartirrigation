@@ -381,6 +381,12 @@
           "proxy": "Estimación distribuida de la previsión de hoy desde el último cálculo"
         }
       },
+      "fault": {
+        "title": "Falló la última ejecución",
+        "valve_no_response": "La válvula no respondió — no se suministró agua, por lo que el balance no cambió.",
+        "flow_never_started": "No se detectó flujo — no se suministró agua, por lo que el balance no cambió.",
+        "generic": "La última ejecución de riego falló."
+      },
       "help": {
         "bucket": "Balance de humedad del suelo (cubo). Un valor negativo significa que el suelo está seco y la zona necesita agua.",
         "calculate": "Calcula cuánto tiempo regar a partir de los últimos datos. Ejecútalo después de Actualizar.",

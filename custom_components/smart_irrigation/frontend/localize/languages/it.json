@@ -425,6 +425,12 @@
           "proxy": "Stima distribuita dalla previsione di oggi dall'ultimo calcolo"
         }
       },
+      "fault": {
+        "title": "Ultima esecuzione fallita",
+        "valve_no_response": "La valvola non ha risposto — nessuna acqua erogata, il bilancio è rimasto invariato.",
+        "flow_never_started": "Nessun flusso rilevato — nessuna acqua erogata, il bilancio è rimasto invariato.",
+        "generic": "L'ultima irrigazione è fallita."
+      },
       "help": {
         "bucket": "Bilancio di umidità del suolo (secchio). Un valore negativo significa che il terreno è asciutto e la zona ha bisogno d'acqua.",
         "calculate": "Calcola la durata dell'irrigazione dai dati più recenti. Eseguilo dopo Aggiorna.",

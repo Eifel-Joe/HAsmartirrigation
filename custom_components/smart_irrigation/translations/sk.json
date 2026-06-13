@@ -266,6 +266,12 @@
       },
       "any_irrigation_needed": {
         "name": "Niektorá zóna potrebuje vodu"
+      },
+      "problem": {
+        "name": "Problém"
+      },
+      "any_problem": {
+        "name": "Niektorá zóna má problém"
       }
     },
     "number": {

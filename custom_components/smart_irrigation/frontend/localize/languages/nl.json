@@ -380,6 +380,12 @@
           "proxy": "Schatting verdeeld op basis van de verwachting van vandaag sinds de laatste berekening"
         }
       },
+      "fault": {
+        "title": "Laatste run mislukt",
+        "valve_no_response": "De klep reageerde niet — er is geen water gegeven, dus de balans bleef ongewijzigd.",
+        "flow_never_started": "Geen doorstroming gedetecteerd — er is geen water gegeven, dus de balans bleef ongewijzigd.",
+        "generic": "De laatste irrigatierun is mislukt."
+      },
       "help": {
         "bucket": "Bodemvochtbalans (voorraad). Een negatieve waarde betekent dat de bodem droog is en de zone water nodig heeft.",
         "calculate": "Berekent op basis van de nieuwste gegevens hoe lang er bewaterd wordt. Voer dit uit na Bijwerken.",

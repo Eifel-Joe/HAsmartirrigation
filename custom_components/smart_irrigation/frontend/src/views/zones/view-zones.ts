@@ -24,6 +24,7 @@ import {
   UpcomingRun,
   SkipCheck,
   ZoneEstimate,
+  ZoneFault,
 } from "../../types";
 import {
   output_unit,
@@ -626,6 +627,36 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
     return this._outlook?.zone_estimates?.[String(zone.id)];
   }
 
+  private _zoneFault(zone: SmartIrrigationZone): ZoneFault | undefined {
+    if (zone.id === undefined) return undefined;
+    return this._outlook?.zone_faults?.[String(zone.id)];
+  }
+
+  /**
+   * Prominent banner when this zone's most recent run failed (e.g. the valve
+   * never opened). The bucket was deliberately left unchanged, so the deficit
+   * persists until the next successful run clears the fault.
+   */
+  private _renderZoneFault(zone: SmartIrrigationZone): TemplateResult {
+    if (!this.hass) return html``;
+    const fault = this._zoneFault(zone);
+    if (!fault) return html``;
+    const lang = this.hass.language;
+    const detail =
+      localize(`panels.zones.fault.${fault.reason}`, lang) ||
+      localize("panels.zones.fault.generic", lang);
+    const since = fault.timestamp ? formatDateTime(fault.timestamp) : "";
+    return html`
+      <div class="zone-fault" title="${since}">
+        <ha-icon icon="mdi:alert-circle"></ha-icon>
+        <span>
+          <strong>${localize("panels.zones.fault.title", lang)}</strong>
+          — ${detail}
+        </span>
+      </div>
+    `;
+  }
+
   /**
    * Read-only "live" deficit estimate chip for the status line. Distinct from
    * the official bucket (which drives irrigation) — this just shows the
@@ -718,6 +749,9 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
                 ></ha-icon-button>
               `}
         </div>
+
+        <!-- RUN FAULT (e.g. valve didn't open) -->
+        ${this._renderZoneFault(zone)}
 
         <!-- AT-A-GLANCE DECISION -->
         ${this._renderZoneDecision(zone)}
@@ -1100,6 +1134,26 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
       .zone-decision.skip {
         background: rgba(255, 152, 0, 0.12);
         color: var(--warning-color, #ed6c02);
+      }
+
+      /* Run fault — the strongest per-zone state (a run failed). */
+      .zone-fault {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 16px 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        line-height: 1.35;
+        background: rgba(244, 67, 54, 0.12);
+        color: var(--error-color, #f44336);
+        border-left: 4px solid var(--error-color, #f44336);
+      }
+
+      .zone-fault ha-icon {
+        flex-shrink: 0;
+        --mdc-icon-size: 22px;
       }
 
       /* Global outlook banner — tinted like the per-zone status banners so the

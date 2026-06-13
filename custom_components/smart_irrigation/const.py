@@ -267,6 +267,19 @@ FLOW_POLL_INTERVAL = 15  # seconds between flow meter readings
 # every calculation; only ever non-zero while forecast weighting is enabled.
 ZONE_IRRIGATION_TARGET_BUCKET = "irrigation_target_bucket"
 
+# Valve-run verification (WS-1 "close the loop"). After the runner opens a zone's
+# linked valve it confirms the entity actually reports an on-state; if it does
+# not the run is treated as failed — the bucket is NOT replenished and the zone
+# is flagged with a fault so a single automation can alert on it. Faults are held
+# in memory on the coordinator (like the skip evaluation), not persisted.
+# Seconds to wait for a freshly-opened valve to report on before declaring it
+# unresponsive, and how often to re-check within that window.
+VALVE_CONFIRM_TIMEOUT = 10
+VALVE_CONFIRM_POLL = 1
+# Fault reason codes (also i18n keys under panels.zones.fault.*).
+FAULT_VALVE_NO_RESPONSE = "valve_no_response"
+FAULT_FLOW_NEVER_STARTED = "flow_never_started"
+
 CONF_ZONE_SEQUENCING = "zone_sequencing"
 CONF_ZONE_SEQUENCING_SEQUENTIAL = "sequential"
 CONF_ZONE_SEQUENCING_PARALLEL = "parallel"

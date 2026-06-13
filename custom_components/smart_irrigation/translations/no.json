@@ -266,6 +266,12 @@
       },
       "any_irrigation_needed": {
         "name": "En sone trenger vann"
+      },
+      "problem": {
+        "name": "Problem"
+      },
+      "any_problem": {
+        "name": "En sone har et problem"
       }
     },
     "number": {

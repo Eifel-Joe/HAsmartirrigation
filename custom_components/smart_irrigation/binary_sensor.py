@@ -64,6 +64,7 @@ async def async_setup_entry(
                 hass, f"{base}_irrigation_needed", config
             ),
             SmartIrrigationZoneWateringNowSensor(hass, f"{base}_watering_now", config),
+            SmartIrrigationZoneProblemSensor(hass, f"{base}_problem", config),
         ]
         registered[config["id"]] = entities
         async_add_devices(entities)
@@ -74,8 +75,13 @@ async def async_setup_entry(
         )
     )
 
-    # The global any-zone sensor lives on the hub device and exists once.
-    async_add_devices([SmartIrrigationGlobalIrrigationNeededSensor(hass)])
+    # The global any-zone sensors live on the hub device and exist once.
+    async_add_devices(
+        [
+            SmartIrrigationGlobalIrrigationNeededSensor(hass),
+            SmartIrrigationGlobalProblemSensor(hass),
+        ]
+    )
 
 
 class SmartIrrigationZoneBinarySensor(BinarySensorEntity):
@@ -215,6 +221,58 @@ class SmartIrrigationZoneWateringNowSensor(SmartIrrigationZoneBinarySensor):
         await super().async_will_remove_from_hass()
 
 
+class SmartIrrigationZoneProblemSensor(SmartIrrigationZoneBinarySensor):
+    """On when the zone's last irrigation run failed (e.g. valve didn't open).
+
+    Reflects the coordinator's in-memory fault state (set by the runner when a
+    freshly-opened valve never reports on, or a flow zone never registers flow).
+    Clears automatically on the next successful run.
+    """
+
+    suffix = "problem"
+    _attr_translation_key = "problem"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+
+    def __init__(self, hass: HomeAssistant, entity_id: str, zone: dict) -> None:
+        """Initialize and subscribe to fault updates."""
+        super().__init__(hass, entity_id, zone)
+        async_dispatcher_connect(
+            hass, const.DOMAIN + "_faults_updated", self._async_fault_updated
+        )
+
+    @callback
+    def _async_fault_updated(self, zone_id=None):
+        """A fault for some zone changed — refresh if it's ours."""
+        if zone_id is not None and int(zone_id) != int(self._zone_id):
+            return
+        if self.hass:
+            self.async_schedule_update_ha_state()
+
+    def _fault(self):
+        """The current fault dict for this zone, or None."""
+        if not (self.hass and self.hass.data):
+            return None
+        coordinator = self.hass.data[const.DOMAIN].get("coordinator")
+        if coordinator is None or not hasattr(coordinator, "get_zone_fault"):
+            return None
+        return coordinator.get_zone_fault(self._zone_id)
+
+    @property
+    def is_on(self) -> bool:
+        """True while this zone has an unresolved run fault."""
+        return self._fault() is not None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Zone identity plus the fault reason / time."""
+        fault = self._fault() or {}
+        return {
+            **super().extra_state_attributes,
+            "fault_reason": fault.get("reason"),
+            "fault_since": fault.get("timestamp"),
+        }
+
+
 class SmartIrrigationGlobalIrrigationNeededSensor(BinarySensorEntity):
     """On when any zone needs irrigation (hub device)."""
 
@@ -278,4 +336,68 @@ class SmartIrrigationGlobalIrrigationNeededSensor(BinarySensorEntity):
         """Push the initial state."""
         await super().async_added_to_hass()
         self._recompute()
+        self.async_schedule_update_ha_state()
+
+
+class SmartIrrigationGlobalProblemSensor(BinarySensorEntity):
+    """On when any zone has an unresolved irrigation fault (hub device)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "any_problem"
+    _attr_should_poll = False
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the global problem sensor."""
+        self._hass = hass
+        self.entity_id = f"{PLATFORM}.{const.DOMAIN}_problem"
+        async_dispatcher_connect(
+            hass, const.DOMAIN + "_faults_updated", self._async_updated
+        )
+        async_dispatcher_connect(
+            hass, const.DOMAIN + "_config_updated", self._async_updated
+        )
+
+    def _faulted_zone_names(self) -> list[str]:
+        """Names of the zones currently in a fault state."""
+        try:
+            coordinator = self._hass.data[const.DOMAIN]["coordinator"]
+            faults = coordinator.get_zone_faults()
+            names = []
+            for zone_id in faults:
+                zone = coordinator.store.get_zone(zone_id)
+                names.append(zone.get(const.ZONE_NAME) if zone else str(zone_id))
+            return names
+        except (KeyError, AttributeError, TypeError):
+            return []
+
+    @callback
+    def _async_updated(self, _zone_id=None):
+        """A fault (or zone) changed — refresh."""
+        if self.hass:
+            self.async_schedule_update_ha_state()
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID."""
+        return f"{const.DOMAIN}_problem"
+
+    @property
+    def device_info(self) -> dict:
+        """Group under the hub device."""
+        return hub_device_info(self._hass)
+
+    @property
+    def is_on(self) -> bool:
+        """True when at least one zone has a fault."""
+        return bool(self._faulted_zone_names())
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Expose which zones are faulted."""
+        return {"zones": self._faulted_zone_names()}
+
+    async def async_added_to_hass(self):
+        """Push the initial state."""
+        await super().async_added_to_hass()
         self.async_schedule_update_ha_state()

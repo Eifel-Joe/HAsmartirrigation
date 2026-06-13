@@ -504,6 +504,12 @@
           "proxy": "Estimate distributed from today's forecast since the last calculation"
         }
       },
+      "fault": {
+        "title": "Last run failed",
+        "valve_no_response": "The valve didn't respond — no water was delivered, so the bucket was left unchanged.",
+        "flow_never_started": "No flow was detected — no water was delivered, so the bucket was left unchanged.",
+        "generic": "The last irrigation run failed."
+      },
       "help": {
         "bucket": "Soil-moisture balance. A negative value means the soil is dry and the zone needs water.",
         "calculate": "Works out how long to water from the latest data. Run this after Update.",

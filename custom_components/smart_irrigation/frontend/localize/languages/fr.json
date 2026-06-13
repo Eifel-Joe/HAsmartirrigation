@@ -382,6 +382,12 @@
           "proxy": "Estimation répartie à partir de la prévision du jour depuis le dernier calcul"
         }
       },
+      "fault": {
+        "title": "Échec de la dernière exécution",
+        "valve_no_response": "La vanne n'a pas répondu — aucune eau distribuée, le bilan reste inchangé.",
+        "flow_never_started": "Aucun débit détecté — aucune eau distribuée, le bilan reste inchangé.",
+        "generic": "La dernière exécution d'arrosage a échoué."
+      },
       "help": {
         "bucket": "Bilan d'humidité du sol (seau). Une valeur négative signifie que le sol est sec et que la zone a besoin d'eau.",
         "calculate": "Calcule la durée d'arrosage à partir des dernières données. À lancer après Mettre à jour.",

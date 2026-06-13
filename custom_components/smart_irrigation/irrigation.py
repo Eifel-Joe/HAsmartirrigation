@@ -25,6 +25,10 @@ _LOGGER = logging.getLogger(__name__)
 # observer does not also credit the bucket for a run SI already accounts for.
 SI_VALVE_SUPPRESS_WINDOW = 30
 
+# Linked-entity states that count as "the valve actually opened" (switch on,
+# valve open/opening). Mirrors binary_sensor._WATERING_STATES.
+_VALVE_ON_STATES = ("on", "open", "opening")
+
 
 class IrrigationRunnerMixin:
     """Irrigation execution strategies for SmartIrrigationCoordinator.
@@ -51,6 +55,72 @@ class IrrigationRunnerMixin:
         experimental forecast-weighting feature trimmed the last calculation.
         """
         return zone.get(const.ZONE_IRRIGATION_TARGET_BUCKET) or 0.0
+
+    # --- Valve-run verification + per-zone fault state (WS-1) ---------------
+
+    def _set_zone_fault(self, zone_id, reason: str) -> None:
+        """Record that a run for this zone failed (in-memory, like skip eval).
+
+        Dispatches ``_faults_updated`` so the per-zone / hub "problem" binary
+        sensors refresh. The fault clears on the next successful run.
+        """
+        faults = getattr(self, "_zone_faults", None)
+        if faults is None:
+            faults = self._zone_faults = {}
+        faults[int(zone_id)] = {
+            "reason": reason,
+            "timestamp": dt_util.now().isoformat(),
+        }
+        _LOGGER.warning("Zone %s irrigation fault: %s", zone_id, reason)
+        self._notify_fault_listeners(int(zone_id))
+
+    def _clear_zone_fault(self, zone_id) -> None:
+        """Clear any recorded fault for this zone (a run just succeeded)."""
+        faults = getattr(self, "_zone_faults", None)
+        if faults and int(zone_id) in faults:
+            del faults[int(zone_id)]
+            self._notify_fault_listeners(int(zone_id))
+
+    def _notify_fault_listeners(self, zone_id: int) -> None:
+        """Refresh the problem binary sensors AND the dashboard outlook.
+
+        ``_faults_updated`` drives the per-zone / hub problem sensors;
+        ``_update_frontend`` is the signal the panel's subscription re-fetches
+        on (the outlook now carries ``zone_faults``), so the fault chip appears
+        and clears live without a dedicated WS command.
+        """
+        async_dispatcher_send(self.hass, const.DOMAIN + "_faults_updated", zone_id)
+        async_dispatcher_send(self.hass, const.DOMAIN + "_update_frontend")
+
+    def get_zone_fault(self, zone_id):
+        """Return ``{reason, timestamp}`` for a faulted zone, else None."""
+        return (getattr(self, "_zone_faults", None) or {}).get(int(zone_id))
+
+    def get_zone_faults(self) -> dict:
+        """Return the full ``{zone_id: {reason, timestamp}}`` fault map."""
+        return dict(getattr(self, "_zone_faults", None) or {})
+
+    async def _confirm_valve_running(self, zone_id, entity_id):
+        """Confirm a freshly-opened linked entity actually reports an on-state.
+
+        Returns True if confirmed on within the grace window, False if it stayed
+        off (a fault), or None when the entity is not readable (unknown /
+        unavailable / missing) so verification cannot be performed — write-only
+        valves are never penalised. Behaviour is unchanged for callers that
+        treat None/True identically (only an explicit False aborts a run).
+        """
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in ("unavailable", "unknown"):
+            return None  # not verifiable — don't fault write-only valves
+        waited = 0.0
+        while True:
+            state = self.hass.states.get(entity_id)
+            if state is not None and state.state in _VALVE_ON_STATES:
+                return True
+            if waited >= const.VALVE_CONFIRM_TIMEOUT:
+                return False
+            await asyncio.sleep(const.VALVE_CONFIRM_POLL)
+            waited += const.VALVE_CONFIRM_POLL
 
     @callback
     async def _irrigate_linked_entities(self, zone_ids=None):
@@ -152,10 +222,18 @@ class IrrigationRunnerMixin:
                 accumulated,
             )
 
+        if target_volume > 0 and accumulated <= 0:
+            # The valve was told to open but the flow sensor never registered any
+            # flow — treat as a failed run: do NOT credit the bucket, flag a fault
+            # so the deficit (and the problem sensor) persist.
+            self._set_zone_fault(zone_id, const.FAULT_FLOW_NEVER_STARTED)
+            return
+
         if size > 0:
             actual_mm = accumulated / size
             if not ha_config_is_metric:
                 actual_mm = convert_between(const.UNIT_MM, const.UNIT_INCH, actual_mm)
+            self._clear_zone_fault(zone_id)
             original_bucket = zone.get(const.ZONE_BUCKET) or 0.0
             new_bucket = min(floor_display, original_bucket + actual_mm)
             await self.store.async_update_zone(
@@ -394,6 +472,16 @@ class IrrigationRunnerMixin:
                     await self.hass.services.async_call(
                         domain, "turn_on", {"entity_id": entity_id}
                     )
+                    if await self._confirm_valve_running(zid, entity_id) is False:
+                        # Valve never opened — drop this zone from the rotation
+                        # without replenishing its bucket; the fault persists.
+                        self._set_zone_fault(zid, const.FAULT_VALVE_NO_RESPONSE)
+                        await self.hass.services.async_call(
+                            domain, "turn_off", {"entity_id": entity_id}
+                        )
+                        timed_remaining[zid] = 0
+                        last_finish[zid] = loop.time()
+                        continue
                     await asyncio.sleep(slot)
                     await self.hass.services.async_call(
                         domain, "turn_off", {"entity_id": entity_id}
@@ -402,6 +490,7 @@ class IrrigationRunnerMixin:
                     _LOGGER.info("Rotating irrigation: finished slot for %s", entity_id)
                     if timed_remaining[zid] <= 0:
                         # Zone fully irrigated across its slots — replenish bucket.
+                        self._clear_zone_fault(zid)
                         await self._reset_zone_bucket_after_run(zid)
 
                 last_finish[zid] = loop.time()
@@ -449,10 +538,24 @@ class IrrigationRunnerMixin:
                 await self.hass.services.async_call(
                     domain, "turn_on", {"entity_id": entity_id}
                 )
+                if (
+                    await self._confirm_valve_running(zone[const.ZONE_ID], entity_id)
+                    is False
+                ):
+                    # Valve never opened — abort this zone without replenishing
+                    # the bucket so the deficit (and the fault) persist.
+                    self._set_zone_fault(
+                        zone[const.ZONE_ID], const.FAULT_VALVE_NO_RESPONSE
+                    )
+                    await self.hass.services.async_call(
+                        domain, "turn_off", {"entity_id": entity_id}
+                    )
+                    continue
                 await asyncio.sleep(duration)
                 await self.hass.services.async_call(
                     domain, "turn_off", {"entity_id": entity_id}
                 )
+                self._clear_zone_fault(zone[const.ZONE_ID])
                 await self._reset_zone_bucket_after_run(zone[const.ZONE_ID])
             _LOGGER.info("Sequential irrigation: finished %s", entity_id)
 
@@ -483,11 +586,20 @@ class IrrigationRunnerMixin:
                 async def _turn_off(
                     eid=entity_id, dom=domain, dur=duration, zid=zone[const.ZONE_ID]
                 ):
+                    if await self._confirm_valve_running(zid, eid) is False:
+                        # Valve never opened — abort without replenishing the
+                        # bucket so the deficit and fault persist.
+                        self._set_zone_fault(zid, const.FAULT_VALVE_NO_RESPONSE)
+                        await self.hass.services.async_call(
+                            dom, "turn_off", {"entity_id": eid}
+                        )
+                        return
                     await asyncio.sleep(dur)
                     await self.hass.services.async_call(
                         dom, "turn_off", {"entity_id": eid}
                     )
                     _LOGGER.info("Parallel irrigation: turned off %s", eid)
+                    self._clear_zone_fault(zid)
                     await self._reset_zone_bucket_after_run(zid)
 
                 asyncio.create_task(_turn_off())

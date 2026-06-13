@@ -380,6 +380,12 @@
           "proxy": "Schätzung aus der heutigen Vorhersage seit der letzten Berechnung"
         }
       },
+      "fault": {
+        "title": "Letzter Lauf fehlgeschlagen",
+        "valve_no_response": "Das Ventil hat nicht reagiert — es wurde kein Wasser abgegeben, der Wasserspeicher bleibt unverändert.",
+        "flow_never_started": "Kein Durchfluss erkannt — es wurde kein Wasser abgegeben, der Wasserspeicher bleibt unverändert.",
+        "generic": "Der letzte Bewässerungslauf ist fehlgeschlagen."
+      },
       "help": {
         "bucket": "Bodenfeuchte-Bilanz (Vorrat). Ein negativer Wert bedeutet, dass der Boden trocken ist und die Zone Wasser braucht.",
         "calculate": "Berechnet aus den neuesten Daten, wie lange bewässert wird. Nach dem Aktualisieren ausführen.",

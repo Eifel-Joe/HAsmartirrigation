@@ -160,12 +160,19 @@ export interface ZoneEstimate {
   as_of: string | null;
 }
 
+/** A zone whose most recent irrigation run failed (e.g. the valve never opened). */
+export interface ZoneFault {
+  reason: string;
+  timestamp: string;
+}
+
 export interface IrrigationOutlook {
   weather_service_enabled: boolean;
   skip_preview: SkipPreview;
   last_skip_evaluation: (SkipPreview & { timestamp: string }) | null;
   upcoming_runs: UpcomingRun[];
   zone_estimates?: Record<string, ZoneEstimate>;
+  zone_faults?: Record<string, ZoneFault>;
 }
 
 export interface IrrigationStartTrigger {

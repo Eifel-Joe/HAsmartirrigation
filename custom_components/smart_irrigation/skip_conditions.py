@@ -91,6 +91,9 @@ class SkipConditionsMixin:
         except Exception as e:  # noqa: BLE001 — outlook must not fail on the estimate
             _LOGGER.debug("Intra-day estimates unavailable: %s", e)
             zone_estimates = {}
+        # Per-zone run faults (WS-1): keyed by zone id (string) so the dashboard
+        # can flag a zone whose last run failed (e.g. the valve never opened).
+        faults = {str(zid): f for zid, f in self.get_zone_faults().items()}
         return {
             "weather_service_enabled": bool(
                 config.get(
@@ -102,6 +105,7 @@ class SkipConditionsMixin:
             "last_skip_evaluation": getattr(self, "_last_skip_evaluation", None),
             "upcoming_runs": upcoming,
             "zone_estimates": zone_estimates,
+            "zone_faults": faults,
         }
 
     async def _eval_precipitation(self, config) -> dict:

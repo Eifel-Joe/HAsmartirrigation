@@ -266,6 +266,12 @@
       },
       "any_irrigation_needed": {
         "name": "Une zone a besoin d'eau"
+      },
+      "problem": {
+        "name": "Problème"
+      },
+      "any_problem": {
+        "name": "Une zone a un problème"
       }
     },
     "number": {

@@ -381,6 +381,12 @@
           "proxy": "Estimat fordelt fra dagens varsel siden forrige beregning"
         }
       },
+      "fault": {
+        "title": "Siste kjøring mislyktes",
+        "valve_no_response": "Ventilen svarte ikke — det ble ikke gitt vann, så vannbalansen er uendret.",
+        "flow_never_started": "Ingen gjennomstrømning oppdaget — det ble ikke gitt vann, så vannbalansen er uendret.",
+        "generic": "Siste vanningskjøring mislyktes."
+      },
       "help": {
         "bucket": "Jordfuktighetsbalanse (bøtte). En negativ verdi betyr at jorda er tørr og sonen trenger vann.",
         "calculate": "Beregner hvor lenge det skal vannes ut fra de nyeste dataene. Kjør dette etter Oppdater.",

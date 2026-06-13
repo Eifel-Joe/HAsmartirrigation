@@ -380,6 +380,12 @@
           "proxy": "Odhad rozložený z dnešnej predpovede od posledného výpočtu"
         }
       },
+      "fault": {
+        "title": "Posledný beh zlyhal",
+        "valve_no_response": "Ventil nereagoval — voda nebola dodaná, takže zostatok ostal nezmenený.",
+        "flow_never_started": "Nezistil sa žiadny prietok — voda nebola dodaná, takže zostatok ostal nezmenený.",
+        "generic": "Posledné zavlažovanie zlyhalo."
+      },
       "help": {
         "bucket": "Bilancia vlhkosti pôdy (vedro). Záporná hodnota znamená, že pôda je suchá a zóna potrebuje vodu.",
         "calculate": "Vypočíta dĺžku zavlažovania z najnovších údajov. Spustite po Aktualizovať.",
