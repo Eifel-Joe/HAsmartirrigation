@@ -29,6 +29,8 @@ class TestSmartIrrigationPanel:
         hass.config.path = Mock(return_value="/config")
         hass.http = Mock()
         hass.http.async_register_static_paths = AsyncMock()
+        # No Lovelace store by default → card falls back to add_extra_js_url.
+        hass.data = {}
         return hass
 
     async def test_async_register_panel(self, mock_hass):
@@ -46,8 +48,12 @@ class TestSmartIrrigationPanel:
             # Verify static path registration
             mock_hass.http.async_register_static_paths.assert_called_once()
 
-            # The Lovelace card bundle is loaded for all users
-            mock_extra_js.assert_called_once_with(mock_hass, CARD_URL)
+            # No writable Lovelace resource store on the mock hass, so the card
+            # bundle falls back to add_extra_js_url (with a cache-bust query).
+            mock_extra_js.assert_called_once()
+            called_hass, called_url = mock_extra_js.call_args[0]
+            assert called_hass is mock_hass
+            assert called_url.split("?")[0] == CARD_URL
 
             # Verify panel registration
             mock_register.assert_called_once()
@@ -61,6 +67,42 @@ class TestSmartIrrigationPanel:
             assert call_args[1]["sidebar_icon"] == PANEL_ICON
             assert call_args[1]["require_admin"] is True
             assert call_args[1]["config"] == {}
+
+    async def test_card_registered_as_lovelace_resource(self, mock_hass):
+        """Storage-mode dashboards get a real Lovelace resource (awaited by HA),
+        not add_extra_js_url which races the card render."""
+
+        class ResourceStorageCollection:  # name is what the code checks for
+            def __init__(self):
+                self.loaded = True
+                self.created = []
+
+            def async_items(self):
+                return []
+
+            async def async_create_item(self, item):
+                self.created.append(item)
+
+        resources = ResourceStorageCollection()
+        mock_hass.data = {"lovelace": Mock(resources=resources)}
+
+        with (
+            patch(
+                "custom_components.smart_irrigation.panel.panel_custom.async_register_panel"
+            ),
+            patch(
+                "custom_components.smart_irrigation.panel.frontend.add_extra_js_url"
+            ) as mock_extra_js,
+        ):
+            await async_register_panel(mock_hass)
+
+            # The card is registered as a module resource, deduped by base URL.
+            assert len(resources.created) == 1
+            item = resources.created[0]
+            assert item["res_type"] == "module"
+            assert item["url"].split("?")[0] == CARD_URL
+            # ...and the racy fallback is NOT used.
+            mock_extra_js.assert_not_called()
 
     async def test_async_register_panel_static_path_config(self, mock_hass):
         """Test panel static paths: panel bundle, card stub, card impl, langs."""

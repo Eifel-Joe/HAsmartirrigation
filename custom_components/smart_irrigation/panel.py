@@ -49,10 +49,21 @@ async def async_register_panel(hass: HomeAssistant):
         ]
     )
 
-    # Load the Lovelace card bundle for every user (admin panel is admin-only,
-    # but the card lets non-admins add a zones dashboard). add_extra_js_url is
-    # idempotent, so this is safe across reloads.
-    frontend.add_extra_js_url(hass, CARD_URL)
+    # Make the Lovelace card bundle available to every user (the admin panel is
+    # admin-only, but the card lets non-admins add a zones dashboard).
+    #
+    # Prefer a real Lovelace resource: a storage-mode dashboard *awaits* its
+    # registered resources before rendering custom cards, so the card element is
+    # defined in time. add_extra_js_url loads in parallel and Lovelace does NOT
+    # wait for it, which races the dashboard render and intermittently yields a
+    # "Custom element doesn't exist" / config error on the card. Fall back to
+    # add_extra_js_url only for YAML-mode dashboards (no writable resource store).
+    try:
+        version = int(card_url.stat().st_mtime)  # cache-bust on a HACS update
+    except OSError:
+        version = 0
+    if not await _async_register_card_resource(hass, version):
+        frontend.add_extra_js_url(hass, f"{CARD_URL}?v={version}")
 
     await panel_custom.async_register_panel(
         hass,
@@ -64,6 +75,37 @@ async def async_register_panel(hass: HomeAssistant):
         require_admin=True,
         config={},
     )
+
+
+async def _async_register_card_resource(hass: HomeAssistant, version: int) -> bool:
+    """Register the card as a storage-mode Lovelace resource (deduped/updated).
+
+    Lovelace awaits its registered resources before rendering custom cards, so
+    this guarantees the card element is defined in time (unlike add_extra_js_url,
+    which races the dashboard render). Returns True when handled, False when there
+    is no writable resource store (e.g. YAML-mode Lovelace), so the caller can
+    fall back to add_extra_js_url.
+    """
+    lovelace = hass.data.get("lovelace")
+    resources = getattr(lovelace, "resources", None)
+    # Only the storage-backed collection is writable; YAML mode is read-only.
+    if resources is None or type(resources).__name__ != "ResourceStorageCollection":
+        return False
+
+    if not resources.loaded:
+        await resources.async_load()
+
+    target = f"{CARD_URL}?v={version}"
+    for item in resources.async_items():
+        if item.get("url", "").split("?")[0] == CARD_URL:
+            if item.get("url") != target:  # bump the cache-bust after an update
+                await resources.async_update_item(
+                    item["id"], {"res_type": "module", "url": target}
+                )
+            return True
+
+    await resources.async_create_item({"res_type": "module", "url": target})
+    return True
 
 
 def remove_panel(hass: HomeAssistant):
