@@ -86,6 +86,11 @@ class SkipConditionsMixin:
         config = await self.store.async_get_config()
         skip_preview = await self.async_evaluate_skip_conditions()
         upcoming = await self.recurring_schedule_manager.async_get_upcoming_runs()
+        # The days-between guard is a day counter bumped at local midnight, so a
+        # live "as of now" evaluation is pessimistic right after a run (counter
+        # 0). Project it to the next scheduled irrigate run so the preview shows
+        # what the run-time decision will actually be.
+        self._project_days_between_to_next_run(skip_preview, upcoming)
         try:
             # Served from the cache maintained by the update/calc cycles
             # (computed once on demand if no cycle has run yet).
@@ -182,6 +187,44 @@ class SkipConditionsMixin:
             "observed": days_since,
             "threshold": days_between,
         }
+
+    @staticmethod
+    def _project_days_between_to_next_run(skip_preview: dict, upcoming: list) -> None:
+        """Advance the days-between preview to the next irrigate run's date.
+
+        The counter increments once per local midnight (see
+        ``_increment_days_since_irrigation``), so the value at the next run is
+        ``days_since + (next_run_date − today)``. Mutates the days-between check
+        in ``skip_preview`` in place; no-op when the guard is disabled, the
+        counter can't be projected, or no future irrigate run is scheduled.
+        Preview-only — the real run-time gate in ``_eval_days_between`` is
+        untouched (it fires on the run day, where the offset is 0).
+        """
+        check = next(
+            (c for c in skip_preview["checks"] if c["id"] == SKIP_DAYS_BETWEEN),
+            None,
+        )
+        if check is None or not check["enabled"]:
+            return
+        next_run = next(
+            (
+                r["next_run_utc"]
+                for r in upcoming
+                if r.get("action") == "irrigate" and r.get("next_run_utc")
+            ),
+            None,
+        )
+        if not next_run:
+            return
+        run_dt = dt_util.parse_datetime(next_run)
+        if run_dt is None:
+            return
+        offset = (dt_util.as_local(run_dt).date() - dt_util.now().date()).days
+        if offset <= 0:
+            return
+        projected = check["observed"] + offset
+        check["observed"] = projected
+        check["would_skip"] = projected < check["threshold"]
 
     async def _eval_temp(self, config) -> dict:
         """Structured low-temperature guard (current conditions)."""
