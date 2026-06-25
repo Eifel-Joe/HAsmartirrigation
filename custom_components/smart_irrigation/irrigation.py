@@ -113,6 +113,111 @@ class IrrigationRunnerMixin:
             return "manual"
         return "schedule"
 
+    # --- In-progress run tracking + stop action -----------------------------
+
+    def _active_run_registry(self) -> dict:
+        """Lazily-created ``{zone_id: {stop, started_at, ends_at}}`` map.
+
+        Tracks the zones with a valve currently held open by the runner so a
+        user can stop a run mid-way and the dashboard can show a live countdown.
+        """
+        reg = getattr(self, "_active_runs", None)
+        if reg is None:
+            reg = self._active_runs = {}
+        return reg
+
+    def _register_active_run(self, zone_id, duration_seconds, *, has_end: bool):
+        """Mark a zone's run as in-progress; return its stop ``asyncio.Event``.
+
+        ``has_end`` is True for time-bounded (synthetic / manual) runs, so the
+        dashboard can render a countdown to ``ends_at``; flow-metered runs are
+        volume-bounded (unknown finish time) and register without an end.
+        Dispatches ``_config_updated`` so the panel surfaces the Stop control.
+        """
+        reg = self._active_run_registry()
+        zid = int(zone_id)
+        event = asyncio.Event()
+        now = dt_util.now()
+        ends_at = (
+            (now + timedelta(seconds=duration_seconds)).isoformat()
+            if has_end and duration_seconds
+            else None
+        )
+        reg[zid] = {
+            "stop": event,
+            "started_at": now.isoformat(),
+            "ends_at": ends_at,
+        }
+        async_dispatcher_send(self.hass, const.DOMAIN + "_config_updated", zid)
+        return event
+
+    def _unregister_active_run(self, zone_id) -> None:
+        """Clear a zone's in-progress marker (run finished or was stopped)."""
+        reg = getattr(self, "_active_runs", None)
+        if reg and int(zone_id) in reg:
+            del reg[int(zone_id)]
+            async_dispatcher_send(
+                self.hass, const.DOMAIN + "_config_updated", int(zone_id)
+            )
+
+    def get_active_runs(self) -> dict:
+        """Return ``{zone_id: {started_at, ends_at}}`` for runs in progress."""
+        reg = getattr(self, "_active_runs", None) or {}
+        return {
+            str(zid): {"started_at": d["started_at"], "ends_at": d["ends_at"]}
+            for zid, d in reg.items()
+        }
+
+    def _run_stopped(self, zone_id) -> bool:
+        """True if a stop was requested for this zone's in-progress run."""
+        reg = getattr(self, "_active_runs", None) or {}
+        d = reg.get(int(zone_id))
+        return bool(d and d["stop"].is_set())
+
+    async def _sleep_or_stopped(self, zone_id, seconds: float) -> bool:
+        """Sleep for ``seconds``; return True if a stop was requested.
+
+        A stop is detected before and after the sleep. The valve is turned off
+        immediately by :meth:`async_stop_zone`, so this only governs how soon the
+        run loop notices and settles the accounting — within one poll interval.
+        Implemented with a plain sleep (not ``wait_for``) so it stays cheap and
+        unit-testable when ``asyncio.sleep`` is patched out.
+        """
+        reg = getattr(self, "_active_runs", None) or {}
+        d = reg.get(int(zone_id))
+        if d is not None and d["stop"].is_set():
+            return True
+        await asyncio.sleep(seconds)
+        return bool(d is not None and d["stop"].is_set())
+
+    async def async_stop_zone(self, zone_id) -> None:
+        """Stop an in-progress run for a zone immediately.
+
+        Signals the run loop to break (so it commits the water delivered so far
+        and logs a partial run) and, as a safety net, turns the linked valve off
+        directly — covering the case where no run is tracked (e.g. an externally
+        opened valve, or a run started before a restart).
+        """
+        zid = int(zone_id)
+        reg = getattr(self, "_active_runs", None) or {}
+        tracked = reg.get(zid)
+        if tracked is not None:
+            tracked["stop"].set()
+        zone = self.store.get_zone(zid) or {}
+        entity_id = zone.get(const.ZONE_LINKED_ENTITY)
+        if entity_id:
+            domain = entity_id.split(".")[0]
+            await self.hass.services.async_call(
+                domain, "turn_off", {"entity_id": entity_id}
+            )
+        _LOGGER.info("Stop requested for zone %s", zid)
+
+    async def async_stop_all_zones(self) -> None:
+        """Stop every zone with an in-progress run."""
+        reg = getattr(self, "_active_runs", None) or {}
+        for zid in list(reg.keys()):
+            await self.async_stop_zone(zid)
+
     # --- Valve-run verification + per-zone fault state (WS-1) ---------------
 
     def _set_zone_fault(self, zone_id, reason: str) -> None:
@@ -362,6 +467,7 @@ class IrrigationRunnerMixin:
         water_committed = 0.0
         elapsed = 0.0
         last_commit = 0.0
+        stopped = False
 
         # Flow runs are volume-targeted (no multiplier) → credit gross depth.
         # Timed runs inflate the duration by the multiplier → divide it back out
@@ -373,71 +479,96 @@ class IrrigationRunnerMixin:
         def _bucket_for(total_l: float) -> float:
             return min(ceiling, original_bucket + credit_depth(zone, total_l))
 
-        while elapsed < max_seconds and delivered < target_volume:
-            step = min(const.FLOW_POLL_INTERVAL, max_seconds - elapsed)
-            if step <= 0:
-                break
-            await asyncio.sleep(step)
-            elapsed += step
-            if real_flow:
-                delivered += self._read_flow_increment(zone, step)
-            else:
-                delivered += rate_lpm * step / 60.0
-            if elapsed - last_commit >= const.RUN_COMMIT_INTERVAL:
-                await self._commit_run_progress(
+        # Register the run so the dashboard can show a Stop control / countdown
+        # and a user-issued stop can interrupt the sleep below. Flow runs are
+        # volume-bounded (unknown finish) → no end time for the countdown.
+        self._register_active_run(zone_id, max_seconds, has_end=not real_flow)
+        loop = asyncio.get_running_loop()
+        try:
+            while elapsed < max_seconds and delivered < target_volume:
+                step = min(const.FLOW_POLL_INTERVAL, max_seconds - elapsed)
+                if step <= 0:
+                    break
+                t0 = loop.time()
+                if await self._sleep_or_stopped(zone_id, step):
+                    # Stopped early: count only the time actually waited so the
+                    # delivered volume (and credited bucket) stay honest.
+                    stopped = True
+                    step = min(step, loop.time() - t0)
+                elapsed += step
+                if real_flow:
+                    delivered += self._read_flow_increment(zone, step)
+                else:
+                    delivered += rate_lpm * step / 60.0
+                if stopped:
+                    break
+                if elapsed - last_commit >= const.RUN_COMMIT_INTERVAL:
+                    await self._commit_run_progress(
+                        zone_id,
+                        new_bucket=_bucket_for(delivered),
+                        volume_delta_l=delivered - water_committed,
+                        dispatch=True,
+                    )
+                    water_committed = delivered
+                    last_commit = elapsed
+
+            await self.hass.services.async_call(
+                domain, "turn_off", {"entity_id": entity_id}
+            )
+
+            if not stopped and real_flow and target_volume > 0 and delivered <= 0:
+                # Valve opened but the flow sensor never registered any flow —
+                # failed run: do not credit the bucket, flag a fault so the
+                # deficit persists.
+                self._set_zone_fault(zone_id, const.FAULT_FLOW_NEVER_STARTED)
+                await self._record_run(
                     zone_id,
-                    new_bucket=_bucket_for(delivered),
-                    volume_delta_l=delivered - water_committed,
-                    dispatch=True,
+                    result=const.RUN_RESULT_FAILED,
+                    detail=const.FAULT_FLOW_NEVER_STARTED,
+                    trigger=trigger,
                 )
-                water_committed = delivered
-                last_commit = elapsed
+                return
 
-        await self.hass.services.async_call(
-            domain, "turn_off", {"entity_id": entity_id}
-        )
-
-        if real_flow and target_volume > 0 and delivered <= 0:
-            # Valve opened but the flow sensor never registered any flow — failed
-            # run: do not credit the bucket, flag a fault so the deficit persists.
-            self._set_zone_fault(zone_id, const.FAULT_FLOW_NEVER_STARTED)
+            await self._commit_run_progress(
+                zone_id,
+                new_bucket=_bucket_for(delivered),
+                volume_delta_l=delivered - water_committed,
+                dispatch=True,
+            )
+            self._clear_zone_fault(zone_id)
+            timed_out = real_flow and delivered < target_volume
+            _LOGGER.info(
+                "Metered irrigation: zone %s %s — %.2f L in %.0fs%s",
+                zone_id,
+                "stopped" if stopped else "done",
+                delivered,
+                elapsed,
+                " (safety timeout)" if timed_out else "",
+            )
             await self._record_run(
                 zone_id,
-                result=const.RUN_RESULT_FAILED,
-                detail=const.FAULT_FLOW_NEVER_STARTED,
+                result=(
+                    const.RUN_RESULT_PARTIAL
+                    if (stopped or timed_out)
+                    else const.RUN_RESULT_COMPLETED
+                ),
+                volume_l=delivered,
+                add_to_total=False,  # already streamed in via _commit_run_progress
+                planned_s=None if real_flow else max_seconds,
+                actual_s=elapsed,
+                detail=(
+                    const.RUN_DETAIL_STOPPED
+                    if stopped
+                    else (
+                        "safety_timeout"
+                        if timed_out
+                        else zone.get(const.ZONE_EXPLANATION)
+                    )
+                ),
                 trigger=trigger,
             )
-            return
-
-        await self._commit_run_progress(
-            zone_id,
-            new_bucket=_bucket_for(delivered),
-            volume_delta_l=delivered - water_committed,
-            dispatch=True,
-        )
-        self._clear_zone_fault(zone_id)
-        timed_out = real_flow and delivered < target_volume
-        _LOGGER.info(
-            "Metered irrigation: zone %s done — %.2f L in %.0fs%s",
-            zone_id,
-            delivered,
-            elapsed,
-            " (safety timeout)" if timed_out else "",
-        )
-        await self._record_run(
-            zone_id,
-            result=(
-                const.RUN_RESULT_PARTIAL if timed_out else const.RUN_RESULT_COMPLETED
-            ),
-            volume_l=delivered,
-            add_to_total=False,  # already streamed in via _commit_run_progress
-            planned_s=None if real_flow else max_seconds,
-            actual_s=elapsed,
-            detail=(
-                "safety_timeout" if timed_out else zone.get(const.ZONE_EXPLANATION)
-            ),
-            trigger=trigger,
-        )
+        finally:
+            self._unregister_active_run(zone_id)
 
     async def _irrigate_zone_flow_slot(
         self,
@@ -460,7 +591,7 @@ class IrrigationRunnerMixin:
         elapsed = 0.0
 
         while elapsed < max_seconds and accumulated < remaining_volume:
-            await asyncio.sleep(const.FLOW_POLL_INTERVAL)
+            stopped = await self._sleep_or_stopped(zone_id, const.FLOW_POLL_INTERVAL)
             elapsed += const.FLOW_POLL_INTERVAL
             accumulated += self._read_flow_increment(zone, const.FLOW_POLL_INTERVAL)
             _LOGGER.debug(
@@ -469,11 +600,26 @@ class IrrigationRunnerMixin:
                 accumulated,
                 remaining_volume,
             )
+            if stopped:
+                break
 
         await self.hass.services.async_call(
             domain, "turn_off", {"entity_id": entity_id}
         )
         return accumulated
+
+    async def _record_rotating_stop(self, zid, volume_l: float, elapsed_s: float):
+        """Log a user-stopped rotating run as a partial (water kept, fault cleared)."""
+        self._clear_zone_fault(zid)
+        await self._record_run(
+            zid,
+            result=const.RUN_RESULT_PARTIAL,
+            volume_l=volume_l,
+            add_to_total=False,
+            actual_s=elapsed_s,
+            detail=const.RUN_DETAIL_STOPPED,
+            trigger=self._run_trigger(zid),
+        )
 
     async def _irrigate_zones_rotating(self, zones: list):
         """Irrigate all zones (timed and flow-meter) in a unified rotation.
@@ -550,6 +696,13 @@ class IrrigationRunnerMixin:
         recorded: set = set()  # zones whose completion has been logged once
         loop = asyncio.get_running_loop()
 
+        # Register every zone so a Stop can interrupt the rotation and the
+        # dashboard surfaces the control. A rotation has no single finish time,
+        # so no countdown end is set (has_end=False). Markers are cleared as each
+        # zone finishes and swept at the end.
+        for zid in zone_order:
+            self._register_active_run(zid, 0, has_end=False)
+
         def _timed_done(zid):
             return timed_remaining.get(zid, 0) <= 0
 
@@ -570,6 +723,34 @@ class IrrigationRunnerMixin:
                 if is_flow and _flow_done(zid):
                     continue
                 if not is_flow and _timed_done(zid):
+                    continue
+
+                # A user stopped this zone — log a partial (keeping the water
+                # already credited), force it "done" so the rotation moves on,
+                # and clear its in-progress marker.
+                if self._run_stopped(zid):
+                    if zid not in recorded:
+                        recorded.add(zid)
+                        if is_flow:
+                            await self._record_rotating_stop(
+                                zid, flow_delivered[zid], flow_elapsed[zid]
+                            )
+                        else:
+                            planned = float(timed_by_id[zid][const.ZONE_DURATION])
+                            await self._record_rotating_stop(
+                                zid,
+                                timed_delivered_l[zid],
+                                planned - timed_remaining[zid],
+                            )
+                    if is_flow:
+                        flow_delivered[zid] = max(flow_delivered[zid], flow_target[zid])
+                        flow_elapsed[zid] = max(
+                            flow_elapsed[zid],
+                            flow_by_id[zid].get(const.ZONE_MAXIMUM_DURATION) or 14400,
+                        )
+                    else:
+                        timed_remaining[zid] = 0
+                    self._unregister_active_run(zid)
                     continue
 
                 if min_absorption > 0 and zid in last_finish:
@@ -681,7 +862,12 @@ class IrrigationRunnerMixin:
                             trigger=self._run_trigger(zid),
                         )
                         continue
-                    await asyncio.sleep(slot)
+                    t0 = loop.time()
+                    slot_stopped = await self._sleep_or_stopped(zid, slot)
+                    if slot_stopped:
+                        # Count only the time actually waited so the credited
+                        # water stays honest.
+                        slot = min(slot, loop.time() - t0)
                     await self.hass.services.async_call(
                         domain, "turn_off", {"entity_id": entity_id}
                     )
@@ -702,7 +888,19 @@ class IrrigationRunnerMixin:
                         dispatch=True,
                     )
                     _LOGGER.info("Rotating irrigation: finished slot for %s", entity_id)
-                    if timed_remaining[zid] <= 0:
+                    if slot_stopped:
+                        # User stopped mid-slot: log a partial and finish the zone.
+                        planned = float(z[const.ZONE_DURATION])
+                        if zid not in recorded:
+                            recorded.add(zid)
+                            await self._record_rotating_stop(
+                                zid,
+                                timed_delivered_l[zid],
+                                planned - timed_remaining[zid],
+                            )
+                        timed_remaining[zid] = 0
+                        self._unregister_active_run(zid)
+                    elif timed_remaining[zid] <= 0:
                         # Zone fully irrigated across its slots — log completion.
                         self._clear_zone_fault(zid)
                         planned = float(z[const.ZONE_DURATION])
@@ -718,6 +916,11 @@ class IrrigationRunnerMixin:
                         )
 
                 last_finish[zid] = loop.time()
+
+        # Clear any remaining in-progress markers (zones that finished normally,
+        # or a stop during an absorption wait).
+        for zid in zone_order:
+            self._unregister_active_run(zid)
 
     # --- Live-estimate run durations from the live deficit (WS-3, experimental)
 

@@ -500,6 +500,11 @@
         "minutes": "Min.",
         "help": "Diese Zone für eine bestimmte Zeit bewässern, unabhängig von der Berechnung",
         "toast_started": "Lauf gestartet"
+      },
+      "stop_zone": {
+        "stop": "Stopp",
+        "watering": "Bewässert…",
+        "toast_stopped": "Lauf gestoppt"
       }
     },
     "schedules": {

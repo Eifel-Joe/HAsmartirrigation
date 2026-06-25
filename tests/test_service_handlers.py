@@ -145,6 +145,56 @@ async def test_handle_run_zone_non_zone_entity_raises():
     coord.async_run_zone.assert_not_awaited()
 
 
+async def test_handle_stop_zone_resolves_id_attribute():
+    """stop_zone resolves the zone from a sensor's "id" attribute."""
+    coord = _make_coordinator()
+    coord.async_stop_zone = AsyncMock()
+    state = MagicMock()
+    state.attributes = {const.ZONE_ID: 7}
+    coord.hass.states.get.return_value = state
+
+    call = MagicMock()
+    call.data = {const.SERVICE_ENTITY_ID: "sensor.smart_irrigation_lawn"}
+
+    await ServiceHandlersMixin.handle_stop_zone(coord, call)
+
+    coord.async_stop_zone.assert_awaited_once_with(7)
+
+
+async def test_handle_stop_zone_resolves_zone_id_attribute():
+    """A button / binary_sensor exposes the id as "zone_id" — also accepted."""
+    coord = _make_coordinator()
+    coord.async_stop_zone = AsyncMock()
+    state = MagicMock()
+    state.attributes = {"zone_id": 4, "zone_name": "Lawn"}
+    coord.hass.states.get.return_value = state
+
+    call = MagicMock()
+    call.data = {const.SERVICE_ENTITY_ID: "button.smart_irrigation_lawn_irrigate_now"}
+
+    await ServiceHandlersMixin.handle_stop_zone(coord, call)
+
+    coord.async_stop_zone.assert_awaited_once_with(4)
+
+
+async def test_handle_stop_zone_non_zone_entity_raises():
+    """An entity with neither id nor zone_id is rejected, not silently stopped."""
+    from custom_components.smart_irrigation.services import SmartIrrigationError
+
+    coord = _make_coordinator()
+    coord.async_stop_zone = AsyncMock()
+    state = MagicMock()
+    state.attributes = {"some_other_attr": 1}
+    coord.hass.states.get.return_value = state
+
+    call = MagicMock()
+    call.data = {const.SERVICE_ENTITY_ID: "sensor.unrelated"}
+
+    with pytest.raises(SmartIrrigationError):
+        await ServiceHandlersMixin.handle_stop_zone(coord, call)
+    coord.async_stop_zone.assert_not_awaited()
+
+
 async def test_handle_reset_all_buckets_zeroes_everything():
     """Reset-all delegates to _async_set_all_buckets(0)."""
     coord = _make_coordinator()

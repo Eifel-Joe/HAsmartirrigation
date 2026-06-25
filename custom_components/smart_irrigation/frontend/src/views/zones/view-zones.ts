@@ -16,6 +16,7 @@ import {
   setRainDelayHours,
   clearRainDelay,
   runZone,
+  stopZone,
 } from "../../data/websockets";
 import { SubscribeMixin } from "../../subscribe-mixin";
 
@@ -28,6 +29,7 @@ import {
   SkipCheck,
   ZoneEstimate,
   ZoneFault,
+  ActiveRun,
 } from "../../types";
 import {
   output_unit,
@@ -98,6 +100,11 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
   // Per-zone custom-run duration (minutes), keyed by zone id. Defaults to 10.
   @state() private _runMinutes: Record<string, number> = {};
 
+  // Current epoch ms, ticked once a second while a run is in progress so the
+  // countdown re-renders. Null when no ticker is running.
+  @state() private _now = Date.now();
+  private _countdownTimer: number | null = null;
+
   private _updateScheduled = false;
   private _scheduleUpdate() {
     if (this._updateScheduled) return;
@@ -115,6 +122,30 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
         console.error("Failed to load HA form:", error);
         this._scheduleUpdate();
       });
+  }
+
+  public disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._stopCountdownTicker();
+  }
+
+  /** Run a 1s ticker only while at least one zone has an in-progress run. */
+  private _syncCountdownTicker(): void {
+    const hasActive = Object.keys(this._outlook?.active_runs ?? {}).length > 0;
+    if (hasActive && this._countdownTimer === null) {
+      this._countdownTimer = window.setInterval(() => {
+        this._now = Date.now();
+      }, 1000);
+    } else if (!hasActive) {
+      this._stopCountdownTicker();
+    }
+  }
+
+  private _stopCountdownTicker(): void {
+    if (this._countdownTimer !== null) {
+      window.clearInterval(this._countdownTimer);
+      this._countdownTimer = null;
+    }
   }
 
   public hassSubscribe(): Promise<UnsubscribeFunc>[] {
@@ -156,6 +187,7 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
       this.zones = zones;
       this._outlook = outlook;
       this._initialLoadDone = true;
+      this._syncCountdownTicker();
     } catch (error) {
       console.error("Error fetching data:", error);
       showErrorToast(this, this.hass, "common.errors.load_failed", error);
@@ -286,6 +318,40 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
     } catch (err) {
       const msg = extractErrorMessage(err);
       console.error("run_zone failed", err);
+      showToast(
+        this,
+        `${localize("panels.zones.confirm_irrigate.toast_failed", this.hass.language)}: ${msg}`,
+      );
+    }
+  }
+
+  /** The in-progress run for this zone, or undefined when it is idle. */
+  private _activeRun(zone: SmartIrrigationZone): ActiveRun | undefined {
+    if (zone.id === undefined) return undefined;
+    return this._outlook?.active_runs?.[String(zone.id)];
+  }
+
+  /** Seconds remaining for a time-bounded run, or null (no/unknown end). */
+  private _runSecondsLeft(run: ActiveRun): number | null {
+    if (!run.ends_at) return null;
+    const left = Math.round(
+      (new Date(run.ends_at).getTime() - this._now) / 1000,
+    );
+    return left > 0 ? left : 0;
+  }
+
+  private async _stopZone(zone: SmartIrrigationZone): Promise<void> {
+    if (!this.hass || zone.id === undefined) return;
+    try {
+      await stopZone(this.hass, zone.id.toString());
+      showToast(
+        this,
+        `${localize("panels.zones.stop_zone.toast_stopped", this.hass.language)}: ${zone.name}`,
+      );
+      await this._fetchData();
+    } catch (err) {
+      const msg = extractErrorMessage(err);
+      console.error("stop_zone failed", err);
       showToast(
         this,
         `${localize("panels.zones.confirm_irrigate.toast_failed", this.hass.language)}: ${msg}`,
@@ -993,6 +1059,32 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
     }
     const lang = this.hass.language;
     const key = String(zone.id);
+
+    // While a run is in progress, replace the duration picker + Run button with
+    // a live countdown (or a "watering…" label for volume-bounded flow runs)
+    // and a Stop button.
+    const active = this._activeRun(zone);
+    if (active) {
+      const left = this._runSecondsLeft(active);
+      return html`
+        <div class="run-zone-control running">
+          <span class="run-zone-countdown">
+            <ha-icon icon="mdi:water-pump"></ha-icon>
+            ${left === null
+              ? localize("panels.zones.stop_zone.watering", lang)
+              : this._formatCountdown(left)}
+          </span>
+          <button
+            class="action-btn stop-btn"
+            @click="${() => this._stopZone(zone)}"
+          >
+            <ha-icon icon="mdi:stop"></ha-icon>
+            ${localize("panels.zones.stop_zone.stop", lang)}
+          </button>
+        </div>
+      `;
+    }
+
     return html`
       <div
         class="run-zone-control"
@@ -1022,6 +1114,16 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
         </button>
       </div>
     `;
+  }
+
+  /** Format a remaining-seconds count as ``m:ss`` (or ``h:mm:ss``). */
+  private _formatCountdown(totalSeconds: number): string {
+    const s = Math.max(0, totalSeconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
   }
 
   render(): TemplateResult {
@@ -1485,6 +1587,25 @@ class SmartIrrigationViewZones extends SubscribeMixin(LitElement) {
       .run-zone-unit {
         font-size: 0.8125rem;
         color: var(--secondary-text-color);
+      }
+
+      /* In-progress run: countdown + Stop */
+      .run-zone-countdown {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        color: var(--primary-color);
+      }
+
+      .run-zone-countdown ha-icon {
+        --mdc-icon-size: 18px;
+      }
+
+      .action-btn.stop-btn {
+        color: var(--error-color, #db4437);
+        border-color: var(--error-color, #db4437);
       }
 
       /* Rain delay / vacation hold (WS-5) */

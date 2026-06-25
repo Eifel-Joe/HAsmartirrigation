@@ -593,6 +593,18 @@ async def websocket_run_zone(hass: HomeAssistant, connection, msg):
 
 
 @async_response
+async def websocket_stop_zone(hass: HomeAssistant, connection, msg):
+    """Stop an in-progress run for a single zone immediately."""
+    coordinator = hass.data[const.DOMAIN]["coordinator"]
+    try:
+        await coordinator.async_stop_zone(msg["zone_id"])
+        connection.send_result(msg["id"], {"success": True})
+    except Exception as e:
+        _LOGGER.error("Error stopping zone: %s", e)
+        connection.send_result(msg["id"], {"success": False, "error": str(e)})
+
+
+@async_response
 async def websocket_set_rain_delay(hass: HomeAssistant, connection, msg):
     """Pause automatic irrigation: for ``hours`` from now, or until ``until``."""
     coordinator = hass.data[const.DOMAIN]["coordinator"]
@@ -1005,6 +1017,17 @@ async def async_register_websockets(hass: HomeAssistant):
                 vol.Required("type"): const.DOMAIN + "/run_zone",
                 vol.Required("zone_id"): vol.Coerce(str),
                 vol.Required("duration"): vol.Coerce(float),
+            }
+        ),
+    )
+    async_register_command(
+        hass,
+        const.DOMAIN + "/stop_zone",
+        websocket_stop_zone,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): const.DOMAIN + "/stop_zone",
+                vol.Required("zone_id"): vol.Coerce(str),
             }
         ),
     )

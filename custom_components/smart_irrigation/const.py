@@ -499,6 +499,9 @@ SERVICE_DELETE_RECURRING_SCHEDULE = "delete_recurring_schedule"
 SERVICE_SET_RAIN_DELAY = "set_rain_delay"
 SERVICE_CLEAR_RAIN_DELAY = "clear_rain_delay"
 SERVICE_RUN_ZONE = "run_zone"
+SERVICE_STOP_ZONE = "stop_zone"
+# Run-log detail marker for a run a user stopped early.
+RUN_DETAIL_STOPPED = "stopped"
 # run_zone / set_rain_delay call params
 ATTR_DURATION_MINUTES = "duration"  # whole minutes for a custom manual run
 ATTR_RAIN_DELAY_UNTIL = "until"  # ISO datetime to hold until

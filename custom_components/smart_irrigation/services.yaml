@@ -155,6 +155,17 @@ run_zone:
           max: 600
           unit_of_measurement: min
 
+stop_zone:
+  name: Stop zone
+  description: Stop an in-progress run for a specific zone and turn its valve off.
+  target:
+    entity:
+      integration: smart_irrigation
+      domain:
+        - sensor
+        - binary_sensor
+        - button
+
 # Enhanced Scheduling Services
 create_recurring_schedule:
   name: Create recurring schedule

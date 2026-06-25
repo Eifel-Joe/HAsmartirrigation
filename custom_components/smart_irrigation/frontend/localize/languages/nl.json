@@ -500,6 +500,11 @@
         "minutes": "min",
         "help": "Bewater deze zone voor een aangepaste tijd, los van de berekening",
         "toast_started": "Beurt gestart"
+      },
+      "stop_zone": {
+        "stop": "Stop",
+        "watering": "Bewatering…",
+        "toast_stopped": "Run gestopt"
       }
     },
     "schedules": {

@@ -637,6 +637,11 @@
         "minutes": "min",
         "help": "Water this zone for a custom time, ignoring the calculation",
         "toast_started": "Started run"
+      },
+      "stop_zone": {
+        "stop": "Stop",
+        "watering": "Watering…",
+        "toast_stopped": "Stopped run"
       }
     }
   },

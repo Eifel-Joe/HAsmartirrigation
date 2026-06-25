@@ -183,6 +183,14 @@ export interface RunLogEntry {
   detail: string | null;
 }
 
+/** A zone whose valve is currently being held open by the runner. */
+export interface ActiveRun {
+  started_at: string;
+  // ISO datetime the run is expected to finish; null for flow-metered
+  // (volume-bounded) runs whose finish time is unknown.
+  ends_at: string | null;
+}
+
 export interface IrrigationOutlook {
   weather_service_enabled: boolean;
   skip_preview: SkipPreview;
@@ -190,6 +198,9 @@ export interface IrrigationOutlook {
   upcoming_runs: UpcomingRun[];
   zone_estimates?: Record<string, ZoneEstimate>;
   zone_faults?: Record<string, ZoneFault>;
+  // In-progress runs keyed by zone id (string). Surfaces the Stop control +
+  // a live countdown while a zone is watering.
+  active_runs?: Record<string, ActiveRun>;
   // Rain delay / vacation hold (WS-5): ISO datetime automatic irrigation
   // resumes, or null/undefined when no hold is active.
   rain_delay_until?: string | null;

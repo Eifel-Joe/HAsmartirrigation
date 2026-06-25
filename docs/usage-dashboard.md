@@ -50,6 +50,8 @@ For automatic zones, each card offers **Update** (fetch the latest weather/senso
 
 Next to each zone's actions is a small **Run for N min** control: enter a number of minutes and press **Run** to water that zone for exactly that long. This is decoupled from the calculation — it ignores the computed duration, the deficit gate and any active rain delay — so it is handy for hand-watering a new planting or testing a valve. The water it delivers is still **credited back to the bucket**, so the next daily calculation stays honest. The same action is available as the [`run_zone`](usage-services.md) service for automations.
 
+While **any** run is in progress (a custom run, *Irrigate now*, or a scheduled run), the **Run for N min** control is replaced by a live **countdown** and a **Stop** button. Press **Stop** to end that zone's run immediately — the valve closes and the water already delivered is kept (the run is logged as *partial*). The same action is available as the [`stop_zone`](usage-services.md) service for automations.
+
 ## Rain delay / vacation hold {#rain-delay}
 
 Above the zone cards, a **Pause watering** control lets you stop all *automatic and scheduled* irrigation for a while — for a rainy spell, a holiday, or while you work on the system. Tap **Delay 24 h** or **Delay 48 h** for a quick hold; while a hold is active the banner shows **“Paused until …”** with a **Resume** button to lift it early.

@@ -502,6 +502,11 @@
         "minutes": "min",
         "help": "Arroser cette zone pendant une durée personnalisée, sans tenir compte du calcul",
         "toast_started": "Arrosage lancé"
+      },
+      "stop_zone": {
+        "stop": "Arrêter",
+        "watering": "Arrosage…",
+        "toast_stopped": "Arrosage arrêté"
       }
     },
     "schedules": {

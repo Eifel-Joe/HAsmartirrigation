@@ -501,6 +501,11 @@
         "minutes": "min",
         "help": "Riega esta zona durante un tiempo personalizado, sin tener en cuenta el cálculo",
         "toast_started": "Riego iniciado"
+      },
+      "stop_zone": {
+        "stop": "Detener",
+        "watering": "Regando…",
+        "toast_stopped": "Riego detenido"
       }
     },
     "schedules": {

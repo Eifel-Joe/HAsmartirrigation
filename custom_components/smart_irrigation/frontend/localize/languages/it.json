@@ -545,6 +545,11 @@
         "minutes": "min",
         "help": "Irriga questa zona per un tempo personalizzato, ignorando il calcolo",
         "toast_started": "Irrigazione avviata"
+      },
+      "stop_zone": {
+        "stop": "Ferma",
+        "watering": "Irrigazione…",
+        "toast_stopped": "Irrigazione fermata"
       }
     },
     "schedules": {
