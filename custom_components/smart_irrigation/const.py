@@ -331,9 +331,13 @@ ZONE_IRRIGATION_TARGET_BUCKET = "irrigation_target_bucket"
 # is flagged with a fault so a single automation can alert on it. Faults are held
 # in memory on the coordinator (like the skip evaluation), not persisted.
 # Seconds to wait for a freshly-opened valve to report on before declaring it
-# unresponsive, and how often to re-check within that window.
-VALVE_CONFIRM_TIMEOUT = 10
+# unconfirmed, and how often to re-check within that window. Sleepy Zigbee/Tuya
+# valves can take >10s to report their new state, so the window is generous.
+VALVE_CONFIRM_TIMEOUT = 30
 VALVE_CONFIRM_POLL = 1
+# Re-send the open command once, this many seconds into the confirm window, to
+# recover a command silently dropped by a sleepy valve.
+VALVE_CONFIRM_RETRY_AT = 15
 # Fault reason codes (also i18n keys under panels.zones.fault.*).
 FAULT_VALVE_NO_RESPONSE = "valve_no_response"
 FAULT_FLOW_NEVER_STARTED = "flow_never_started"

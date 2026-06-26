@@ -266,14 +266,22 @@ class IrrigationRunnerMixin:
         """Confirm a freshly-opened linked entity actually reports an on-state.
 
         Returns True if confirmed on within the grace window, False if it stayed
-        off (a fault), or None when the entity is not readable (unknown /
+        off the whole time, or None when the entity is not readable (unknown /
         unavailable / missing) so verification cannot be performed — write-only
-        valves are never penalised. Behaviour is unchanged for callers that
-        treat None/True identically (only an explicit False aborts a run).
+        valves are never penalised.
+
+        Many valves (sleepy Zigbee/Tuya timers) actuate but report their new
+        state back slowly, or silently drop the first command. To cope we (a)
+        poll for a generous ``VALVE_CONFIRM_TIMEOUT`` window and (b) re-send the
+        open once, ``VALVE_CONFIRM_RETRY_AT`` seconds in, if still unconfirmed.
+        A False result no longer aborts the run — the valve may well be open, so
+        callers proceed and just surface it.
         """
         state = self.hass.states.get(entity_id)
         if state is None or state.state in ("unavailable", "unknown"):
             return None  # not verifiable — don't fault write-only valves
+        domain = entity_id.split(".")[0]
+        retried = False
         waited = 0.0
         while True:
             state = self.hass.states.get(entity_id)
@@ -281,6 +289,16 @@ class IrrigationRunnerMixin:
                 return True
             if waited >= const.VALVE_CONFIRM_TIMEOUT:
                 return False
+            if not retried and waited >= const.VALVE_CONFIRM_RETRY_AT:
+                retried = True
+                _LOGGER.debug(
+                    "Valve '%s' not confirmed after %.0fs — re-sending open",
+                    entity_id,
+                    waited,
+                )
+                await self.hass.services.async_call(
+                    domain, "turn_on", {"entity_id": entity_id}
+                )
             await asyncio.sleep(const.VALVE_CONFIRM_POLL)
             waited += const.VALVE_CONFIRM_POLL
 
@@ -449,19 +467,17 @@ class IrrigationRunnerMixin:
         self._note_si_valve(zone_id, max_seconds)
         await self.hass.services.async_call(domain, "turn_on", {"entity_id": entity_id})
         if await self._confirm_valve_running(zone_id, entity_id) is False:
-            # Valve never opened — abort without crediting the bucket so the
-            # deficit and the fault persist (unchanged fault semantics).
-            self._set_zone_fault(zone_id, const.FAULT_VALVE_NO_RESPONSE)
-            await self.hass.services.async_call(
-                domain, "turn_off", {"entity_id": entity_id}
-            )
-            await self._record_run(
+            # The valve never reported an on-state within the grace window. Many
+            # valves actuate but report back slowly (or not at all), so closing
+            # it here would guarantee no watering — instead we proceed with the
+            # run and just surface that it could not be confirmed.
+            _LOGGER.warning(
+                "Zone %s valve '%s' did not confirm an on-state within %ss; "
+                "proceeding with the run (valve may be slow to report state)",
                 zone_id,
-                result=const.RUN_RESULT_FAILED,
-                detail=const.FAULT_VALVE_NO_RESPONSE,
-                trigger=trigger,
+                entity_id,
+                const.VALVE_CONFIRM_TIMEOUT,
             )
-            return
 
         delivered = 0.0
         water_committed = 0.0
@@ -847,21 +863,16 @@ class IrrigationRunnerMixin:
                         domain, "turn_on", {"entity_id": entity_id}
                     )
                     if await self._confirm_valve_running(zid, entity_id) is False:
-                        # Valve never opened — drop this zone from the rotation
-                        # without replenishing its bucket; the fault persists.
-                        self._set_zone_fault(zid, const.FAULT_VALVE_NO_RESPONSE)
-                        await self.hass.services.async_call(
-                            domain, "turn_off", {"entity_id": entity_id}
-                        )
-                        timed_remaining[zid] = 0
-                        last_finish[zid] = loop.time()
-                        await self._record_run(
+                        # Unconfirmed valve: water the slot anyway rather than
+                        # dropping the zone — the valve may be open but slow to
+                        # report. Surface it as a warning only.
+                        _LOGGER.warning(
+                            "Zone %s valve '%s' did not confirm an on-state "
+                            "within %ss; watering the rotation slot anyway",
                             zid,
-                            result=const.RUN_RESULT_FAILED,
-                            detail=const.FAULT_VALVE_NO_RESPONSE,
-                            trigger=self._run_trigger(zid),
+                            entity_id,
+                            const.VALVE_CONFIRM_TIMEOUT,
                         )
-                        continue
                     t0 = loop.time()
                     slot_stopped = await self._sleep_or_stopped(zid, slot)
                     if slot_stopped:

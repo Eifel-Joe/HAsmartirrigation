@@ -179,15 +179,16 @@ async def test_timed_multiplier_lands_on_target(monkeypatch):
     assert _used(coord) == pytest.approx(25.0)  # gross litres, NOT divided
 
 
-async def test_valve_no_response_faults_no_credit(monkeypatch):
-    """An unconfirmed valve faults and credits nothing (unchanged semantics)."""
+async def test_unconfirmed_valve_still_waters(monkeypatch):
+    """An unconfirmed valve is NOT aborted: the run proceeds, credits the water
+    and raises no fault — the valve may be open but just slow to report state."""
     coord = _coord(monkeypatch, [_zone()], confirm=False)
     coord._live_run_zones = set()
     await coord._run_valve_metered(_zone(), "switch.v", real_flow=False)
-    assert coord.get_zone_fault(1)["reason"] == const.FAULT_VALVE_NO_RESPONSE
-    assert _bucket(coord) == pytest.approx(-5.0)  # untouched
-    assert _used(coord) == 0.0
-    assert _log(coord)[0]["result"] == const.RUN_RESULT_FAILED
+    assert coord.get_zone_fault(1) is None  # no fault raised
+    assert _bucket(coord) == pytest.approx(0.0)  # watered to target
+    assert _used(coord) == pytest.approx(50.0)  # 300 s @ 10 L/min
+    assert _log(coord)[0]["result"] == const.RUN_RESULT_COMPLETED
 
 
 # --------------------------------------------------------------------------- #

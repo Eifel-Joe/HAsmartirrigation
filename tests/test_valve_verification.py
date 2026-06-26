@@ -1,9 +1,11 @@
 """Tests for WS-1: valve-run verification + per-zone fault state.
 
-The runner confirms a freshly-opened linked entity actually reports an on-state
-before it treats a run as successful. A run that never opened the valve (or, for
-flow zones, never registered flow) must NOT replenish the bucket and must raise a
-per-zone fault so a single automation can alert on it.
+The runner confirms a freshly-opened linked entity actually reports an on-state.
+A valve that does not confirm is NOT aborted any more (it may be open but slow to
+report, as sleepy Zigbee/Tuya timers are): the run proceeds and the unconfirmed
+state is only logged. The open is also re-sent once partway through the window to
+recover a dropped command. Flow zones that never register any flow still fault
+(no water actually moved).
 
 Coordinators are built with ``__new__`` (like test_experimental_features) so only
 the attributes each method touches are wired up.
@@ -88,6 +90,27 @@ async def test_confirm_returns_none_when_unverifiable(monkeypatch):
     assert await coord._confirm_valve_running(1, "switch.v") is None
 
 
+async def test_confirm_retries_open_then_confirms(monkeypatch):
+    """A valve still off at the retry mark gets the open re-sent once; if it then
+    reports on it is confirmed True."""
+    monkeypatch.setattr(
+        "custom_components.smart_irrigation.irrigation.asyncio.sleep", AsyncMock()
+    )
+    monkeypatch.setattr(const, "VALVE_CONFIRM_RETRY_AT", 2)
+    state = _st("off")
+    coord = _runner(monkeypatch, {"switch.v": state}, confirm_timeout=4)
+
+    async def _flip_on(domain, service, data):
+        if service == "turn_on":
+            state.state = "on"  # the re-sent open finally takes effect
+
+    coord.hass.services.async_call = AsyncMock(side_effect=_flip_on)
+
+    assert await coord._confirm_valve_running(1, "switch.v") is True
+    # The open was re-sent exactly once (the retry).
+    assert coord.hass.services.async_call.await_count == 1
+
+
 # --------------------------------------------------------------------------- #
 # Fault state accessors
 # --------------------------------------------------------------------------- #
@@ -120,18 +143,29 @@ def _timed_zone(**overrides):
     return zone
 
 
-async def test_sequential_valve_no_response_keeps_bucket_and_faults(monkeypatch):
-    """Valve never opens -> fault set, bucket NOT replenished."""
+async def test_sequential_unconfirmed_valve_still_waters(monkeypatch):
+    """Valve never reports on -> the run is NOT aborted: it proceeds, credits the
+    bucket and raises no fault (the valve may be open but slow to report)."""
+    monkeypatch.setattr(
+        "custom_components.smart_irrigation.irrigation.asyncio.sleep", AsyncMock()
+    )
     coord = _runner(monkeypatch, {"switch.v": _st("off")})
 
-    await coord._irrigate_zones_sequential([_timed_zone()])
+    # 30 s @ 20 L/min over 10 m² = 1 mm -> bucket -1 climbs to its 0.0 target.
+    zone = _timed_zone(
+        **{
+            const.ZONE_DURATION: 30,
+            const.ZONE_BUCKET: -1.0,
+            const.ZONE_SIZE: 10.0,
+            const.ZONE_THROUGHPUT: 20.0,
+        }
+    )
+    await coord._irrigate_zones_sequential([zone])
 
-    # Bucket was never reset (the failed run must not pretend it watered);
-    # only the run-log entry is written.
-    assert _no_bucket_replenished(coord.store.async_update_zone)
-    assert coord.get_zone_fault(1)["reason"] == const.FAULT_VALVE_NO_RESPONSE
-    # Valve was still commanded off afterwards (don't leave it stuck open).
-    assert coord.hass.services.async_call.await_args_list[-1].args[1] == "turn_off"
+    changes = _bucket_change(coord.store.async_update_zone)
+    assert changes is not None
+    assert changes[const.ZONE_BUCKET] == pytest.approx(0.0)  # it watered
+    assert coord.get_zone_fault(1) is None  # no fault raised
 
 
 async def test_sequential_success_resets_bucket_and_clears_fault(monkeypatch):
