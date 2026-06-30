@@ -254,6 +254,11 @@ export class SmartIrrigationZone {
   linked_entity?: string;
   bucket_threshold?: number;
   flow_sensor?: string | null;
+  watering_mode?: string;
+  run_service?: string;
+  duration_field?: string;
+  duration_unit?: string;
+  stop_service?: string;
   water_used_total?: number;
   run_log?: RunLogEntry[];
 

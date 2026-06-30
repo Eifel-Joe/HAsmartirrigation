@@ -489,6 +489,23 @@
         "linked_entity_placeholder": "e.g. switch.garden_valve",
         "flow_sensor": "Flow meter sensor (optional)",
         "flow_sensor_placeholder": "e.g. sensor.zone_flow_rate",
+        "watering_mode": "Watering mode",
+        "watering_mode_description": "How HASI actuates this zone. 'Self-closing service' calls your service with the run duration and lets the valve close itself, so an HA restart mid-run cannot cause continuous irrigation.",
+        "watering_modes": {
+          "classic": "Classic (HASI opens & closes the valve)",
+          "service": "Self-closing service (valve closes itself)"
+        },
+        "run_service": "Run service",
+        "run_service_placeholder": "e.g. script.irrigation_beet",
+        "duration_field": "Duration field",
+        "duration_field_placeholder": "e.g. dauer",
+        "duration_unit": "Duration unit",
+        "duration_units": {
+          "seconds": "Seconds",
+          "minutes": "Minutes"
+        },
+        "stop_service": "Stop service (optional)",
+        "stop_service_placeholder": "e.g. script.irrigation_beet_off",
         "irrigate_now": "Irrigate Now",
         "bucket_threshold": "Minimum deficit to irrigate",
         "plant_type": "Plant type",
