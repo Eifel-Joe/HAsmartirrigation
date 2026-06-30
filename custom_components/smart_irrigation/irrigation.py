@@ -1303,13 +1303,23 @@ class IrrigationRunnerMixin:
         zones_to_irrigate = [
             z
             for z in zones
-            if z.get(const.ZONE_LINKED_ENTITY)
+            if (z.get(const.ZONE_LINKED_ENTITY) or self._sc_is_self_closing(z))
             and (z.get(const.ZONE_DURATION) or 0) > 0
             and z.get(const.ZONE_STATE) != const.ZONE_STATE_DISABLED
         ]
 
         if not zones_to_irrigate:
             _LOGGER.info("irrigate_now: no zones with linked entity and duration > 0")
+            return
+
+        # Self-closing zones fire their own service (the valve self-closes); they
+        # bypass the linked-entity sequencing.
+        for z in [z for z in zones_to_irrigate if self._sc_is_self_closing(z)]:
+            await self.async_run_self_closing(z, trigger="manual")
+        zones_to_irrigate = [
+            z for z in zones_to_irrigate if not self._sc_is_self_closing(z)
+        ]
+        if not zones_to_irrigate:
             return
 
         sequencing = self.store.config.zone_sequencing
@@ -1337,11 +1347,17 @@ class IrrigationRunnerMixin:
         if not zone:
             _LOGGER.warning("run_zone: zone %s not found", zone_id)
             return
-        if not zone.get(const.ZONE_LINKED_ENTITY):
-            _LOGGER.warning("run_zone: zone %s has no linked entity", zone_id)
-            return
         if zone.get(const.ZONE_STATE) == const.ZONE_STATE_DISABLED:
             _LOGGER.info("run_zone: zone %s is disabled, ignoring", zone_id)
+            return
+        # Self-closing zones run via their own service for the requested duration.
+        if self._sc_is_self_closing(zone):
+            run_zone = dict(zone)
+            run_zone[const.ZONE_DURATION] = seconds
+            await self.async_run_self_closing(run_zone, trigger="manual")
+            return
+        if not zone.get(const.ZONE_LINKED_ENTITY):
+            _LOGGER.warning("run_zone: zone %s has no linked entity", zone_id)
             return
 
         # Override the duration on a copy and credit the bucket by what we deliver.

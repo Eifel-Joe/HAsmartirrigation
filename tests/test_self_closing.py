@@ -265,3 +265,15 @@ async def test_maybe_stop_ignores_classic_zone():
     handled = await c._sc_maybe_stop(2)
     assert handled is False
     c.async_stop_self_closing.assert_not_awaited()
+
+
+async def test_run_zone_routes_service_zone_with_overridden_duration():
+    c = _coord()
+    c.store.get_zone = Mock(return_value=_zone())  # watering_mode == "service"
+    c.async_run_self_closing = AsyncMock(return_value=True)
+
+    await c.async_run_zone(2, 5.0)  # 5 minutes -> 300 s
+
+    c.async_run_self_closing.assert_awaited_once()
+    dispatched = c.async_run_self_closing.await_args.args[0]
+    assert dispatched[const.ZONE_DURATION] == 300

@@ -8,7 +8,9 @@
 
 **Tech Stack:** Python 3.13, Home Assistant custom component, `attr`-based store, `pytest` + `pytest-homeassistant-custom-component`. Local test runner (Windows): `PYTHONPATH=<scratch> <uvenv312>/Scripts/python.exe -m pytest … -p _local_socket_unblock`.
 
-**Scope (Phase 1 only):** `classic` + `service` adapters; optimistic bucket credit at start; confirm-open; stop + correction; restart reconciliation; migration; `irrigation_started/finished/zone_problem` events. **Out (Phase 2/3):** `duration_entity` + `mqtt` adapters; Jinja templating of `run_data`; master switch/valve; frontend UI (Phase 1 config is settable via the existing `set_zone` path because `async_update_zone` filters to valid `ZoneEntry` fields); manual single-zone actuation (`async_irrigate_now` / `async_run_zone`) routing for service-mode zones — Phase 1 routes only the scheduled actuator `_irrigate_linked_entities`, so "irrigate now" / manual run silently skip a service-mode zone that has no `linked_entity` (no crash, no run).
+**Scope (Phase 1 only):** `classic` + `service` adapters; optimistic bucket credit at start; confirm-open; stop + correction; restart reconciliation; migration; `irrigation_started/finished/zone_problem` events. **Out (Phase 2/3):** `duration_entity` + `mqtt` adapters; Jinja templating of `run_data`; master switch/valve.
+
+> **Beyond the original Phase-1 plan, the following were also shipped** because they made the feature actually usable/testable: (a) the **zone-settings config UI** (a `watering_mode` dropdown + conditional service fields in `view-zone-settings.ts`, with a rebuilt `dist` bundle) — note the original "settable via `set_zone`" assumption was wrong, as `set_zone` only accepts a fixed `new_*_value` allow-list; the zone websocket POST (`ALLOW_EXTRA`) is the real config path the UI uses; and (b) **routing the manual `async_irrigate_now` / `async_run_zone` paths** for service-mode zones, so "irrigate now" and manual runs work, not only the scheduled `_irrigate_linked_entities`.
 
 ---
 
