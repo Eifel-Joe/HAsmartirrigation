@@ -72,11 +72,16 @@ unchanged. The other three are "self-closing" adapters and share:
 
 **`service`** (most general):
 - `run_service` — `domain.service` (e.g. `script.irrigation_beet`).
-- `run_data` — a dict template; the duration is injected as the template
-  variables `duration_seconds` / `duration_minutes`, plus `zone_id` / `zone_name`
-  are available. Example: `{ "dauer": "{{ duration_minutes }}" }`.
-- `stop_service` *(optional)* — `domain.service` + `stop_data` template, called on
+- `duration_field` — the data key the duration is passed under (e.g. `dauer`).
+- `run_data` *(optional)* — extra static keyword data merged into the call;
+  `zone_id` / `zone_name` are always added.
+- `stop_service` *(optional)* — `domain.service` + optional `stop_data`, called on
   early stop.
+
+> **Phasing note:** Phase 1 ships the literal `duration_field` + `run_data` form
+> above (fully covers `script.irrigation_beet(dauer=<minutes>)`). Free-form Jinja
+> templating of `run_data` values (injecting `{{ duration_minutes }}` etc.) is a
+> Phase-2 refinement.
 
 **`duration_entity`** (native two-entity):
 - `duration_entity` — a `number` or `select` entity (the countdown).
