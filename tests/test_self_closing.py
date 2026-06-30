@@ -16,6 +16,8 @@ def _coord():
     c.store.async_update_config = AsyncMock()
     # isolate the run-log helper (its own behaviour is tested elsewhere)
     c._record_run = AsyncMock()
+    # isolate the cleanup timer (thin wrapper around HA async_call_later)
+    c._sc_schedule_cleanup = Mock()
     return c
 
 
@@ -79,6 +81,29 @@ async def test_run_credits_bucket_persists_and_fires_started():
     # started event fired
     evt = [a.args[0] for a in c.hass.bus.async_fire.call_args_list]
     assert f"{const.DOMAIN}_{const.EVENT_IRRIGATE_STARTED}" in evt
+    # cleanup scheduled for the planned duration
+    c._sc_schedule_cleanup.assert_called_once_with(2, 600.0)
+
+
+async def test_finish_removes_run_and_fires_finished():
+    c = _coord()
+    existing = {const.RUN_ZONE_ID: 2, const.RUN_PLANNED_SECONDS: 600.0}
+    c.store.async_get_config = AsyncMock(
+        return_value={const.CONF_ACTIVE_VALVE_RUNS: [existing]}
+    )
+    zone = _zone(**{const.ZONE_BUCKET: -1.0})
+    c.store.get_zone = Mock(return_value=zone)
+
+    await c._sc_finish_run(2)
+
+    # run removed from persistence
+    cfg = c.store.async_update_config.await_args.args[0]
+    assert cfg[const.CONF_ACTIVE_VALVE_RUNS] == []
+    # finished event fired with the zone
+    fired = {a.args[0]: a.args[1] for a in c.hass.bus.async_fire.call_args_list}
+    key = f"{const.DOMAIN}_{const.EVENT_IRRIGATE_FINISHED}"
+    assert key in fired
+    assert fired[key]["zones"][0]["zone_id"] == 2
 
 
 async def test_run_aborts_and_fires_problem_when_open_unconfirmed():

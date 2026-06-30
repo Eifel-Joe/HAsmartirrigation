@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import math
 
+from homeassistant.helpers.event import async_call_later
 from homeassistant.util import dt as dt_util
 
 from . import const
@@ -75,6 +76,32 @@ class SelfClosingMixin:
             if r.get(const.RUN_ZONE_ID) != zone_id
         ]
         await self._sc_persist_runs(runs)
+
+    async def _sc_finish_run(self, zone_id) -> None:
+        """Finalise a completed/closed run: clear persistence + fire finished."""
+        await self._sc_remove_run(zone_id)
+        zone = self.store.get_zone(zone_id) or {}
+        self._sc_fire(
+            const.EVENT_IRRIGATE_FINISHED,
+            {
+                "zones": [
+                    {
+                        "zone_id": zone_id,
+                        "zone": zone.get(const.ZONE_NAME),
+                        "bucket": zone.get(const.ZONE_BUCKET),
+                    }
+                ],
+                "problems": [],
+            },
+        )
+
+    def _sc_schedule_cleanup(self, zone_id, delay_seconds: float) -> None:
+        """Schedule the cosmetic finish after the run's planned duration."""
+
+        async def _done(_now):
+            await self._sc_finish_run(zone_id)
+
+        async_call_later(self.hass, max(0.0, delay_seconds), _done)
 
     async def async_run_self_closing(
         self, zone: dict, *, trigger: str = "schedule"
@@ -147,4 +174,5 @@ class SelfClosingMixin:
                 ],
             },
         )
+        self._sc_schedule_cleanup(zone_id, planned_seconds)
         return True
