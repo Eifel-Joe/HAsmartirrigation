@@ -524,3 +524,40 @@ ATTR_RAIN_DELAY_UNTIL = "until"  # ISO datetime to hold until
 ATTR_RAIN_DELAY_HOURS = "hours"  # convenience: hold for N hours from now
 # Events
 EVENT_RECURRING_SCHEDULE_TRIGGERED = "recurring_schedule_triggered"
+
+# --- Self-closing valve mode (Phase 1) -------------------------------------
+ZONE_WATERING_MODE = "watering_mode"  # per-zone actuation adapter
+WATERING_MODE_CLASSIC = "classic"  # default: open -> sleep -> close
+WATERING_MODE_SERVICE = "service"  # fire a service, valve self-closes
+
+# 'service' adapter per-zone config
+ZONE_RUN_SERVICE = "run_service"  # "domain.service" e.g. "script.irrigation_beet"
+ZONE_DURATION_FIELD = "duration_field"  # data key the duration is passed under
+ZONE_DURATION_UNIT = "duration_unit"  # DURATION_UNIT_SECONDS | DURATION_UNIT_MINUTES
+ZONE_RUN_DATA = "run_data"  # optional static dict merged into the call
+ZONE_STOP_SERVICE = "stop_service"  # optional "domain.service" for early stop
+ZONE_STOP_DATA = "stop_data"  # optional static dict for the stop call
+
+DURATION_UNIT_SECONDS = "seconds"
+DURATION_UNIT_MINUTES = "minutes"
+
+# Persisted in-flight self-closing runs (reboot resilience) — on Config
+CONF_ACTIVE_VALVE_RUNS = "active_valve_runs"
+RUN_ZONE_ID = "zone_id"
+RUN_ENTITY_ID = "entity_id"  # the run_service string (for logging/identity)
+RUN_STARTED = "started"  # ISO-8601 UTC
+RUN_PLANNED_SECONDS = "planned_seconds"
+RUN_PLANNED_MM = "planned_mm"
+RUN_MODE = "mode"
+RUN_CREDITED = "credited"
+
+# Per-run events (new in this feature)
+EVENT_IRRIGATE_STARTED = "irrigation_started"
+EVENT_IRRIGATE_FINISHED = "irrigation_finished"
+EVENT_ZONE_PROBLEM = "zone_problem"
+
+# Run-log tags
+RUN_TRIGGER_SELF_CLOSING = "self_closing"
+RUN_DETAIL_OPTIMISTIC = "optimistic"
+RUN_DETAIL_SELF_CLOSING_STOPPED = "self_closing_stopped"
+PROBLEM_VALVE_DID_NOT_OPEN = "valve_did_not_open"
