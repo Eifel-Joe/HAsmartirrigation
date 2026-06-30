@@ -213,6 +213,11 @@ class ZoneEntry:
     run_data = attr.ib(type=dict, factory=dict)
     stop_service = attr.ib(type=str, default=None)
     stop_data = attr.ib(type=dict, factory=dict)
+    # 'mqtt' adapter: publish a countdown + open payload to a Z2M-style topic.
+    mqtt_topic = attr.ib(type=str, default=None)
+    mqtt_open_field = attr.ib(type=str, default=None)
+    mqtt_open_value = attr.ib(type=str, default=None)
+    mqtt_stop_value = attr.ib(type=str, default=None)
 
 
 @attr.s(slots=True, frozen=True)

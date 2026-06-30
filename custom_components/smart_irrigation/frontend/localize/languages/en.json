@@ -493,7 +493,8 @@
         "watering_mode_description": "How HASI actuates this zone. 'Self-closing service' calls your service with the run duration and lets the valve close itself, so an HA restart mid-run cannot cause continuous irrigation.",
         "watering_modes": {
           "classic": "Classic (HASI opens & closes the valve)",
-          "service": "Self-closing service (valve closes itself)"
+          "service": "Self-closing service (valve closes itself)",
+          "mqtt": "Self-closing MQTT (publish countdown + open)"
         },
         "run_service": "Run service",
         "run_service_placeholder": "e.g. script.irrigation_beet",
@@ -506,6 +507,11 @@
         },
         "stop_service": "Stop service (optional)",
         "stop_service_placeholder": "e.g. script.irrigation_beet_off",
+        "mqtt_topic": "MQTT topic",
+        "mqtt_topic_placeholder": "e.g. zigbee2mqtt/Wasser Beet/set",
+        "mqtt_open_field": "Open payload key",
+        "mqtt_open_value": "Open payload value",
+        "mqtt_stop_value": "Stop payload value",
         "irrigate_now": "Irrigate Now",
         "bucket_threshold": "Minimum deficit to irrigate",
         "plant_type": "Plant type",

@@ -8,6 +8,7 @@ at start and the in-flight run is persisted for restart reconciliation.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 
@@ -36,17 +37,56 @@ class SelfClosingMixin:
         return domain, service
 
     async def _sc_dispatch_open(self, zone: dict) -> None:
-        """Fire the zone's run_service with the converted duration."""
+        """Open the valve for its run: fire the run_service or publish MQTT."""
         seconds = float(zone.get(const.ZONE_DURATION) or 0)
         unit = zone.get(const.ZONE_DURATION_UNIT, const.DURATION_UNIT_SECONDS)
-        field = zone.get(const.ZONE_DURATION_FIELD)
+        duration = self._sc_convert(seconds, unit)
+        if zone.get(const.ZONE_WATERING_MODE) == const.WATERING_MODE_MQTT:
+            await self._sc_mqtt_open(zone, duration)
+        else:
+            await self._sc_service_open(zone, duration)
+
+    async def _sc_service_open(self, zone: dict, duration: int) -> None:
+        """'service' adapter: call the run_service with the duration."""
         domain, service = self._sc_split_service(zone.get(const.ZONE_RUN_SERVICE))
         data = dict(zone.get(const.ZONE_RUN_DATA) or {})
+        field = zone.get(const.ZONE_DURATION_FIELD)
         if field:
-            data[field] = self._sc_convert(seconds, unit)
+            data[field] = duration
         data["zone_id"] = zone.get(const.ZONE_ID)
         data["zone_name"] = zone.get(const.ZONE_NAME)
         await self.hass.services.async_call(domain, service, data)
+
+    async def _sc_mqtt_publish(self, topic, payload: dict) -> None:
+        await self.hass.services.async_call(
+            "mqtt", "publish", {"topic": topic, "payload": json.dumps(payload)}
+        )
+
+    async def _sc_mqtt_open(self, zone: dict, duration: int) -> None:
+        """'mqtt' adapter: publish the countdown, then the open payload."""
+        topic = zone.get(const.ZONE_MQTT_TOPIC)
+        field = zone.get(const.ZONE_DURATION_FIELD)
+        if field:
+            await self._sc_mqtt_publish(topic, {field: duration})
+        open_field = zone.get(const.ZONE_MQTT_OPEN_FIELD)
+        if open_field:
+            await self._sc_mqtt_publish(
+                topic, {open_field: zone.get(const.ZONE_MQTT_OPEN_VALUE)}
+            )
+
+    async def _sc_mqtt_stop(self, zone: dict) -> None:
+        """'mqtt' adapter: publish the stop (close) payload."""
+        topic = zone.get(const.ZONE_MQTT_TOPIC)
+        open_field = zone.get(const.ZONE_MQTT_OPEN_FIELD)
+        stop_value = zone.get(const.ZONE_MQTT_STOP_VALUE)
+        if topic and open_field and stop_value is not None:
+            await self._sc_mqtt_publish(topic, {open_field: stop_value})
+        else:
+            _LOGGER.warning(
+                "Zone %s stopped in MQTT mode without a stop payload; "
+                "cannot close the valve, correcting accounting only",
+                zone.get(const.ZONE_ID),
+            )
 
     def _sc_fire(self, event: str, data: dict) -> None:
         """Fire a domain-prefixed bus event."""
@@ -135,13 +175,16 @@ class SelfClosingMixin:
 
         await self._sc_dispatch_open(zone)
 
-        # Confirm the open BEFORE crediting (None = write-only target, treat as
-        # ok). NB: confirmation runs against the run_service entity (e.g. a
-        # script.*, which carries an on/off state while running). A dedicated
-        # confirm_entity is a Phase-2 refinement for service/mqtt targets that
-        # have no backing state to observe.
-        confirmed = await self._confirm_valve_running(
-            zone_id, zone.get(const.ZONE_RUN_SERVICE)
+        # Confirm the open BEFORE crediting. MQTT is fire-and-forget (no backing
+        # entity), so it skips confirmation; the service adapter confirms against
+        # the run_service entity (e.g. a script.*, which carries an on/off state).
+        # None = write-only target, treated as ok. A dedicated confirm_entity is a
+        # Phase-2 refinement.
+        confirm_target = zone.get(const.ZONE_RUN_SERVICE)
+        confirmed = (
+            await self._confirm_valve_running(zone_id, confirm_target)
+            if confirm_target
+            else None
         )
         if confirmed is False:
             self._sc_fire(
@@ -176,7 +219,7 @@ class SelfClosingMixin:
                 const.RUN_STARTED: dt_util.utcnow().isoformat(),
                 const.RUN_PLANNED_SECONDS: planned_seconds,
                 const.RUN_PLANNED_MM: depth,
-                const.RUN_MODE: const.WATERING_MODE_SERVICE,
+                const.RUN_MODE: zone.get(const.ZONE_WATERING_MODE),
                 const.RUN_CREDITED: True,
             }
         )
@@ -216,19 +259,23 @@ class SelfClosingMixin:
             return False
         zone = self.store.get_zone(zone_id) or {}
 
-        # Close the valve via the configured stop service (best-effort).
-        stop_svc = zone.get(const.ZONE_STOP_SERVICE)
-        if stop_svc:
-            domain, service = self._sc_split_service(stop_svc)
-            data = dict(zone.get(const.ZONE_STOP_DATA) or {})
-            data["zone_id"] = zone_id
-            await self.hass.services.async_call(domain, service, data)
+        # Close the valve (best-effort): MQTT publishes a stop payload; the
+        # service adapter calls the configured stop_service.
+        if zone.get(const.ZONE_WATERING_MODE) == const.WATERING_MODE_MQTT:
+            await self._sc_mqtt_stop(zone)
         else:
-            _LOGGER.warning(
-                "Zone %s stopped in self-closing mode without a stop_service; "
-                "cannot close the valve, correcting accounting only",
-                zone_id,
-            )
+            stop_svc = zone.get(const.ZONE_STOP_SERVICE)
+            if stop_svc:
+                domain, service = self._sc_split_service(stop_svc)
+                data = dict(zone.get(const.ZONE_STOP_DATA) or {})
+                data["zone_id"] = zone_id
+                await self.hass.services.async_call(domain, service, data)
+            else:
+                _LOGGER.warning(
+                    "Zone %s stopped in self-closing mode without a stop_service; "
+                    "cannot close the valve, correcting accounting only",
+                    zone_id,
+                )
 
         # Correct the bucket: remove the undelivered portion of the credit.
         planned = float(run.get(const.RUN_PLANNED_SECONDS) or 0)
@@ -275,8 +322,11 @@ class SelfClosingMixin:
 
     @staticmethod
     def _sc_is_self_closing(zone: dict) -> bool:
-        """True if the zone delegates its run to a self-closing service."""
-        return zone.get(const.ZONE_WATERING_MODE) == const.WATERING_MODE_SERVICE
+        """True if the zone delegates its run to a self-closing target."""
+        return zone.get(const.ZONE_WATERING_MODE) in (
+            const.WATERING_MODE_SERVICE,
+            const.WATERING_MODE_MQTT,
+        )
 
     async def _sc_maybe_stop(self, zone_id) -> bool:
         """Stop a self-closing zone here; return True if it was handled."""

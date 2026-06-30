@@ -19,6 +19,14 @@ def test_zone_entry_has_self_closing_fields():
     assert z.stop_data == {}
 
 
+def test_zone_entry_has_mqtt_fields():
+    z = ZoneEntry()
+    assert z.mqtt_topic is None
+    assert z.mqtt_open_field is None
+    assert z.mqtt_open_value is None
+    assert z.mqtt_stop_value is None
+
+
 def test_config_has_active_valve_runs():
     c = Config()
     assert c.active_valve_runs == []

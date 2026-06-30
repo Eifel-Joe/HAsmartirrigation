@@ -61,6 +61,10 @@ import {
   ZONE_DURATION_FIELD,
   ZONE_DURATION_UNIT,
   ZONE_STOP_SERVICE,
+  ZONE_MQTT_TOPIC,
+  ZONE_MQTT_OPEN_FIELD,
+  ZONE_MQTT_OPEN_VALUE,
+  ZONE_MQTT_STOP_VALUE,
 } from "../../const";
 import "../../components/si-field";
 import "../../components/si-zone-form";
@@ -811,6 +815,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                   this.hass.language,
                 )}
               </option>
+              <option value="mqtt" ?selected="${zone.watering_mode === "mqtt"}">
+                ${localize(
+                  "panels.zones.labels.watering_modes.mqtt",
+                  this.hass.language,
+                )}
+              </option>
             </select>
           </ha-settings-row>
 
@@ -924,7 +934,154 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                   />
                 </ha-settings-row>
               `
-            : html`
+            : ""}
+          ${zone.watering_mode === "mqtt"
+            ? html`
+                <ha-settings-row>
+                  <span slot="heading"
+                    >${localize(
+                      "panels.zones.labels.mqtt_topic",
+                      this.hass.language,
+                    )}</span
+                  >
+                  <input
+                    type="text"
+                    class="settings-input"
+                    placeholder="${localize(
+                      "panels.zones.labels.mqtt_topic_placeholder",
+                      this.hass.language,
+                    )}"
+                    .value="${zone.mqtt_topic || ""}"
+                    @input="${(e: Event) =>
+                      this.handleEditZone(index, {
+                        ...zone,
+                        [ZONE_MQTT_TOPIC]:
+                          (e.target as HTMLInputElement).value || undefined,
+                      })}"
+                  />
+                </ha-settings-row>
+                <ha-settings-row>
+                  <span slot="heading"
+                    >${localize(
+                      "panels.zones.labels.duration_field",
+                      this.hass.language,
+                    )}</span
+                  >
+                  <input
+                    type="text"
+                    class="settings-input"
+                    placeholder="e.g. countdown_l1"
+                    .value="${zone.duration_field || ""}"
+                    @input="${(e: Event) =>
+                      this.handleEditZone(index, {
+                        ...zone,
+                        [ZONE_DURATION_FIELD]:
+                          (e.target as HTMLInputElement).value || undefined,
+                      })}"
+                  />
+                </ha-settings-row>
+                <ha-settings-row>
+                  <span slot="heading"
+                    >${localize(
+                      "panels.zones.labels.duration_unit",
+                      this.hass.language,
+                    )}</span
+                  >
+                  <select
+                    class="settings-input"
+                    .value="${live(zone.duration_unit ?? "seconds")}"
+                    @change="${(e: Event) =>
+                      this.handleEditZone(index, {
+                        ...zone,
+                        [ZONE_DURATION_UNIT]: (e.target as HTMLSelectElement)
+                          .value,
+                      })}"
+                  >
+                    <option
+                      value="seconds"
+                      ?selected="${(zone.duration_unit ?? "seconds") ===
+                      "seconds"}"
+                    >
+                      ${localize(
+                        "panels.zones.labels.duration_units.seconds",
+                        this.hass.language,
+                      )}
+                    </option>
+                    <option
+                      value="minutes"
+                      ?selected="${zone.duration_unit === "minutes"}"
+                    >
+                      ${localize(
+                        "panels.zones.labels.duration_units.minutes",
+                        this.hass.language,
+                      )}
+                    </option>
+                  </select>
+                </ha-settings-row>
+                <ha-settings-row>
+                  <span slot="heading"
+                    >${localize(
+                      "panels.zones.labels.mqtt_open_field",
+                      this.hass.language,
+                    )}</span
+                  >
+                  <input
+                    type="text"
+                    class="settings-input"
+                    placeholder="e.g. valve_l1"
+                    .value="${zone.mqtt_open_field || ""}"
+                    @input="${(e: Event) =>
+                      this.handleEditZone(index, {
+                        ...zone,
+                        [ZONE_MQTT_OPEN_FIELD]:
+                          (e.target as HTMLInputElement).value || undefined,
+                      })}"
+                  />
+                </ha-settings-row>
+                <ha-settings-row>
+                  <span slot="heading"
+                    >${localize(
+                      "panels.zones.labels.mqtt_open_value",
+                      this.hass.language,
+                    )}</span
+                  >
+                  <input
+                    type="text"
+                    class="settings-input"
+                    placeholder="e.g. on"
+                    .value="${zone.mqtt_open_value || ""}"
+                    @input="${(e: Event) =>
+                      this.handleEditZone(index, {
+                        ...zone,
+                        [ZONE_MQTT_OPEN_VALUE]:
+                          (e.target as HTMLInputElement).value || undefined,
+                      })}"
+                  />
+                </ha-settings-row>
+                <ha-settings-row>
+                  <span slot="heading"
+                    >${localize(
+                      "panels.zones.labels.mqtt_stop_value",
+                      this.hass.language,
+                    )}</span
+                  >
+                  <input
+                    type="text"
+                    class="settings-input"
+                    placeholder="e.g. off"
+                    .value="${zone.mqtt_stop_value || ""}"
+                    @input="${(e: Event) =>
+                      this.handleEditZone(index, {
+                        ...zone,
+                        [ZONE_MQTT_STOP_VALUE]:
+                          (e.target as HTMLInputElement).value || undefined,
+                      })}"
+                  />
+                </ha-settings-row>
+              `
+            : ""}
+          ${zone.watering_mode !== "service" && zone.watering_mode !== "mqtt"
+            ? html`
                 <ha-settings-row>
                   <span slot="heading"
                     >${localize(
@@ -944,7 +1101,8 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       })}"
                   ></ha-entity-picker>
                 </ha-settings-row>
-              `}
+              `
+            : ""}
 
           <ha-settings-row>
             <span slot="heading"

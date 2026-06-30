@@ -143,6 +143,10 @@ export const ZONE_RUN_SERVICE = "run_service";
 export const ZONE_DURATION_FIELD = "duration_field";
 export const ZONE_DURATION_UNIT = "duration_unit";
 export const ZONE_STOP_SERVICE = "stop_service";
+export const ZONE_MQTT_TOPIC = "mqtt_topic";
+export const ZONE_MQTT_OPEN_FIELD = "mqtt_open_field";
+export const ZONE_MQTT_OPEN_VALUE = "mqtt_open_value";
+export const ZONE_MQTT_STOP_VALUE = "mqtt_stop_value";
 
 // Plant-type presets → mid-season Kc (relative to grass reference ET0). The
 // stored value is still the plain ``kc`` number; "custom" lets it be hand-set.

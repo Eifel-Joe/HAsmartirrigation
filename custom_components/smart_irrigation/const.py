@@ -529,6 +529,7 @@ EVENT_RECURRING_SCHEDULE_TRIGGERED = "recurring_schedule_triggered"
 ZONE_WATERING_MODE = "watering_mode"  # per-zone actuation adapter
 WATERING_MODE_CLASSIC = "classic"  # default: open -> sleep -> close
 WATERING_MODE_SERVICE = "service"  # fire a service, valve self-closes
+WATERING_MODE_MQTT = "mqtt"  # publish countdown + open payloads, valve self-closes
 
 # 'service' adapter per-zone config
 ZONE_RUN_SERVICE = "run_service"  # "domain.service" e.g. "script.irrigation_beet"
@@ -537,6 +538,14 @@ ZONE_DURATION_UNIT = "duration_unit"  # DURATION_UNIT_SECONDS | DURATION_UNIT_MI
 ZONE_RUN_DATA = "run_data"  # optional static dict merged into the call
 ZONE_STOP_SERVICE = "stop_service"  # optional "domain.service" for early stop
 ZONE_STOP_DATA = "stop_data"  # optional static dict for the stop call
+
+# 'mqtt' adapter per-zone config (publish to a Zigbee2MQTT-style "set" topic).
+# The countdown JSON key reuses ZONE_DURATION_FIELD (e.g. "countdown_l1") and the
+# unit reuses ZONE_DURATION_UNIT.
+ZONE_MQTT_TOPIC = "mqtt_topic"  # e.g. "zigbee2mqtt/Wasser Beet/set"
+ZONE_MQTT_OPEN_FIELD = "mqtt_open_field"  # e.g. "valve_l1"
+ZONE_MQTT_OPEN_VALUE = "mqtt_open_value"  # e.g. "on"
+ZONE_MQTT_STOP_VALUE = "mqtt_stop_value"  # e.g. "off"
 
 DURATION_UNIT_SECONDS = "seconds"
 DURATION_UNIT_MINUTES = "minutes"
