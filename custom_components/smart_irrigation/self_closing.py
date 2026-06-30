@@ -176,3 +176,59 @@ class SelfClosingMixin:
         )
         self._sc_schedule_cleanup(zone_id, planned_seconds)
         return True
+
+    def _sc_elapsed(self, started_iso: str) -> float:
+        """Wall-clock seconds since the run started (includes downtime)."""
+        started = dt_util.parse_datetime(started_iso)
+        if started is None:
+            return 0.0
+        return max(0.0, (dt_util.utcnow() - started).total_seconds())
+
+    async def _sc_find_run(self, zone_id):
+        for r in await self._sc_active_runs():
+            if r.get(const.RUN_ZONE_ID) == zone_id:
+                return r
+        return None
+
+    async def async_stop_self_closing(self, zone_id) -> bool:
+        """Stop a self-closing run early: close the valve + correct the bucket."""
+        run = await self._sc_find_run(zone_id)
+        if run is None:
+            return False
+        zone = self.store.get_zone(zone_id) or {}
+
+        # Close the valve via the configured stop service (best-effort).
+        stop_svc = zone.get(const.ZONE_STOP_SERVICE)
+        if stop_svc:
+            domain, service = self._sc_split_service(stop_svc)
+            data = dict(zone.get(const.ZONE_STOP_DATA) or {})
+            data["zone_id"] = zone_id
+            await self.hass.services.async_call(domain, service, data)
+        else:
+            _LOGGER.warning(
+                "Zone %s stopped in self-closing mode without a stop_service; "
+                "cannot close the valve, correcting accounting only",
+                zone_id,
+            )
+
+        # Correct the bucket: remove the undelivered portion of the credit.
+        planned = float(run.get(const.RUN_PLANNED_SECONDS) or 0)
+        planned_mm = float(run.get(const.RUN_PLANNED_MM) or 0)
+        elapsed = self._sc_elapsed(run.get(const.RUN_STARTED))
+        delivered_frac = min(elapsed / planned, 1.0) if planned > 0 else 1.0
+        undelivered_mm = planned_mm * (1.0 - delivered_frac)
+        if undelivered_mm:
+            new_bucket = float(zone.get(const.ZONE_BUCKET) or 0) - undelivered_mm
+            await self.store.async_update_zone(zone_id, {const.ZONE_BUCKET: new_bucket})
+
+        await self._sc_remove_run(zone_id)
+        await self._record_run(
+            zone_id,
+            result=const.RUN_RESULT_PARTIAL,
+            planned_s=planned,
+            actual_s=elapsed,
+            detail=const.RUN_DETAIL_SELF_CLOSING_STOPPED,
+            trigger=const.RUN_TRIGGER_SELF_CLOSING,
+            add_to_total=False,
+        )
+        return True

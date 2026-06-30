@@ -106,6 +106,43 @@ async def test_finish_removes_run_and_fires_finished():
     assert fired[key]["zones"][0]["zone_id"] == 2
 
 
+async def test_stop_calls_stop_service_and_corrects_bucket():
+    c = _coord()
+    started = "2026-06-30T08:00:00+00:00"
+    run = {
+        const.RUN_ZONE_ID: 2,
+        const.RUN_STARTED: started,
+        const.RUN_PLANNED_SECONDS: 600.0,
+        const.RUN_PLANNED_MM: 4.0,
+        const.RUN_CREDITED: True,
+    }
+    c.store.async_get_config = AsyncMock(
+        return_value={const.CONF_ACTIVE_VALVE_RUNS: [run]}
+    )
+    zone = _zone(
+        **{const.ZONE_BUCKET: -1.0, const.ZONE_STOP_SERVICE: "script.beet_off"}
+    )
+    c.store.get_zone = Mock(return_value=zone)
+    # half the run elapsed -> deliver 50% -> remove 2 mm of the 4 mm credit
+    c._sc_elapsed = Mock(return_value=300.0)
+
+    await c.async_stop_self_closing(2)
+
+    # stop_service called
+    domain, service, _ = c.hass.services.async_call.await_args.args
+    assert (domain, service) == ("script", "beet_off")
+    # bucket corrected down by the undelivered 2 mm: -1 - 2 = -3
+    bcalls = [
+        ck
+        for ck in c.store.async_update_zone.await_args_list
+        if const.ZONE_BUCKET in ck.args[1]
+    ]
+    assert bcalls[-1].args[1][const.ZONE_BUCKET] == -3.0
+    # run cleared
+    cfg = c.store.async_update_config.await_args.args[0]
+    assert cfg[const.CONF_ACTIVE_VALVE_RUNS] == []
+
+
 async def test_run_aborts_and_fires_problem_when_open_unconfirmed():
     c = _coord()
     c._confirm_valve_running = AsyncMock(return_value=False)  # never opened
