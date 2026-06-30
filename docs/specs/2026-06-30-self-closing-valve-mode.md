@@ -97,15 +97,27 @@ unchanged. The other three are "self-closing" adapters and share:
 A multi-channel device (e.g. Tuya l1/l2) is modelled as **two independent zones**,
 each pointing at its own entities/payloads — no special multi-channel logic.
 
-### 4.3 Active-run record
+### 4.3 Active-run record (persisted)
 
-Self-closing modes do **not** sleep the duration. To support status, cleanup,
-stop and restart-reconciliation, HASI keeps a small per-zone active-run record
-(persisted in the store so it survives a restart):
+Self-closing modes do **not** sleep the duration. HASI keeps a per-zone active-run
+record, persisted in the store so it survives a restart — modelled on altmen's
+`active_valve_runs` list (prior art, §14):
 
 ```
-active_run = { zone_id, start_ts, planned_seconds, mode, planned_mm }
+active_run = {
+  zone_id,            # int
+  entity_id,          # the actuated entity/service target (for stop/verify)
+  started,            # ISO-8601 UTC timestamp
+  planned_seconds,    # target run duration
+  planned_mm,         # water the run is intended to deliver
+  mode,               # service | duration_entity | mqtt
+  credited,           # bool — bucket already credited optimistically (§5)
+}
 ```
+
+Stored as a list on the store config (e.g. `CONF_ACTIVE_VALVE_RUNS`), loaded on
+`async_setup_entry` for reconciliation (§6). `started` is wall-clock **UTC** so a
+reboot can compute true elapsed time including downtime.
 
 ### 4.4 Master (instance-level)
 
@@ -122,15 +134,34 @@ Optional instance-level config:
 2. Convert to `duration_unit`. If `minutes` and `planned_seconds < 60`, round up
    to 1 minute and log a granularity warning (sub-minute precision is lost on
    minute-granular hardware).
-3. Dispatch the adapter's **open action** (service call / set-number-then-open /
-   publish-countdown-then-open).
-4. **Credit the bucket optimistically, now** (assume the full run will complete,
-   because the valve owns the close): apply the normal post-run bucket credit for
-   `planned_mm`, write a run-log entry tagged `self_closing` + `optimistic`, set
-   `watering_now = on`, and persist the active-run record.
-5. Schedule a **lightweight cleanup timer** at `start_ts + planned_seconds` that
-   only flips `watering_now = off` and finalises the run-log (it does **not**
-   close the valve — the hardware did).
+3. Dispatch the adapter's **open action**. Open/close are domain-aware (mirroring
+   altmen's `_valve_services`): a `valve.*` entity uses `valve.open_valve` /
+   `valve.close_valve`, anything else uses `turn_on` / `turn_off`; the `service`
+   and `mqtt` adapters use their configured calls / payloads.
+4. **Confirm the open before crediting:** poll the optional `status_entity` (or
+   the `open_entity` state) for up to ~8 s, accepting `on` / `open` / `opening`.
+   If it never confirms, abort — do not credit, fire a `zone_problem` event
+   (§5.1), do not persist an active run. (This closes the optimistic-over-credit
+   risk in §12 — adopted from altmen.)
+5. **Credit the bucket optimistically, now** (the valve owns the close, so assume
+   completion): credit `planned_mm` via the existing run-credit math
+   (`volume_l = throughput * seconds / 60 / multiplier`, clamped to the zone's
+   `maximum_duration`), write a run-log entry tagged `self_closing` + `optimistic`,
+   set `watering_now = on`, and persist the active-run record with `credited = true`.
+6. Schedule a **lightweight cleanup timer** at `started + planned_seconds` that
+   only flips `watering_now = off`, fires `irrigation_finished` (§5.1) and removes
+   the active-run record. It does **not** close the valve — the hardware did.
+
+### 5.1 Events
+
+HASI fires the same events as altmen's direct valve control, for ecosystem
+consistency so external automations (notifications, logging) work unchanged:
+- `smart_irrigation_irrigation_started` — `{ sequencing, zones: [{zone_id, zone,
+  seconds}] }`, when a self-closing cycle begins.
+- `smart_irrigation_irrigation_finished` — `{ zones: [{zone_id, zone, seconds,
+  volume_l, bucket}], problems: [...] }`, at cleanup / finalise.
+- `smart_irrigation_zone_problem` — `{ zone_id, zone, entity_id, reason }`, when
+  the open cannot be confirmed (§5 step 4).
 
 If HA dies between steps 4 and 5: the valve still closes itself, and the bucket
 is already correct, so the next cycle does **not** double-water. Only the
@@ -147,12 +178,16 @@ cosmetic `watering_now` stays briefly stale until restart reconciliation.
   bucket** by removing the un-delivered portion `(1 - delivered) * planned_mm`
   from the optimistic credit. Finalise the run-log as `stopped`.
 
-**Restart reconciliation** (on `async_setup_entry`):
-- Load persisted active-run records. For each:
-  - `start_ts + planned_seconds` in the past → mark completed (valve has closed),
-    clear `watering_now`.
-  - still in the future → reschedule the cleanup timer for the remainder.
-- The bucket needs no fix-up on restart because it was credited at fire time.
+**Restart reconciliation** (on `async_setup_entry`, modelled on altmen's
+`async_resume_valve_runs`): load persisted active-run records; per record compute
+`elapsed = utcnow() - started` (wall-clock, so downtime counts), then:
+- `elapsed >= planned_seconds` → the self-closing hardware has already closed;
+  finalise: clear `watering_now`, fire `irrigation_finished`, remove the record.
+- `elapsed < planned_seconds` → the hardware countdown is still running; do **NOT**
+  re-open (key divergence from altmen, whose software-timed valve would otherwise
+  stay open). Just reschedule the cleanup timer for the remainder.
+- The bucket is **not** re-credited on restart because `credited` is already true
+  (optimistic credit at fire time); the flag prevents double-crediting.
 
 ## 7. Master flow
 
@@ -234,10 +269,11 @@ New `tests/test_self_closing_valve.py` (+ additions to `test_store.py` /
   silently failing.
 - **Master crash exposure** (§7) — accepted and documented, not solved.
 - **Granularity loss** on minute-granular hardware for sub-minute runs.
-- **Optimistic over-credit** if a self-closing run fails to actually open (e.g.
-  valve offline). The `status_entity` check, where configured, can downgrade the
-  credit; without it, a failed open is indistinguishable from a successful one —
-  documented limitation, same as a classic run whose switch silently fails.
+- **Optimistic over-credit** is mitigated by the confirm-open step (§5 step 4):
+  the credit happens only after the valve confirms open. Without a `status_entity`
+  (and for `service`/`mqtt` adapters with no observable state) a silently-failed
+  open is still indistinguishable from success — documented limitation, same as a
+  classic run whose switch silently fails; configuring a `status_entity` removes it.
 
 ## 13. Phasing (each phase = an independent, shippable PR)
 
@@ -248,3 +284,28 @@ New `tests/test_self_closing_valve.py` (+ additions to `test_store.py` /
 - **Phase 3:** the master switch/valve.
 
 Each phase gets its own implementation plan (`docs/plans/…`).
+
+## 14. Prior art & alignment — altmen `direct_valve_control`
+
+altmen/master (the canonical repo) already ships an adjacent, **global** feature
+`direct_valve_control_enabled`, implemented in `valve_runner.py`:
+- HASI opens the valve (domain-aware `_valve_services`), **software-times** the run
+  (`asyncio.sleep`), then closes it; persists in-flight runs (`CONF_ACTIVE_VALVE_RUNS`:
+  zone_id, entity_id, started, duration) and on reboot **resumes** by re-opening
+  partial runs and crediting the full target duration (clamped to `maximum_duration`).
+- Fires `irrigation_started` / `irrigation_finished` / `zone_problem` events; the
+  legacy start event fires regardless, so an **external executor** (automation) can
+  do the actuation when DVC is off.
+
+This spec **borrows** altmen's persisted-run structure, wall-clock elapsed
+calculation, crediting math, confirm-open check, and event surface. It **diverges**
+on the close: altmen's reboot-resilience keeps the valve open while HA is down (a
+hard crash that never recovers still floods), whereas this feature delegates the
+close to **self-closing hardware** (a countdown), so the valve shuts regardless of
+whether HA returns — and credits optimistically at start.
+
+On **JustChr** (this branch) none of altmen's machinery exists, so it is implemented
+natively. If this is ever targeted at **altmenorg**, it should **extend**
+`direct_valve_control` (add the self-closing adapters + optimistic credit +
+skip-re-open resume) rather than duplicate it — and the `service`/`mqtt` adapters
+map cleanly onto altmen's existing "optional external executor + start event" path.
