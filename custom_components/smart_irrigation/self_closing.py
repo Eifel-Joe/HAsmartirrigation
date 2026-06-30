@@ -114,7 +114,11 @@ class SelfClosingMixin:
 
         await self._sc_dispatch_open(zone)
 
-        # Confirm the open BEFORE crediting (None = write-only valve, treat as ok).
+        # Confirm the open BEFORE crediting (None = write-only target, treat as
+        # ok). NB: confirmation runs against the run_service entity (e.g. a
+        # script.*, which carries an on/off state while running). A dedicated
+        # confirm_entity is a Phase-2 refinement for service/mqtt targets that
+        # have no backing state to observe.
         confirmed = await self._confirm_valve_running(
             zone_id, zone.get(const.ZONE_RUN_SERVICE)
         )
