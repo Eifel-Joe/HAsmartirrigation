@@ -124,13 +124,19 @@ Stored as a list on the store config (e.g. `CONF_ACTIVE_VALVE_RUNS`), loaded on
 `async_setup_entry` for reconciliation (§6). `started` is wall-clock **UTC** so a
 reboot can compute true elapsed time including downtime.
 
-### 4.4 Master (instance-level)
+### 4.4 Master (instance-level, fully optional)
 
-Optional instance-level config:
-- `master_on_service` / `master_off_service` — `domain.service` (+ optional data),
-  **or** `master_entity` (a switch/valve toggled on/off).
-- `master_settle_seconds` — delay after `master_on` before the first zone fires
-  (pressure build-up), default 10 s.
+Optional instance-level config; each hook is **independent and optional**:
+- `master_on_service` *(optional)* — `domain.service` (+ optional data) **or** a
+  `master_on_entity` toggled on, fired before the first zone of a cycle.
+- `master_off_service` *(optional)* — fired after the last zone's planned end. **If
+  unset, HASI never turns the master off** — e.g. a self-monitoring pump / domestic
+  waterworks on a socket that should simply stay powered.
+- `master_settle_seconds` *(optional)* — delay after `master_on` before the first
+  zone fires (pressure build-up), default 10 s.
+
+Any combination is valid: on-only, off-only, both, or neither (a user's own
+automation may already manage the pump).
 
 ## 5. Actuation flow (self-closing modes)
 
@@ -196,16 +202,21 @@ cosmetic `watering_now` stays briefly stale until restart reconciliation.
 
 ## 7. Master flow
 
-- A watering **cycle** begins when the first zone of a run fires. HASI calls
-  `master_on`, waits `master_settle_seconds`, then dispatches the zones.
-- Cycle end = `max(zone.start_ts + zone.planned_seconds)` across the cycle's
-  zones. HASI schedules `master_off` at that time.
-- Applies to classic zones too (master on before, off after).
-- **Crash exposure (documented):** if HA dies after `master_on`, the master stays
-  on. A pump is not self-closing, so this can dead-head / run dry. HASI cannot
-  prevent this alone; the master device must carry its own safety (dry-run
-  protection, a self-closing relay on the pump supply, or a max-on timer on the
-  upstream socket). This is surfaced in the docs and the master config UI.
+- If `master_on_service` is configured: a watering **cycle** begins when the first
+  zone of a run fires — HASI calls `master_on`, waits `master_settle_seconds`, then
+  dispatches the zones. Otherwise zones dispatch immediately.
+- If `master_off_service` is configured: HASI schedules `master_off` at the cycle
+  end (`max(zone.start_ts + zone.planned_seconds)` across the cycle's zones). **If
+  it is not configured, HASI never turns the master off** — for a self-monitoring
+  pump, or a setup whose own automation owns the pump.
+- Applies to classic zones too.
+- **Crash exposure (only when `master_off` is used):** if HA dies after `master_on`
+  while a `master_off` was expected, the master stays on; a non-self-protecting
+  pump could dead-head / run dry. HASI cannot prevent this alone — the master
+  device must carry its own safety (dry-run protection, a self-closing relay, or a
+  max-on timer). This is exactly why `master_off` is optional: a self-monitoring
+  pump simply omits it and carries **no** crash exposure. Surfaced in the master
+  config UI.
 
 ## 8. Backward compatibility
 
