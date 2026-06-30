@@ -157,3 +157,28 @@ async def test_run_aborts_and_fires_problem_when_open_unconfirmed():
     c.store.async_update_config.assert_not_awaited()  # no persisted run
     evt = [a.args[0] for a in c.hass.bus.async_fire.call_args_list]
     assert f"{const.DOMAIN}_{const.EVENT_ZONE_PROBLEM}" in evt
+
+
+async def test_resume_finalises_overdue_and_reschedules_partial():
+    c = _coord()
+    overdue = {
+        const.RUN_ZONE_ID: 1,
+        const.RUN_STARTED: "2026-06-30T08:00:00+00:00",
+        const.RUN_PLANNED_SECONDS: 60.0,  # long past -> already closed
+    }
+    partial = {
+        const.RUN_ZONE_ID: 2,
+        const.RUN_STARTED: "2026-06-30T08:00:00+00:00",
+        const.RUN_PLANNED_SECONDS: 600.0,  # may still be running
+    }
+    c.store.async_get_config = AsyncMock(
+        return_value={const.CONF_ACTIVE_VALVE_RUNS: [overdue, partial]}
+    )
+    c._sc_finish_run = AsyncMock()
+    # zone 1 overdue (elapsed 10000 >= 60), zone 2 partial (elapsed 100 < 600)
+    c._sc_elapsed = Mock(side_effect=[10000.0, 100.0])
+
+    await c.async_resume_self_closing_runs()
+
+    c._sc_finish_run.assert_awaited_once_with(1)
+    c._sc_schedule_cleanup.assert_called_once_with(2, 500.0)

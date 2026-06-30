@@ -232,3 +232,21 @@ class SelfClosingMixin:
             add_to_total=False,
         )
         return True
+
+    async def async_resume_self_closing_runs(self) -> None:
+        """Reconcile persisted in-flight runs after a restart.
+
+        Self-closing hardware closes on its own, so we NEVER re-open: if the run
+        is overdue it has already closed (finalise); if it is still within its
+        window the hardware countdown is still running (reschedule the cosmetic
+        cleanup for the remainder). The bucket was credited at start
+        (credited=True), so it is never re-credited here.
+        """
+        for run in await self._sc_active_runs():
+            zone_id = run.get(const.RUN_ZONE_ID)
+            planned = float(run.get(const.RUN_PLANNED_SECONDS) or 0)
+            elapsed = self._sc_elapsed(run.get(const.RUN_STARTED))
+            if elapsed >= planned:
+                await self._sc_finish_run(zone_id)
+            else:
+                self._sc_schedule_cleanup(zone_id, planned - elapsed)
