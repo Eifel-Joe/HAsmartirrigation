@@ -250,3 +250,16 @@ class SelfClosingMixin:
                 await self._sc_finish_run(zone_id)
             else:
                 self._sc_schedule_cleanup(zone_id, planned - elapsed)
+
+    @staticmethod
+    def _sc_is_self_closing(zone: dict) -> bool:
+        """True if the zone delegates its run to a self-closing service."""
+        return zone.get(const.ZONE_WATERING_MODE) == const.WATERING_MODE_SERVICE
+
+    async def _sc_maybe_stop(self, zone_id) -> bool:
+        """Stop a self-closing zone here; return True if it was handled."""
+        zone = self.store.get_zone(zone_id) or {}
+        if not self._sc_is_self_closing(zone):
+            return False
+        await self.async_stop_self_closing(zone_id)
+        return True

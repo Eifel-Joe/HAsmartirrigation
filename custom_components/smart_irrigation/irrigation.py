@@ -199,6 +199,8 @@ class IrrigationRunnerMixin:
         opened valve, or a run started before a restart).
         """
         zid = int(zone_id)
+        if await self._sc_maybe_stop(zid):
+            return
         reg = getattr(self, "_active_runs", None) or {}
         tracked = reg.get(zid)
         if tracked is not None:
@@ -324,7 +326,7 @@ class IrrigationRunnerMixin:
         zones_to_irrigate = [
             z
             for z in zones
-            if z.get(const.ZONE_LINKED_ENTITY)
+            if (z.get(const.ZONE_LINKED_ENTITY) or self._sc_is_self_closing(z))
             and z.get(const.ZONE_STATE) != const.ZONE_STATE_DISABLED
             and (target is None or int(z.get(const.ZONE_ID)) in target)
             and (
@@ -357,6 +359,16 @@ class IrrigationRunnerMixin:
         zones_to_irrigate = await self._apply_live_durations(zones_to_irrigate)
         if not zones_to_irrigate:
             _LOGGER.debug("Live-estimate duration left no zones needing water")
+            return
+
+        # Self-closing zones delegate the run to their own service (the valve
+        # owns the close); they bypass the linked-entity sequencing below.
+        for z in [z for z in zones_to_irrigate if self._sc_is_self_closing(z)]:
+            await self.async_run_self_closing(z, trigger="schedule")
+        zones_to_irrigate = [
+            z for z in zones_to_irrigate if not self._sc_is_self_closing(z)
+        ]
+        if not zones_to_irrigate:
             return
 
         if sequencing == const.CONF_ZONE_SEQUENCING_SEQUENTIAL:

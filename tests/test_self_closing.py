@@ -182,3 +182,30 @@ async def test_resume_finalises_overdue_and_reschedules_partial():
 
     c._sc_finish_run.assert_awaited_once_with(1)
     c._sc_schedule_cleanup.assert_called_once_with(2, 500.0)
+
+
+def test_is_self_closing_distinguishes_modes():
+    c = _coord()
+    classic = _zone(**{const.ZONE_WATERING_MODE: const.WATERING_MODE_CLASSIC})
+    assert c._sc_is_self_closing(classic) is False
+    assert c._sc_is_self_closing(_zone()) is True
+
+
+async def test_maybe_stop_delegates_for_service_zone():
+    c = _coord()
+    c.store.get_zone = Mock(return_value=_zone())
+    c.async_stop_self_closing = AsyncMock(return_value=True)
+    handled = await c._sc_maybe_stop(2)
+    assert handled is True
+    c.async_stop_self_closing.assert_awaited_once_with(2)
+
+
+async def test_maybe_stop_ignores_classic_zone():
+    c = _coord()
+    c.store.get_zone = Mock(
+        return_value=_zone(**{const.ZONE_WATERING_MODE: const.WATERING_MODE_CLASSIC})
+    )
+    c.async_stop_self_closing = AsyncMock()
+    handled = await c._sc_maybe_stop(2)
+    assert handled is False
+    c.async_stop_self_closing.assert_not_awaited()

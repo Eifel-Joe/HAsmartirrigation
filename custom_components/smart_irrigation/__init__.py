@@ -159,6 +159,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Set up the auto update/calc/clear timers (awaited, not fire-and-forget).
     await coordinator.async_setup_timers()
 
+    # Reconcile any self-closing runs that were in flight across a restart.
+    await coordinator.async_resume_self_closing_runs()
+
     # Set up unit system change listener
     async def handle_core_config_change(event):
         """Handle Home Assistant core configuration changes, specifically unit system changes."""
