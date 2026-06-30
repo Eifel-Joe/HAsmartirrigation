@@ -155,13 +155,19 @@ automation may already manage the pump).
    (§5.1), do not persist an active run. (This closes the optimistic-over-credit
    risk in §12 — adopted from altmen.)
 5. **Credit the bucket optimistically, now** (the valve owns the close, so assume
-   completion): credit `planned_mm` via the existing run-credit math
-   (`volume_l = throughput * seconds / 60 / multiplier`, clamped to the zone's
-   `maximum_duration`), write a run-log entry tagged `self_closing` + `optimistic`,
-   set `watering_now = on`, and persist the active-run record with `credited = true`.
-6. Schedule a **lightweight cleanup timer** at `started + planned_seconds` that
-   only flips `watering_now = off`, fires `irrigation_finished` (§5.1) and removes
-   the active-run record. It does **not** close the valve — the hardware did.
+   completion): credit `planned_mm` to the bucket via the existing run-credit math
+   (`volume_l = throughput * seconds / 60 / multiplier`). Set `watering_now = on`
+   and persist the active-run record with `credited = true`. **Usage**
+   (`water_used_total`) is **not** counted here — it is recorded once at the run's
+   actual end (step 6 / §6) for the delivered volume, so an early stop cannot
+   over-report it. The bucket, by contrast, is the crash-safe model state and is
+   credited optimistically now.
+6. Schedule a **lightweight cleanup timer** at `started + planned_seconds`. When it
+   fires — and only if the run is still active (idempotent against an earlier
+   stop) — it records the completed run (counting `water_used_total` once, for the
+   delivered volume), flips `watering_now = off`, fires `irrigation_finished`
+   (§5.1) and removes the active-run record. It does **not** close the valve — the
+   hardware did.
 
 ### 5.1 Events
 
@@ -185,9 +191,10 @@ cosmetic `watering_now` stays briefly stale until restart reconciliation.
   `stop_payload` / classic `turn_off`). If a self-closing zone has no stop config,
   stop is **best-effort**: HASI cannot close the valve, logs a warning, but still
   corrects accounting.
-- Compute `delivered = min(elapsed / planned_seconds, 1)` and **correct the
-  bucket** by removing the un-delivered portion `(1 - delivered) * planned_mm`
-  from the optimistic credit. Finalise the run-log as `stopped`.
+- Compute `delivered = min(elapsed / planned_seconds, 1)`, **correct the bucket**
+  by removing the un-delivered portion `(1 - delivered) * planned_mm` from the
+  optimistic credit, and record the partial run — counting `water_used_total` for
+  the **delivered** volume only. Finalise the run-log as `stopped`.
 
 **Restart reconciliation** (on `async_setup_entry`, modelled on altmen's
 `async_resume_valve_runs`): load persisted active-run records; per record compute

@@ -78,9 +78,30 @@ class SelfClosingMixin:
         await self._sc_persist_runs(runs)
 
     async def _sc_finish_run(self, zone_id) -> None:
-        """Finalise a completed/closed run: clear persistence + fire finished."""
+        """Finalise a completed run: record actual usage, clear, fire finished.
+
+        Idempotent: a no-op if the run is no longer active (e.g. the cleanup
+        timer fires after an early stop already removed it), so usage is never
+        double-counted.
+        """
+        run = await self._sc_find_run(zone_id)
+        if run is None:
+            return
         await self._sc_remove_run(zone_id)
         zone = self.store.get_zone(zone_id) or {}
+        # Count usage once, at completion, for the actual delivered volume (the
+        # run ran for its full planned duration).
+        planned_s = float(run.get(const.RUN_PLANNED_SECONDS) or 0)
+        volume_l = self._timed_volume_l(zone, planned_s)
+        await self._record_run(
+            zone_id,
+            result=const.RUN_RESULT_COMPLETED,
+            volume_l=volume_l,
+            planned_s=planned_s,
+            actual_s=planned_s,
+            trigger=const.RUN_TRIGGER_SELF_CLOSING,
+            add_to_total=True,
+        )
         self._sc_fire(
             const.EVENT_IRRIGATE_FINISHED,
             {
@@ -142,16 +163,10 @@ class SelfClosingMixin:
         if ceiling and new_bucket > ceiling:
             new_bucket = float(ceiling)
         await self.store.async_update_zone(zone_id, {const.ZONE_BUCKET: new_bucket})
-        await self._record_run(
-            zone_id,
-            result=const.RUN_RESULT_COMPLETED,
-            volume_l=volume_l,
-            planned_s=planned_seconds,
-            actual_s=planned_seconds,
-            detail=const.RUN_DETAIL_OPTIMISTIC,
-            trigger=const.RUN_TRIGGER_SELF_CLOSING,
-            add_to_total=True,
-        )
+        # NB: water_used_total is NOT counted here — it is recorded once at the
+        # run's actual end (_sc_finish_run / async_stop_self_closing) for the
+        # delivered volume, so an early stop can't over-report usage. The bucket,
+        # however, IS credited optimistically above (the crash-safe model state).
 
         # Persist the in-flight run for restart reconciliation.
         await self._sc_add_run(
@@ -226,14 +241,17 @@ class SelfClosingMixin:
             await self.store.async_update_zone(zone_id, {const.ZONE_BUCKET: new_bucket})
 
         await self._sc_remove_run(zone_id)
+        # Count usage once, for what was actually delivered.
+        delivered_l = self._timed_volume_l(zone, elapsed)
         await self._record_run(
             zone_id,
             result=const.RUN_RESULT_PARTIAL,
+            volume_l=delivered_l,
             planned_s=planned,
             actual_s=elapsed,
             detail=const.RUN_DETAIL_SELF_CLOSING_STOPPED,
             trigger=const.RUN_TRIGGER_SELF_CLOSING,
-            add_to_total=False,
+            add_to_total=True,
         )
         return True
 

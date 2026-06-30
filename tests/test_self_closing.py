@@ -85,7 +85,7 @@ async def test_run_credits_bucket_persists_and_fires_started():
     c._sc_schedule_cleanup.assert_called_once_with(2, 600.0)
 
 
-async def test_finish_removes_run_and_fires_finished():
+async def test_finish_records_usage_removes_run_and_fires_finished():
     c = _coord()
     existing = {const.RUN_ZONE_ID: 2, const.RUN_PLANNED_SECONDS: 600.0}
     c.store.async_get_config = AsyncMock(
@@ -93,17 +93,37 @@ async def test_finish_removes_run_and_fires_finished():
     )
     zone = _zone(**{const.ZONE_BUCKET: -1.0})
     c.store.get_zone = Mock(return_value=zone)
+    c._timed_volume_l = Mock(return_value=20.0)  # litres actually delivered
 
     await c._sc_finish_run(2)
 
     # run removed from persistence
     cfg = c.store.async_update_config.await_args.args[0]
     assert cfg[const.CONF_ACTIVE_VALVE_RUNS] == []
+    # usage recorded at completion (actual delivery, counted once)
+    c._record_run.assert_awaited_once()
+    kwargs = c._record_run.await_args.kwargs
+    assert kwargs["add_to_total"] is True
+    assert kwargs["volume_l"] == 20.0
     # finished event fired with the zone
     fired = {a.args[0]: a.args[1] for a in c.hass.bus.async_fire.call_args_list}
     key = f"{const.DOMAIN}_{const.EVENT_IRRIGATE_FINISHED}"
     assert key in fired
     assert fired[key]["zones"][0]["zone_id"] == 2
+
+
+async def test_finish_is_idempotent_when_run_missing():
+    c = _coord()
+    c.store.async_get_config = AsyncMock(
+        return_value={const.CONF_ACTIVE_VALVE_RUNS: []}
+    )
+
+    await c._sc_finish_run(2)
+
+    # nothing to finalise -> no usage record, no finished event (guards against
+    # the cleanup timer firing after an early stop already removed the run)
+    c._record_run.assert_not_awaited()
+    c.hass.bus.async_fire.assert_not_called()
 
 
 async def test_stop_calls_stop_service_and_corrects_bucket():
@@ -125,6 +145,7 @@ async def test_stop_calls_stop_service_and_corrects_bucket():
     c.store.get_zone = Mock(return_value=zone)
     # half the run elapsed -> deliver 50% -> remove 2 mm of the 4 mm credit
     c._sc_elapsed = Mock(return_value=300.0)
+    c._timed_volume_l = Mock(return_value=10.0)  # litres actually delivered
 
     await c.async_stop_self_closing(2)
 
@@ -139,6 +160,41 @@ async def test_stop_calls_stop_service_and_corrects_bucket():
     ]
     assert bcalls[-1].args[1][const.ZONE_BUCKET] == -3.0
     # run cleared
+    cfg = c.store.async_update_config.await_args.args[0]
+    assert cfg[const.CONF_ACTIVE_VALVE_RUNS] == []
+    # usage recorded for the delivered portion only (not the planned amount)
+    kwargs = c._record_run.await_args.kwargs
+    assert kwargs["add_to_total"] is True
+    assert kwargs["volume_l"] == 10.0
+
+
+async def test_stop_without_stop_service_corrects_accounting_only():
+    c = _coord()
+    run = {
+        const.RUN_ZONE_ID: 2,
+        const.RUN_STARTED: "2026-06-30T08:00:00+00:00",
+        const.RUN_PLANNED_SECONDS: 600.0,
+        const.RUN_PLANNED_MM: 4.0,
+        const.RUN_CREDITED: True,
+    }
+    c.store.async_get_config = AsyncMock(
+        return_value={const.CONF_ACTIVE_VALVE_RUNS: [run]}
+    )
+    zone = _zone(**{const.ZONE_BUCKET: -1.0})  # no stop_service configured
+    c.store.get_zone = Mock(return_value=zone)
+    c._sc_elapsed = Mock(return_value=300.0)
+    c._timed_volume_l = Mock(return_value=10.0)
+
+    await c.async_stop_self_closing(2)
+
+    # no valve-close service can be called, but accounting is still corrected
+    c.hass.services.async_call.assert_not_awaited()
+    bcalls = [
+        ck
+        for ck in c.store.async_update_zone.await_args_list
+        if const.ZONE_BUCKET in ck.args[1]
+    ]
+    assert bcalls[-1].args[1][const.ZONE_BUCKET] == -3.0
     cfg = c.store.async_update_config.await_args.args[0]
     assert cfg[const.CONF_ACTIVE_VALVE_RUNS] == []
 

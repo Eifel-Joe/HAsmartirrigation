@@ -558,6 +558,5 @@ EVENT_ZONE_PROBLEM = "zone_problem"
 
 # Run-log tags
 RUN_TRIGGER_SELF_CLOSING = "self_closing"
-RUN_DETAIL_OPTIMISTIC = "optimistic"
 RUN_DETAIL_SELF_CLOSING_STOPPED = "self_closing_stopped"
 PROBLEM_VALVE_DID_NOT_OPEN = "valve_did_not_open"
