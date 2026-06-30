@@ -155,7 +155,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_REGISTRY = f"{DOMAIN}_storage"
 STORAGE_KEY = f"{DOMAIN}.storage"
-STORAGE_VERSION = 8
+STORAGE_VERSION = 9
 SAVE_DELAY = 0
 
 
@@ -204,6 +204,15 @@ class ZoneEntry:
     water_used_total = attr.ib(type=float, default=0.0)
     # Bounded rolling run/skip log (newest first); see const.ZONE_RUN_LOG (WS-2).
     run_log = attr.ib(type=list, factory=list)
+    # Self-closing valve mode (per-zone actuation adapter). "classic" = the
+    # historic open->sleep->close; "service" = fire run_service, valve self-closes.
+    watering_mode = attr.ib(type=str, default="classic")
+    run_service = attr.ib(type=str, default=None)
+    duration_field = attr.ib(type=str, default=None)
+    duration_unit = attr.ib(type=str, default="seconds")
+    run_data = attr.ib(type=dict, factory=dict)
+    stop_service = attr.ib(type=str, default=None)
+    stop_data = attr.ib(type=dict, factory=dict)
 
 
 @attr.s(slots=True, frozen=True)
@@ -293,6 +302,9 @@ class Config:
     )
     # Rain delay / vacation hold (WS-5): ISO-8601 datetime string or None.
     rain_delay_until = attr.ib(type=str, default=CONF_DEFAULT_RAIN_DELAY_UNTIL)
+    # Persisted in-flight self-closing valve runs (reboot resilience); list of
+    # dicts, see const.CONF_ACTIVE_VALVE_RUNS.
+    active_valve_runs = attr.ib(type=list, factory=list)
 
 
 class MigratableStore(Store):
@@ -359,6 +371,14 @@ class MigratableStore(Store):
                         schedule["azimuth_angle"] = t.get("azimuth_angle", 90)
                     existing_schedules.append(schedule)
                 data["config"]["recurring_schedules"] = existing_schedules
+
+        if old_version <= 8:
+            # v9: self-closing valve mode. Default every zone to classic and seed
+            # the empty in-flight-run list. Additive only — no data moves.
+            for zone in data.get("zones", []):
+                zone.setdefault("watering_mode", "classic")
+                zone.setdefault("duration_unit", "seconds")
+            data.setdefault("config", {}).setdefault("active_valve_runs", [])
 
         # CRITICAL: Always ensure required fields are present and strip unrecognized keys
         # This prevents TypeError when Config(**config_data) is called
