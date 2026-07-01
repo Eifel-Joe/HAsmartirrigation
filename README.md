@@ -76,8 +76,8 @@ To make the script part painless, three **script blueprints** ship with the inte
 
 | Blueprint | For | Notes |
 |-----------|-----|-------|
-| **Self-closing valve (Tuya Zigbee2MQTT)** | Tuya dual-valve over Z2M | publishes `countdown_l1` + `valve_l1` on/off — set the zone **Duration unit = Minutes** |
-| **Self-closing valve (SONOFF Zigbee2MQTT)** | SONOFF valve over Z2M | publishes `cyclic_timed_irrigation` — set the zone **Duration unit = Seconds** |
+| **Tuya TS0601 dual water valve (Z2M)** | Tuya `TS0601_water_switch` ("Dual water valve") | publishes `countdown_l1` (minutes) + `state_l1` ON/OFF — **Duration unit = Minutes**. Older/custom converters may use `valve_l1`/`on`/`off`. |
+| **SONOFF Smart Water Valve SWV (Z2M)** | SONOFF Zigbee Smart Water Valve (SWV) | publishes `cyclic_timed_irrigation` — **Duration unit = Seconds** |
 | **Self-closing valve (entity based)** | ZHA / non-MQTT valves | writes a countdown `number` entity then turns the valve on — requires a hardware countdown entity |
 
 **Setup:**

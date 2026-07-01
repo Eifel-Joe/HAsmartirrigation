@@ -1,11 +1,11 @@
 blueprint:
-  name: "Smart Irrigation: Self-closing valve (SONOFF Zigbee2MQTT)"
+  name: "Smart Irrigation: Self-closing valve (SONOFF Smart Water Valve SWV, Zigbee2MQTT)"
   description: >-
-    Drives a SONOFF valve over Zigbee2MQTT that runs for a fixed duration via
-    its "cyclic_timed_irrigation" command and then closes itself. Smart
-    Irrigation calls this script (service watering mode) with the run duration;
-    the valve owns the close, so an HA restart mid-run cannot cause continuous
-    irrigation.
+    Drives a SONOFF Zigbee Smart Water Valve (SWV) over Zigbee2MQTT that runs for
+    a fixed duration via its "cyclic_timed_irrigation" command and then closes
+    itself. Smart Irrigation calls this script (service watering mode) with the
+    run duration; the valve owns the close, so an HA restart mid-run cannot cause
+    continuous irrigation.
 
     duration > 0 starts a single timed cycle; duration = 0 sends a zero-length
     cycle (best-effort early stop). The same script serves as both the run

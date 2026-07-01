@@ -94,8 +94,8 @@ To make self-closing setup painless, three **script blueprints** ship with the i
 
 | Blueprint | For | Duration unit |
 |-----------|-----|---------------|
-| **Self-closing valve (Tuya Zigbee2MQTT)** | Tuya dual-valve over Z2M (`countdown_l1` + `valve_l1`) | Minutes |
-| **Self-closing valve (SONOFF Zigbee2MQTT)** | SONOFF valve over Z2M (`cyclic_timed_irrigation`) | Seconds |
+| **Tuya TS0601 dual water valve (Z2M)** | Tuya `TS0601_water_switch` — `countdown_l1` + `state_l1` (custom converters may use `valve_l1`) | Minutes |
+| **SONOFF Smart Water Valve SWV (Z2M)** | SONOFF Zigbee Smart Water Valve (SWV) — `cyclic_timed_irrigation` | Seconds |
 | **Self-closing valve (entity based)** | ZHA / non-MQTT valves with a hardware countdown `number` entity | match the entity |
 
 **Setup:** create a script from the blueprint under **Settings → Automations & Scenes → Blueprints** (fill in your valve's MQTT topic or entities), then in the zone set **Watering mode = Self-closing service** and pick that script as the **Run service**. Each blueprint's script opens on `duration > 0` and closes on `duration = 0`, so the same script also works as the **Stop service**.

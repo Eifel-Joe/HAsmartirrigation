@@ -1,17 +1,22 @@
 blueprint:
-  name: "Smart Irrigation: Self-closing valve (Tuya Zigbee2MQTT)"
+  name: "Smart Irrigation: Self-closing valve (Tuya TS0601 dual water valve, Zigbee2MQTT)"
   description: >-
-    Drives a Tuya dual-valve (or similar) over Zigbee2MQTT that closes itself
-    via a hardware countdown. Smart Irrigation calls this script (service
-    watering mode) with the run duration; the valve owns the close, so an HA
-    restart mid-run cannot cause continuous irrigation.
+    Drives a Tuya dual water valve over Zigbee2MQTT -- model "TS0601_water_switch"
+    ("Dual water valve") -- that closes itself via a hardware countdown. Smart
+    Irrigation calls this script (service watering mode) with the run duration;
+    the valve owns the close, so an HA restart mid-run cannot cause continuous
+    irrigation.
 
-    duration > 0 opens (publish countdown, then valve on); duration = 0 closes
-    (publish valve off) -- so the same script serves as both the run service
-    and the optional stop service.
+    duration > 0 opens (publish countdown_l1, then state_l1 ON); duration = 0
+    closes (publish state_l1 OFF) -- so the same script serves as both the run
+    service and the optional stop service.
 
-    Set the zone's duration unit to Minutes: the Tuya countdown_l1 counts in
-    MINUTES.
+    Set the zone's duration unit to Minutes: countdown_l1 counts in MINUTES
+    (0-1440).
+
+    Defaults match the official Zigbee2MQTT converter (state_l1 / ON / OFF).
+    Older or custom external converters may instead use valve_l1 with on / off --
+    change the "Valve on/off JSON key" and open/close values below to match.
   domain: script
   input:
     mqtt_topic:
@@ -27,17 +32,18 @@ blueprint:
         text:
     valve_key:
       name: Valve on/off JSON key
-      default: valve_l1
+      description: Official TS0601_water_switch uses state_l1; custom converters may use valve_l1.
+      default: state_l1
       selector:
         text:
     open_value:
       name: Open value
-      default: "on"
+      default: "ON"
       selector:
         text:
     close_value:
       name: Close value
-      default: "off"
+      default: "OFF"
       selector:
         text:
 mode: single
