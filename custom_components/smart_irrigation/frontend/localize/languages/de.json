@@ -782,6 +782,16 @@
     "min_absorption_time_label": "Min. Aufnahmezeit zwischen den Durchgängen",
     "min_absorption_time_unit": "Minuten (0 = deaktiviert)"
   },
+  "master": {
+    "title": "Pumpe / Master-Schalter",
+    "description": "Optional. Schaltet einen gemeinsamen Master — eine Pumpe oder ein Hauptventil — vor der ersten Zone eines Bewässerungszyklus ein und danach optional wieder aus. Entität leer lassen, um nie einen Master anzufassen (z. B. ein druckgesteuertes Hauswasserwerk, das von selbst anläuft).",
+    "entity": "Master-Entität (Schalter/Ventil)",
+    "kick_enabled": "Kicker: Aus/Ein-Puls, um die Pumpe anzuwerfen",
+    "kick_pause": "Kick-Pause (Aus vor Ein)",
+    "settle": "Settle-Verzögerung vor der ersten Zone",
+    "off_after": "Master nach der Bewässerung abschalten",
+    "seconds_unit": "Sekunden"
+  },
   "weather_service_config": {
     "title": "Wetterdienst",
     "description": "Konfiguriere, welcher Wetterdienst für ET-Berechnungen und Überspringbedingungen verwendet wird.",

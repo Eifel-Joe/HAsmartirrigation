@@ -175,6 +175,13 @@ export const CONF_ZONE_SEQUENCING_MAX_CONSECUTIVE_DURATION =
 export const CONF_ZONE_SEQUENCING_MIN_ABSORPTION_TIME =
   "zone_sequencing_min_absorption_time";
 
+// Master switch / pump control (instance-level, all optional)
+export const CONF_MASTER_ENTITY = "master_entity";
+export const CONF_MASTER_SETTLE_SECONDS = "master_settle_seconds";
+export const CONF_MASTER_KICK_ENABLED = "master_kick_enabled";
+export const CONF_MASTER_KICK_PAUSE_SECONDS = "master_kick_pause_seconds";
+export const CONF_MASTER_OFF_AFTER = "master_off_after";
+
 export const SCHEDULE_TYPE_SUNRISE = "sunrise";
 export const SCHEDULE_TYPE_SUNSET = "sunset";
 export const SCHEDULE_TYPE_SOLAR_AZIMUTH = "solar_azimuth";

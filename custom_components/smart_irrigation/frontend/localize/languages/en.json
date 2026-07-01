@@ -805,6 +805,16 @@
     "min_absorption_time_label": "Min. absorption time between slots",
     "min_absorption_time_unit": "minutes (0 = disabled)"
   },
+  "master": {
+    "title": "Pump / master switch",
+    "description": "Optional. Powers a shared master — a pump or main valve — on before the first zone of a watering cycle, then optionally off after the last zone. Leave the entity empty to never touch a master (e.g. a pressure-controlled waterworks that starts on its own).",
+    "entity": "Master entity (switch/valve)",
+    "kick_enabled": "Kicker: pulse off then on to force a pump start",
+    "kick_pause": "Kick pause (off before on)",
+    "settle": "Settle delay before the first zone",
+    "off_after": "Turn the master off after irrigation",
+    "seconds_unit": "seconds"
+  },
   "field_help": {
     "zone_size": "The total irrigated area of this zone. Used with throughput to calculate how much water is applied per run.",
     "zone_throughput": "Total water flow of your irrigation system for this zone (litres/min in metric, gal/min in imperial). Check your sprinkler datasheet or measure by timing how long it takes to fill a known container.",

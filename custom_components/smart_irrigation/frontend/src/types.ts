@@ -81,6 +81,11 @@ export class SmartIrrigationConfig {
   forecast_weighting_enabled: boolean;
   observed_watering_enabled: boolean;
   live_estimate_enabled: boolean;
+  master_entity?: string | null;
+  master_settle_seconds: number;
+  master_kick_enabled: boolean;
+  master_kick_pause_seconds: number;
+  master_off_after: boolean;
 
   constructor() {
     this.calctime = "23:00";
@@ -117,6 +122,11 @@ export class SmartIrrigationConfig {
     this.forecast_weighting_enabled = false;
     this.observed_watering_enabled = false;
     this.live_estimate_enabled = false;
+    this.master_entity = null;
+    this.master_settle_seconds = 10;
+    this.master_kick_enabled = false;
+    this.master_kick_pause_seconds = 1.0;
+    this.master_off_after = false;
   }
 }
 
