@@ -833,6 +833,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       this.hass.language,
                     )}</span
                   >
+                  <span slot="description"
+                    >${localize(
+                      "panels.zones.labels.run_service_help",
+                      this.hass.language,
+                    )}</span
+                  >
                   <input
                     type="text"
                     class="settings-input"
@@ -856,6 +862,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       this.hass.language,
                     )}</span
                   >
+                  <span slot="description"
+                    >${localize(
+                      "panels.zones.labels.duration_field_help",
+                      this.hass.language,
+                    )}</span
+                  >
                   <input
                     type="text"
                     class="settings-input"
@@ -876,6 +888,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                   <span slot="heading"
                     >${localize(
                       "panels.zones.labels.duration_unit",
+                      this.hass.language,
+                    )}</span
+                  >
+                  <span slot="description"
+                    >${localize(
+                      "panels.zones.labels.duration_unit_help",
                       this.hass.language,
                     )}</span
                   >
@@ -917,6 +935,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       this.hass.language,
                     )}</span
                   >
+                  <span slot="description"
+                    >${localize(
+                      "panels.zones.labels.stop_service_help",
+                      this.hass.language,
+                    )}</span
+                  >
                   <input
                     type="text"
                     class="settings-input"
@@ -944,6 +968,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       this.hass.language,
                     )}</span
                   >
+                  <span slot="description"
+                    >${localize(
+                      "panels.zones.labels.mqtt_topic_help",
+                      this.hass.language,
+                    )}</span
+                  >
                   <input
                     type="text"
                     class="settings-input"
@@ -967,6 +997,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       this.hass.language,
                     )}</span
                   >
+                  <span slot="description"
+                    >${localize(
+                      "panels.zones.labels.duration_field_help",
+                      this.hass.language,
+                    )}</span
+                  >
                   <input
                     type="text"
                     class="settings-input"
@@ -984,6 +1020,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                   <span slot="heading"
                     >${localize(
                       "panels.zones.labels.duration_unit",
+                      this.hass.language,
+                    )}</span
+                  >
+                  <span slot="description"
+                    >${localize(
+                      "panels.zones.labels.duration_unit_help",
                       this.hass.language,
                     )}</span
                   >
@@ -1025,6 +1067,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       this.hass.language,
                     )}</span
                   >
+                  <span slot="description"
+                    >${localize(
+                      "panels.zones.labels.mqtt_open_field_help",
+                      this.hass.language,
+                    )}</span
+                  >
                   <input
                     type="text"
                     class="settings-input"
@@ -1045,6 +1093,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       this.hass.language,
                     )}</span
                   >
+                  <span slot="description"
+                    >${localize(
+                      "panels.zones.labels.mqtt_open_value_help",
+                      this.hass.language,
+                    )}</span
+                  >
                   <input
                     type="text"
                     class="settings-input"
@@ -1062,6 +1116,12 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                   <span slot="heading"
                     >${localize(
                       "panels.zones.labels.mqtt_stop_value",
+                      this.hass.language,
+                    )}</span
+                  >
+                  <span slot="description"
+                    >${localize(
+                      "panels.zones.labels.mqtt_stop_value_help",
                       this.hass.language,
                     )}</span
                   >
