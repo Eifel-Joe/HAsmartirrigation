@@ -259,10 +259,6 @@ export class SmartIrrigationZone {
   duration_field?: string;
   duration_unit?: string;
   stop_service?: string;
-  mqtt_topic?: string;
-  mqtt_open_field?: string;
-  mqtt_open_value?: string;
-  mqtt_stop_value?: string;
   water_used_total?: number;
   run_log?: RunLogEntry[];
 
