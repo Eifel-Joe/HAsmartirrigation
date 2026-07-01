@@ -1,6 +1,5 @@
 """Self-closing valve mode (Phase 1)."""
 
-import json
 from unittest.mock import AsyncMock, Mock
 
 from custom_components.smart_irrigation import SmartIrrigationCoordinator, const
@@ -32,23 +31,6 @@ def _zone(**kw):
         const.ZONE_DURATION_FIELD: "dauer",
         const.ZONE_DURATION_UNIT: const.DURATION_UNIT_MINUTES,
         const.ZONE_RUN_DATA: {},
-    }
-    z.update(kw)
-    return z
-
-
-def _mqtt_zone(**kw):
-    z = {
-        const.ZONE_ID: 2,
-        const.ZONE_NAME: "Beet",
-        const.ZONE_DURATION: 600.0,  # seconds
-        const.ZONE_WATERING_MODE: const.WATERING_MODE_MQTT,
-        const.ZONE_MQTT_TOPIC: "zigbee2mqtt/Wasser Beet/set",
-        const.ZONE_DURATION_FIELD: "countdown_l1",
-        const.ZONE_DURATION_UNIT: const.DURATION_UNIT_MINUTES,
-        const.ZONE_MQTT_OPEN_FIELD: "valve_l1",
-        const.ZONE_MQTT_OPEN_VALUE: "on",
-        const.ZONE_MQTT_STOP_VALUE: "off",
     }
     z.update(kw)
     return z
@@ -295,77 +277,3 @@ async def test_run_zone_routes_service_zone_with_overridden_duration():
     c.async_run_self_closing.assert_awaited_once()
     dispatched = c.async_run_self_closing.await_args.args[0]
     assert dispatched[const.ZONE_DURATION] == 300
-
-
-def test_is_self_closing_includes_mqtt():
-    c = _coord()
-    assert c._sc_is_self_closing(_mqtt_zone()) is True
-
-
-async def test_mqtt_open_publishes_countdown_then_open():
-    c = _coord()
-
-    await c._sc_dispatch_open(_mqtt_zone())
-
-    calls = c.hass.services.async_call.await_args_list
-    assert len(calls) == 2
-    for call in calls:
-        domain, service, data = call.args
-        assert (domain, service) == ("mqtt", "publish")
-        assert data["topic"] == "zigbee2mqtt/Wasser Beet/set"
-    assert json.loads(calls[0].args[2]["payload"]) == {"countdown_l1": 10}
-    assert json.loads(calls[1].args[2]["payload"]) == {"valve_l1": "on"}
-
-
-async def test_mqtt_run_credits_and_persists_without_confirm():
-    c = _coord()
-    c._timed_volume_l = Mock(return_value=20.0)
-    c._credited_depth_native = Mock(return_value=4.0)
-    # MQTT is fire-and-forget: confirm must NOT be called
-    c._confirm_valve_running = AsyncMock(
-        side_effect=AssertionError("must not confirm for mqtt")
-    )
-    zone = _mqtt_zone(**{const.ZONE_BUCKET: -5.0, const.ZONE_MAXIMUM_BUCKET: 50.0})
-
-    ok = await c.async_run_self_closing(zone, trigger="manual")
-
-    assert ok is True
-    bucket_calls = [
-        ck
-        for ck in c.store.async_update_zone.await_args_list
-        if const.ZONE_BUCKET in ck.args[1]
-    ]
-    assert bucket_calls[-1].args[1][const.ZONE_BUCKET] == -1.0
-    cfg = c.store.async_update_config.await_args.args[0]
-    assert cfg[const.CONF_ACTIVE_VALVE_RUNS][0][const.RUN_MODE] == (
-        const.WATERING_MODE_MQTT
-    )
-
-
-async def test_mqtt_stop_publishes_stop_payload_and_corrects_bucket():
-    c = _coord()
-    run = {
-        const.RUN_ZONE_ID: 2,
-        const.RUN_STARTED: "2026-06-30T08:00:00+00:00",
-        const.RUN_PLANNED_SECONDS: 600.0,
-        const.RUN_PLANNED_MM: 4.0,
-    }
-    c.store.async_get_config = AsyncMock(
-        return_value={const.CONF_ACTIVE_VALVE_RUNS: [run]}
-    )
-    zone = _mqtt_zone(**{const.ZONE_BUCKET: -1.0})
-    c.store.get_zone = Mock(return_value=zone)
-    c._sc_elapsed = Mock(return_value=300.0)
-    c._timed_volume_l = Mock(return_value=10.0)
-
-    await c.async_stop_self_closing(2)
-
-    domain, service, data = c.hass.services.async_call.await_args.args
-    assert (domain, service) == ("mqtt", "publish")
-    assert json.loads(data["payload"]) == {"valve_l1": "off"}
-    bcalls = [
-        ck
-        for ck in c.store.async_update_zone.await_args_list
-        if const.ZONE_BUCKET in ck.args[1]
-    ]
-    assert bcalls[-1].args[1][const.ZONE_BUCKET] == -3.0

@@ -155,7 +155,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_REGISTRY = f"{DOMAIN}_storage"
 STORAGE_KEY = f"{DOMAIN}.storage"
-STORAGE_VERSION = 9
+STORAGE_VERSION = 10
 SAVE_DELAY = 0
 
 
@@ -208,16 +208,13 @@ class ZoneEntry:
     # historic open->sleep->close; "service" = fire run_service, valve self-closes.
     watering_mode = attr.ib(type=str, default="classic")
     run_service = attr.ib(type=str, default=None)
-    duration_field = attr.ib(type=str, default=None)
+    # Defaults to "duration" so the shipped valve blueprints (whose script field
+    # is "duration") work with no extra config.
+    duration_field = attr.ib(type=str, default="duration")
     duration_unit = attr.ib(type=str, default="seconds")
     run_data = attr.ib(type=dict, factory=dict)
     stop_service = attr.ib(type=str, default=None)
     stop_data = attr.ib(type=dict, factory=dict)
-    # 'mqtt' adapter: publish a countdown + open payload to a Z2M-style topic.
-    mqtt_topic = attr.ib(type=str, default=None)
-    mqtt_open_field = attr.ib(type=str, default=None)
-    mqtt_open_value = attr.ib(type=str, default=None)
-    mqtt_stop_value = attr.ib(type=str, default=None)
 
 
 @attr.s(slots=True, frozen=True)
@@ -384,6 +381,21 @@ class MigratableStore(Store):
                 zone.setdefault("watering_mode", "classic")
                 zone.setdefault("duration_unit", "seconds")
             data.setdefault("config", {}).setdefault("active_valve_runs", [])
+
+        if old_version <= 9:
+            # v10: the native "mqtt" watering mode was removed in favour of valve
+            # blueprints driven via the "service" mode. Remap any stray mqtt zone
+            # to classic (safest — no actuation surprise) and drop its mqtt keys.
+            for zone in data.get("zones", []):
+                if zone.get("watering_mode") == "mqtt":
+                    zone["watering_mode"] = "classic"
+                for key in (
+                    "mqtt_topic",
+                    "mqtt_open_field",
+                    "mqtt_open_value",
+                    "mqtt_stop_value",
+                ):
+                    zone.pop(key, None)
 
         # CRITICAL: Always ensure required fields are present and strip unrecognized keys
         # This prevents TypeError when Config(**config_data) is called
@@ -666,6 +678,15 @@ class SmartIrrigationStorage:
                         # Migration: pre-WS-2 zones start with no usage history.
                         water_used_total=zone.get(ZONE_WATER_USED_TOTAL, 0.0),
                         run_log=zone.get(ZONE_RUN_LOG, []) or [],
+                        # Self-closing valve mode config — must be hydrated here
+                        # or it silently reverts to classic on every reload.
+                        watering_mode=zone.get("watering_mode", "classic"),
+                        run_service=zone.get("run_service", None),
+                        duration_field=zone.get("duration_field", "duration"),
+                        duration_unit=zone.get("duration_unit", "seconds"),
+                        run_data=zone.get("run_data", {}) or {},
+                        stop_service=zone.get("stop_service", None),
+                        stop_data=zone.get("stop_data", {}) or {},
                     )
             if "modules" in data:
                 for module in data["modules"]:
@@ -882,7 +903,10 @@ class SmartIrrigationStorage:
 
     async def async_create_zone(self, data: dict) -> ZoneEntry:
         """Create a new ZoneEntry."""
-        new_zone = ZoneEntry(**data)
+        # Drop unknown keys (e.g. the removed mqtt_* fields from an older client)
+        # so a stray key can't raise TypeError on construction.
+        valid_fields = set(attr.fields_dict(ZoneEntry).keys())
+        new_zone = ZoneEntry(**{k: v for k, v in data.items() if k in valid_fields})
         if not new_zone.id:
             zones = await self.async_get_zones()
             new_zone = attr.evolve(new_zone, id=self.generate_next_id(zones))
