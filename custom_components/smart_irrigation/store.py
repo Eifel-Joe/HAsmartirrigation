@@ -155,7 +155,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_REGISTRY = f"{DOMAIN}_storage"
 STORAGE_KEY = f"{DOMAIN}.storage"
-STORAGE_VERSION = 11
+STORAGE_VERSION = 10
 SAVE_DELAY = 0
 
 
@@ -390,22 +390,7 @@ class MigratableStore(Store):
             data.setdefault("config", {}).setdefault("active_valve_runs", [])
 
         if old_version <= 9:
-            # v10: the native "mqtt" watering mode was removed in favour of valve
-            # blueprints driven via the "service" mode. Remap any stray mqtt zone
-            # to classic (safest — no actuation surprise) and drop its mqtt keys.
-            for zone in data.get("zones", []):
-                if zone.get("watering_mode") == "mqtt":
-                    zone["watering_mode"] = "classic"
-                for key in (
-                    "mqtt_topic",
-                    "mqtt_open_field",
-                    "mqtt_open_value",
-                    "mqtt_stop_value",
-                ):
-                    zone.pop(key, None)
-
-        if old_version <= 10:
-            # v11: optional master switch / pump control (all off by default).
+            # v10: optional master switch / pump control (all off by default).
             cfg = data.setdefault("config", {})
             cfg.setdefault("master_entity", None)
             cfg.setdefault("master_settle_seconds", 10)
@@ -926,8 +911,8 @@ class SmartIrrigationStorage:
 
     async def async_create_zone(self, data: dict) -> ZoneEntry:
         """Create a new ZoneEntry."""
-        # Drop unknown keys (e.g. the removed mqtt_* fields from an older client)
-        # so a stray key can't raise TypeError on construction.
+        # Drop unknown keys (an older or forward client may send a field this
+        # version doesn't have) so a stray key can't raise TypeError on construction.
         valid_fields = set(attr.fields_dict(ZoneEntry).keys())
         new_zone = ZoneEntry(**{k: v for k, v in data.items() if k in valid_fields})
         if not new_zone.id:

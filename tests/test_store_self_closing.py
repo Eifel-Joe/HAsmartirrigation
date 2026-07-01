@@ -14,8 +14,8 @@ from custom_components.smart_irrigation.store import (
 )
 
 
-def test_storage_version_is_11():
-    assert STORAGE_VERSION == 11
+def test_storage_version_is_10():
+    assert STORAGE_VERSION == 10
 
 
 def test_zone_entry_has_self_closing_fields():
@@ -30,47 +30,22 @@ def test_zone_entry_has_self_closing_fields():
     assert z.stop_data == {}
 
 
-def test_zone_entry_has_no_mqtt_fields():
-    fields = set(attr.fields_dict(ZoneEntry).keys())
-    assert not any(f.startswith("mqtt_") for f in fields)
-
-
 def test_config_has_active_valve_runs():
     c = Config()
     assert c.active_valve_runs == []
 
 
-async def test_migration_mqtt_zone_becomes_classic(hass):
-    reg = await async_get_registry(hass)
-    data = {
-        "config": {},
-        "zones": [
-            {
-                "id": 1,
-                "watering_mode": "mqtt",
-                "mqtt_topic": "zigbee2mqtt/x/set",
-                "mqtt_open_field": "valve_l1",
-            }
-        ],
-    }
-    await reg._store._async_migrate_func(9, data)
-    zone = data["zones"][0]
-    assert zone["watering_mode"] == "classic"
-    assert "mqtt_topic" not in zone
-    assert "mqtt_open_field" not in zone
-
-
-async def test_create_zone_ignores_leftover_mqtt_keys(hass):
+async def test_create_zone_ignores_unknown_keys(hass):
     reg = await async_get_registry(hass)
     created = await reg.async_create_zone(
         {
             "name": "Garden",
             "size": 100.0,
             "throughput": 10.0,
-            "mqtt_topic": "zigbee2mqtt/x/set",
+            "not_a_zone_field": "bogus",
         }
     )
-    assert "mqtt_topic" not in created
+    assert "not_a_zone_field" not in created
     assert created["name"] == "Garden"
 
 
