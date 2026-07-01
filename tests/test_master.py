@@ -106,16 +106,38 @@ def test_master_note_run_keeps_latest_deadline():
     assert c._master_off_deadline == t0 + datetime.timedelta(seconds=600)
 
 
-async def test_master_off_disabled_never_arms(monkeypatch):
+async def test_master_valve_master_uses_open_close():
+    c = _mcoord(master_entity="valve.main")
+    await c.async_master_begin_cycle()
+    c.hass.services.async_call.assert_awaited_once_with(
+        "valve", "open_valve", {"entity_id": "valve.main"}
+    )
+
+
+async def test_master_off_disabled_arms_and_resets_without_turn_off(monkeypatch):
     c = _mcoord(master_off_after=False)
-    armed = []
+    captured = {}
     monkeypatch.setattr(
         "custom_components.smart_irrigation.master.async_call_later",
-        lambda *a, **k: armed.append(a) or Mock(),
+        lambda hass, delay, cb: captured.update(cb=cb) or Mock(),
     )
+    t0 = datetime.datetime(2026, 7, 1, 8, 0, 0, tzinfo=datetime.timezone.utc)
+    c._master_now = Mock(return_value=t0)
+    c._master_on = True
     c._master_note_run(60)
     await c.async_master_schedule_off()
-    assert armed == []
+    assert "cb" in captured  # a cycle-end timer IS armed (to reset the flag)
+
+    # Firing at the deadline resets the on-flag but never turns the master off.
+    c._master_now = Mock(return_value=t0 + datetime.timedelta(seconds=61))
+    await captured["cb"](None)
+    off_calls = [
+        ck
+        for ck in c.hass.services.async_call.await_args_list
+        if ck.args[1] in ("turn_off", "close_valve")
+    ]
+    assert off_calls == []
+    assert c._master_on is False  # re-armed for the next cycle
 
 
 async def test_master_off_enabled_arms_and_fires(monkeypatch):

@@ -1256,6 +1256,13 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
   }
 
   private handleConfigChange(changes: Partial<SmartIrrigationConfig>): void {
+    // Optimistically reflect the change locally so conditional UI (e.g. the
+    // master sub-settings that appear once an entity is picked) updates instantly
+    // instead of only after the debounced save + config re-fetch. The next fetch
+    // overwrites this with server truth, so it self-corrects.
+    if (this.config) {
+      this.config = { ...this.config, ...changes } as SmartIrrigationConfig;
+    }
     this.debouncedSave(changes);
   }
 

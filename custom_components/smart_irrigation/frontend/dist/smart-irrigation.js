@@ -2516,7 +2516,7 @@ function me(e,t){return(t,i,a)=>((e,t,i)=>(i.configurable=!0,i.enumerable=!0,Ref
         ></ha-icon>
         ${Ca(e?"common.saving-messages.saving":"panels.zones.status.saved",this.hass.language)}
       </div>
-    `}handleConfigChange(e){this.debouncedSave(e)}disconnectedCallback(){super.disconnectedCallback(),this._savedResetTimer&&(clearTimeout(this._savedResetTimer),this._savedResetTimer=null)}static get styles(){return r`
+    `}handleConfigChange(e){this.config&&(this.config=Object.assign(Object.assign({},this.config),e)),this.debouncedSave(e)}disconnectedCallback(){super.disconnectedCallback(),this._savedResetTimer&&(clearTimeout(this._savedResetTimer),this._savedResetTimer=null)}static get styles(){return r`
       ${ns}
 
       /* Floating auto-save status chip (UX H3) */

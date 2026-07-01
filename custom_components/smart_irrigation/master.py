@@ -48,7 +48,17 @@ class MasterMixin:
 
     async def _master_turn(self, on: bool) -> None:
         entity = self._master_entity()
-        if not entity:
+        if not isinstance(entity, str) or not entity:
+            return
+        # valve.* entities use open_valve / close_valve, NOT turn_on / turn_off:
+        # homeassistant.turn_on does no domain mapping and would silently no-op on
+        # a valve, leaving the master closed while zones water.
+        if entity.split(".", 1)[0] == "valve":
+            await self.hass.services.async_call(
+                "valve",
+                "open_valve" if on else "close_valve",
+                {"entity_id": entity},
+            )
             return
         await self.hass.services.async_call(
             "homeassistant",
@@ -60,10 +70,13 @@ class MasterMixin:
         """Ensure the master is on before the first zone fires.
 
         Idempotent within a cycle: a second call while already on does nothing
-        (no re-kick, no re-settle).
+        (no re-kick, no re-settle). The on-flag is cleared at the cycle end so the
+        next cycle re-arms — a stay-on pump is re-kicked every cycle.
         """
         if not self._master_configured() or getattr(self, "_master_on", False):
             return
+        # Set BEFORE the awaits below so a concurrent begin_cycle can't double-kick.
+        self._master_on = True
         cfg = self._master_cfg()
         if getattr(cfg, const.CONF_MASTER_KICK_ENABLED, False):
             await self._master_turn(False)
@@ -71,13 +84,14 @@ class MasterMixin:
                 getattr(cfg, const.CONF_MASTER_KICK_PAUSE_SECONDS, 1.0)
             )
         await self._master_turn(True)
-        self._master_on = True
         settle = getattr(cfg, const.CONF_MASTER_SETTLE_SECONDS, 10)
         if float(settle or 0) > 0:
             await self._master_sleep(settle)
 
     def _master_note_run(self, seconds: float) -> None:
-        """Record the latest expected cycle end (now + seconds), for master_off."""
+        """Record the latest expected cycle end (now + seconds)."""
+        if not self._master_configured():
+            return
         deadline = self._master_now() + datetime.timedelta(
             seconds=max(0.0, float(seconds or 0))
         )
@@ -86,16 +100,14 @@ class MasterMixin:
             self._master_off_deadline = deadline
 
     async def async_master_schedule_off(self) -> None:
-        """Schedule master-off at the cycle end, iff master_off_after is set.
+        """Schedule the cycle end: clear the on-flag (so the next cycle re-arms /
+        re-kicks) and, iff master_off_after is set, power the master off.
 
         Overlap-safe: fires only when the (possibly extended) deadline has passed;
         a later run pushes the deadline out and the timer reschedules instead of
-        turning the master off under an active run.
+        ending the cycle under an active run.
         """
-        cfg = self._master_cfg()
-        if not self._master_configured() or not getattr(
-            cfg, const.CONF_MASTER_OFF_AFTER, False
-        ):
+        if not self._master_configured():
             return
         deadline = getattr(self, "_master_off_deadline", None)
         if deadline is None:
@@ -110,10 +122,13 @@ class MasterMixin:
             self._master_off_cancel = None
             dl = getattr(self, "_master_off_deadline", None)
             if dl is not None and self._master_now() < dl:
-                # A later run extended the cycle — reschedule, don't turn off.
+                # A later run extended the cycle — reschedule, don't end it yet.
                 await self.async_master_schedule_off()
                 return
-            await self._master_turn(False)
+            # Cycle end: power the master off only if configured to; always clear
+            # the on-flag so the next cycle re-arms (and re-kicks a stay-on pump).
+            if getattr(self._master_cfg(), const.CONF_MASTER_OFF_AFTER, False):
+                await self._master_turn(False)
             self._master_on = False
             self._master_off_deadline = None
 
