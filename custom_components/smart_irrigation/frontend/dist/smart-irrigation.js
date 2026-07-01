@@ -2982,7 +2982,7 @@ function me(e,t){return(t,i,a)=>((e,t,i)=>(i.configurable=!0,i.enumerable=!0,Ref
                     type="text"
                     class="settings-input"
                     placeholder="${xa("panels.zones.labels.duration_field_placeholder",this.hass.language)}"
-                    .value="${e.duration_field||""}"
+                    .value="${e.duration_field||"duration"}"
                     @input="${i=>this.handleEditZone(t,Object.assign(Object.assign({},e),{[Tt]:i.target.value||void 0}))}"
                   />
                 </ha-settings-row>

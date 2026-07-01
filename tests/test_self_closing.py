@@ -277,3 +277,13 @@ async def test_run_zone_routes_service_zone_with_overridden_duration():
     c.async_run_self_closing.assert_awaited_once()
     dispatched = c.async_run_self_closing.await_args.args[0]
     assert dispatched[const.ZONE_DURATION] == 300
+
+
+async def test_service_open_defaults_duration_field_to_duration():
+    """An empty duration_field must still pass the duration (under 'duration')."""
+    c = _coord()
+    zone = _zone()
+    zone.pop(const.ZONE_DURATION_FIELD)  # not configured
+    await c._sc_service_open(zone, 5)
+    _, _, data = c.hass.services.async_call.await_args.args
+    assert data["duration"] == 5

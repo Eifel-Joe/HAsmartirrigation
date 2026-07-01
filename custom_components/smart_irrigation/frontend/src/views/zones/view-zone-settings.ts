@@ -861,7 +861,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       "panels.zones.labels.duration_field_placeholder",
                       this.hass.language,
                     )}"
-                    .value="${zone.duration_field || ""}"
+                    .value="${zone.duration_field || "duration"}"
                     @input="${(e: Event) =>
                       this.handleEditZone(index, {
                         ...zone,
