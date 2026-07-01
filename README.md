@@ -1,8 +1,8 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
 [![release][release-badge]][release-url]
 
-[release-url]: https://github.com/JustChr/HAsmartirrigation/releases
-[release-badge]: https://img.shields.io/github/v/release/JustChr/HAsmartirrigation?style=flat-square
+[release-url]: https://github.com/Eifel-Joe/HAsmartirrigation/releases
+[release-badge]: https://img.shields.io/github/v/release/Eifel-Joe/HAsmartirrigation?style=flat-square
 
 # Smart Irrigation — Maintained Community Fork
 
@@ -22,10 +22,10 @@ This integration calculates how long to run your irrigation system to compensate
 - Works with **Open-Meteo** (free, no API key), Open Weather Map, Pirate Weather, or your own local sensors
 - **Guided setup wizard** — a first-run wizard walks you through weather, calculation module, sensor group, and your first zone in a few steps
 - **Direct valve control** — link a `switch` or `valve` entity to each zone; the integration turns it on, waits the calculated duration, and turns it off — no automations needed
-- **Everyday dashboard** — the **Zones** tab is an at-a-glance [dashboard](https://JustChr.github.io/HAsmartirrigation/usage-dashboard.html) showing, per zone, whether it will water and why, with one-tap Update / Calculate / Irrigate; full configuration lives under **Setup → My Zones**
+- **Everyday dashboard** — the **Zones** tab is an at-a-glance [dashboard](https://github.com/Eifel-Joe/HAsmartirrigation/blob/production/docs/usage-dashboard.md) showing, per zone, whether it will water and why, with one-tap Update / Calculate / Irrigate; full configuration lives under **Setup → My Zones**
 - **Forward-looking outlook** — a banner shows the next scheduled run and whether it will likely be skipped (tap **“Why?”** for the reasons); per-zone decisions are honest about skip conditions
 - **Live status estimate** — a read-only "Now ≈ −X mm" estimate of each zone's deficit *since the last calculation*, using the hourly FAO-56 equation where hourly solar data is available — so the status isn't stale between daily calculations
-- **Lovelace card** — a [`custom:smart-irrigation-zones-card`](https://JustChr.github.io/HAsmartirrigation/usage-lovelace-card.html) that mirrors the dashboard for **non-admin** users, addable to any dashboard
+- **Lovelace card** — a [`custom:smart-irrigation-zones-card`](https://github.com/Eifel-Joe/HAsmartirrigation/blob/production/docs/usage-lovelace-card.md) that mirrors the dashboard for **non-admin** users, addable to any dashboard
 - **Irrigate Now** — trigger immediate irrigation from the dashboard (all zones or per zone), bypassing skip conditions
 - **Recurring schedules** — create daily/weekly/monthly/interval irrigation schedules entirely from the UI (**Setup → When to Water**) — no automations needed
 - **Skip conditions** — skip irrigation based on forecasted rain (with a configurable forecast look-ahead window), low temperature, high wind speed, or a rain sensor
@@ -108,31 +108,29 @@ The master applies to every path (scheduled, "Irrigate Now", and manual runs), f
 This integration is not in the default HACS store. Install it as a **custom repository**:
 
 1. In Home Assistant, open **HACS → Integrations → ⋮ → Custom repositories**
-2. Add `https://github.com/JustChr/HAsmartirrigation` with category **Integration**
+2. Add `https://github.com/Eifel-Joe/HAsmartirrigation` with category **Integration**
 3. Search for "Smart Irrigation" and install
 4. Restart Home Assistant
 5. Go to **Settings → Devices & Services → Add Integration**, search for "Smart Irrigation" and follow the wizard
 
 ### Manual installation
 
-Download the [latest release](https://github.com/JustChr/HAsmartirrigation/releases/latest) as a zip, extract the `custom_components/smart_irrigation` folder into your Home Assistant `custom_components` directory, then restart.
+Download the [latest release](https://github.com/Eifel-Joe/HAsmartirrigation/releases/latest) as a zip, extract the `custom_components/smart_irrigation` folder into your Home Assistant `custom_components` directory, then restart.
 
 ## Documentation
 
-Full documentation: **https://JustChr.github.io/HAsmartirrigation/**
-
-The docs site is built from the [`docs/`](docs/) folder with Jekyll and deployed automatically by the [Pages workflow](.github/workflows/jekyll-gh-pages.yml) on every change under `docs/`.
+Full documentation lives in the [`docs/`](docs/) folder of this repository — including the [self-closing valves & blueprints](docs/configuration-my-zones.md#watering-mode) and [pump / master switch](docs/configuration-when-to-water.md#master-switch) guides.
 
 ## Reporting issues
 
-Open an issue at https://github.com/JustChr/HAsmartirrigation/issues
+Open an issue at https://github.com/Eifel-Joe/HAsmartirrigation/issues
 
 ## Development
 
 ### Quick start
 
 ```bash
-git clone https://github.com/JustChr/HAsmartirrigation.git
+git clone https://github.com/Eifel-Joe/HAsmartirrigation.git
 cd HAsmartirrigation
 make setup          # creates .venv and installs dependencies
 ```
