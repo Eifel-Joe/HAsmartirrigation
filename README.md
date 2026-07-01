@@ -63,6 +63,31 @@ Compared to the last upstream release (`v2025.10.0`):
 - **Extended sensor attributes** — `multiplier`, `lead_time`, `maximum_duration`, `maximum_bucket` now exposed as entity attributes for use in automations and templates
 - **Code hygiene** — removed ~280 lines of dead commented-out V1 code, duplicate constant definitions, and orphaned test files
 
+## Self-closing valves & blueprints
+
+A zone can delegate the valve **close** to self-closing hardware. In **Setup → My Zones → (zone) → Watering mode**, pick one of:
+
+- **Classic** *(default)* — the integration opens the valve and closes it itself with a software timer. Simple, but if Home Assistant restarts mid-run the valve stays open until HA comes back.
+- **Self-closing service** — the integration sends the run **duration** to your valve and lets the hardware close itself, so an HA outage mid-run can no longer cause continuous irrigation. The zone calls a **script** (picked from a dropdown) with the duration; that script talks to your specific valve.
+
+To make the script part painless, three **script blueprints** ship with the integration and are copied into `config/blueprints/script/smart_irrigation/` automatically on setup (existing files are never overwritten):
+
+| Blueprint | For | Notes |
+|-----------|-----|-------|
+| **Self-closing valve (Tuya Zigbee2MQTT)** | Tuya dual-valve over Z2M | publishes `countdown_l1` + `valve_l1` on/off — set the zone **Duration unit = Minutes** |
+| **Self-closing valve (SONOFF Zigbee2MQTT)** | SONOFF valve over Z2M | publishes `cyclic_timed_irrigation` — set the zone **Duration unit = Seconds** |
+| **Self-closing valve (entity based)** | ZHA / non-MQTT valves | writes a countdown `number` entity then turns the valve on — requires a hardware countdown entity |
+
+**Setup:**
+
+1. **Settings → Automations & Scenes → Blueprints** → find the blueprint → create a script from it, filling in your valve's MQTT topic (or entities).
+2. In the zone, set **Watering mode = Self-closing service**, pick your new script under **Run service**, and set **Duration unit** to match your device (Tuya = Minutes, SONOFF = Seconds).
+3. Optionally set **Stop service** to the same script — it closes the valve when you stop a run early.
+
+Each blueprint's script opens on `duration > 0` and closes on `duration = 0`, so one script serves as both the run and the stop service.
+
+> Blueprints only cover common cases. Any script that accepts a `duration` field works — the device specifics live in the script, so the same mechanism drives Z2M, ZHA, ESPHome, or anything else.
+
 ## Installation
 
 This integration is not in the default HACS store. Install it as a **custom repository**:
