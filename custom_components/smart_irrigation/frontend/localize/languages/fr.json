@@ -784,6 +784,16 @@
     "min_absorption_time_label": "Temps d'absorption min. entre les passages",
     "min_absorption_time_unit": "minutes (0 = désactivé)"
   },
+  "master": {
+    "title": "Pompe / interrupteur maître",
+    "description": "Facultatif. Active un maître partagé — une pompe ou une vanne principale — avant la première zone d'un cycle d'arrosage, puis le désactive éventuellement après la dernière zone. Laissez l'entité vide pour ne jamais actionner de maître (par exemple, une station de pompage à pression régulée qui démarre d'elle-même).",
+    "entity": "Entité maître (interrupteur/vanne)",
+    "kick_enabled": "Kicker : impulsion arrêt puis marche pour forcer le démarrage d'une pompe",
+    "kick_pause": "Pause de l'impulsion (arrêt avant marche)",
+    "settle": "Délai de stabilisation avant la première zone",
+    "off_after": "Désactiver le maître après l'irrigation",
+    "seconds_unit": "secondes"
+  },
   "weather_service_config": {
     "title": "Service météo",
     "description": "Configurez le service météo à utiliser pour les calculs d'ET et les conditions de saut.",

@@ -783,6 +783,16 @@
     "min_absorption_time_label": "Tiempo mín. de absorción entre turnos",
     "min_absorption_time_unit": "minutos (0 = desactivado)"
   },
+  "master": {
+    "title": "Bomba / interruptor maestro",
+    "description": "Opcional. Activa un maestro compartido — una bomba o una válvula principal — antes de la primera zona de un ciclo de riego y, opcionalmente, lo desactiva tras la última zona. Deje la entidad vacía para no accionar nunca un maestro (por ejemplo, una red de agua controlada por presión que arranca por sí sola).",
+    "entity": "Entidad maestra (interruptor/válvula)",
+    "kick_enabled": "Kicker: apagar y volver a encender con un pulso para forzar el arranque de la bomba",
+    "kick_pause": "Pausa del pulso (apagado antes de encendido)",
+    "settle": "Retardo de estabilización antes de la primera zona",
+    "off_after": "Apagar el maestro después del riego",
+    "seconds_unit": "segundos"
+  },
   "weather_service_config": {
     "title": "Servicio meteorológico",
     "description": "Configura qué servicio meteorológico usar para los cálculos de ET y las condiciones de omisión.",

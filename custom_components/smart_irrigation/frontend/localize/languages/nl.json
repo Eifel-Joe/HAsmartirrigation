@@ -782,6 +782,16 @@
     "min_absorption_time_label": "Min. absorptietijd tussen runs",
     "min_absorption_time_unit": "minuten (0 = uitgeschakeld)"
   },
+  "master": {
+    "title": "Pomp / hoofdschakelaar",
+    "description": "Optioneel. Schakelt een gedeelde master — een pomp of hoofdklep — in voordat de eerste zone van een irrigatiecyclus start, en optioneel weer uit na de laatste zone. Laat de entiteit leeg om nooit een master aan te sturen (bijv. een drukgestuurde waterinstallatie die vanzelf start).",
+    "entity": "Master-entiteit (schakelaar/klep)",
+    "kick_enabled": "Kicker: uit- en weer inschakelen om een pompstart af te dwingen",
+    "kick_pause": "Kickpauze (uit voordat aan)",
+    "settle": "Stabilisatievertraging vóór de eerste zone",
+    "off_after": "Master uitschakelen na de irrigatie",
+    "seconds_unit": "seconden"
+  },
   "weather_service_config": {
     "title": "Weerdienst",
     "description": "Configureer welke weerdienst gebruikt wordt voor ET-berekeningen en overslaan-voorwaarden.",

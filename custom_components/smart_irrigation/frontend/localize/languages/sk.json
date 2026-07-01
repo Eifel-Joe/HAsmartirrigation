@@ -782,6 +782,16 @@
     "min_absorption_time_label": "Min. čas vsiaknutia medzi cyklami",
     "min_absorption_time_unit": "minúty (0 = vypnuté)"
   },
+  "master": {
+    "title": "Čerpadlo / hlavný spínač",
+    "description": "Voliteľné. Zapne zdieľaný hlavný prvok — čerpadlo alebo hlavný ventil — pred prvou zónou zavlažovacieho cyklu a potom ho voliteľne vypne po poslednej zóne. Ponechajte entitu prázdnu, ak sa hlavný prvok nemá nikdy ovládať (napr. tlakovo riadený vodárenský systém, ktorý sa spúšťa sám).",
+    "entity": "Hlavná entita (spínač/ventil)",
+    "kick_enabled": "Kicker: krátke vypnutie a zapnutie na vynútenie štartu čerpadla",
+    "kick_pause": "Pauza kicku (vypnutie pred zapnutím)",
+    "settle": "Oneskorenie ustálenia pred prvou zónou",
+    "off_after": "Vypnúť hlavný prvok po zavlažovaní",
+    "seconds_unit": "sekundy"
+  },
   "weather_service_config": {
     "title": "Poveternostná služba",
     "description": "Nakonfiguruj, ktorá poveternostná služba sa použije na výpočty ET a podmienky preskočenia.",

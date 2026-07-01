@@ -787,6 +787,16 @@
     "min_absorption_time_label": "Tempo minimo di assorbimento tra slot",
     "min_absorption_time_unit": "minuti (0 = disabilitato)"
   },
+  "master": {
+    "title": "Pompa / interruttore master",
+    "description": "Opzionale. Attiva un master condiviso — una pompa o una valvola principale — prima della prima zona di un ciclo di irrigazione, quindi facoltativamente lo disattiva dopo l'ultima zona. Lasciare l'entità vuota per non azionare mai un master (ad esempio un impianto idrico a pressione controllata che si avvia da solo).",
+    "entity": "Entità master (interruttore/valvola)",
+    "kick_enabled": "Kicker: impulso off e poi on per forzare l'avvio della pompa",
+    "kick_pause": "Pausa del kicker (off prima di on)",
+    "settle": "Ritardo di stabilizzazione prima della prima zona",
+    "off_after": "Disattiva il master dopo l'irrigazione",
+    "seconds_unit": "secondi"
+  },
   "weather_service_config": {
     "title": "Servizio meteo",
     "description": "Configura quale servizio meteo usare per i calcoli ET e le condizioni di salto.",
