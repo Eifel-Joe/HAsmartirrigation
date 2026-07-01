@@ -68,7 +68,9 @@ Compared to the last upstream release (`v2025.10.0`):
 A zone can delegate the valve **close** to self-closing hardware. In **Setup → My Zones → (zone) → Watering mode**, pick one of:
 
 - **Classic** *(default)* — the integration opens the valve and closes it itself with a software timer. Simple, but if Home Assistant restarts mid-run the valve stays open until HA comes back.
-- **Self-closing service** — the integration sends the run **duration** to your valve and lets the hardware close itself, so an HA outage mid-run can no longer cause continuous irrigation. The zone calls a **script** (picked from a dropdown) with the duration; that script talks to your specific valve.
+- **Self-closing service** — the **close is owned by the hardware, not by HA**. The valve runs its own countdown: once it is told a run duration it shuts off on its own after that time, with no further contact from Home Assistant — so even if HA restarts or crashes the instant a run starts, the valve still closes and can't over-water. The zone calls a **script** (picked from a dropdown) that only **transmits the duration** to the valve; the script is an *adapter*, not the thing that closes the valve.
+
+Self-closing hardware means anything with its own timer: Zigbee2MQTT valves with a built-in countdown (Tuya `countdown_l1`, SONOFF `cyclic_timed_irrigation`), or a DIY/**ESPHome** controller that closes its own valve after a received runtime. (A plain switch with no hardware timer is *not* self-closing — use Classic mode.)
 
 To make the script part painless, three **script blueprints** ship with the integration and are copied into `config/blueprints/script/smart_irrigation/` automatically on setup (existing files are never overwritten):
 

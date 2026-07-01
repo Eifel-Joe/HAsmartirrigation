@@ -83,10 +83,12 @@ This recommendation is based on the soil water holding capacity. See [this discu
 Each zone chooses **how** the integration actuates it:
 
 - **Classic** *(default)* — the integration opens the [linked entity](#linked-entity) and closes it itself with a software timer. Simple, but if Home Assistant restarts mid-run the valve stays open until HA comes back.
-- **Self-closing service** — the integration sends the run **duration** to a self-closing valve (via a script) and lets the hardware close itself, so an HA outage mid-run can no longer cause continuous irrigation. Instead of a linked entity you pick a **Run service** (a `script.*`, chosen from a dropdown) and set:
+- **Self-closing service** — the *close* is owned by the **hardware**, not by Home Assistant. Many valves run their own **countdown**: once they are told a run duration they shut off on their own after it elapses, with no further contact from HA. The integration only **transmits the duration** to such a valve (through a small `run_service` script) — so even if HA restarts or crashes the instant a run starts, the valve still closes itself and continuous irrigation becomes impossible. Instead of a linked entity you pick a **Run service** (a `script.*`, chosen from a dropdown) and set:
   - **Duration field** — the parameter the duration is passed under (defaults to `duration`, which the shipped blueprints use).
   - **Duration unit** — seconds or minutes, matching what your hardware expects (many Zigbee/Tuya valves count in **minutes**).
-  - **Stop service** *(optional)* — closes the valve when you stop a run early.
+  - **Stop service** *(optional)* — closes the valve if you stop a run early (while HA is up).
+
+> **What counts as self-closing hardware?** Anything that runs its own timer once told a duration — for example Zigbee2MQTT valves with a built-in countdown (Tuya `countdown_l1`, SONOFF `cyclic_timed_irrigation`), or a DIY / **ESPHome** controller that closes its own valve after a received runtime. The script is only an **adapter** so the integration can drive all of them the same way — it is *not* what closes the valve. A plain switch with no hardware timer is **not** self-closing; use *Classic* mode for that.
 
 To make self-closing setup painless, three **script blueprints** ship with the integration and are copied into `config/blueprints/script/smart_irrigation/` automatically on setup (existing files are never overwritten):
 
