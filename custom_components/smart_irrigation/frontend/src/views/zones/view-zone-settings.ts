@@ -958,7 +958,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                     @value-changed="${(e: CustomEvent) =>
                       this.handleEditZone(index, {
                         ...zone,
-                        [ZONE_LINKED_ENTITY]: e.detail.value || undefined,
+                        [ZONE_LINKED_ENTITY]: e.detail.value || null,
                       })}"
                   ></ha-entity-picker>
                 </ha-settings-row>
