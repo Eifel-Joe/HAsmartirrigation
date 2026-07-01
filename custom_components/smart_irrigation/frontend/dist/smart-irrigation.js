@@ -3039,7 +3039,7 @@ function me(e,t){return(t,i,a)=>((e,t,i)=>(i.configurable=!0,i.enumerable=!0,Ref
                     .value="${e.run_service||""}"
                     .includeDomains="${["script"]}"
                     allow-custom-entity
-                    @value-changed="${i=>this.handleEditZone(t,Object.assign(Object.assign({},e),{[Ct]:i.detail.value||void 0}))}"
+                    @value-changed="${i=>this.handleEditZone(t,Object.assign(Object.assign({},e),{[Ct]:i.detail.value||null}))}"
                   ></ha-entity-picker>
                 </ha-settings-row>
                 <ha-settings-row>
@@ -3095,7 +3095,7 @@ function me(e,t){return(t,i,a)=>((e,t,i)=>(i.configurable=!0,i.enumerable=!0,Ref
                     .value="${e.stop_service||""}"
                     .includeDomains="${["script"]}"
                     allow-custom-entity
-                    @value-changed="${i=>this.handleEditZone(t,Object.assign(Object.assign({},e),{[Ot]:i.detail.value||void 0}))}"
+                    @value-changed="${i=>this.handleEditZone(t,Object.assign(Object.assign({},e),{[Ot]:i.detail.value||null}))}"
                   ></ha-entity-picker>
                 </ha-settings-row>
               `:""}

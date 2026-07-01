@@ -837,7 +837,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                     @value-changed="${(e: CustomEvent) =>
                       this.handleEditZone(index, {
                         ...zone,
-                        [ZONE_RUN_SERVICE]: e.detail.value || undefined,
+                        [ZONE_RUN_SERVICE]: e.detail.value || null,
                       })}"
                   ></ha-entity-picker>
                 </ha-settings-row>
@@ -935,7 +935,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                     @value-changed="${(e: CustomEvent) =>
                       this.handleEditZone(index, {
                         ...zone,
-                        [ZONE_STOP_SERVICE]: e.detail.value || undefined,
+                        [ZONE_STOP_SERVICE]: e.detail.value || null,
                       })}"
                   ></ha-entity-picker>
                 </ha-settings-row>
