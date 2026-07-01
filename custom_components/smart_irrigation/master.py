@@ -41,7 +41,10 @@ class MasterMixin:
         return getattr(self._master_cfg(), const.CONF_MASTER_ENTITY, None)
 
     def _master_configured(self) -> bool:
-        return bool(self._master_entity())
+        # A valid master is a string entity_id; anything else (None, or a test
+        # double's Mock attribute) means "not configured" -> every hook no-ops.
+        entity = self._master_entity()
+        return isinstance(entity, str) and bool(entity)
 
     async def _master_turn(self, on: bool) -> None:
         entity = self._master_entity()

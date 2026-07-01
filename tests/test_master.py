@@ -144,3 +144,30 @@ async def test_master_off_enabled_arms_and_fires(monkeypatch):
         "homeassistant", "turn_off", {"entity_id": "switch.pump"}
     )
     assert c._master_on is False
+
+
+async def test_run_zone_self_closing_wraps_with_master():
+    from custom_components.smart_irrigation import SmartIrrigationCoordinator, const
+
+    c = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
+    assert isinstance(c, MasterMixin)  # mixin is wired into the coordinator
+    c.hass = Mock()
+    zone = {
+        const.ZONE_ID: 2,
+        const.ZONE_NAME: "Beet",
+        const.ZONE_STATE: "automatic",
+        const.ZONE_WATERING_MODE: const.WATERING_MODE_SERVICE,
+    }
+    c.store = Mock()
+    c.store.get_zone = Mock(return_value=zone)
+    c.async_run_self_closing = AsyncMock(return_value=True)
+    c.async_master_begin_cycle = AsyncMock()
+    c._master_note_run = Mock()
+    c.async_master_schedule_off = AsyncMock()
+
+    await c.async_run_zone(2, 5.0)  # 5 min -> 300 s
+
+    c.async_master_begin_cycle.assert_awaited_once()
+    c._master_note_run.assert_called_once_with(300.0)
+    c.async_master_schedule_off.assert_awaited_once()
+    c.async_run_self_closing.assert_awaited_once()

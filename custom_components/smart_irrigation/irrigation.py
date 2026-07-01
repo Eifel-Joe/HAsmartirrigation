@@ -361,6 +361,13 @@ class IrrigationRunnerMixin:
             _LOGGER.debug("Live-estimate duration left no zones needing water")
             return
 
+        # Master (pump): power on before the first zone; record each run's end so
+        # master_off (if enabled) can fire after the last zone completes.
+        await self.async_master_begin_cycle()
+        for z in zones_to_irrigate:
+            self._master_note_run(float(z.get(const.ZONE_DURATION) or 0))
+        await self.async_master_schedule_off()
+
         # Self-closing zones delegate the run to their own service (the valve
         # owns the close); they bypass the linked-entity sequencing below.
         for z in [z for z in zones_to_irrigate if self._sc_is_self_closing(z)]:
@@ -1312,6 +1319,12 @@ class IrrigationRunnerMixin:
             _LOGGER.info("irrigate_now: no zones with linked entity and duration > 0")
             return
 
+        # Master (pump): power on before the first zone; record each run's end.
+        await self.async_master_begin_cycle()
+        for z in zones_to_irrigate:
+            self._master_note_run(float(z.get(const.ZONE_DURATION) or 0))
+        await self.async_master_schedule_off()
+
         # Self-closing zones fire their own service (the valve self-closes); they
         # bypass the linked-entity sequencing.
         for z in [z for z in zones_to_irrigate if self._sc_is_self_closing(z)]:
@@ -1352,6 +1365,9 @@ class IrrigationRunnerMixin:
             return
         # Self-closing zones run via their own service for the requested duration.
         if self._sc_is_self_closing(zone):
+            await self.async_master_begin_cycle()
+            self._master_note_run(float(seconds))
+            await self.async_master_schedule_off()
             run_zone = dict(zone)
             run_zone[const.ZONE_DURATION] = seconds
             await self.async_run_self_closing(run_zone, trigger="manual")
@@ -1359,6 +1375,11 @@ class IrrigationRunnerMixin:
         if not zone.get(const.ZONE_LINKED_ENTITY):
             _LOGGER.warning("run_zone: zone %s has no linked entity", zone_id)
             return
+
+        # Master (pump): power on before opening the valve.
+        await self.async_master_begin_cycle()
+        self._master_note_run(float(seconds))
+        await self.async_master_schedule_off()
 
         # Override the duration on a copy and credit the bucket by what we deliver.
         run_zone = dict(zone)
