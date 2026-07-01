@@ -88,6 +88,19 @@ Each blueprint's script opens on `duration > 0` and closes on `duration = 0`, so
 
 > Blueprints only cover common cases. Any script that accepts a `duration` field works — the device specifics live in the script, so the same mechanism drives Z2M, ZHA, ESPHome, or anything else.
 
+## Pump / master switch (optional)
+
+If a pump or main valve must be powered before any zone can water, configure a **master switch** under **Setup → General → Pump / master switch**:
+
+- **Master entity** — a switch/valve/input_boolean HASI turns on before the first zone of a cycle. Leave empty to never touch a master (e.g. a pressure-controlled waterworks that starts on its own).
+- **Kicker** *(optional)* — some pressure-controlled pumps don't restart promptly when merely powered; the kicker pulses the master **off → pause → on** to force a start. The pause is configurable.
+- **Settle delay** — wait after power-on before the first valve opens (pressure build-up), default 10 s.
+- **Turn off after irrigation** *(optional, default off)* — off = the master stays powered (self-monitoring pump); on = HASI turns it off after the last zone's planned end, and only once no run is still active.
+
+The master applies to every path (scheduled, "Irrigate Now", and manual runs), for both classic and self-closing zones.
+
+> **Crash caveat:** with "turn off after" enabled, an HA outage after the master turns on but before the scheduled off leaves the master on — a non-self-protecting pump could dead-head or run dry. HASI can't prevent this alone; the master device must carry its own protection (dry-run cutoff, max-on timer). This is exactly why "turn off after" is optional — a self-monitoring pump omits it and carries no crash exposure.
+
 ## Installation
 
 This integration is not in the default HACS store. Install it as a **custom repository**:
