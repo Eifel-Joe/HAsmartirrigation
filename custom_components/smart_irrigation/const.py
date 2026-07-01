@@ -557,6 +557,15 @@ EVENT_IRRIGATE_STARTED = "irrigation_started"
 EVENT_IRRIGATE_FINISHED = "irrigation_finished"
 EVENT_ZONE_PROBLEM = "zone_problem"
 
+# --- Master switch / pump control (instance-level, fully optional) ----------
+CONF_MASTER_ENTITY = "master_entity"  # switch/valve/input_boolean, or None
+CONF_MASTER_SETTLE_SECONDS = "master_settle_seconds"  # wait after on before zone 1
+CONF_MASTER_KICK_ENABLED = "master_kick_enabled"  # pulse off->pause->on first
+CONF_MASTER_KICK_PAUSE_SECONDS = "master_kick_pause_seconds"  # the off<->on gap
+CONF_MASTER_OFF_AFTER = "master_off_after"  # turn off after cycle (else stay on)
+CONF_DEFAULT_MASTER_SETTLE_SECONDS = 10
+CONF_DEFAULT_MASTER_KICK_PAUSE_SECONDS = 1.0
+
 # Run-log tags
 RUN_TRIGGER_SELF_CLOSING = "self_closing"
 RUN_DETAIL_SELF_CLOSING_STOPPED = "self_closing_stopped"

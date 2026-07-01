@@ -155,7 +155,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_REGISTRY = f"{DOMAIN}_storage"
 STORAGE_KEY = f"{DOMAIN}.storage"
-STORAGE_VERSION = 10
+STORAGE_VERSION = 11
 SAVE_DELAY = 0
 
 
@@ -307,6 +307,13 @@ class Config:
     # Persisted in-flight self-closing valve runs (reboot resilience); list of
     # dicts, see const.CONF_ACTIVE_VALVE_RUNS.
     active_valve_runs = attr.ib(type=list, factory=list)
+    # Master switch / pump control (instance-level, fully optional). No entity =
+    # HASI never touches the master. off_after=False leaves it powered.
+    master_entity = attr.ib(type=str, default=None)
+    master_settle_seconds = attr.ib(type=int, default=10)
+    master_kick_enabled = attr.ib(type=bool, default=False)
+    master_kick_pause_seconds = attr.ib(type=float, default=1.0)
+    master_off_after = attr.ib(type=bool, default=False)
 
 
 class MigratableStore(Store):
@@ -396,6 +403,15 @@ class MigratableStore(Store):
                     "mqtt_stop_value",
                 ):
                     zone.pop(key, None)
+
+        if old_version <= 10:
+            # v11: optional master switch / pump control (all off by default).
+            cfg = data.setdefault("config", {})
+            cfg.setdefault("master_entity", None)
+            cfg.setdefault("master_settle_seconds", 10)
+            cfg.setdefault("master_kick_enabled", False)
+            cfg.setdefault("master_kick_pause_seconds", 1.0)
+            cfg.setdefault("master_off_after", False)
 
         # CRITICAL: Always ensure required fields are present and strip unrecognized keys
         # This prevents TypeError when Config(**config_data) is called
@@ -623,6 +639,13 @@ class SmartIrrigationStorage:
                     )
                     if s.get(SCHEDULE_CONF_ACTION) == "irrigate"
                 ],
+                master_entity=data["config"].get("master_entity", None),
+                master_settle_seconds=data["config"].get("master_settle_seconds", 10),
+                master_kick_enabled=data["config"].get("master_kick_enabled", False),
+                master_kick_pause_seconds=data["config"].get(
+                    "master_kick_pause_seconds", 1.0
+                ),
+                master_off_after=data["config"].get("master_off_after", False),
             )
 
             if "zones" in data:
