@@ -49,6 +49,6 @@ def install_bundled_blueprints(src_dir, dst_dir) -> list:
                 len(installed),
                 ", ".join(installed),
             )
-    except OSError as err:
+    except Exception as err:  # noqa: BLE001 - must never break integration setup
         _LOGGER.warning("Blueprint install skipped: %s", err)
     return installed
