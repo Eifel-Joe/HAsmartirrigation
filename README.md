@@ -8,7 +8,21 @@
 
 ![](logo.png?raw=true)
 
-This is an actively maintained community fork of [jeroenterheerdt/HAsmartirrigation](https://github.com/jeroenterheerdt/HAsmartirrigation), which has been stale since late 2025. It ships all the original functionality plus a growing set of bug fixes and improvements — see [What's been fixed and improved](#whats-been-fixed-and-improved) below.
+> **Heads-up — this is a personal build that sits directly on top of
+> [JustChr/HAsmartirrigation](https://github.com/JustChr/HAsmartirrigation).**
+> It carries nothing beyond five pull requests that are still open against JustChr — apply those
+> to JustChr's fork and you get exactly this build:
+>
+> - [#40](https://github.com/JustChr/HAsmartirrigation/pull/40) — diagnostics no longer kills the coordinator
+> - [#41](https://github.com/JustChr/HAsmartirrigation/pull/41) — tolerate a missing coordinator on unload
+> - [#42](https://github.com/JustChr/HAsmartirrigation/pull/42) — invalidate the mapping buffer on a source change
+> - [#43](https://github.com/JustChr/HAsmartirrigation/pull/43) — self-closing valve mode, valve blueprints & optional pump/master switch
+> - [#44](https://github.com/JustChr/HAsmartirrigation/pull/44) — entity-picker clear fix
+>
+> All five are still awaiting review — none has been merged yet. As soon as JustChr merges them this
+> build is redundant and you can switch straight back to JustChr with no data loss.
+
+Smart Irrigation was originally written by [jeroenterheerdt](https://github.com/jeroenterheerdt/HAsmartirrigation) (upstream stale since late 2025) and is actively continued in [JustChr's fork](https://github.com/JustChr/HAsmartirrigation) — on which this repository is based. The [What's been fixed and improved](#whats-been-fixed-and-improved) section below lists the fixes carried by the JustChr line; **this repository's own delta over JustChr is just the five open pull requests listed above.**
 
 ## What it does
 
