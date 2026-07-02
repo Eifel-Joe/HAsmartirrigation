@@ -10,7 +10,7 @@
 
 > **Heads-up — this is a personal build that sits directly on top of
 > [JustChr/HAsmartirrigation](https://github.com/JustChr/HAsmartirrigation).**
-> It carries nothing beyond five pull requests that are still open against JustChr — apply those
+> It carries nothing beyond six pull requests that are still open against JustChr — apply those
 > to JustChr's fork and you get exactly this build:
 >
 > - [#40](https://github.com/JustChr/HAsmartirrigation/pull/40) — diagnostics no longer kills the coordinator
@@ -18,11 +18,12 @@
 > - [#42](https://github.com/JustChr/HAsmartirrigation/pull/42) — invalidate the mapping buffer on a source change
 > - [#43](https://github.com/JustChr/HAsmartirrigation/pull/43) — self-closing valve mode, valve blueprints & optional pump/master switch
 > - [#44](https://github.com/JustChr/HAsmartirrigation/pull/44) — entity-picker clear fix
+> - [#45](https://github.com/JustChr/HAsmartirrigation/pull/45) — cache-bust the runtime language fetch (stale translations after an update)
 >
-> All five are still awaiting review — none has been merged yet. As soon as JustChr merges them this
+> All six are still awaiting review — none has been merged yet. As soon as JustChr merges them this
 > build is redundant and you can switch straight back to JustChr with no data loss.
 
-Smart Irrigation was originally written by [jeroenterheerdt](https://github.com/jeroenterheerdt/HAsmartirrigation) (upstream stale since late 2025) and is actively continued in [JustChr's fork](https://github.com/JustChr/HAsmartirrigation) — on which this repository is based. The [What's been fixed and improved](#whats-been-fixed-and-improved) section below lists the fixes carried by the JustChr line; **this repository's own delta over JustChr is just the five open pull requests listed above.**
+Smart Irrigation was originally written by [jeroenterheerdt](https://github.com/jeroenterheerdt/HAsmartirrigation) (upstream stale since late 2025) and is actively continued in [JustChr's fork](https://github.com/JustChr/HAsmartirrigation) — on which this repository is based. The [What's been fixed and improved](#whats-been-fixed-and-improved) section below lists the fixes carried by the JustChr line; **this repository's own delta over JustChr is just the six open pull requests listed above.**
 
 ## What it does
 
