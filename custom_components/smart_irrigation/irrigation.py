@@ -349,9 +349,7 @@ class IrrigationRunnerMixin:
             out.append(z)  # dry enough -> water
         return out
 
-    async def _veto_zone_soil_moisture(
-        self, zone, sensor, observed, threshold
-    ) -> None:
+    async def _veto_zone_soil_moisture(self, zone, sensor, observed, threshold) -> None:
         """Re-anchor the vetoed zone's bucket, fire the event, record the skip."""
         zone_id = zone.get(const.ZONE_ID)
         # Reset the bucket to 0 (deficit -> 0, field-capacity anchor) via the same

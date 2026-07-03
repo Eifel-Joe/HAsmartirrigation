@@ -703,9 +703,7 @@ class SmartIrrigationStorage:
                         stop_service=zone.get("stop_service", None),
                         stop_data=zone.get("stop_data", {}) or {},
                         confirm_entity=zone.get("confirm_entity", None),
-                        soil_moisture_sensor=zone.get(
-                            "soil_moisture_sensor", None
-                        ),
+                        soil_moisture_sensor=zone.get("soil_moisture_sensor", None),
                         soil_moisture_threshold=zone.get(
                             "soil_moisture_threshold", None
                         ),
