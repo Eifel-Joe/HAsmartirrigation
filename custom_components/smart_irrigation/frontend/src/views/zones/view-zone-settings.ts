@@ -481,11 +481,11 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
             }
           }}"
         >
+          <div class="name">${zone.name}</div>
           <ha-icon
             class="zone-chevron"
             icon="${expanded ? "mdi:chevron-up" : "mdi:chevron-down"}"
           ></ha-icon>
-          <div class="name">${zone.name}</div>
         </div>
         ${expanded
           ? html`

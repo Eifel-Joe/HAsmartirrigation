@@ -2840,11 +2840,11 @@ function me(e,t){return(t,i,s)=>((e,t,i)=>(i.configurable=!0,i.enumerable=!0,Ref
           @click="${()=>void 0!==e.id&&this._toggleZone(e.id)}"
           @keydown="${t=>{"Enter"!==t.key&&" "!==t.key||void 0===e.id||(t.preventDefault(),this._toggleZone(e.id))}}"
         >
+          <div class="name">${e.name}</div>
           <ha-icon
             class="zone-chevron"
             icon="${_?"mdi:chevron-up":"mdi:chevron-down"}"
           ></ha-icon>
-          <div class="name">${e.name}</div>
         </div>
         ${_?Z`
               <!-- Settings shown directly (no longer collapsible — the calendar that
