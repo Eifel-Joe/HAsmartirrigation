@@ -240,6 +240,147 @@ class TestFinishTrackerAdvance:
         await mgr._setup_finish_tracker(sched)
         assert captured[-1] > dt_util.utcnow() + datetime.timedelta(hours=1)
 
+    @pytest.mark.asyncio
+    @freeze_time("2026-06-10 18:00:00")
+    async def test_rearm_advances_for_negative_offset_sunrise(
+        self, coordinator, monkeypatch
+    ):
+        """Regression (live 2026-07-04): a SUNRISE/SUNSET finish schedule with a
+        NEGATIVE offset must also advance past the fired occurrence. The offset is
+        applied *after* get_astral_event_next, so re-deriving with
+        reference_utc=target (which sits |offset| *before* the sun event) returned
+        the same event -> the same target, defeating the guard and busy-looping the
+        ~2s "run ASAP" branch for the whole |offset| window."""
+        import homeassistant.util.dt as dt_util
+
+        mgr = RecurringScheduleManager(coordinator.hass, coordinator)
+        mgr.coordinator.get_total_irrigation_duration = AsyncMock(return_value=300)
+        sched = _sched(
+            type=const.SCHEDULE_TYPE_SUNRISE,
+            time_anchor=const.SCHEDULE_TIME_ANCHOR_FINISH,
+            action="irrigate",
+            zones="all",
+            offset_minutes=-30,
+        )
+
+        # The core regression: advancing past the fired occurrence must land on
+        # the NEXT sunrise (~1 day later), never re-derive the same target.
+        target1 = await mgr._next_target_time(sched)
+        target2 = await mgr._next_target_time(sched, reference_utc=target1)
+        assert target2 > target1
+        assert (
+            datetime.timedelta(hours=20)
+            < target2 - target1
+            < datetime.timedelta(hours=28)
+        )
+
+        # And the tracker, re-armed for the just-fired occurrence, must schedule a
+        # future start (not the now+2s catch-up that busy-loops every ~2s).
+        captured: list = []
+        monkeypatch.setattr(
+            scheduler_module,
+            "async_track_point_in_utc_time",
+            lambda hass, cb, when: captured.append(when) or Mock(),
+        )
+        mgr._finish_last_target[sched[const.SCHEDULE_CONF_ID]] = target1.isoformat()
+        await mgr._setup_finish_tracker(sched)
+        assert captured[-1] > dt_util.utcnow() + datetime.timedelta(hours=1)
+
+
+class TestSolarScheduleMatrix:
+    """Full matrix: the three solar schedule types x {zero, negative, positive}
+    offset x {finish, start} anchor = 18 cases. Guards the negative-offset
+    busy-loop regression (live 2026-07-04) across every combination and confirms
+    each one advances past a fired occurrence and arms a single FUTURE run — no
+    ~2s "run ASAP" catch-up loop.
+
+    Anchor dispatch (scheduler.py):
+      - finish (all three types) -> _setup_finish_tracker (point-in-time,
+        _next_target_time + _finish_last_target guard);
+      - start sunrise/sunset     -> async_track_sunrise/sunset (offset-based HA
+        primitive, structurally loop-free);
+      - start azimuth            -> _setup_azimuth_tracker (point-in-time,
+        _next_target_time-based, so the same fix protects it).
+    """
+
+    SOLAR_TYPES = [
+        const.SCHEDULE_TYPE_SUNRISE,
+        const.SCHEDULE_TYPE_SUNSET,
+        const.SCHEDULE_TYPE_SOLAR_AZIMUTH,
+    ]
+    OFFSETS = [0, -30, 45]
+    ANCHORS = [
+        const.SCHEDULE_TIME_ANCHOR_FINISH,
+        const.SCHEDULE_TIME_ANCHOR_START,
+    ]
+
+    @pytest.mark.parametrize("stype", SOLAR_TYPES)
+    @pytest.mark.parametrize("offset", OFFSETS)
+    @pytest.mark.parametrize("anchor", ANCHORS)
+    @pytest.mark.asyncio
+    @freeze_time("2026-06-10 06:00:00")
+    async def test_solar_matrix_no_busy_loop(
+        self, coordinator, monkeypatch, stype, offset, anchor
+    ):
+        import homeassistant.util.dt as dt_util
+
+        mgr = RecurringScheduleManager(coordinator.hass, coordinator)
+        mgr.coordinator.get_total_irrigation_duration = AsyncMock(return_value=300)
+        sched = _sched(
+            type=stype,
+            time_anchor=anchor,
+            action="irrigate",
+            zones="all",
+            offset_minutes=offset,
+            azimuth_angle=90,
+        )
+
+        # (1) Advance invariant — the root of the busy-loop. Re-arming past the
+        # occurrence just fired must land on the NEXT one (~1 day later), never
+        # re-derive the same target. A negative offset defeated this before the
+        # fix (target2 == target1 -> now+2s loop).
+        t1 = await mgr._next_target_time(sched)
+        t2 = await mgr._next_target_time(sched, reference_utc=t1)
+        assert t2 > t1, f"{stype}/{offset}/{anchor}: no advance -> busy-loop"
+        assert (
+            datetime.timedelta(hours=20) < t2 - t1 < datetime.timedelta(hours=28)
+        ), f"{stype}/{offset}/{anchor}: advance {t2 - t1} not ~1 day"
+
+        # (2) The anchor's tracker is armed once, at a FUTURE time — never an
+        # immediate/now+2s catch-up.
+        point: list = []
+        sunrise: list = []
+        sunset: list = []
+        monkeypatch.setattr(
+            scheduler_module,
+            "async_track_point_in_utc_time",
+            lambda hass, cb, when: point.append(when) or Mock(),
+        )
+        monkeypatch.setattr(
+            scheduler_module,
+            "async_track_sunrise",
+            lambda hass, cb, off: sunrise.append(off) or Mock(),
+        )
+        monkeypatch.setattr(
+            scheduler_module,
+            "async_track_sunset",
+            lambda hass, cb, off: sunset.append(off) or Mock(),
+        )
+        await mgr._setup_schedule_tracker(sched)
+
+        off_delta = datetime.timedelta(minutes=offset)
+        if anchor == const.SCHEDULE_TIME_ANCHOR_FINISH:
+            # All three solar types finish via the point-in-time finish tracker.
+            assert len(point) == 1 and not sunrise and not sunset
+            assert point[0] > dt_util.utcnow()  # future start, not now+2s
+        elif stype == const.SCHEDULE_TYPE_SUNRISE:
+            assert sunrise == [off_delta] and not point and not sunset
+        elif stype == const.SCHEDULE_TYPE_SUNSET:
+            assert sunset == [off_delta] and not point and not sunrise
+        else:  # solar azimuth, start anchor -> self-rescheduling point-in-time
+            assert len(point) == 1 and not sunrise and not sunset
+            assert point[0] > dt_util.utcnow()
+
 
 class TestIntervalStartTime:
     """An interval schedule with a start_time anchor is phase-locked to that
