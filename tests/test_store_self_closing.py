@@ -14,8 +14,8 @@ from custom_components.smart_irrigation.store import (
 )
 
 
-def test_storage_version_is_10():
-    assert STORAGE_VERSION == 10
+def test_storage_version_is_11():
+    assert STORAGE_VERSION == 11
 
 
 def test_zone_entry_has_self_closing_fields():
@@ -25,9 +25,7 @@ def test_zone_entry_has_self_closing_fields():
     # Defaults to "duration" so the shipped blueprints work out of the box.
     assert z.duration_field == "duration"
     assert z.duration_unit == const.DURATION_UNIT_SECONDS
-    assert z.run_data == {}
     assert z.stop_service is None
-    assert z.stop_data == {}
     assert z.confirm_entity is None
 
 

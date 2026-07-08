@@ -1,12 +1,12 @@
 {
   "domain": "smart_irrigation",
   "name": "Smart Irrigation",
-  "codeowners": ["@JustChr"],
+  "codeowners": ["@Eifel-Joe"],
   "config_flow": true,
   "dependencies": ["http", "panel_custom"],
-  "documentation": "https://github.com/JustChr/HAsmartirrigation",
+  "documentation": "https://github.com/Eifel-Joe/HAsmartirrigation",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/JustChr/HAsmartirrigation/issues",
+  "issue_tracker": "https://github.com/Eifel-Joe/HAsmartirrigation/issues",
   "requirements": ["aiofiles", "python-dateutil"],
-  "version": "v2026.07.03"
+  "version": "v2026.07.11"
 }
