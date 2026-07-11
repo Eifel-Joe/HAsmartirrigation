@@ -43,6 +43,7 @@ export const CONF_FORECAST_WEIGHTING_ENABLED = "forecast_weighting_enabled";
 export const CONF_OBSERVED_WATERING_ENABLED = "observed_watering_enabled";
 export const CONF_LIVE_ESTIMATE_ENABLED = "live_estimate_enabled";
 export const CONF_DISTRIBUTORS_ENABLED = "distributors_enabled";
+export const CONF_LOG_NO_DEMAND = "log_no_demand";
 
 // Days between irrigation configuration
 export const CONF_DAYS_BETWEEN_IRRIGATION = "days_between_irrigation";
