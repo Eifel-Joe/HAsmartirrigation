@@ -747,7 +747,7 @@
         "confirm_entity": "Sensor de confirmación (opcional)",
         "confirm_entity_help": "Sensor opcional en la entrada del distribuidor que confirma que el agua realmente fluye (p. ej., un sensor de caudal o de posición de válvula). Si no detecta caudal al abrirse una salida, el ciclo se detiene de forma segura y marca el distribuidor como incierto: esta es la detección de caudal bajo / de fallos.",
         "flow_sensor": "Sensor de caudal (opcional)",
-        "flow_sensor_help": "El caudalímetro compartido en la entrada (p. ej. L/min, m³/h). Si se configura, se mide y contabiliza el volumen realmente suministrado por salida en lugar de la estimación por tiempo. Opcional. Cuando la válvula se puede detener (una entrada classic o un servicio de parada self-closing), la salida también se detiene anticipadamente al alcanzar su volumen objetivo.",
+        "flow_sensor_help": "El caudalímetro compartido en la entrada (p. ej. L/min, m³/h). Si se configura, se mide y contabiliza el volumen realmente suministrado por salida en lugar de la estimación por tiempo. Opcional. Cuando la válvula se puede detener (una entrada classic o un servicio de parada self-closing), la salida también se detiene anticipadamente al alcanzar su volumen objetivo. Se admiten tanto un caudalímetro instantáneo (p. ej. L/min) como un contador totalizador acumulado (p. ej. m³ o state_class: total_increasing); el tipo se detecta automáticamente a partir de la unidad.",
         "pause_seconds": "Pausa de avance",
         "skip_pulse_seconds": "Impulso de salto",
         "notify_target": "Destino de notificación (opcional)",

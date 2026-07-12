@@ -746,7 +746,7 @@
         "confirm_entity": "Bevestigingssensor (optioneel)",
         "confirm_entity_help": "Optionele sensor op de verdelerinlaat die bevestigt dat er daadwerkelijk water stroomt (bijv. een debiet- of klepstandsensor). Meet hij geen debiet wanneer een uitgang opent, dan stopt de cyclus veilig en wordt de verdeler als onzeker gemarkeerd — dit is de laag-debiet-/foutdetectie.",
         "flow_sensor": "Debietsensor (optioneel)",
-        "flow_sensor_help": "De gedeelde debietmeter op de inlaat (bijv. L/min, m³/h). Indien ingesteld, wordt het werkelijk geleverde volume per uitgang gemeten en verrekend in plaats van de tijdschatting. Optioneel. Waar de klep gestopt kan worden (een classic-inlaat of een self-closing stop-service), wordt de uitgang bovendien vroegtijdig gestopt zodra het doelvolume is bereikt.",
+        "flow_sensor_help": "De gedeelde debietmeter op de inlaat (bijv. L/min, m³/h). Indien ingesteld, wordt het werkelijk geleverde volume per uitgang gemeten en verrekend in plaats van de tijdschatting. Optioneel. Waar de klep gestopt kan worden (een classic-inlaat of een self-closing stop-service), wordt de uitgang bovendien vroegtijdig gestopt zodra het doelvolume is bereikt. Zowel een momentane debietmeter (bijv. L/min) als een cumulatieve totalisator-teller (bijv. m³ of state_class: total_increasing) worden ondersteund; het type wordt automatisch aan de eenheid herkend.",
         "pause_seconds": "Doorschakelpauze",
         "skip_pulse_seconds": "Overslaanpuls",
         "notify_target": "Meldingsdoel (optioneel)",

@@ -748,7 +748,7 @@
         "confirm_entity": "Bekreftelsessensor (valgfritt)",
         "confirm_entity_help": "Valgfri sensor på fordelerinnløpet som bekrefter at vann faktisk strømmer (f.eks. en strømnings- eller ventilposisjonssensor). Hvis den ikke melder strømning når en utgang åpnes, stopper syklusen trygt og markerer fordeleren som usikker – dette er lav-strømnings-/feildeteksjonen.",
         "flow_sensor": "Strømningssensor (valgfritt)",
-        "flow_sensor_help": "Den delte strømningsmåleren på innløpet (f.eks. L/min, m³/h). Når den er satt, måles og bokføres det faktisk leverte volumet per utgang i stedet for tidsestimatet. Valgfritt. Der ventilen kan stoppes (et classic-innløp eller en self-closing stopptjeneste), stoppes utgangen dessuten tidlig når målvolumet er nådd.",
+        "flow_sensor_help": "Den delte strømningsmåleren på innløpet (f.eks. L/min, m³/h). Når den er satt, måles og bokføres det faktisk leverte volumet per utgang i stedet for tidsestimatet. Valgfritt. Der ventilen kan stoppes (et classic-innløp eller en self-closing stopptjeneste), stoppes utgangen dessuten tidlig når målvolumet er nådd. Både en momentan strømningsmåler (f.eks. L/min) og en kumulativ tellerstand (f.eks. m³ eller state_class: total_increasing) støttes; typen registreres automatisk ut fra enheten.",
         "pause_seconds": "Fremrykkingspause",
         "skip_pulse_seconds": "Hopp-puls",
         "notify_target": "Varslingsmål (valgfritt)",

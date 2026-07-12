@@ -751,7 +751,7 @@
         "confirm_entity": "Sensore di conferma (opzionale)",
         "confirm_entity_help": "Sensore facoltativo sull'ingresso del distributore che conferma che l'acqua scorre davvero (ad es. un sensore di flusso o di posizione valvola). Se non rileva flusso all'apertura di un'uscita, il ciclo si arresta in sicurezza e segna il distributore come incerto: è il rilevamento di flusso basso / guasti.",
         "flow_sensor": "Sensore di flusso (opzionale)",
-        "flow_sensor_help": "Il misuratore di portata condiviso sull'ingresso (es. L/min, m³/h). Se impostato, il volume effettivamente erogato per uscita viene misurato e contabilizzato invece della stima basata sul tempo. Facoltativo. Quando la valvola può essere fermata (un ingresso classic o un servizio di arresto self-closing), l'uscita viene inoltre fermata in anticipo al raggiungimento del volume target.",
+        "flow_sensor_help": "Il misuratore di portata condiviso sull'ingresso (es. L/min, m³/h). Se impostato, il volume effettivamente erogato per uscita viene misurato e contabilizzato invece della stima basata sul tempo. Facoltativo. Quando la valvola può essere fermata (un ingresso classic o un servizio di arresto self-closing), l'uscita viene inoltre fermata in anticipo al raggiungimento del volume target. Sono supportati sia un misuratore di portata istantaneo (es. L/min) sia un contatore totalizzatore cumulativo (es. m³ o state_class: total_increasing); il tipo viene rilevato automaticamente dall'unità.",
         "pause_seconds": "Pausa di avanzamento",
         "skip_pulse_seconds": "Impulso di salto",
         "notify_target": "Destinazione notifica (opzionale)",

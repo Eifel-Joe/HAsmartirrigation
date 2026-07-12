@@ -5,7 +5,7 @@ class SmartIrrigationError(Exception):
     """Exception raised for errors in the Smart Irrigation integration."""
 
 
-VERSION = "v2026.07.16"
+VERSION = "v2026.07.17"
 NAME = "Smart Irrigation"
 MANUFACTURER = "@JustChr"
 
@@ -573,6 +573,18 @@ ZONE_CONFIRM_ENTITY = "confirm_entity"
 # runs of a service/self-closing zone (which has no linked_entity). Distinct from
 # confirm_entity (run confirmation). Only consulted when observed_watering_enabled.
 ZONE_OBSERVED_ENTITY = "observed_entity"
+# Per-member flow-calibration advisory (distributor can't-stop members only). A
+# member whose valve can't early-stop runs a fixed window; if the configured
+# throughput is wrong it silently over/under-waters. We keep a rolling list of
+# measured-vs-target volume samples and a one-shot "advised" marker so a single HA
+# persistent notification recommends a corrected throughput once the mean signed
+# deviation over >= FLOW_CAL_MIN_SAMPLES runs exceeds FLOW_CAL_DEVIATION. Advisory
+# only — nothing is auto-applied. See DistributorMixin._dist_flow_calibration_check.
+ZONE_FLOW_CAL_SAMPLES = "flow_calibration_samples"
+ZONE_FLOW_CAL_ADVISED = "flow_calibration_advised"
+FLOW_CAL_MIN_SAMPLES = 3
+FLOW_CAL_MAX_SAMPLES = 5
+FLOW_CAL_DEVIATION = 0.15
 # Optional soil-moisture sensor (per zone) + wet threshold. When both are set,
 # an AUTOMATIC run skips the zone while the sensor reads strictly above the
 # threshold (higher % = wetter), and resets the zone's bucket to 0. Skip-only:
@@ -658,12 +670,3 @@ DISTRIBUTOR_REASON_FOREIGN_PULSE = "foreign_inlet_pulse"
 
 # Distributor flow-metering poll interval (seconds) for volume measurement (Part A).
 DISTRIBUTOR_FLOW_POLL_SECONDS = 5
-# Feature flag (Part A ships RATE-ONLY, matching JustChr's existing zone flow code):
-# cumulative (total) counters are NOT armed for distributor measurement yet. When a
-# distributor's flow_sensor is a cumulative counter, measurement degrades to
-# time-based crediting. The cumulative branch in _dist_measure_window is retained and
-# unit-tested (with this flag on) so a later JOINT zone+member cumulative rollout only
-# has to flip this to True. Do NOT arm without also arming the zone path: cumulative
-# should be enabled for zones and distributor member zones together, otherwise the two
-# crediting paths (measured vs time-based) could double-count against a shared bucket.
-DISTRIBUTOR_CUMULATIVE_METERING_ENABLED = False

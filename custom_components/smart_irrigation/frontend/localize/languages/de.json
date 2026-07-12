@@ -746,7 +746,7 @@
         "confirm_entity": "Bestätigungssensor (optional)",
         "confirm_entity_help": "Optionaler Sensor am Verteiler-Einlass, der bestätigt, dass tatsächlich Wasser fließt (z. B. ein Durchfluss- oder Ventilstellungssensor). Meldet er beim Öffnen eines Ausgangs keinen Fluss, hält der Zyklus sicher an und setzt den Verteiler auf „unsicher“ — dies ist die Niedrigdurchfluss-/Fehlererkennung.",
         "flow_sensor": "Durchflusssensor (optional)",
-        "flow_sensor_help": "Der geteilte Einlass-Durchflussmesser (z. B. L/min, m³/h). Wenn gesetzt, wird die tatsächlich abgegebene Menge pro Ausgang gemessen und verbucht (statt der Zeitschätzung). Optional. Wo das Ventil gestoppt werden kann (classic-Einlass oder Self-Closing-Stop-Service), wird der Ausgang zudem bei erreichter Zielmenge vorzeitig gestoppt.",
+        "flow_sensor_help": "Der geteilte Einlass-Durchflussmesser (z. B. L/min, m³/h). Wenn gesetzt, wird die tatsächlich abgegebene Menge pro Ausgang gemessen und verbucht (statt der Zeitschätzung). Optional. Wo das Ventil gestoppt werden kann (classic-Einlass oder Self-Closing-Stop-Service), wird der Ausgang zudem bei erreichter Zielmenge vorzeitig gestoppt. Unterstützt werden sowohl ein Momentan-Durchflussmesser (z. B. L/min) als auch ein kumulativer Zählerstand (z. B. m³ oder state_class: total_increasing); der Typ wird automatisch aus der Einheit erkannt.",
         "pause_seconds": "Weiterschalt-Pause",
         "skip_pulse_seconds": "Überspring-Impuls",
         "notify_target": "Benachrichtigungsziel (optional)",

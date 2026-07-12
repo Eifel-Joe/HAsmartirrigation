@@ -744,7 +744,7 @@
         "confirm_entity": "Confirmation sensor (optional)",
         "confirm_entity_help": "Optional sensor on the distributor inlet confirming water actually flows (e.g. a flow or valve-position sensor). If it reports no flow when an outlet opens, the cycle halts safely and marks the distributor uncertain — this is the low-flow / fault detection.",
         "flow_sensor": "Flow sensor (optional)",
-        "flow_sensor_help": "The shared inlet flow-rate meter (e.g. L/min, m³/h). When set, the actual delivered volume per outlet is measured and credited instead of the time estimate. Optional. Where the valve can be stopped (a classic inlet, or a self-closing stop-service), the outlet also stops early once its target volume is reached.",
+        "flow_sensor_help": "The shared inlet flow-rate meter (e.g. L/min, m³/h). When set, the actual delivered volume per outlet is measured and credited instead of the time estimate. Optional. Where the valve can be stopped (a classic inlet, or a self-closing stop-service), the outlet also stops early once its target volume is reached. Both an instantaneous rate meter (e.g. L/min) and a cumulative totalizer counter (e.g. m³, or state_class: total_increasing) are supported and detected automatically from the unit.",
         "pause_seconds": "Advance pause",
         "skip_pulse_seconds": "Skip pulse",
         "notify_target": "Notification target (optional)",

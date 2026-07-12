@@ -21,8 +21,10 @@ from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
+from .helpers import convert_between
 from .localize import localize
 
 _LOGGER = logging.getLogger(__name__)
@@ -473,26 +475,10 @@ class DistributorMixin:
     # _dist_credit_zone. No early stop — the full window always elapses (early
     # stop by target volume is Part B). ------------------------------------
 
-    @staticmethod
-    def _dist_flow_unit_is_rate(unit: str) -> bool:
-        """A flow unit is a RATE (per-time) iff it contains '/'; else a cumulative
-        total counter."""
-        return "/" in (unit or "")
-
-    @staticmethod
-    def _dist_flow_litres_from_total(value: float, unit: str) -> float:
-        """Convert a cumulative flow-counter reading to litres. Mirrors
-        _flow_rate_to_l_per_min's unit strings/factors (totals, not rates)."""
-        u = (unit or "").lower().strip()
-        if u in ("m³", "m3", "cubic meter", "cubic meters"):
-            return float(value) * 1000.0
-        if u in ("gal", "gallon", "gallons"):
-            return float(value) * 3.785411784
-        return float(value)  # L / l / liter(s) / unknown -> assume litres
-
     def _dist_read_flow(self, sensor: str):
-        """Read a flow sensor -> (value, unit) or None when unavailable/non-numeric
-        (fail-safe: the caller then degrades to time-based crediting)."""
+        """Read a flow sensor -> (value, unit, state_class) or None when
+        unavailable/non-numeric (fail-safe: the caller then degrades to time-based
+        crediting)."""
         state = self.hass.states.get(sensor)
         if state is None or getattr(state, "state", None) in (
             "unavailable",
@@ -508,17 +494,20 @@ class DistributorMixin:
         unit = (
             state.attributes.get("unit_of_measurement", "") if state.attributes else ""
         )
-        return value, unit
+        state_class = state.attributes.get("state_class") if state.attributes else None
+        return value, unit, state_class
 
     async def _dist_measure_window(
         self, distributor: dict, window: float, *, cap=None, target=None
     ):
         """Sleep the outlet's window (or up to ``cap`` when early-stopping) and, if the
-        distributor has a rate flow_sensor, meter the delivered litres. Returns a tuple
+        distributor has a flow_sensor, meter the delivered litres. The sensor is metered
+        as a rate or a cumulative totalizer per its unit/state_class (shared
+        ``_flow_is_totalizer``); no feature flag. Returns a tuple
         ``(delivered, actual_seconds, stopped_early)``:
 
         - ``delivered`` — measured litres, or None to fall back to time-based crediting
-          (no sensor / unreliable / a cumulative counter while metering is dormant).
+          (no sensor / dead meter / unreliable reading).
         - ``actual_seconds`` — time actually elapsed (== ``window`` on any non-metering
           path; < ``cap`` when a ``target`` is hit; == ``cap`` at the safety cap).
         - ``stopped_early`` — True iff ``target`` was reached before ``cap`` elapsed.
@@ -526,7 +515,7 @@ class DistributorMixin:
         ``cap`` (defaults to ``window``) is the metering time bound: the classic-extend
         path passes the member's safety maximum_duration so a slow flow can still reach
         the target past the nominal window. Every NON-metering path sleeps only
-        ``window`` (never ``cap``), so a dead / cumulative meter never extends the run.
+        ``window`` (never ``cap``), so a dead meter never extends the run.
         Part A behaviour is preserved when ``target`` is None (full ``cap`` elapses).
         """
         window = float(window or 0)
@@ -539,14 +528,9 @@ class DistributorMixin:
         if reading is None:
             await self._dist_sleep(window)  # dead meter -> full window, time-based
             return None, window, False
-        _, unit = reading
-        is_rate = self._dist_flow_unit_is_rate(unit)
-        # b23 ships RATE-ONLY: a cumulative counter is dormant behind the flag and gets
-        # no metering (hence no early stop) — sleep the window, credit time-based.
-        if not is_rate and not const.DISTRIBUTOR_CUMULATIVE_METERING_ENABLED:
-            await self._dist_sleep(window)
-            return None, window, False
-        last = None if is_rate else self._dist_flow_litres_from_total(reading[0], unit)
+        _, unit, state_class = reading
+        is_rate = not self._flow_is_totalizer(unit, state_class)
+        last = None if is_rate else self._flow_litres_from_total(reading[0], unit)
         delivered = 0.0
         reliable = True
         elapsed = 0.0
@@ -560,11 +544,11 @@ class DistributorMixin:
             if r is None:
                 reliable = False
                 continue
-            val, u = r
+            val, u, _ = r
             if is_rate:
                 delivered += self._flow_rate_to_l_per_min(val, u) * step / 60.0
             else:
-                cur = self._dist_flow_litres_from_total(val, u)
+                cur = self._flow_litres_from_total(val, u)
                 if cur < last:  # counter reset / rollover -> unreliable
                     reliable = False
                 else:
@@ -850,6 +834,74 @@ class DistributorMixin:
             trigger=trigger,
             add_to_total=True,
         )
+
+    async def _dist_flow_calibration_check(
+        self, zone: dict, measured_l: float, seconds: float
+    ) -> None:
+        """Advisory for a can't-stop member: sample the OBSERVED flow rate
+        (measured_l / minutes) — immune to the zone multiplier, manual overrides and
+        the duration clamp, unlike a volume deviation — and, once >= FLOW_CAL_MIN_SAMPLES
+        are collected, raise ONE HA persistent notification when the mean observed rate
+        differs from the configured throughput by more than FLOW_CAL_DEVIATION, with a
+        recommended throughput = the mean observed rate (in the user's unit). Self-clears
+        (dismiss + reset) once back within band. Advisory-only: the notification service
+        call is wrapped in try/except so it cannot propagate out of the sweep (the
+        trailing store write is as safe as the credit write just before it)."""
+        if measured_l is None or seconds <= 0:
+            return
+        cfg_lpm = self._throughput_lpm(zone)
+        if not cfg_lpm or cfg_lpm <= 0:
+            return
+        zone_id = zone.get(const.ZONE_ID)
+        observed_lpm = float(measured_l) / (float(seconds) / 60.0)
+        samples = list(zone.get(const.ZONE_FLOW_CAL_SAMPLES) or [])
+        samples.append(round(observed_lpm, 4))
+        samples = samples[-const.FLOW_CAL_MAX_SAMPLES :]
+        advised = bool(zone.get(const.ZONE_FLOW_CAL_ADVISED))
+        changes = {const.ZONE_FLOW_CAL_SAMPLES: samples}
+        notif_id = f"smart_irrigation_flow_cal_{zone_id}"
+        try:
+            if len(samples) >= const.FLOW_CAL_MIN_SAMPLES:
+                mean_obs = sum(samples) / len(samples)
+                deviation = (mean_obs - cfg_lpm) / cfg_lpm
+                if abs(deviation) > const.FLOW_CAL_DEVIATION and not advised:
+                    metric = self.hass.config.units is METRIC_SYSTEM
+                    rec = (
+                        mean_obs
+                        if metric
+                        else convert_between(const.UNIT_LPM, const.UNIT_GPM, mean_obs)
+                    )
+                    unit = "L/min" if metric else "gal/min"
+                    direction = "over" if deviation > 0 else "under"
+                    await self.hass.services.async_call(
+                        "persistent_notification",
+                        "create",
+                        {
+                            "notification_id": notif_id,
+                            "title": "Smart Irrigation: check flow rate",
+                            "message": (
+                                f"Zone '{zone.get(const.ZONE_NAME)}' is consistently "
+                                f"{direction}-watering: the measured flow is ~"
+                                f"{abs(deviation) * 100:.0f}% off the configured rate over "
+                                f"{len(samples)} runs. Its valve can't stop early, so "
+                                f"consider setting the throughput to about {rec:.1f} {unit} "
+                                f"(currently {float(zone.get(const.ZONE_THROUGHPUT) or 0):.1f})."
+                            ),
+                        },
+                    )
+                    changes[const.ZONE_FLOW_CAL_ADVISED] = True
+                elif abs(deviation) <= const.FLOW_CAL_DEVIATION and advised:
+                    await self.hass.services.async_call(
+                        "persistent_notification",
+                        "dismiss",
+                        {"notification_id": notif_id},
+                    )
+                    changes[const.ZONE_FLOW_CAL_ADVISED] = False
+        except Exception:  # noqa: BLE001 - advisory must never strand the inlet/master
+            _LOGGER.warning(
+                "Flow calibration advisory failed for zone %s", zone_id, exc_info=True
+            )
+        await self.store.async_update_zone(zone_id, changes)
 
     # --- cycle loop --------------------------------------------------------
 
@@ -1207,13 +1259,45 @@ class DistributorMixin:
                     )
                     return False
 
-            measured, actual_seconds, _ = await self._dist_measure_window(
+            measured, actual_seconds, stopped_early = await self._dist_measure_window(
                 distributor, window, cap=cap, target=target
             )
             if water:
-                await self._dist_credit_zone(
-                    zone, actual_seconds, measured_l=measured, planned_seconds=window
+                # Review-M-1: a metered run that ended BELOW a set target volume is a
+                # partial (under-)delivery, not a completion. Key on the measured volume
+                # directly (not `stopped_early`), so a target reached on the very last
+                # poll — where `elapsed == cap` exits the loop before the early-stop
+                # break — still logs COMPLETED. A time-based fallback (measured is None)
+                # can't tell, so it stays COMPLETED.
+                run_result = (
+                    const.RUN_RESULT_PARTIAL
+                    if (
+                        measured is not None
+                        and target is not None
+                        and measured < target
+                    )
+                    else const.RUN_RESULT_COMPLETED
                 )
+                await self._dist_credit_zone(
+                    zone,
+                    actual_seconds,
+                    measured_l=measured,
+                    planned_seconds=window,
+                    result=run_result,
+                )
+                # Calibration advisory: only a can't-stop member with a reliable measured
+                # volume can drift silently (a can-stop member early-stops at target; a
+                # time-based fallback can't be trusted here). The advisory keys on the
+                # OBSERVED FLOW RATE (measured_l / minutes) vs the configured throughput,
+                # which is immune to the zone multiplier and the duration clamp — so no
+                # `tv > 0` gate is needed. EXCLUDE manual custom-duration runs
+                # (duration_override): a user-set window is not a scheduled sample of the
+                # valve's real rate. can_stop is bound in the earlier `if water:` block
+                # (same `water`), so it is always in scope on this path.
+                if not can_stop and measured is not None and not duration_override:
+                    await self._dist_flow_calibration_check(
+                        zone, measured_l=measured, seconds=actual_seconds
+                    )
             await self._dist_close_inlet(distributor)
 
             # E1 (early-stop): the inter-outlet pause + master re-arm run only

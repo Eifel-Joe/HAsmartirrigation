@@ -290,3 +290,167 @@ async def test_rotating_timed_credits_continuously(monkeypatch):
     assert _bucket(coord) == pytest.approx(0.0)
     assert _used(coord) == pytest.approx(50.0)
     assert _log(coord)[0]["result"] == const.RUN_RESULT_COMPLETED
+
+
+# --------------------------------------------------------------------------- #
+# Real flow-meter runs: TOTALIZER (cumulative counter) sensors
+# --------------------------------------------------------------------------- #
+def _totalizer_sensor(coord, values, *, unit="L", state_class="total_increasing"):
+    """Wire ``hass.states.get`` to return a RISING cumulative counter.
+
+    Each poll yields the next reading from ``values`` (holding the last once the
+    list is exhausted), carrying a totalizer unit/state_class so the run loop
+    must credit the DELTA between successive readings, not integrate the raw
+    counter as a rate.
+    """
+    seq = iter(values)
+    last = [values[-1]]
+
+    def _get(_entity_id):
+        try:
+            last[0] = next(seq)
+        except StopIteration:
+            pass
+        state = Mock()
+        state.state = str(last[0])
+        state.attributes = {
+            "unit_of_measurement": unit,
+            "state_class": state_class,
+        }
+        return state
+
+    coord.hass.states.get = Mock(side_effect=_get)
+
+
+async def test_metered_zone_totalizer_credits_delta_and_early_stops(monkeypatch):
+    """A totalizer credits the measured DELTA (not the raw counter) and early-stops.
+
+    A counter climbing 1000 -> 1010 -> 1020 ... L delivers 10 L per step; the run
+    must credit the summed deltas and stop once the 50 L target is reached — NOT
+    integrate the ~1000 raw reading as a L/min rate (which would over-deliver).
+    """
+    z = _zone(**{const.ZONE_BUCKET: -5.0, const.ZONE_FLOW_SENSOR: "sensor.flow"})
+    coord = _coord(monkeypatch, [z])
+    coord._live_run_zones = set()
+    # First read seeds the baseline (0 L), then +10 L per step. target = 50 L,
+    # reached after 5 deltas -> summed deltas == 50, absolute counter is ~1050.
+    _totalizer_sensor(
+        coord,
+        [1000.0, 1010.0, 1020.0, 1030.0, 1040.0, 1050.0, 1060.0, 1070.0],
+    )
+    await coord._run_valve_metered(dict(z), "switch.v", real_flow=True)
+    # Credited the summed DELTAS (50 L), NOT the absolute counter (~1050 L) and
+    # NOT the counter integrated as a rate.
+    assert _used(coord) == pytest.approx(50.0)
+    assert _bucket(coord) == pytest.approx(0.0)
+    # Early-stopped on the target volume, not the maximum_duration safety timeout.
+    assert _log(coord)[0]["result"] == const.RUN_RESULT_COMPLETED
+
+
+async def test_metered_zone_totalizer_reset_contributes_zero(monkeypatch):
+    """A mid-run counter reset contributes 0 and HOLDS the prior baseline.
+
+    The counter rolls back (1020 -> 500) partway through and climbs again but stays
+    below the pre-reset 1020 baseline. Under the keep-baseline rule the reset step —
+    and every below-baseline reading that follows — adds 0 L: only the real pre-reset
+    deltas (1000 -> 1020 = 20 L) are credited. Never the absolute 500 counter, never a
+    negative 500-1020 delta, and never an over-credited recovery from the low value. A
+    genuine reset that never recovers above the baseline is a safe UNDER-credit: the
+    run tops out at 20 L and ends on the safety timeout rather than the target volume.
+    """
+    z = _zone(
+        **{
+            const.ZONE_BUCKET: -5.0,
+            const.ZONE_FLOW_SENSOR: "sensor.flow",
+            const.ZONE_MAXIMUM_DURATION: 150,  # bounded: never reaches target -> times out
+        }
+    )
+    coord = _coord(monkeypatch, [z])
+    coord._live_run_zones = set()
+    # seed(1000)=0, +10, +10, then reset->500 and up: all below the held 1020 baseline
+    # so each adds 0. Credited = 20 L (the pre-reset deltas only), target 50 unreached.
+    _totalizer_sensor(
+        coord,
+        [1000.0, 1010.0, 1020.0, 500.0, 510.0, 520.0, 530.0, 540.0],
+    )
+    await coord._run_valve_metered(dict(z), "switch.v", real_flow=True)
+    # 20 L proves the reset + its below-baseline recovery each added 0 (not +500
+    # absolute, not -520 negative, not an over-credited 510-500 recovery jump).
+    assert _used(coord) == pytest.approx(20.0)
+    assert _bucket(coord) == pytest.approx(-3.0)  # -5 + 2 mm (20 L over 10 m²)
+    assert _log(coord)[0]["result"] == const.RUN_RESULT_PARTIAL
+
+
+async def test_metered_zone_totalizer_glitch_low_is_absorbed(monkeypatch):
+    """A single transient glitch-low is absorbed; recovery credits the REAL delta.
+
+    The counter climbs 1000 -> 1010 -> 1020, dips to 5 for one poll, then recovers
+    1030 -> 1040. The dip step adds 0 and KEEPS the 1020 baseline, so the recovery
+    credits 1030-1020 = 10 (the real forward delta), NOT 1030-5 = 1025 (the
+    glitch-low over-credit bug). Summed forward deltas = 10+10+0+10+10 = 40 L.
+    The 50 L target is above 40 L so the run does not early-stop mid-sequence.
+    """
+    z = _zone(
+        **{
+            const.ZONE_BUCKET: -5.0,
+            const.ZONE_FLOW_SENSOR: "sensor.flow",
+            const.ZONE_MAXIMUM_DURATION: 150,  # bounded: drain the sequence then time out
+        }
+    )
+    coord = _coord(monkeypatch, [z])
+    coord._live_run_zones = set()
+    _totalizer_sensor(
+        coord,
+        [1000.0, 1010.0, 1020.0, 5.0, 1030.0, 1040.0],
+    )
+    await coord._run_valve_metered(dict(z), "switch.v", real_flow=True)
+    # 40 L = the true forward-delta sum. The dip + its recovery contribute the
+    # real 10, NOT the absolute 1025 counter jump (glitch-low over-credit).
+    assert _used(coord) == pytest.approx(40.0)
+    assert _bucket(coord) == pytest.approx(-1.0)  # -5 + 4 mm (40 L over 10 m²)
+
+
+async def test_metered_zone_totalizer_m3_conversion(monkeypatch):
+    """A totalizer reporting m³ is converted to litres (×1000) on the zone path.
+
+    The counter advances 10.000 -> 10.020 m³ = 20 L; this verifies
+    ``_flow_litres_from_total`` is applied to the zone totalizer delta (not treated
+    as a raw 0.020 L advance). Target is 20 L (bucket -2 over 10 m²) so the run
+    early-stops exactly on the measured volume.
+    """
+    z = _zone(**{const.ZONE_BUCKET: -2.0, const.ZONE_FLOW_SENSOR: "sensor.flow"})
+    coord = _coord(monkeypatch, [z])
+    coord._live_run_zones = set()
+    _totalizer_sensor(
+        coord,
+        [10.000, 10.010, 10.020, 10.030, 10.040],
+        unit="m³",
+    )
+    await coord._run_valve_metered(dict(z), "switch.v", real_flow=True)
+    # 0.020 m³ × 1000 = 20 L (NOT 0.020 L); lands exactly on the 20 L target.
+    assert _used(coord) == pytest.approx(20.0)
+    assert _bucket(coord) == pytest.approx(0.0)
+    assert _log(coord)[0]["result"] == const.RUN_RESULT_COMPLETED
+
+
+async def test_rotating_totalizer_clears_stale_baseline(monkeypatch):
+    """Rotating (sister path) seeds its own totalizer baseline at run start.
+
+    A stale ``_flow_last_total`` left by a prior rotating run must NOT leak: the
+    first read of this run reseeds (credits 0), so only this run's summed deltas
+    are credited — not the whole counter advance since the previous run.
+    """
+    z = _zone(**{const.ZONE_BUCKET: -5.0, const.ZONE_FLOW_SENSOR: "sensor.flow"})
+    coord = _coord(monkeypatch, [z])
+    coord._live_run_zones = set()
+    # Stale baseline (100 L) as if left by a previous rotating run of this zone.
+    coord._flow_last_total = {1: 100.0}
+    _totalizer_sensor(
+        coord,
+        [1000.0, 1010.0, 1020.0, 1030.0, 1040.0, 1050.0, 1060.0, 1070.0],
+    )
+    await coord._irrigate_zones_rotating([dict(z)])
+    # Without the run-start clear, the first read would credit 1000-100 = 900 L.
+    assert _used(coord) == pytest.approx(50.0)
+    assert _bucket(coord) == pytest.approx(0.0)
+    assert _log(coord)[0]["result"] == const.RUN_RESULT_COMPLETED

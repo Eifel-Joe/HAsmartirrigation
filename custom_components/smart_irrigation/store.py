@@ -127,6 +127,8 @@ from .const import (
     ZONE_DELTA,
     ZONE_DRAINAGE_RATE,
     ZONE_DURATION,
+    ZONE_FLOW_CAL_ADVISED,
+    ZONE_FLOW_CAL_SAMPLES,
     ZONE_FLOW_SENSOR,
     ZONE_ID,
     ZONE_IRRIGATION_TARGET_BUCKET,
@@ -224,6 +226,11 @@ class ZoneEntry:
     # Observed-watering (opt-in): physical valve/switch watched for EXTERNAL runs
     # of a service/self-closing zone (no linked_entity). See ZONE_OBSERVED_ENTITY.
     observed_entity = attr.ib(type=str, default=None)
+    # Per-member flow-calibration advisory (distributor can't-stop members): rolling
+    # measured-vs-target volume samples + a one-shot "advised" marker so the
+    # persistent notification is raised once, not every run. See ZONE_FLOW_CAL_*.
+    flow_calibration_samples = attr.ib(type=list, factory=list)
+    flow_calibration_advised = attr.ib(type=bool, default=False)
     # Optional per-zone soil-moisture wet-veto: sensor entity (% moisture, higher
     # = wetter) + threshold. Both None = feature off. See _apply_soil_moisture_veto.
     soil_moisture_sensor = attr.ib(type=str, default=None)
@@ -780,6 +787,11 @@ class SmartIrrigationStorage:
                         stop_service=zone.get("stop_service", None),
                         confirm_entity=zone.get("confirm_entity", None),
                         observed_entity=zone.get(ZONE_OBSERVED_ENTITY, None),
+                        # Migration: pre-calibration zones start with no samples and
+                        # no advisory raised (additive, .get default like above).
+                        flow_calibration_samples=zone.get(ZONE_FLOW_CAL_SAMPLES, [])
+                        or [],
+                        flow_calibration_advised=zone.get(ZONE_FLOW_CAL_ADVISED, False),
                         soil_moisture_sensor=zone.get("soil_moisture_sensor", None),
                         soil_moisture_threshold=zone.get(
                             "soil_moisture_threshold", None
