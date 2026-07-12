@@ -533,7 +533,8 @@
           "completed": "Terminé",
           "partial": "Partiel",
           "failed": "Échoué",
-          "skipped": "Ignoré"
+          "skipped": "Ignoré",
+          "observed": "Observé"
         }
       },
       "rain_delay": {
