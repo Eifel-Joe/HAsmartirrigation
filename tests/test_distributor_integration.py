@@ -308,3 +308,74 @@ async def test_zone_view_accepts_membership_fields():
     forwarded = called.args[1] if len(called.args) > 1 else called.kwargs.get("data")
     assert forwarded["distributor_id"] == 0
     assert forwarded["outlet_number"] == 3
+
+
+async def test_zone_view_ignores_server_owned_fields(hass):
+    """A panel zone-settings save must not clobber server-owned run accounting.
+
+    The panel's zone form POSTs the WHOLE zone object; a stale browser snapshot
+    carries an OLD water_used_total + run_log (and flow-learning state). The view
+    must strip those server-owned fields so async_update_zone_config (→
+    store.async_update_zone) leaves the LIVE values untouched, while still
+    applying the legitimate edit. End-to-end against the real store so the
+    assertions observe the actual persisted zone. Confirmed live 2026-07-13:
+    switching a setting right after a run reverted the run's usage + history.
+    See websockets.SmartIrrigationZoneView.post.
+    """
+    from unittest.mock import patch
+
+    from custom_components.smart_irrigation.store import async_get_registry
+    from custom_components.smart_irrigation.websockets import SmartIrrigationZoneView
+
+    reg = await async_get_registry(hass)
+
+    # Seed a zone, then set the LIVE run-accounting the way the runner does it:
+    # store.async_update_zone directly, NOT through the view.
+    created = await reg.async_create_zone({const.ZONE_NAME: "Beet"})
+    zone_id = created[const.ZONE_ID]
+    live_entry = {"start": "2026-07-13T06:00:00", "water": 42.0}
+    await reg.async_update_zone(
+        zone_id,
+        {
+            const.ZONE_WATER_USED_TOTAL: 100.0,
+            const.ZONE_RUN_LOG: [live_entry],
+            const.ZONE_FLOW_RESET_STREAK: 3,
+            const.ZONE_FLOW_LAST_END: 55.0,
+        },
+    )
+
+    # Real coordinator backed by the real store. The modify branch of
+    # async_update_zone_config only touches .hass/.store, so __new__ + those two
+    # attributes is enough (mirrors the __new__ construction used above).
+    coordinator = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
+    coordinator.hass = hass
+    coordinator.store = reg
+    hass.data[const.DOMAIN] = {"coordinator": coordinator}
+
+    # A stale settings save: a legitimate edit (flow_counter_type) PLUS stale
+    # server-owned fields lifted from an old browser snapshot.
+    data = {
+        const.ZONE_ID: zone_id,
+        const.ZONE_FLOW_COUNTER_TYPE: "per_run",
+        const.ZONE_WATER_USED_TOTAL: 5.0,
+        const.ZONE_RUN_LOG: [],
+        const.ZONE_FLOW_RESET_STREAK: 0,
+        const.ZONE_FLOW_LAST_END: 0.0,
+    }
+    request = MagicMock()
+    request.app = {"hass": hass}
+    request.json = AsyncMock(return_value=data)
+
+    view = SmartIrrigationZoneView()
+    view.json = MagicMock(return_value="OK")
+    with patch("custom_components.smart_irrigation.websockets.async_dispatcher_send"):
+        await view.post(request)
+
+    stored = reg.get_zone(zone_id)
+    # the legitimate edit WAS applied
+    assert stored[const.ZONE_FLOW_COUNTER_TYPE] == "per_run"
+    # the server-owned fields were NOT clobbered by the stale snapshot
+    assert stored[const.ZONE_WATER_USED_TOTAL] == 100.0
+    assert stored[const.ZONE_RUN_LOG] == [live_entry]
+    assert stored[const.ZONE_FLOW_RESET_STREAK] == 3
+    assert stored[const.ZONE_FLOW_LAST_END] == 55.0
