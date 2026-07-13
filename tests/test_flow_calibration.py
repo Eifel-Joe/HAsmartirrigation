@@ -112,6 +112,56 @@ async def test_multiplier_does_not_false_trigger():
     c.hass.services.async_call.assert_not_awaited()
 
 
+async def _drive_over_threshold(c, z):
+    """Drive the advisory past FLOW_CAL_MIN_SAMPLES with an observed rate ~30%
+    over the configured 10 L/min, propagating the persisted sample list between
+    calls (the Mock store does not mutate the zone dict), so exactly ONE
+    persistent_notification.create fires."""
+    for _ in range(const.FLOW_CAL_MIN_SAMPLES):
+        await c._dist_flow_calibration_check(z, measured_l=13.0, seconds=60.0)
+        changes = c.store.async_update_zone.await_args.args[1]
+        z[const.ZONE_FLOW_CAL_SAMPLES] = changes[const.ZONE_FLOW_CAL_SAMPLES]
+
+
+def _create_call(c):
+    """Return the single persistent_notification.create call's data payload."""
+    creates = [
+        call
+        for call in c.hass.services.async_call.await_args_list
+        if call.args[1] == "create"
+    ]
+    assert len(creates) == 1, f"expected exactly one create, got {len(creates)}"
+    return creates[0].args[2]
+
+
+async def test_flow_calibration_advisory_is_localized_and_links_zone():
+    # --- German system: the advisory must be localized (not English) and
+    #     deep-link the zone's settings (same target as the dashboard gear). ---
+    c = _host()
+    c.hass.config.language = "de"
+    z = _zone()
+    await _drive_over_threshold(c, z)
+    msg = _create_call(c)["message"]
+    # Deep-link to the zone's settings (path segments, not a ?query).
+    assert f"/smart_irrigation/setup/zones/zone/{z[const.ZONE_ID]}" in msg
+    # German, not the old hardcoded English.
+    assert "Durchsatz" in msg
+    assert "Zone" in msg
+    assert "consider setting the throughput" not in msg
+    # Every placeholder substituted — no stray braces left behind.
+    assert "{" not in msg and "}" not in msg
+
+    # --- English system: same wiring, but the English variant. ---
+    c2 = _host()
+    c2.hass.config.language = "en"
+    z2 = _zone()
+    await _drive_over_threshold(c2, z2)
+    msg2 = _create_call(c2)["message"]
+    assert "throughput" in msg2
+    assert f"/smart_irrigation/setup/zones/zone/{z2[const.ZONE_ID]}" in msg2
+    assert "{" not in msg2 and "}" not in msg2
+
+
 async def test_imperial_recommendation_uses_gpm():
     c = _host()
     # Imperial display units: the recommendation must be gal/min, not L/min.

@@ -28,6 +28,7 @@ from .flow_metering import (
     flow_rate_to_l_per_min,
 )
 from .helpers import convert_between
+from .localize import localize
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -703,21 +704,41 @@ class IrrigationRunnerMixin:
                         else convert_between(const.UNIT_LPM, const.UNIT_GPM, mean_obs)
                     )
                     unit = "L/min" if metric else "gal/min"
-                    direction = "over" if deviation > 0 else "under"
+                    # FCI-1 (spec 2026-07-13-flow-calibration-advisory-i18n-link):
+                    # the advisory was hardcoded English (wrong on non-English HA
+                    # systems) and gave no path to the zone. Build title + message
+                    # from the backend localize() helper (flow_calibration.* keys in
+                    # all 8 language files) and append a Markdown deep-link to the
+                    # zone's settings — the same target as the dashboard gear icon
+                    # (path segments per exportPath, NOT a ?query). Direction:
+                    # deviation > 0 -> over-watering, else under.
+                    lang = self.hass.config.language
+                    title = await localize("flow_calibration.title", lang)
+                    key = (
+                        "flow_calibration.message_over"
+                        if deviation > 0
+                        else "flow_calibration.message_under"
+                    )
+                    body = (await localize(key, lang)).format(
+                        zone=zone.get(const.ZONE_NAME),
+                        percent=f"{abs(deviation) * 100:.0f}",
+                        runs=len(samples),
+                        rate=f"{rec:.1f}",
+                        unit=unit,
+                        current=f"{float(zone.get(const.ZONE_THROUGHPUT) or 0):.1f}",
+                    )
+                    link_label = await localize("flow_calibration.open_settings", lang)
+                    message = (
+                        f"{body}\n\n[{link_label}]"
+                        f"(/smart_irrigation/setup/zones/zone/{zone_id})"
+                    )
                     await self.hass.services.async_call(
                         "persistent_notification",
                         "create",
                         {
                             "notification_id": notif_id,
-                            "title": "Smart Irrigation: check flow rate",
-                            "message": (
-                                f"Zone '{zone.get(const.ZONE_NAME)}' is consistently "
-                                f"{direction}-watering: the measured flow is ~"
-                                f"{abs(deviation) * 100:.0f}% off the configured rate over "
-                                f"{len(samples)} runs. Its valve can't stop early, so "
-                                f"consider setting the throughput to about {rec:.1f} {unit} "
-                                f"(currently {float(zone.get(const.ZONE_THROUGHPUT) or 0):.1f})."
-                            ),
+                            "title": title,
+                            "message": message,
                         },
                     )
                     changes[const.ZONE_FLOW_CAL_ADVISED] = True
