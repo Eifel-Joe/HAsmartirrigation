@@ -673,10 +673,11 @@ class IrrigationRunnerMixin:
         """Advisory for a can't-stop measured run: sample the OBSERVED flow rate
         (measured_l / minutes) — immune to the zone multiplier, manual overrides and
         the duration clamp, unlike a volume deviation — and, once >= FLOW_CAL_MIN_SAMPLES
-        are collected, raise ONE HA persistent notification when the mean observed rate
-        differs from the configured throughput by more than FLOW_CAL_DEVIATION, with a
-        recommended throughput = the mean observed rate (in the user's unit). Self-clears
-        (dismiss + reset) once back within band. Advisory-only: the notification service
+        are collected, raise (and refresh on each subsequent out-of-band run) an HA
+        persistent notification when the mean observed rate differs from the configured
+        throughput by more than FLOW_CAL_DEVIATION, with a recommended throughput = the
+        mean observed rate (in the user's unit). Self-clears (dismiss + reset) once back
+        within band. Advisory-only: the notification service
         call is wrapped in try/except so it cannot propagate out of the sweep (the
         trailing store write is as safe as the credit write just before it)."""
         if measured_l is None or seconds <= 0:
@@ -696,7 +697,24 @@ class IrrigationRunnerMixin:
             if len(samples) >= const.FLOW_CAL_MIN_SAMPLES:
                 mean_obs = sum(samples) / len(samples)
                 deviation = (mean_obs - cfg_lpm) / cfg_lpm
-                if abs(deviation) > const.FLOW_CAL_DEVIATION and not advised:
+                # Iter (advisory re-arm, 2026-07-13): fire on EVERY out-of-band
+                # evaluation, not only the first. The old `and not advised` gate
+                # latched the advisory shut for as long as the zone stayed out of
+                # band and re-armed ONLY on a return within band — and dismissing
+                # the notification does NOT reset `advised` (the latch lives in the
+                # store, not the UI). So a user who dismissed it while still
+                # miscalibrated was never reminded (live: Kirschlorbeer, 6 L/min
+                # configured vs ~3.5 L/min observed, ~-40% over many runs, no repeat
+                # notice). The stable notification_id makes HA UPDATE the single
+                # notification in place (no stacking/spam) and re-raise it if the
+                # user dismissed it; the elif below still dismisses + clears advised
+                # on a return within band. NOT-TO-DO: gate on a "is the notification
+                # still shown?" state lookup — modern HA (>=2023.8) removed
+                # persistent_notification from the state machine, so that check is
+                # not reliably available; re-firing on the stable id is the robust,
+                # HA-version-independent equivalent.
+                # siehe test_flow_calibration.py::test_readvises_while_out_of_band_after_dismiss
+                if abs(deviation) > const.FLOW_CAL_DEVIATION:
                     metric = self.hass.config.units is METRIC_SYSTEM
                     rec = (
                         mean_obs

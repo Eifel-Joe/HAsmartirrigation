@@ -162,6 +162,35 @@ async def test_flow_calibration_advisory_is_localized_and_links_zone():
     assert "{" not in msg2 and "}" not in msg2
 
 
+async def test_readvises_while_out_of_band_after_dismiss():
+    """The advisory must re-fire on a later out-of-band run even after it already
+    advised once — the user may have dismissed the notification, and dismissing it
+    does NOT re-arm the store latch. The old ``and not advised`` gate latched the
+    advisory shut for as long as the zone stayed out of band, so a user who
+    dismissed it while still miscalibrated was never reminded (live: Kirschlorbeer
+    ~-40% off for many runs, no repeat notice)."""
+    c = _host()
+    z = _zone()
+    # Drive past FLOW_CAL_MIN_SAMPLES so the advisory fires once (advised -> True).
+    await _drive_over_threshold(c, z)
+    # Reflect the persisted latch + the user dismissing the notification: advised
+    # stays True in the store (dismiss touches only the UI, not the store field).
+    z[const.ZONE_FLOW_CAL_ADVISED] = True
+    # A further, still ~30%-over run must re-advise.
+    await c._dist_flow_calibration_check(z, measured_l=13.0, seconds=60.0)
+    creates = [
+        call
+        for call in c.hass.services.async_call.await_args_list
+        if call.args[1] == "create"
+    ]
+    assert len(creates) == 2, f"expected a re-advise, got {len(creates)} create(s)"
+    # Same notification_id -> HA updates the single notification in place; no
+    # stacking / spam even though it re-fires each out-of-band run.
+    assert (
+        creates[1].args[2]["notification_id"] == creates[0].args[2]["notification_id"]
+    )
+
+
 async def test_imperial_recommendation_uses_gpm():
     c = _host()
     # Imperial display units: the recommendation must be gal/min, not L/min.
