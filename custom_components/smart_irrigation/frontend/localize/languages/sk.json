@@ -360,6 +360,11 @@
         "bucket_threshold": "Minimálny deficit pre závlahu",
         "flow_sensor": "Senzor prietokomera (voliteľné)",
         "flow_sensor_placeholder": "napr. sensor.zone_flow_rate",
+        "flow_counter_type": "Typ počítadla",
+        "flow_counter_type_help": "Ako sa číta tento kumulatívny prietokový snímač. Auto sa počas viacerých behov naučí, či sa snímač pri každom behu vynuluje. Za beh: snímač sa na začiatku každého behu vráti na ~0 a zobrazuje celkové množstvo daného behu (napr. ventily Sonoff/Zigbee). Celkové počítadlo: počítadlo, ktoré počas všetkých behov iba narastá (delta za beh).",
+        "flow_counter_type_auto": "Auto (učenie)",
+        "flow_counter_type_per_run": "Za beh (vynuluje sa pri každom behu)",
+        "flow_counter_type_lifetime": "Celkové počítadlo (delta)",
         "watering_mode": "Režim zavlažovania",
         "watering_mode_description": "Ako HASI ovláda túto zónu. Klasický: HASI otvorí ventil a sám ho zatvorí softvérovým časovačom. Samozatváracia služba: HASI odošle trvanie behu samozatváraciemu ventilu cez skript (pozri dodané blueprinty ventilov) a nechá hardvér, aby sa zatvoril sám, takže reštart HA počas behu nemôže spôsobiť nepretržité zavlažovanie.",
         "watering_modes": {

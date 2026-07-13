@@ -12,6 +12,7 @@ accrues.
 Coordinators are built with ``__new__`` so only the touched attributes are wired.
 """
 
+import contextlib
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -307,10 +308,8 @@ def _totalizer_sensor(coord, values, *, unit="L", state_class="total_increasing"
     last = [values[-1]]
 
     def _get(_entity_id):
-        try:
+        with contextlib.suppress(StopIteration):
             last[0] = next(seq)
-        except StopIteration:
-            pass
         state = Mock()
         state.state = str(last[0])
         state.attributes = {
@@ -433,24 +432,117 @@ async def test_metered_zone_totalizer_m3_conversion(monkeypatch):
     assert _log(coord)[0]["result"] == const.RUN_RESULT_COMPLETED
 
 
-async def test_rotating_totalizer_clears_stale_baseline(monkeypatch):
-    """Rotating (sister path) seeds its own totalizer baseline at run start.
+async def test_metered_zone_per_run_counter_credits_climb_and_persists_end(monkeypatch):
+    """A per_run counter reseeds at the valve-open reset, credits the run's climb, and
+    persists its end value for cross-run learning.
 
-    A stale ``_flow_last_total`` left by a prior rotating run must NOT leak: the
-    first read of this run reseeds (credits 0), so only this run's summed deltas
-    are credited — not the whole counter advance since the previous run.
+    ``flow_counter_type='per_run'`` tells the FlowMeter this counter zeroes each run:
+    the counter reads 62 at valve-open (seed), drops to 0 (the open reset -> reseed the
+    baseline to 0, credit nothing) then climbs 10 -> 50. The run credits the measured
+    climb (50 L, reached at the 50 L target) — NOT 0 L, which the over-credit-safe
+    'lifetime' default would credit (every post-seed reading stays below the 62 seed, so
+    a lifetime meter never rises and would fault FLOW_NEVER_STARTED). After the run the
+    zone's ``flow_last_end`` holds the last counter value (50) for the next run's reset
+    check.
+    """
+    z = _zone(
+        **{
+            const.ZONE_BUCKET: -5.0,
+            const.ZONE_FLOW_SENSOR: "sensor.flow",
+            const.ZONE_FLOW_COUNTER_TYPE: "per_run",
+        }
+    )
+    coord = _coord(monkeypatch, [z])
+    coord._live_run_zones = set()
+    # open seed 62, reset to 0, then climb; target = 10 m² * 5 mm = 50 L reached at 50.
+    _totalizer_sensor(
+        coord,
+        [62.0, 0.0, 10.0, 20.0, 30.0, 40.0, 50.0],
+    )
+    await coord._run_valve_metered(dict(z), "switch.v", real_flow=True)
+    # Credited the measured climb from the reset floor (50 L), not 0 (lifetime default).
+    assert _used(coord) == pytest.approx(50.0)
+    assert _bucket(coord) == pytest.approx(0.0)
+    assert _log(coord)[0]["result"] == const.RUN_RESULT_COMPLETED
+    # The run's end value is persisted for the next run's cross-run reset check.
+    assert coord.store.get_zone(1)[const.ZONE_FLOW_LAST_END] == pytest.approx(50.0)
+
+
+async def test_metered_zone_auto_streak_advances_and_resolves_per_run(monkeypatch):
+    """An 'auto' counter opening on a reset advances the cross-run streak, PERSISTS it,
+    and — once the streak crosses the threshold — resolves to per_run and credits the climb.
+
+    This pins the streak-learning WIRING that the per_run neighbour above bypasses (it
+    overrides ``flow_counter_type`` and so never resolves a streak). Here the type is the
+    default ``'auto'`` and the learning state is pre-seeded so THIS run is the one that
+    crosses the threshold: ``flow_last_end=50`` / ``flow_reset_streak=1``. The valve-open
+    read (0, well below the 0.5*50=25 reset bar) is a reset, so ``_flow_build_meter`` calls
+    ``flow_learn_next_streak(50, 0, 1) -> 2`` and ``_run_valve_metered`` persists the new
+    streak at run start. streak 2 hits the threshold, ``flow_learn_resolve('auto', 2)``
+    resolves to per_run, and the meter credits the measured 0 -> 50 climb (target 50 L).
+    """
+    z = _zone(
+        **{
+            const.ZONE_BUCKET: -5.0,
+            const.ZONE_FLOW_SENSOR: "sensor.flow",
+            const.ZONE_FLOW_COUNTER_TYPE: "auto",  # default; NOT the per_run override
+            const.ZONE_FLOW_LAST_END: 50.0,  # pre-seed: prior run ended at 50 L
+            const.ZONE_FLOW_RESET_STREAK: 1,  # pre-seed: one prior open-reset already
+        }
+    )
+    coord = _coord(monkeypatch, [z])
+    coord._live_run_zones = set()
+    # open read 0 is a reset vs the pre-seeded 50 (0 < 0.5*50), then climb; target 50 L.
+    _totalizer_sensor(coord, [0.0, 10.0, 30.0, 50.0])
+    await coord._run_valve_metered(dict(z), "switch.v", real_flow=True)
+    # WIRING under test: the streak advanced 1 -> 2 AND was persisted at run start
+    # (``_flow_build_meter`` computed it, ``_run_valve_metered`` wrote start_changes).
+    assert coord.store.get_zone(1)[const.ZONE_FLOW_RESET_STREAK] == 2
+    # The run's end value is persisted for the next run's cross-run reset check.
+    assert coord.store.get_zone(1)[const.ZONE_FLOW_LAST_END] == pytest.approx(50.0)
+    # streak 2 -> flow_learn_resolve('auto', 2) == per_run; the meter measured the climb
+    # (50 L, reached at the 50 L target) — NOT a fault / 0.
+    assert _used(coord) == pytest.approx(50.0)
+    assert _log(coord)[0]["result"] == const.RUN_RESULT_COMPLETED
+
+
+async def test_rotating_flow_slot_measures_totalizer(monkeypatch):
+    """FM-4: a single rotating slot measures its own totalizer window via a FlowMeter.
+
+    Each rotating slot is its own valve-open window, so it gets its own fresh
+    FlowMeter seeded at the open read. A lifetime totalizer climbing 0 -> 10 -> 30 L
+    across the slot returns the slot's delta (30 L) — NOT 0 and NOT the raw counter.
+    This also captures the slot's first interval, which the retired per-step
+    increment seam lost. remaining_volume caps the slot exactly at 30 L.
     """
     z = _zone(**{const.ZONE_BUCKET: -5.0, const.ZONE_FLOW_SENSOR: "sensor.flow"})
     coord = _coord(monkeypatch, [z])
     coord._live_run_zones = set()
-    # Stale baseline (100 L) as if left by a previous rotating run of this zone.
-    coord._flow_last_total = {1: 100.0}
+    # Seeded at open (0), then climbs to 10, then 30 — the slot delivers the 30 L delta.
+    _totalizer_sensor(coord, [0.0, 10.0, 30.0])
+    delivered = await coord._irrigate_zone_flow_slot(
+        dict(z), "switch.valve", max_seconds=300.0, remaining_volume=30.0
+    )
+    assert delivered == pytest.approx(30.0)
+
+
+async def test_rotating_totalizer_measures_slot_delta(monkeypatch):
+    """Rotating (REGEL-8 sister path) credits only each slot's measured delta.
+
+    FM-4: the per-slot fresh FlowMeter is seeded at that slot's open read, so a
+    lifetime totalizer that reads ~1000 L at open credits only this run's climb
+    (1000 -> 1050 = 50 L), never the whole absolute counter — no cross-run baseline
+    can leak because each slot measures its own valve-open window.
+    """
+    z = _zone(**{const.ZONE_BUCKET: -5.0, const.ZONE_FLOW_SENSOR: "sensor.flow"})
+    coord = _coord(monkeypatch, [z])
+    coord._live_run_zones = set()
     _totalizer_sensor(
         coord,
         [1000.0, 1010.0, 1020.0, 1030.0, 1040.0, 1050.0, 1060.0, 1070.0],
     )
     await coord._irrigate_zones_rotating([dict(z)])
-    # Without the run-start clear, the first read would credit 1000-100 = 900 L.
+    # Credited this slot's climb (50 L), NOT the absolute ~1050 counter.
     assert _used(coord) == pytest.approx(50.0)
     assert _bucket(coord) == pytest.approx(0.0)
     assert _log(coord)[0]["result"] == const.RUN_RESULT_COMPLETED

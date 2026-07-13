@@ -362,6 +362,11 @@
         "bucket_threshold": "Déficit minimum pour irriguer",
         "flow_sensor": "Capteur de débitmètre (optionnel)",
         "flow_sensor_placeholder": "p. ex. sensor.zone_flow_rate",
+        "flow_counter_type": "Type de compteur",
+        "flow_counter_type_help": "Comment ce capteur de débit cumulé est lu. Auto apprend au fil des exécutions si le capteur se réinitialise à chaque exécution. Par exécution : le capteur revient à ~0 au début de chaque exécution et affiche le total de cette exécution (p. ex. vannes Sonoff/Zigbee). Total cumulé : un compteur qui ne fait que monter sur l'ensemble des exécutions (delta par exécution).",
+        "flow_counter_type_auto": "Auto (apprentissage)",
+        "flow_counter_type_per_run": "Par exécution (réinitialise à chaque exécution)",
+        "flow_counter_type_lifetime": "Total cumulé (delta)",
         "watering_mode": "Mode d'arrosage",
         "watering_mode_description": "Comment HASI actionne cette zone. Classique : HASI ouvre la vanne et la referme lui-même à l'aide d'une minuterie logicielle. Service auto-fermant : HASI envoie la durée d'exécution à une vanne auto-fermante via un script (voir les blueprints de vanne fournis) et laisse le matériel se refermer de lui-même, de sorte qu'un redémarrage de HA en cours d'exécution ne peut pas provoquer une irrigation continue.",
         "watering_modes": {

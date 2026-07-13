@@ -21,10 +21,9 @@ from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event
-from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
-from .helpers import convert_between
+from .flow_metering import FlowMeter, flow_learn_resolve
 from .localize import localize
 
 _LOGGER = logging.getLogger(__name__)
@@ -502,8 +501,8 @@ class DistributorMixin:
     ):
         """Sleep the outlet's window (or up to ``cap`` when early-stopping) and, if the
         distributor has a flow_sensor, meter the delivered litres. The sensor is metered
-        as a rate or a cumulative totalizer per its unit/state_class (shared
-        ``_flow_is_totalizer``); no feature flag. Returns a tuple
+        by the shared ``FlowMeter`` engine (rate / per-run counter / lifetime totalizer
+        per its unit/state_class); no feature flag. Returns a tuple
         ``(delivered, actual_seconds, stopped_early)``:
 
         - ``delivered`` — measured litres, or None to fall back to time-based crediting
@@ -528,38 +527,39 @@ class DistributorMixin:
         if reading is None:
             await self._dist_sleep(window)  # dead meter -> full window, time-based
             return None, window, False
-        _, unit, state_class = reading
-        is_rate = not self._flow_is_totalizer(unit, state_class)
-        last = None if is_rate else self._flow_litres_from_total(reading[0], unit)
-        delivered = 0.0
-        reliable = True
+        # Iter FM-6 (unified flow engine): the shared inlet meter now feeds a FlowMeter
+        # (rate / per-run counter / lifetime totalizer). Preserves cap/target early-stop
+        # and the None fallback; fixes the per-run-counter blind spot. Counter type is
+        # resolved read-only from the distributor override / streak (auto -> lifetime-safe;
+        # the inlet reset cadence is a live-verification item, so the distributor does not
+        # self-learn per_run here). See test_distributor flow-window coverage.
+        resolved = flow_learn_resolve(
+            distributor.get(const.ZONE_FLOW_COUNTER_TYPE, "auto"),
+            int(distributor.get(const.ZONE_FLOW_RESET_STREAK) or 0),
+        )
+        meter = FlowMeter(
+            resolved,
+            near_zero_frac=const.FLOW_NEAR_ZERO_FRAC,
+            near_zero_floor=const.FLOW_NEAR_ZERO_FLOOR,
+        )
+        meter.sample(reading[0], reading[1], reading[2], 0.0)  # valve-open seed
         elapsed = 0.0
         while elapsed < cap:
-            if target is not None and delivered >= target:
+            if target is not None and (meter.delivered() or 0.0) >= target:
                 break  # early stop: reached the target volume
             step = min(float(const.DISTRIBUTOR_FLOW_POLL_SECONDS), cap - elapsed)
             await self._dist_sleep(step)
             elapsed += step
             r = self._dist_read_flow(sensor)
-            if r is None:
-                reliable = False
-                continue
-            val, u, _ = r
-            if is_rate:
-                delivered += self._flow_rate_to_l_per_min(val, u) * step / 60.0
-            else:
-                cur = self._flow_litres_from_total(val, u)
-                if cur < last:  # counter reset / rollover -> unreliable
-                    reliable = False
-                else:
-                    delivered += cur - last
-                last = cur
-        stopped_early = target is not None and delivered >= target and elapsed < cap
-        # Part B fail-safe: a valve that stayed open but registered NO flow (a live but
-        # dry meter — stuck valve, air-lock, pressure loss) delivered 0 L. Crediting 0
-        # would leave the member in permanent deficit; instead treat it as unreliable so
-        # the caller falls back to time-based crediting (spec: delivered <= 0 -> None).
-        reliable = reliable and delivered > 0
+            if r is not None:
+                meter.sample(r[0], r[1], r[2], elapsed)
+        delivered = meter.delivered()
+        stopped_early = (
+            target is not None and (delivered or 0.0) >= target and elapsed < cap
+        )
+        # Part B fail-safe: a live-but-dry meter delivered 0 L -> unreliable so the caller
+        # falls back to time-based crediting (spec: delivered <= 0 -> None).
+        reliable = delivered is not None and delivered > 0
         return (delivered if reliable else None), elapsed, stopped_early
 
     async def _dist_members(self, distributor_id) -> list:
@@ -838,70 +838,8 @@ class DistributorMixin:
     async def _dist_flow_calibration_check(
         self, zone: dict, measured_l: float, seconds: float
     ) -> None:
-        """Advisory for a can't-stop member: sample the OBSERVED flow rate
-        (measured_l / minutes) — immune to the zone multiplier, manual overrides and
-        the duration clamp, unlike a volume deviation — and, once >= FLOW_CAL_MIN_SAMPLES
-        are collected, raise ONE HA persistent notification when the mean observed rate
-        differs from the configured throughput by more than FLOW_CAL_DEVIATION, with a
-        recommended throughput = the mean observed rate (in the user's unit). Self-clears
-        (dismiss + reset) once back within band. Advisory-only: the notification service
-        call is wrapped in try/except so it cannot propagate out of the sweep (the
-        trailing store write is as safe as the credit write just before it)."""
-        if measured_l is None or seconds <= 0:
-            return
-        cfg_lpm = self._throughput_lpm(zone)
-        if not cfg_lpm or cfg_lpm <= 0:
-            return
-        zone_id = zone.get(const.ZONE_ID)
-        observed_lpm = float(measured_l) / (float(seconds) / 60.0)
-        samples = list(zone.get(const.ZONE_FLOW_CAL_SAMPLES) or [])
-        samples.append(round(observed_lpm, 4))
-        samples = samples[-const.FLOW_CAL_MAX_SAMPLES :]
-        advised = bool(zone.get(const.ZONE_FLOW_CAL_ADVISED))
-        changes = {const.ZONE_FLOW_CAL_SAMPLES: samples}
-        notif_id = f"smart_irrigation_flow_cal_{zone_id}"
-        try:
-            if len(samples) >= const.FLOW_CAL_MIN_SAMPLES:
-                mean_obs = sum(samples) / len(samples)
-                deviation = (mean_obs - cfg_lpm) / cfg_lpm
-                if abs(deviation) > const.FLOW_CAL_DEVIATION and not advised:
-                    metric = self.hass.config.units is METRIC_SYSTEM
-                    rec = (
-                        mean_obs
-                        if metric
-                        else convert_between(const.UNIT_LPM, const.UNIT_GPM, mean_obs)
-                    )
-                    unit = "L/min" if metric else "gal/min"
-                    direction = "over" if deviation > 0 else "under"
-                    await self.hass.services.async_call(
-                        "persistent_notification",
-                        "create",
-                        {
-                            "notification_id": notif_id,
-                            "title": "Smart Irrigation: check flow rate",
-                            "message": (
-                                f"Zone '{zone.get(const.ZONE_NAME)}' is consistently "
-                                f"{direction}-watering: the measured flow is ~"
-                                f"{abs(deviation) * 100:.0f}% off the configured rate over "
-                                f"{len(samples)} runs. Its valve can't stop early, so "
-                                f"consider setting the throughput to about {rec:.1f} {unit} "
-                                f"(currently {float(zone.get(const.ZONE_THROUGHPUT) or 0):.1f})."
-                            ),
-                        },
-                    )
-                    changes[const.ZONE_FLOW_CAL_ADVISED] = True
-                elif abs(deviation) <= const.FLOW_CAL_DEVIATION and advised:
-                    await self.hass.services.async_call(
-                        "persistent_notification",
-                        "dismiss",
-                        {"notification_id": notif_id},
-                    )
-                    changes[const.ZONE_FLOW_CAL_ADVISED] = False
-        except Exception:  # noqa: BLE001 - advisory must never strand the inlet/master
-            _LOGGER.warning(
-                "Flow calibration advisory failed for zone %s", zone_id, exc_info=True
-            )
-        await self.store.async_update_zone(zone_id, changes)
+        """Distributor member advisory -> shared _flow_calibration_check (FM-7)."""
+        await self._flow_calibration_check(zone, measured_l, seconds)
 
     # --- cycle loop --------------------------------------------------------
 

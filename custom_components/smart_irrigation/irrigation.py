@@ -19,6 +19,14 @@ from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
 from .calculation import duration_from_deficit
+from .flow_metering import (
+    FlowMeter,
+    flow_is_totalizer,
+    flow_learn_next_streak,
+    flow_learn_resolve,
+    flow_litres_from_total,
+    flow_rate_to_l_per_min,
+)
 from .helpers import convert_between
 
 _LOGGER = logging.getLogger(__name__)
@@ -569,85 +577,78 @@ class IrrigationRunnerMixin:
 
     @staticmethod
     def _flow_rate_to_l_per_min(value: float, unit: str) -> float:
-        """Convert a flow sensor reading to L/min for volume accumulation."""
-        u = (unit or "").lower().strip()
-        if u in ("l/h", "liter/h", "liter/hour", "liters/hour", "liters/h"):
-            return value / 60.0
-        if u in ("m³/h", "m3/h", "m³/hour", "m3/hour"):
-            return value * 1000.0 / 60.0
-        if u in ("m³/min", "m3/min"):
-            return value * 1000.0
-        if u in ("gal/min", "gpm", "gallon/min", "gallons/min"):
-            return value * 3.785411784
-        if u in ("gal/h", "gal/hour", "gallon/h", "gallons/h"):
-            return value * 3.785411784 / 60.0
-        return value  # assume L/min
+        """Convert a flow sensor reading to L/min. Delegates to flow_metering."""
+        return flow_rate_to_l_per_min(value, unit)
 
     @staticmethod
     def _flow_is_totalizer(unit: str, state_class: str | None) -> bool:
-        """A flow sensor is a cumulative TOTALIZER (vs an instantaneous rate) when its
-        state_class is total_increasing, or when it carries a non-empty unit without a
-        '/' that is not a known abbreviated rate unit. No unit and no total_increasing →
-        treat as a rate (the historical default) — a unit is the precondition for
-        totalizer metering."""
-        if state_class == "total_increasing":
-            return True
-        u = (unit or "").strip()
-        if not u or "/" in u:
-            return False
-        return u.lower() not in ("gpm", "lpm", "gph", "lph")
+        """Cumulative totalizer vs instantaneous rate. Delegates to flow_metering."""
+        return flow_is_totalizer(unit, state_class)
 
     @staticmethod
     def _flow_litres_from_total(value: float, unit: str) -> float:
-        """Convert a cumulative flow-counter reading to litres (m³×1000, gal×3.785,
-        else assume litres). Mirrors _flow_rate_to_l_per_min's unit strings/factors."""
-        u = (unit or "").lower().strip()
-        if u in ("m³", "m3", "cubic meter", "cubic meters"):
-            return float(value) * 1000.0
-        if u in ("gal", "gallon", "gallons"):
-            return float(value) * 3.785411784
-        return float(value)  # L / l / liter(s) / unknown -> assume litres
+        """Cumulative counter reading -> litres. Delegates to flow_metering."""
+        return flow_litres_from_total(value, unit)
 
-    def _read_flow_increment(self, zone: dict, step_seconds: float) -> float:
-        """Litres a real flow sensor reports as delivered over ``step_seconds``.
-
-        A rate sensor (unit contains '/') is integrated over the step. A totalizer
-        (state_class total_increasing, or a non-'/' unit) returns the delta since the
-        previous reading, held per-zone on ``self._flow_last_total``; a glitch-low or
-        reset (cur < last) contributes 0 and KEEPS the prior baseline so the baseline
-        only ever advances upward — a transient dip is absorbed on recovery and never
-        over-credited, a genuine mid-run reset simply stops crediting (safe
-        under-credit). Returns 0.0 (and logs) when the sensor is unavailable/non-numeric
-        so a flaky tick contributes nothing."""
-        flow_sensor = zone[const.ZONE_FLOW_SENSOR]
+    def _read_flow_sample(self, flow_sensor: str):
+        """Current (value, unit, state_class) of a flow sensor, or None when it is
+        unavailable/unknown/non-numeric (a flaky tick the FlowMeter simply skips)."""
         state = self.hass.states.get(flow_sensor)
         if state is None or state.state in ("unavailable", "unknown"):
-            _LOGGER.warning("Flow sensor '%s' unavailable", flow_sensor)
-            return 0.0
+            # DEBUG (not WARNING): FM-5 polls this every 15 s across the whole
+            # self-closing window, so a flaky/misconfigured sensor would spam the log.
+            # A skipped tick is handled safely by the FlowMeter; a persistently dead
+            # sensor surfaces via the dry-fault (linked path) / time-based fallback.
+            _LOGGER.debug("Flow sensor '%s' unavailable", flow_sensor)
+            return None
         try:
-            raw = float(state.state)
+            value = float(state.state)
         except (ValueError, TypeError):
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Flow sensor '%s' non-numeric state '%s'", flow_sensor, state.state
             )
-            return 0.0
+            return None
         attrs = state.attributes or {}
-        unit = attrs.get("unit_of_measurement", "L/min")
-        if not self._flow_is_totalizer(unit, attrs.get("state_class")):
-            return self._flow_rate_to_l_per_min(raw, unit) * step_seconds / 60.0
-        totals = getattr(self, "_flow_last_total", None)
-        if totals is None:
-            totals = self._flow_last_total = {}
-        zid = int(zone[const.ZONE_ID])
-        cur = self._flow_litres_from_total(raw, unit)
-        last = totals.get(zid)
-        if last is None:  # first reading of this run -> seed the baseline
-            totals[zid] = cur
-            return 0.0
-        if cur < last:  # glitch-low or genuine reset: keep the prior baseline so a
-            return 0.0  # transient dip is absorbed on recovery; never over-credit
-        totals[zid] = cur
-        return cur - last
+        return (
+            value,
+            attrs.get("unit_of_measurement", "L/min"),
+            attrs.get("state_class"),
+        )
+
+    def _flow_build_meter(self, cfg: dict, sample):
+        """Build a run's FlowMeter with the counter type resolved from the per-zone
+        override or the learned cross-run streak; return (meter, start_changes) where
+        start_changes is a store dict to persist (an updated flow_reset_streak) or {}.
+        ``sample`` is the valve-open (value, unit, state_class) read or None. Learning
+        applies only to a totalizer sensor; a rate sensor / no reading resolves to the
+        safe 'lifetime' default with no streak change. Seeds the meter with the open read.
+        """
+        override = cfg.get(const.ZONE_FLOW_COUNTER_TYPE, "auto")
+        streak = int(cfg.get(const.ZONE_FLOW_RESET_STREAK) or 0)
+        changes = {}
+        if sample is not None and flow_is_totalizer(sample[1], sample[2]):
+            start_l = flow_litres_from_total(sample[0], sample[1])
+            new_streak = flow_learn_next_streak(
+                cfg.get(const.ZONE_FLOW_LAST_END), start_l, streak
+            )
+            if new_streak != streak:
+                changes[const.ZONE_FLOW_RESET_STREAK] = new_streak
+            streak = new_streak
+        resolved = flow_learn_resolve(override, streak)
+        meter = FlowMeter(
+            resolved,
+            near_zero_frac=const.FLOW_NEAR_ZERO_FRAC,
+            near_zero_floor=const.FLOW_NEAR_ZERO_FLOOR,
+        )
+        if sample is not None:
+            meter.sample(*sample, at=0.0)  # valve-open seed
+        return meter, changes
+
+    def _flow_end_changes(self, meter) -> dict:
+        """Store dict persisting this run's end value (litres) for the next run's reset
+        check, or {} for a rate sensor / no totalizer reading."""
+        end = meter.last_total()
+        return {} if end is None else {const.ZONE_FLOW_LAST_END: end}
 
     def _metered_target_volume(self, zone: dict, floor: float) -> float:
         """Litres a real-flow zone must deliver to reach its post-run ``floor``.
@@ -664,6 +665,74 @@ class IrrigationRunnerMixin:
             bucket = convert_between(const.UNIT_INCH, const.UNIT_MM, bucket)
             floor_mm = convert_between(const.UNIT_INCH, const.UNIT_MM, floor)
         return size * max(0.0, floor_mm - bucket)
+
+    async def _flow_calibration_check(
+        self, zone: dict, measured_l: float, seconds: float
+    ) -> None:
+        """Advisory for a can't-stop measured run: sample the OBSERVED flow rate
+        (measured_l / minutes) — immune to the zone multiplier, manual overrides and
+        the duration clamp, unlike a volume deviation — and, once >= FLOW_CAL_MIN_SAMPLES
+        are collected, raise ONE HA persistent notification when the mean observed rate
+        differs from the configured throughput by more than FLOW_CAL_DEVIATION, with a
+        recommended throughput = the mean observed rate (in the user's unit). Self-clears
+        (dismiss + reset) once back within band. Advisory-only: the notification service
+        call is wrapped in try/except so it cannot propagate out of the sweep (the
+        trailing store write is as safe as the credit write just before it)."""
+        if measured_l is None or seconds <= 0:
+            return
+        cfg_lpm = self._throughput_lpm(zone)
+        if not cfg_lpm or cfg_lpm <= 0:
+            return
+        zone_id = zone.get(const.ZONE_ID)
+        observed_lpm = float(measured_l) / (float(seconds) / 60.0)
+        samples = list(zone.get(const.ZONE_FLOW_CAL_SAMPLES) or [])
+        samples.append(round(observed_lpm, 4))
+        samples = samples[-const.FLOW_CAL_MAX_SAMPLES :]
+        advised = bool(zone.get(const.ZONE_FLOW_CAL_ADVISED))
+        changes = {const.ZONE_FLOW_CAL_SAMPLES: samples}
+        notif_id = f"smart_irrigation_flow_cal_{zone_id}"
+        try:
+            if len(samples) >= const.FLOW_CAL_MIN_SAMPLES:
+                mean_obs = sum(samples) / len(samples)
+                deviation = (mean_obs - cfg_lpm) / cfg_lpm
+                if abs(deviation) > const.FLOW_CAL_DEVIATION and not advised:
+                    metric = self.hass.config.units is METRIC_SYSTEM
+                    rec = (
+                        mean_obs
+                        if metric
+                        else convert_between(const.UNIT_LPM, const.UNIT_GPM, mean_obs)
+                    )
+                    unit = "L/min" if metric else "gal/min"
+                    direction = "over" if deviation > 0 else "under"
+                    await self.hass.services.async_call(
+                        "persistent_notification",
+                        "create",
+                        {
+                            "notification_id": notif_id,
+                            "title": "Smart Irrigation: check flow rate",
+                            "message": (
+                                f"Zone '{zone.get(const.ZONE_NAME)}' is consistently "
+                                f"{direction}-watering: the measured flow is ~"
+                                f"{abs(deviation) * 100:.0f}% off the configured rate over "
+                                f"{len(samples)} runs. Its valve can't stop early, so "
+                                f"consider setting the throughput to about {rec:.1f} {unit} "
+                                f"(currently {float(zone.get(const.ZONE_THROUGHPUT) or 0):.1f})."
+                            ),
+                        },
+                    )
+                    changes[const.ZONE_FLOW_CAL_ADVISED] = True
+                elif abs(deviation) <= const.FLOW_CAL_DEVIATION and advised:
+                    await self.hass.services.async_call(
+                        "persistent_notification",
+                        "dismiss",
+                        {"notification_id": notif_id},
+                    )
+                    changes[const.ZONE_FLOW_CAL_ADVISED] = False
+        except Exception:  # noqa: BLE001 - advisory must never strand the inlet/master
+            _LOGGER.warning(
+                "Flow calibration advisory failed for zone %s", zone_id, exc_info=True
+            )
+        await self.store.async_update_zone(zone_id, changes)
 
     async def _run_valve_metered(
         self, zone: dict, entity_id: str, *, real_flow: bool, trigger: str = "schedule"
@@ -741,17 +810,17 @@ class IrrigationRunnerMixin:
         last_commit = 0.0
         stopped = False
 
-        # Totalizer runs hold a per-zone "last counter reading" across the poll loop;
-        # clear it at run start so the first read seeds this run's baseline (and a
-        # totalizer's first increment is 0, not a jump from a prior run's counter).
-        totals = getattr(self, "_flow_last_total", None)
-        if totals is not None:
-            totals.pop(int(zone_id), None)
+        # Iter FM-3 (unified flow engine + cross-run learning): a real-flow run feeds one
+        # shared FlowMeter (rate / per-run counter / lifetime totalizer). The counter type
+        # is the per-zone override or the learned cross-run classification; the valve-open
+        # read seeds the meter (so a per-run reset is observed) and updates the learning
+        # streak. See flow_metering.FlowMeter and test_metered_run.
+        meter = None
         if real_flow:
-            # Seed the totalizer baseline from a valve-open read so interval 1's
-            # delivery is captured (rate sensors: this is a harmless no-op that
-            # returns 0 and stores nothing).
-            self._read_flow_increment(zone, 0)
+            sample = self._read_flow_sample(zone[const.ZONE_FLOW_SENSOR])
+            meter, start_changes = self._flow_build_meter(zone, sample)
+            if start_changes:
+                await self.store.async_update_zone(zone_id, start_changes)
 
         # Flow runs are volume-targeted (no multiplier) → credit gross depth.
         # Timed runs inflate the duration by the multiplier → divide it back out
@@ -781,7 +850,10 @@ class IrrigationRunnerMixin:
                     step = min(step, loop.time() - t0)
                 elapsed += step
                 if real_flow:
-                    delivered += self._read_flow_increment(zone, step)
+                    sample = self._read_flow_sample(zone[const.ZONE_FLOW_SENSOR])
+                    if sample is not None:
+                        meter.sample(*sample, at=elapsed)
+                    delivered = meter.delivered() or 0.0
                 else:
                     delivered += rate_lpm * step / 60.0
                 if stopped:
@@ -799,6 +871,11 @@ class IrrigationRunnerMixin:
             await self.hass.services.async_call(
                 domain, "turn_off", {"entity_id": entity_id}
             )
+
+            if real_flow and meter is not None:
+                end_changes = self._flow_end_changes(meter)
+                if end_changes:
+                    await self.store.async_update_zone(zone_id, end_changes)
 
             if not stopped and real_flow and target_volume > 0 and delivered <= 0:
                 # Valve opened but the flow sensor never registered any flow —
@@ -871,13 +948,38 @@ class IrrigationRunnerMixin:
         self._note_si_valve(zone_id, max_seconds)
         await self.hass.services.async_call(domain, "turn_on", {"entity_id": entity_id})
 
+        # Iter FM-4 (unified flow engine, REGEL-8 sister path to _run_valve_metered):
+        # each rotating slot is its own valve-open window, so it gets its own FlowMeter
+        # seeded at the open read (rate / per-run counter / lifetime totalizer — the type
+        # resolved from the per-zone override or the already-learned streak). Replaces the
+        # retired _read_flow_increment / _flow_last_total delta baseline; also captures the
+        # slot's first interval (the old path lost it). The rotating path does not
+        # self-update the cross-run streak (its multi-window structure has no single open
+        # to observe); it honours an explicit override or a streak learned elsewhere.
+        # See test_metered_run rotating coverage.
+        resolved = flow_learn_resolve(
+            zone.get(const.ZONE_FLOW_COUNTER_TYPE, "auto"),
+            int(zone.get(const.ZONE_FLOW_RESET_STREAK) or 0),
+        )
+        meter = FlowMeter(
+            resolved,
+            near_zero_frac=const.FLOW_NEAR_ZERO_FRAC,
+            near_zero_floor=const.FLOW_NEAR_ZERO_FLOOR,
+        )
+        open_sample = self._read_flow_sample(zone[const.ZONE_FLOW_SENSOR])
+        if open_sample is not None:
+            meter.sample(*open_sample, at=0.0)  # valve-open seed
+
         accumulated = 0.0
         elapsed = 0.0
 
         while elapsed < max_seconds and accumulated < remaining_volume:
             stopped = await self._sleep_or_stopped(zone_id, const.FLOW_POLL_INTERVAL)
             elapsed += const.FLOW_POLL_INTERVAL
-            accumulated += self._read_flow_increment(zone, const.FLOW_POLL_INTERVAL)
+            sample = self._read_flow_sample(zone[const.ZONE_FLOW_SENSOR])
+            if sample is not None:
+                meter.sample(*sample, at=elapsed)
+            accumulated = meter.delivered() or 0.0
             _LOGGER.debug(
                 "Zone %s slot: %.2f / %.2f L delivered",
                 zone_id,
@@ -971,15 +1073,6 @@ class IrrigationRunnerMixin:
             flow_orig_bucket[zid] = raw_bucket
             flow_floor[zid] = raw_floor
             flow_by_id[zid] = z
-            # Sister-path guard to _run_valve_metered: a totalizer sensor credits the
-            # delta against a per-zone baseline held on ``_flow_last_total`` across the
-            # slot loop. Clear it at run start so this rotation seeds its own baseline
-            # (first read → 0) instead of crediting the whole counter advance since the
-            # previous rotating run as one phantom delta. No-op for rate sensors, which
-            # never populate ``_flow_last_total``. See _irrigate_zone_flow_slot.
-            totals = getattr(self, "_flow_last_total", None)
-            if totals is not None:
-                totals.pop(int(zid), None)
             _LOGGER.info(
                 "Rotating irrigation: flow zone %s target %.1f L", zid, flow_target[zid]
             )

@@ -267,6 +267,9 @@ class SmartIrrigationZoneView(HomeAssistantView):
                 vol.Optional(const.ZONE_LINKED_ENTITY): vol.Or(str, None),
                 vol.Optional(const.ZONE_BUCKET_THRESHOLD): vol.Or(float, int, None),
                 vol.Optional(const.ZONE_FLOW_SENSOR): vol.Or(str, None),
+                # FM: user override for totalizer read mode (auto/per_run/lifetime).
+                # Only this one is CRUD-editable; the learning fields are internal.
+                vol.Optional(const.ZONE_FLOW_COUNTER_TYPE): vol.Or(str, None),
                 # Task 3 (Plan E): zone-to-distributor membership fields, so the
                 # panel's zone form can map a zone to a distributor+outlet.
                 # Coerced explicitly (not just passed through via ALLOW_EXTRA)

@@ -5,7 +5,7 @@ class SmartIrrigationError(Exception):
     """Exception raised for errors in the Smart Irrigation integration."""
 
 
-VERSION = "v2026.07.17"
+VERSION = "v2026.07.18"
 NAME = "Smart Irrigation"
 MANUFACTURER = "@JustChr"
 
@@ -341,6 +341,19 @@ ZONE_BUCKET_THRESHOLD = "bucket_threshold"
 CONF_DEFAULT_BUCKET_THRESHOLD = -10.0
 ZONE_FLOW_SENSOR = "flow_sensor"
 FLOW_POLL_INTERVAL = 15  # seconds between flow meter readings
+# Unified flow-measurement engine (flow_metering.FlowMeter). Per-zone override for how a
+# totalizer flow sensor is read; 'auto' learns per_run vs lifetime across runs. See
+# docs/superpowers/specs/2026-07-13-unified-flow-measurement-engine-design.md (REVISION 1).
+ZONE_FLOW_COUNTER_TYPE = "flow_counter_type"
+FLOW_COUNTER_AUTO = "auto"
+FLOW_COUNTER_PER_RUN = "per_run"
+FLOW_COUNTER_LIFETIME = "lifetime"
+FLOW_NEAR_ZERO_FRAC = 0.1  # per_run "near zero" reset floor = max(FLOOR, FRAC x last)
+FLOW_NEAR_ZERO_FLOOR = 1.0
+# Cross-run learning state (auto mode): previous run's end litres + consecutive-open-reset
+# streak. Internal (not user-set). See flow_metering.flow_learn_next_streak / _resolve.
+ZONE_FLOW_LAST_END = "flow_last_end"
+ZONE_FLOW_RESET_STREAK = "flow_reset_streak"
 # Seconds between mid-run bucket/water-usage commits. Watering is accounted
 # continuously (water flows over the whole run), but we only persist + dispatch
 # progress on this coarse cadence — not every poll — so the store write and the
@@ -604,6 +617,7 @@ RUN_PLANNED_SECONDS = "planned_seconds"
 RUN_PLANNED_MM = "planned_mm"
 RUN_MODE = "mode"
 RUN_CREDITED = "credited"
+RUN_PRE_BUCKET = "pre_bucket"  # zone bucket BEFORE the optimistic self-closing credit
 
 # Per-run events (new in this feature)
 EVENT_IRRIGATE_STARTED = "irrigation_started"

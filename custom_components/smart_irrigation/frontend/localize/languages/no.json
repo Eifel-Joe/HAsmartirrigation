@@ -361,6 +361,11 @@
         "bucket_threshold": "Minimum underskudd for vanning",
         "flow_sensor": "Strømningsmåler-sensor (valgfritt)",
         "flow_sensor_placeholder": "f.eks. sensor.zone_flow_rate",
+        "flow_counter_type": "Tellertype",
+        "flow_counter_type_help": "Hvordan denne kumulative strømningssensoren leses. Auto lærer over flere kjøringer om sensoren nullstilles ved hver kjøring. Per kjøring: sensoren går tilbake til ~0 ved starten av hver kjøring og viser totalen for den kjøringen (f.eks. Sonoff-/Zigbee-ventiler). Total tellerstand: en teller som bare teller oppover gjennom alle kjøringer (delta per kjøring).",
+        "flow_counter_type_auto": "Auto (lær)",
+        "flow_counter_type_per_run": "Per kjøring (nullstilles hver kjøring)",
+        "flow_counter_type_lifetime": "Total tellerstand (delta)",
         "watering_mode": "Vanningsmodus",
         "watering_mode_description": "Hvordan HASI styrer denne sonen. Klassisk: HASI åpner ventilen og lukker den selv med en programvaretidtaker. Selvlukkende tjeneste: HASI sender kjørevarigheten til en selvlukkende ventil via et script (se de medfølgende ventil-blueprintene) og lar maskinvaren lukke seg selv, slik at en HA-omstart midt i en kjøring ikke kan forårsake kontinuerlig vanning.",
         "watering_modes": {

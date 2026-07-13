@@ -360,6 +360,11 @@
         "bucket_threshold": "Minimum tekort voor bewatering",
         "flow_sensor": "Doorstroommeter-sensor (optioneel)",
         "flow_sensor_placeholder": "bijv. sensor.zone_flow_rate",
+        "flow_counter_type": "Type teller",
+        "flow_counter_type_help": "Hoe deze cumulatieve debietsensor wordt gelezen. Auto leert over meerdere beurten of de sensor bij elke beurt terugvalt. Per beurt: de sensor valt aan het begin van elke beurt terug naar ~0 en toont het totaal van die beurt (bijv. Sonoff-/Zigbee-kleppen). Totaalteller: een teller die over alle beurten alleen maar oploopt (delta per beurt).",
+        "flow_counter_type_auto": "Auto (leren)",
+        "flow_counter_type_per_run": "Per beurt (reset elke beurt)",
+        "flow_counter_type_lifetime": "Totaalteller (delta)",
         "watering_mode": "Bewateringsmodus",
         "watering_mode_description": "Hoe HASI deze zone aanstuurt. Klassiek: HASI opent de klep en sluit deze zelf met een softwaretimer. Zelfsluitende service: HASI stuurt de looptijd naar een zelfsluitende klep via een script (zie de meegeleverde klep-blueprints) en laat de hardware zichzelf sluiten, zodat een HA-herstart midden in een cyclus geen continue irrigatie kan veroorzaken.",
         "watering_modes": {

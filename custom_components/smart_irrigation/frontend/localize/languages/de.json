@@ -360,6 +360,11 @@
         "bucket_threshold": "Mindestdefizit für Bewässerung",
         "flow_sensor": "Durchflussmesser-Sensor (optional)",
         "flow_sensor_placeholder": "z. B. sensor.zone_flow_rate",
+        "flow_counter_type": "Zählertyp",
+        "flow_counter_type_help": "Wie dieser kumulative Durchflusssensor gelesen wird. Auto lernt über mehrere Läufe, ob der Sensor bei jedem Lauf zurücksetzt. Pro Lauf: der Sensor springt zu Beginn jedes Laufs auf ~0 und zeigt die Menge dieses Laufs (z. B. Sonoff-/Zigbee-Ventile). Gesamtzähler: ein Zähler, der über alle Läufe nur hochzählt (Delta pro Lauf).",
+        "flow_counter_type_auto": "Auto (lernen)",
+        "flow_counter_type_per_run": "Pro Lauf (setzt je Lauf zurück)",
+        "flow_counter_type_lifetime": "Gesamtzähler (Delta)",
         "watering_mode": "Bewässerungsmodus",
         "watering_mode_description": "Wie HASI diese Zone ansteuert. Klassisch: HASI öffnet das Ventil und schließt es selbst per Software-Timer. Selbstschließend per Service: HASI übergibt die Laufzeit über ein Skript an ein selbstschließendes Ventil (siehe die mitgelieferten Ventil-Blueprints) und überlässt dem Ventil das Schließen — ein HA-Neustart mitten im Lauf kann so keine Dauerbewässerung auslösen.",
         "watering_modes": {
