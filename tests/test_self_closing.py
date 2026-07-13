@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, Mock
 
 from custom_components.smart_irrigation import SmartIrrigationCoordinator, const
+from custom_components.smart_irrigation.irrigation import SI_VALVE_SUPPRESS_MARGIN
 
 
 def _coord():
@@ -383,3 +384,16 @@ async def test_service_open_defaults_duration_field_to_duration():
     await c._sc_service_open(zone, 5)
     _, _, data = c.hass.services.async_call.await_args.args
     assert data["duration"] == 5
+
+
+async def test_self_closing_run_marks_si_driven():
+    c = _coord()
+    c._si_driven_until = {}
+    c.hass.loop.time = Mock(return_value=1000.0)
+    c._confirm_valve_running = AsyncMock(return_value=True)
+    c._timed_volume_l = Mock(return_value=20.0)
+    c._credited_depth_native = Mock(return_value=4.0)
+    await c.async_run_self_closing(_zone(), trigger="schedule")
+    assert 2 in c._si_driven_until  # zone id 2 marked so the observer skips it
+    # window = loop.time + planned_seconds + margin, covering the whole run
+    assert c._si_driven_until[2] == 1000.0 + 600.0 + SI_VALVE_SUPPRESS_MARGIN

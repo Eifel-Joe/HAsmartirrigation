@@ -612,6 +612,16 @@ class DistributorMixin:
 
     # --- inlet watch (E4): foreign-pulse resync ---------------------------
 
+    def _dist_observed_open_map(self) -> dict:
+        """Per-distributor record of an in-progress FOREIGN inlet open, for observed
+        member crediting (Phase 2). Lazily created so no coordinator __init__ change
+        is needed. Maps distributor_id -> {"t": open_time, "outlet": ring index
+        (1-based) BEFORE the open-edge advance = the outlet flowing during the open}."""
+        m = getattr(self, "_dist_observed_open", None)
+        if m is None:
+            m = self._dist_observed_open = {}
+        return m
+
     async def _dist_on_inlet_pulse(self, distributor_id) -> None:
         """A foreign inlet off->on pulse touched the physical ring. Only acted on
         when no HASI cycle is active (HASI pulses the inlet only within a cycle,
@@ -642,11 +652,70 @@ class DistributorMixin:
         if n == 0:
             return
         cur = int(dist.get("current_outlet") or 1)
+        # Phase 2 (observed watering): remember which outlet is flowing NOW (the
+        # pre-advance ring index) and when this foreign open started, so the close
+        # edge can credit this member if the open lasts long enough to be real
+        # watering rather than a short advance pulse. Gated on the opt-in so count
+        # users who don't use observed watering never grow the map.
+        if getattr(self.store.config, "observed_watering_enabled", False):
+            self._dist_observed_open_map()[distributor_id] = {
+                "t": self.hass.loop.time(),
+                "outlet": cur,
+            }
         await self._dist_store_update(distributor_id, {"current_outlet": (cur % n) + 1})
 
+    async def _dist_on_inlet_close(self, distributor_id) -> None:
+        """A foreign inlet on->off edge closed. If observed watering is enabled and
+        the open lasted long enough to be real watering (>= 2 * skip_pulse_seconds),
+        credit the member zone that was flowing during the open (the pre-advance ring
+        index stashed on the open edge) and write an `observed` run-log entry. Short
+        opens are advance pulses -> not credited (the ring already advanced on open).
+
+        Only foreign, count-mode opens ever leave a stash (see _dist_on_inlet_pulse),
+        so warn/ignore modes and SI's own cycles no-op here. A race guard additionally
+        drops the credit if an SI cycle claimed the inlet between open and close."""
+        open_rec = self._dist_observed_open_map().pop(distributor_id, None)
+        if open_rec is None:
+            return
+        dist = self.store.get_distributor(distributor_id)
+        if dist is None or dist.get("active_cycle"):
+            # An SI cycle claimed the inlet between open and close -> not foreign.
+            return
+        if not getattr(self.store.config, "observed_watering_enabled", False):
+            return
+        t = open_rec.get("t")
+        if t is None:
+            return  # defensive: a stash without a timestamp fails safe, never a huge run
+        duration = self.hass.loop.time() - float(t)
+        skip_pulse = max(
+            int(dist.get("skip_pulse_seconds") or 30),
+            const.DISTRIBUTOR_MIN_SKIP_PULSE_SECONDS,
+        )
+        if duration < 2 * skip_pulse:
+            return  # short advance pulse, not watering
+        members = await self._dist_members(distributor_id)
+        n = len(members)
+        if n == 0:
+            return
+        outlet = int(open_rec.get("outlet") or 1)
+        member = members[(outlet - 1) % n]
+        if member.get(const.ZONE_STATE) == const.ZONE_STATE_DISABLED:
+            return
+        await self._dist_credit_zone(
+            member,
+            duration,
+            result=const.RUN_RESULT_OBSERVED,
+            trigger=const.RUN_TRIGGER_OBSERVED,
+        )
+
     def _dist_inlet_state_handler(self, distributor_id):
-        """Build a state-change handler that decodes an off->on edge and defers to
-        _dist_on_inlet_pulse."""
+        """Build a state-change handler that decodes the inlet off->on and on->off
+        edges and defers to _dist_on_inlet_pulse / _dist_on_inlet_close.
+
+        Deliberately stricter than the Phase-1 zone observer: `unavailable`/`unknown`
+        belong to neither set, so an inlet that drops to `unavailable` mid-open fires
+        no close and simply does not credit that run (safe under-credit; the stash is
+        overwritten on the next real open, never leaked)."""
         off_states = {"off", "closed"}
         on_states = {"on", "open", "opening"}
 
@@ -658,6 +727,8 @@ class DistributorMixin:
                 return
             if old.state in off_states and new.state in on_states:
                 self.hass.async_create_task(self._dist_on_inlet_pulse(distributor_id))
+            elif old.state in on_states and new.state in off_states:
+                self.hass.async_create_task(self._dist_on_inlet_close(distributor_id))
 
         return _handler
 
@@ -719,6 +790,9 @@ class DistributorMixin:
         seconds: float,
         measured_l: float | None = None,
         planned_seconds: float | None = None,
+        *,
+        result: str = const.RUN_RESULT_COMPLETED,
+        trigger: str = const.RUN_TRIGGER_DISTRIBUTOR,
     ) -> None:
         """Credit a watered member zone's bucket and log the run.
 
@@ -750,11 +824,11 @@ class DistributorMixin:
         await self.store.async_update_zone(zone_id, {const.ZONE_BUCKET: new_bucket})
         await self._record_run(
             zone_id,
-            result=const.RUN_RESULT_COMPLETED,
+            result=result,
             volume_l=volume_l,
             planned_s=planned_seconds if planned_seconds is not None else seconds,
             actual_s=seconds,
-            trigger=const.RUN_TRIGGER_DISTRIBUTOR,
+            trigger=trigger,
             add_to_total=True,
         )
 
@@ -807,6 +881,15 @@ class DistributorMixin:
         if dist_id in inflight:
             return False
         inflight.add(dist_id)
+        # Final-review Issue 1 (2026-07-12): the instant SI claims this distributor,
+        # drop any lingering FOREIGN observed-watering open stash. The close-edge race
+        # guard (_dist_on_inlet_close) already discards a stash seen while active_cycle
+        # is set, but that relies on a close edge being processed before the cycle
+        # clears the marker. Popping here at the atomic claim makes the SI-exclusion
+        # structural (timing-independent): a member can never be observed-credited off
+        # pre-cycle state after SI has taken the inlet. siehe
+        # test_distributor_cycle.py::test_cycle_claim_drops_stale_observed_open_stash
+        self._dist_observed_open_map().pop(dist_id, None)
         # (2026-07-08, live-test finding) Preserve active_cycle across a graceful
         # interruption. HA shutdown / integration reload cancels this awaited task,
         # raising CancelledError; the old finally ALWAYS cleared active_cycle, so on the
