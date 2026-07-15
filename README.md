@@ -1,14 +1,26 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
 [![release][release-badge]][release-url]
 
-[release-url]: https://github.com/JustChr/HAsmartirrigation/releases
-[release-badge]: https://img.shields.io/github/v/release/JustChr/HAsmartirrigation?style=flat-square
+[release-url]: https://github.com/Eifel-Joe/HAsmartirrigation/releases
+[release-badge]: https://img.shields.io/github/v/release/Eifel-Joe/HAsmartirrigation?style=flat-square
 
 # Smart Irrigation — Maintained Community Fork
 
 ![](logo.png?raw=true)
 
-This is an actively maintained community fork of [jeroenterheerdt/HAsmartirrigation](https://github.com/jeroenterheerdt/HAsmartirrigation), which has been stale since late 2025. It ships all the original functionality plus a growing set of bug fixes and improvements — see [What's been fixed and improved](#whats-been-fixed-and-improved) below.
+> **Heads-up — this is a personal build of [JustChr/HAsmartirrigation](https://github.com/JustChr/HAsmartirrigation).**
+> The base is **fully current with JustChr's `master`** (0 commits behind): the major features this
+> fork pioneered — flow-volume tracking ([#59](https://github.com/JustChr/HAsmartirrigation/pull/59)),
+> the mechanical water distributor ([#54](https://github.com/JustChr/HAsmartirrigation/pull/54)),
+> observed-watering zones, the soil-moisture veto ([#47](https://github.com/JustChr/HAsmartirrigation/pull/47)),
+> self-closing valves, and the latest adversarial-review bug fixes
+> ([#60](https://github.com/JustChr/HAsmartirrigation/pull/60)) — have all been **merged upstream**. On
+> top of that base this build runs a little **ahead**, currently carrying one thing not yet in JustChr:
+> **opt-in no-demand run logging**, plus this fork's Eifel-Joe branding. You can switch back to JustChr
+> at any time with no data loss — you would only leave that not-yet-merged extra behind. This fork
+> stays a staging ground where new experiments are tried before they're offered upstream.
+
+Smart Irrigation was originally written by [jeroenterheerdt](https://github.com/jeroenterheerdt/HAsmartirrigation) (upstream stale since late 2025) and is actively continued in [JustChr's fork](https://github.com/JustChr/HAsmartirrigation) — on which this repository is based. The [What's been fixed and improved](#whats-been-fixed-and-improved) section below lists the fixes carried by the JustChr line; **this repository tracks JustChr's `master` (0 commits behind) and runs slightly ahead with one not-yet-upstreamed extra (opt-in no-demand run logging) plus this fork's branding — see the heads-up above.**
 
 ## What it does
 
@@ -22,10 +34,10 @@ This integration calculates how long to run your irrigation system to compensate
 - Works with **Open-Meteo** (free, no API key), Open Weather Map, Pirate Weather, or your own local sensors
 - **Guided setup wizard** — a first-run wizard walks you through weather, calculation module, sensor group, and your first zone in a few steps
 - **Direct valve control** — link a `switch` or `valve` entity to each zone; the integration turns it on, waits the calculated duration, and turns it off — no automations needed
-- **Everyday dashboard** — the **Zones** tab is an at-a-glance [dashboard](https://JustChr.github.io/HAsmartirrigation/usage-dashboard.html) showing, per zone, whether it will water and why, with one-tap Update / Calculate / Irrigate; full configuration lives under **Setup → My Zones**
+- **Everyday dashboard** — the **Zones** tab is an at-a-glance [dashboard](https://github.com/Eifel-Joe/HAsmartirrigation/blob/production/docs/usage-dashboard.md) showing, per zone, whether it will water and why, with one-tap Update / Calculate / Irrigate; full configuration lives under **Setup → My Zones**
 - **Forward-looking outlook** — a banner shows the next scheduled run and whether it will likely be skipped (tap **“Why?”** for the reasons); per-zone decisions are honest about skip conditions
 - **Live status estimate** — a read-only "Now ≈ −X mm" estimate of each zone's deficit *since the last calculation*, using the hourly FAO-56 equation where hourly solar data is available — so the status isn't stale between daily calculations
-- **Lovelace card** — a [`custom:smart-irrigation-zones-card`](https://JustChr.github.io/HAsmartirrigation/usage-lovelace-card.html) that mirrors the dashboard for **non-admin** users, addable to any dashboard
+- **Lovelace card** — a [`custom:smart-irrigation-zones-card`](https://github.com/Eifel-Joe/HAsmartirrigation/blob/production/docs/usage-lovelace-card.md) that mirrors the dashboard for **non-admin** users, addable to any dashboard
 - **Irrigate Now** — trigger immediate irrigation from the dashboard (all zones or per zone), bypassing skip conditions
 - **Recurring schedules** — create daily/weekly/monthly/interval irrigation schedules entirely from the UI (**Setup → When to Water**) — no automations needed
 - **Skip conditions** — skip irrigation based on forecasted rain (with a configurable forecast look-ahead window), low temperature, high wind speed, or a rain sensor
@@ -113,7 +125,7 @@ Soil moisture is used **only as a skip gate — never as an ET input**, so the w
 
 ## Mechanical water distributors (experimental)
 
-A mechanical pressure-driven **indexing distributor** (e.g. a Gardena Water Distributor) splits one supply into several outlets, advancing to the next each time the water is pulsed off and on. Enable it under **Setup → Experimental → Mechanical water distributors** (off by default), then assign zones to its outlets under **Setup → Distributors**. Smart Irrigation waters the mapped outlets in sequence, tracks the blind position, and coordinates a master valve/pump. See the [Distributors](https://JustChr.github.io/HAsmartirrigation/configuration-distributors.html) docs.
+A mechanical pressure-driven **indexing distributor** (e.g. a Gardena Water Distributor) splits one supply into several outlets, advancing to the next each time the water is pulsed off and on. Enable it under **Setup → Experimental → Mechanical water distributors** (off by default), then assign zones to its outlets under **Setup → Distributors**. Smart Irrigation waters the mapped outlets in sequence, tracks the blind position, and coordinates a master valve/pump. See the [Distributors](docs/configuration-distributors.md) docs.
 
 This is a new, experimental feature that could not be fully hardware-tested — treat it as a beta and watch the first days of use closely.
 
@@ -122,31 +134,29 @@ This is a new, experimental feature that could not be fully hardware-tested — 
 This integration is not in the default HACS store. Install it as a **custom repository**:
 
 1. In Home Assistant, open **HACS → Integrations → ⋮ → Custom repositories**
-2. Add `https://github.com/JustChr/HAsmartirrigation` with category **Integration**
+2. Add `https://github.com/Eifel-Joe/HAsmartirrigation` with category **Integration**
 3. Search for "Smart Irrigation" and install
 4. Restart Home Assistant
 5. Go to **Settings → Devices & Services → Add Integration**, search for "Smart Irrigation" and follow the wizard
 
 ### Manual installation
 
-Download the [latest release](https://github.com/JustChr/HAsmartirrigation/releases/latest) as a zip, extract the `custom_components/smart_irrigation` folder into your Home Assistant `custom_components` directory, then restart.
+Download the [latest release](https://github.com/Eifel-Joe/HAsmartirrigation/releases/latest) as a zip, extract the `custom_components/smart_irrigation` folder into your Home Assistant `custom_components` directory, then restart.
 
 ## Documentation
 
-Full documentation: **https://JustChr.github.io/HAsmartirrigation/**
-
-The docs site is built from the [`docs/`](docs/) folder with Jekyll and deployed automatically by the [Pages workflow](.github/workflows/jekyll-gh-pages.yml) on every change under `docs/`.
+Full documentation lives in the [`docs/`](docs/) folder of this repository — including the [self-closing valves & blueprints](docs/configuration-my-zones.md#watering-mode) and [pump / master switch](docs/configuration-when-to-water.md#master-switch) guides.
 
 ## Reporting issues
 
-Open an issue at https://github.com/JustChr/HAsmartirrigation/issues
+Open an issue at https://github.com/Eifel-Joe/HAsmartirrigation/issues
 
 ## Development
 
 ### Quick start
 
 ```bash
-git clone https://github.com/JustChr/HAsmartirrigation.git
+git clone https://github.com/Eifel-Joe/HAsmartirrigation.git
 cd HAsmartirrigation
 make setup          # creates .venv and installs dependencies
 ```
