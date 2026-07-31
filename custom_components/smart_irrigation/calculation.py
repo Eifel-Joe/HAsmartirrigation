@@ -137,9 +137,26 @@ class CalculationMixin:
                 mapping.get(const.MAPPING_ID), {const.MAPPING_DATA: []}
             )
         for zone in await self.store.async_get_zones():
+            zone_id = zone.get(const.ZONE_ID)
             await self.store.async_update_zone(
-                zone.get(const.ZONE_ID), {const.ZONE_LAST_CONSUMED: now}
+                zone_id,
+                {
+                    const.ZONE_LAST_CONSUMED: now,
+                    # Derived from the buffer we just emptied, so it has to be
+                    # reset with it — otherwise the zone's "Weather data points"
+                    # sensor keeps reporting the pre-reset count until the next
+                    # poll or calculation happens to overwrite it, which reads as
+                    # "reset all weather data didn't work".
+                    const.ZONE_NUMBER_OF_DATA_POINTS: 0,
+                },
             )
+            # Writing the store is not enough: the zone sensors hold their values
+            # in memory and only re-read on this signal, so without it the entity
+            # attribute keeps showing the old count until an unrelated update or a
+            # restart. Every other writer of the count already dispatches; this
+            # path was the one that did not.
+            async_dispatcher_send(self.hass, const.DOMAIN + "_config_updated", zone_id)
+        async_dispatcher_send(self.hass, const.DOMAIN + "_update_frontend")
 
     async def _aggregate_for_zone(self, zone, *, now):
         """Aggregate this zone's window of its mapping's shared buffer.

@@ -1103,7 +1103,24 @@ class SmartIrrigationCoordinator(
                 now = dt_datetime.now()
                 for zone_id in await self._get_zones_that_use_this_mapping(mapping_id):
                     await self.store.async_update_zone(
-                        zone_id, {const.ZONE_LAST_CONSUMED: now}
+                        zone_id,
+                        {
+                            const.ZONE_LAST_CONSUMED: now,
+                            # Same reason as _async_clear_all_weatherdata: the
+                            # count is derived from the buffer this just emptied,
+                            # so leaving it would report data points that no
+                            # longer exist.
+                            const.ZONE_NUMBER_OF_DATA_POINTS: 0,
+                        },
+                    )
+                    # Per ZONE, not just once per mapping. The zone sensors cache
+                    # their values and re-read only when this signal carries their
+                    # own id, so the mapping-scoped dispatch below refreshes at
+                    # most the one zone whose id happens to equal mapping_id and
+                    # leaves every other consumer showing counts for readings that
+                    # no longer exist.
+                    async_dispatcher_send(
+                        self.hass, const.DOMAIN + "_config_updated", zone_id
                     )
             async_dispatcher_send(
                 self.hass, const.DOMAIN + "_config_updated", mapping_id

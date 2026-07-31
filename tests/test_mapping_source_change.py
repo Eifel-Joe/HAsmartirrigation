@@ -63,8 +63,21 @@ class TestMappingSourceChangeInvalidatesBuffer:
             },
         }
 
-        with patch("custom_components.smart_irrigation.async_dispatcher_send"):
+        with patch(
+            "custom_components.smart_irrigation.async_dispatcher_send"
+        ) as dispatch:
             await coordinator.async_update_mapping_config(0, new_data)
+
+        # Each consuming zone must be told to refresh, not just the mapping: the
+        # zone sensors re-read only on a signal carrying their OWN id, so a single
+        # mapping-scoped dispatch leaves every zone whose id != mapping_id showing
+        # counts for readings that no longer exist.
+        signalled = {
+            call.args[2]
+            for call in dispatch.call_args_list
+            if call.args[1] == const.DOMAIN + "_config_updated"
+        }
+        assert {1, 2} <= signalled
 
         # The mapping must be updated with an emptied buffer.
         args, _ = store.async_update_mapping.call_args
@@ -78,6 +91,9 @@ class TestMappingSourceChangeInvalidatesBuffer:
             anchored.add(zone_id)
             assert const.ZONE_LAST_CONSUMED in changes
             assert isinstance(changes[const.ZONE_LAST_CONSUMED], datetime)
+            # The data-point count is derived from the buffer that was just
+            # emptied; leaving it stale reports readings that no longer exist.
+            assert changes[const.ZONE_NUMBER_OF_DATA_POINTS] == 0
         assert anchored == {1, 2}
 
     async def test_source_type_change_clears_buffer(self):
