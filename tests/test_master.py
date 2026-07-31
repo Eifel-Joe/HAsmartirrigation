@@ -170,7 +170,13 @@ async def test_master_off_enabled_arms_and_fires(monkeypatch):
     assert c._master_on is False
 
 
-async def test_run_zone_self_closing_wraps_with_master():
+async def test_run_zone_self_closing_delegates_master_to_the_run():
+    """A manual run_zone on a self-closing zone must still bring the master up —
+    but the responsibility moved INTO async_run_self_closing, which takes a master
+    hold for the whole fire-and-forget window and releases it when the run
+    finalises. run_zone predicting the duration up front was the old model; the
+    hardware, not run_zone, decides when a self-closing valve actually shuts.
+    """
     from custom_components.smart_irrigation import SmartIrrigationCoordinator, const
 
     c = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
@@ -191,10 +197,100 @@ async def test_run_zone_self_closing_wraps_with_master():
 
     await c.async_run_zone(2, 5.0)  # 5 min -> 300 s
 
-    c.async_master_begin_cycle.assert_awaited_once()
-    c._master_note_run.assert_called_once_with(300.0)
-    c.async_master_schedule_off.assert_awaited_once()
+    # The run is dispatched with the requested duration...
     c.async_run_self_closing.assert_awaited_once()
+    dispatched = c.async_run_self_closing.await_args.args[0]
+    assert dispatched[const.ZONE_DURATION] == 300
+    # ...and run_zone no longer predicts a master window of its own.
+    c._master_note_run.assert_not_called()
+
+
+async def test_self_closing_run_holds_the_master_across_its_window():
+    """The hold spans the fire-and-forget window: taken before the valve opens and
+    still held after dispatch returns, because the HARDWARE owns the close."""
+    import types
+
+    from custom_components.smart_irrigation import SmartIrrigationCoordinator, const
+
+    c = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
+    c.hass = Mock()
+    c.hass.services = Mock()
+    c.hass.services.async_call = AsyncMock()
+    c.store = Mock()
+    c.store.config = types.SimpleNamespace(
+        master_entity="switch.pump",
+        master_off_after=True,
+        master_settle_seconds=0,
+        master_kick_enabled=False,
+        master_kick_pause_seconds=0,
+    )
+    c.store.get_zone = Mock(return_value={const.ZONE_ID: 7})
+    c.store.async_update_zone = AsyncMock()
+    c._sc_dispatch_open = AsyncMock()
+    c._sc_start_flow_sampling = AsyncMock()
+    c._sc_finish_flow = Mock(return_value=(None, {}))
+    c._confirm_valve_running = AsyncMock(return_value=None)
+    c._sc_add_run = AsyncMock()
+    c._sc_schedule_cleanup = Mock()
+    c._sc_fire = Mock()
+    c._note_si_valve = Mock()
+    c._timed_volume_l = Mock(return_value=0.0)
+    c._credited_depth_native = Mock(return_value=0.0)
+    c.async_master_schedule_off = AsyncMock()  # no real event loop in this double
+
+    zone = {
+        const.ZONE_ID: 7,
+        const.ZONE_NAME: "Beet",
+        const.ZONE_DURATION: 300,
+        const.ZONE_WATERING_MODE: const.WATERING_MODE_SERVICE,
+    }
+    assert await c.async_run_self_closing(zone) is True
+
+    # Master was powered up, and the hold is STILL held after dispatch returned.
+    c.hass.services.async_call.assert_any_await(
+        "homeassistant", "turn_on", {"entity_id": "switch.pump"}
+    )
+    assert c._sc_master_token(7) in c.master_holds()
+
+
+async def test_self_closing_release_on_confirm_failure_does_not_strand_the_pump():
+    """A valve that never opens must not leave a hold behind — a leaked hold keeps
+    the master on forever, which is the one failure refcounting could introduce."""
+    import types
+
+    from custom_components.smart_irrigation import SmartIrrigationCoordinator, const
+
+    c = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
+    c.hass = Mock()
+    c.hass.services = Mock()
+    c.hass.services.async_call = AsyncMock()
+    c.hass.loop = Mock()
+    c.hass.loop.time = Mock(return_value=0.0)
+    c.store = Mock()
+    c.store.config = types.SimpleNamespace(
+        master_entity="switch.pump",
+        master_off_after=True,
+        master_settle_seconds=0,
+        master_kick_enabled=False,
+        master_kick_pause_seconds=0,
+    )
+    c._sc_dispatch_open = AsyncMock()
+    c._sc_start_flow_sampling = AsyncMock()
+    c._sc_finish_flow = Mock(return_value=(None, {}))
+    c._confirm_valve_running = AsyncMock(return_value=False)  # never opened
+    c._sc_fire = Mock()
+    c._note_si_valve = Mock()
+    c.async_master_schedule_off = AsyncMock()  # no real loop in this double
+
+    zone = {
+        const.ZONE_ID: 7,
+        const.ZONE_NAME: "Beet",
+        const.ZONE_DURATION: 300,
+        const.ZONE_CONFIRM_ENTITY: "switch.valve",
+        const.ZONE_WATERING_MODE: const.WATERING_MODE_SERVICE,
+    }
+    assert await c.async_run_self_closing(zone) is False
+    assert c.master_holds() == set(), "aborted run leaked a master hold"
 
 
 async def test_reconcile_master_off_when_off_after_and_idle():

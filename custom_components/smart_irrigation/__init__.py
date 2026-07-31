@@ -1481,6 +1481,13 @@ class SmartIrrigationCoordinator(
         if manager is not None:
             await manager.async_unload()
 
+        # Master holds are in-memory refcounts for runs this coordinator owns.
+        # A reload builds a new coordinator, so carrying them over would strand
+        # the pump on forever; the boot path re-derives real state from the
+        # persisted self-closing / distributor records
+        # (async_reconcile_master_after_restart).
+        self._master_release_all()
+
         # E4: cancel all opt-in distributor inlet-watch listeners so a reloaded
         # coordinator doesn't leave stale state-change subscriptions behind.
         for unsub in getattr(self, "_dist_inlet_watchers", {}).values():

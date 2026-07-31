@@ -60,6 +60,16 @@ class SelfClosingMixin:
         """Fire a domain-prefixed bus event."""
         self.hass.bus.async_fire(f"{const.DOMAIN}_{event}", data)
 
+    @staticmethod
+    def _sc_master_token(zone_id) -> str:
+        """Master-hold token for a self-closing zone's in-flight run.
+
+        Deterministic (not a uuid) because the run is fire-and-forget: whoever
+        finalises it — the cleanup timer, an early stop, or restart reconciliation
+        — must be able to release the hold without having the original token.
+        """
+        return f"sc:{zone_id}"
+
     async def _sc_active_runs(self) -> list:
         """Return the persisted list of in-flight self-closing runs."""
         cfg = await self.store.async_get_config()
@@ -205,6 +215,8 @@ class SelfClosingMixin:
         # review finding D: pop this run's cleanup handle as it finalizes so a stale
         # timer can't linger (the firing timer itself lands here; cancel is a safe no-op).
         self._sc_cancel_cleanup(zone_id)
+        # The hardware has closed the valve — drop the master hold taken at open.
+        await self.async_master_release(self._sc_master_token(zone_id))
         zone = self.store.get_zone(zone_id) or {}
         # Count usage once, at completion, for the actual delivered volume (the
         # run ran for its full planned duration).
@@ -288,6 +300,13 @@ class SelfClosingMixin:
         # observer does not double-credit it (the run already credits the bucket).
         self._note_si_valve(int(zone.get(const.ZONE_ID)), planned_seconds)
 
+        # Master (pump): hold it up BEFORE the valve opens, and keep the hold for
+        # the whole fire-and-forget window — the hardware owns the close, so the
+        # release happens in _sc_finish_run / async_stop_self_closing rather than
+        # here. Token is keyed on the zone so those paths can release it without
+        # threading a value through the persisted run record.
+        await self.async_master_acquire(self._sc_master_token(zone_id))
+
         await self._sc_dispatch_open(zone)
 
         # Iter FM-5 (unified flow engine): measure delivered volume across the fixed
@@ -319,8 +338,10 @@ class SelfClosingMixin:
             if confirmed is False:
                 # The valve never opened -> abort the run. Cancel the just-started
                 # sampling (discard the measurement) so the aborted run leaks no
-                # interval/meter.
+                # interval/meter, and drop the master hold: no run means nothing
+                # needs the pump, and a leaked hold would keep it on forever.
                 self._sc_finish_flow(zone_id)
+                await self.async_master_release(self._sc_master_token(zone_id))
                 self._sc_fire(
                     const.EVENT_ZONE_PROBLEM,
                     {
@@ -379,6 +400,8 @@ class SelfClosingMixin:
             return True
         except Exception:
             self._sc_finish_flow(zone_id)  # don't leak the interval on a setup failure
+            # Nor the master hold — otherwise the pump stays on with no run behind it.
+            await self.async_master_release(self._sc_master_token(zone_id))
             raise
 
     def _sc_elapsed(self, started_iso: str) -> float:
@@ -400,6 +423,9 @@ class SelfClosingMixin:
         if run is None:
             return False
         zone = self.store.get_zone(zone_id) or {}
+        # The run is ending here regardless of how the close goes — release the
+        # master hold taken at open so the pump is not stranded on.
+        await self.async_master_release(self._sc_master_token(zone_id))
 
         # Close the valve (best-effort): call the configured stop_service.
         stop_svc = zone.get(const.ZONE_STOP_SERVICE)
@@ -497,6 +523,10 @@ class SelfClosingMixin:
             if elapsed >= planned:
                 await self._sc_finish_run(zone_id)
             else:
+                # Still inside the hardware window: the valve is open but master
+                # holds live only in memory and did not survive the restart.
+                # Re-take it so the pump keeps running for the remainder.
+                await self.async_master_acquire(self._sc_master_token(zone_id))
                 self._sc_schedule_cleanup(zone_id, planned - elapsed)
 
     @staticmethod

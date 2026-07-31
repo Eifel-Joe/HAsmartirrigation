@@ -88,6 +88,76 @@ class MasterMixin:
         if float(settle or 0) > 0:
             await self._master_sleep(settle)
 
+    # --- Consumer holds (refcounting) ---------------------------------------
+    #
+    # The master is a SHARED resource with several independent consumers
+    # (scheduled linked-entity runs, irrigate-now, run_zone, self-closing runs,
+    # distributor sweeps). Historically the only coordination was one
+    # monotonically-extending timestamp (``_master_off_deadline``): every
+    # consumer had to PREDICT its own release time up front, and because
+    # ``_master_note_run`` can only extend, a consumer that guessed long poisoned
+    # the shared deadline for everyone while one that guessed short got its pump
+    # cut mid-run. Every measured error in the 2026-07-31 review (valve-confirm
+    # polling, rotating absorption waits, flow zones finishing on volume rather
+    # than ZONE_DURATION) was a prediction error.
+    #
+    # A hold is the observation instead of the guess: a consumer takes one for as
+    # long as it actually needs the master, and the cycle ends when the last one
+    # is dropped. The deadline still exists as a floor so any consumer not yet
+    # converted keeps working unchanged.
+
+    def _master_hold_set(self) -> set:
+        """Lazily-created set of tokens for consumers holding the master."""
+        holds = getattr(self, "_master_holds", None)
+        if holds is None:
+            holds = self._master_holds = set()
+        return holds
+
+    def master_holds(self) -> set:
+        """Read-only view of the current holds (diagnostics / tests)."""
+        return set(self._master_hold_set())
+
+    async def async_master_acquire(self, token: str) -> None:
+        """Take a hold and bring the master up. Safe to call repeatedly.
+
+        Cancels any pending off-timer: a new consumer arriving during the release
+        grace must keep the master up rather than let the timer end the cycle.
+        """
+        if not self._master_configured():
+            return
+        self._master_hold_set().add(token)
+        cancel = getattr(self, "_master_off_cancel", None)
+        if cancel:
+            cancel()
+            self._master_off_cancel = None
+        await self.async_master_begin_cycle()
+
+    async def async_master_release(self, token: str) -> None:
+        """Drop a hold; end the cycle once it was the last one.
+
+        Releasing the last hold COLLAPSES any leftover predicted deadline down to
+        a short grace window — that is the whole point, since the prediction is
+        exactly what used to over-run. Collapsing is safe only because it happens
+        when nothing holds the master any more; while any consumer still holds
+        one, this returns early and leaves the deadline untouched.
+        """
+        if not self._master_configured():
+            return
+        holds = self._master_hold_set()
+        holds.discard(token)
+        if holds:
+            return
+        grace = datetime.timedelta(seconds=const.MASTER_RELEASE_GRACE_SECONDS)
+        collapsed = self._master_now() + grace
+        current = getattr(self, "_master_off_deadline", None)
+        if current is None or current > collapsed:
+            self._master_off_deadline = collapsed
+        await self.async_master_schedule_off()
+
+    def _master_release_all(self) -> None:
+        """Drop every hold without touching the hardware (unload/reset only)."""
+        self._master_hold_set().clear()
+
     def _master_note_run(self, seconds: float):
         """Record the latest expected cycle end (now + seconds).
 
@@ -129,6 +199,12 @@ class MasterMixin:
 
         async def _fire(_now=None):
             self._master_off_cancel = None
+            if self._master_hold_set():
+                # A consumer is still actually running. Do NOT end the cycle on a
+                # timer that only ever encoded a guess — the release of the last
+                # hold re-schedules this. This is what makes an under-estimated
+                # deadline harmless (it used to cut the pump mid-cycle).
+                return
             dl = getattr(self, "_master_off_deadline", None)
             if dl is not None and self._master_now() < dl:
                 # A later run extended the cycle — reschedule, don't end it yet.
@@ -177,6 +253,9 @@ class MasterMixin:
                 return
         if await self._sc_active_runs():
             return
+        # Holds live only in memory, so a restart necessarily clears them; this
+        # boot path is what re-derives "nothing is running" from persisted state.
+        self._master_release_all()
         await self._master_turn(False)
         self._master_on = False
         self._master_off_deadline = None

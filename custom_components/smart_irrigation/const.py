@@ -636,6 +636,11 @@ CONF_MASTER_KICK_PAUSE_SECONDS = "master_kick_pause_seconds"  # the off<->on gap
 CONF_MASTER_OFF_AFTER = "master_off_after"  # turn off after cycle (else stay on)
 CONF_DEFAULT_MASTER_SETTLE_SECONDS = 10
 CONF_DEFAULT_MASTER_KICK_PAUSE_SECONDS = 1.0
+# Grace between the LAST consumer releasing its master hold and the cycle ending.
+# Absorbs the gap between two back-to-back consumers (so a pump does not flap
+# off/on between them) without meaningfully dead-heading it. Only ever applies
+# once nothing holds the master any more — see MasterMixin.async_master_release.
+MASTER_RELEASE_GRACE_SECONDS = 5
 
 # Run-log tags
 RUN_TRIGGER_SELF_CLOSING = "self_closing"

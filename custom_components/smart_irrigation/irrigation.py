@@ -10,6 +10,7 @@ the rotating / sequential / parallel strategies based on config.
 import asyncio
 import logging
 import math
+import uuid
 from datetime import timedelta
 
 import homeassistant.util.dt as dt_util
@@ -452,7 +453,6 @@ class IrrigationRunnerMixin:
         dry run doesn't fool the days-between guard (review finding A).
         """
         zones = await self.store.async_get_zones()
-        sequencing = self.store.config.zone_sequencing
         want_all = zone_ids is None or zone_ids == "all"
         target = None if want_all else {int(z) for z in zone_ids}
 
@@ -517,41 +517,55 @@ class IrrigationRunnerMixin:
             _LOGGER.debug("Live-estimate duration left no zones needing water")
             return False
 
-        # Master (pump): power on before the first zone; record each run's end so
-        # master_off (if enabled) can fire after the last zone completes.
-        await self.async_master_begin_cycle()
-        self._master_note_run(self._master_cycle_seconds(zones_to_irrigate))
-        await self.async_master_schedule_off()
-
-        # Self-closing zones delegate the run to their own service (the valve
-        # owns the close); they bypass the linked-entity sequencing below.
-        for z in [z for z in zones_to_irrigate if self._sc_is_self_closing(z)]:
-            await self.async_run_self_closing(z, trigger="schedule")
-        zones_to_irrigate = [
-            z for z in zones_to_irrigate if not self._sc_is_self_closing(z)
-        ]
-        if not zones_to_irrigate:
-            # Self-closing zones were dispatched above => water WAS delivered.
-            return True
-
-        # hass.async_create_task (not bare asyncio.create_task): the event loop
-        # keeps only a WEAK reference to a bare task, so a long irrigation run —
-        # which holds valves open — can be garbage-collected mid-execution. A
-        # tracked task is also cancelled on shutdown and has its exceptions
-        # logged. See tests/test_run_lifecycle_safety.py.
-        if sequencing == const.CONF_ZONE_SEQUENCING_SEQUENTIAL:
-            self.hass.async_create_task(
-                self._irrigate_zones_sequential(zones_to_irrigate)
-            )
-        elif sequencing == const.CONF_ZONE_SEQUENCING_ROTATING:
-            self.hass.async_create_task(
-                self._irrigate_zones_rotating(zones_to_irrigate)
-            )
-        else:
-            await self._irrigate_zones_parallel(zones_to_irrigate)
+        # Master (pump): take a hold for the DISPATCH itself. It brings the master
+        # up before the first valve and, crucially, keeps it up in the window
+        # between dispatching work and that work taking its own holds — otherwise
+        # a release could land in the gap and end the cycle under a starting run.
+        cycle_token = f"cycle:{uuid.uuid4().hex[:8]}"
+        await self.async_master_acquire(cycle_token)
+        try:
+            # Self-closing zones delegate the run to their own service (the valve
+            # owns the close); they bypass the linked-entity sequencing below.
+            # Each takes its own hold, released when its run finalises.
+            for z in [z for z in zones_to_irrigate if self._sc_is_self_closing(z)]:
+                await self.async_run_self_closing(z, trigger="schedule")
+            linked = [z for z in zones_to_irrigate if not self._sc_is_self_closing(z)]
+            if linked:
+                await self._dispatch_sequencing(linked)
+        finally:
+            await self.async_master_release(cycle_token)
         # Past the veto+live gates with a non-empty set: at least one real run
         # (self-closing and/or the sequencing task) was dispatched.
         return True
+
+    async def _dispatch_sequencing(self, zones: list) -> None:
+        """Start the linked-entity zones under the configured sequencing.
+
+        Acquires the master hold HERE, before the task exists, and hands the token
+        to the worker to release in its ``finally``. Acquiring inside the task
+        instead would race the dispatcher's own release.
+
+        hass.async_create_task (not bare asyncio.create_task): the event loop keeps
+        only a WEAK reference to a bare task, so a long irrigation run — which holds
+        valves open — can be garbage-collected mid-execution. A tracked task is also
+        cancelled on shutdown and has its exceptions logged.
+        See tests/test_run_lifecycle_safety.py.
+        """
+        sequencing = self.store.config.zone_sequencing
+        if sequencing == const.CONF_ZONE_SEQUENCING_SEQUENTIAL:
+            token = f"seq:{uuid.uuid4().hex[:8]}"
+            await self.async_master_acquire(token)
+            self.hass.async_create_task(
+                self._irrigate_zones_sequential(zones, master_token=token)
+            )
+        elif sequencing == const.CONF_ZONE_SEQUENCING_ROTATING:
+            token = f"rot:{uuid.uuid4().hex[:8]}"
+            await self.async_master_acquire(token)
+            self.hass.async_create_task(
+                self._irrigate_zones_rotating(zones, master_token=token)
+            )
+        else:
+            await self._irrigate_zones_parallel(zones)
 
     def _read_flow_sample(self, flow_sensor: str):
         """Current (value, unit, state_class) of a flow sensor, or None when it is
@@ -748,7 +762,13 @@ class IrrigationRunnerMixin:
         await self.store.async_update_zone(zone_id, changes)
 
     async def _run_valve_metered(
-        self, zone: dict, entity_id: str, *, real_flow: bool, trigger: str = "schedule"
+        self,
+        zone: dict,
+        entity_id: str,
+        *,
+        real_flow: bool,
+        trigger: str = "schedule",
+        master_token=None,
     ) -> None:
         """Open a zone's valve and account for the water continuously until done.
 
@@ -997,6 +1017,10 @@ class IrrigationRunnerMixin:
                 )
             finally:
                 self._unregister_active_run(zone_id)
+                # The valve is shut; drop the master hold. Last one out ends the
+                # cycle (master.py async_master_release).
+                if master_token:
+                    await self.async_master_release(master_token)
 
     async def _irrigate_zone_flow_slot(
         self,
@@ -1118,12 +1142,25 @@ class IrrigationRunnerMixin:
             trigger=self._run_trigger(zid),
         )
 
-    async def _irrigate_zones_rotating(self, zones: list):
+    async def _irrigate_zones_rotating(self, zones: list, *, master_token=None):
         """Irrigate all zones (timed and flow-meter) in a unified rotation.
 
         Each zone gets at most max_consecutive_duration per turn.
         When min_absorption_time > 0, the loop waits before returning to a zone.
+
+        Holds the master for the whole rotation, which is what makes
+        ``min_absorption_time`` safe: the waits stretch the cycle far past any
+        up-front estimate (2×600 s with a 10 min absorption really ends at
+        1920 s, not 1200 s), and a predicted deadline cut the pump mid-rotation.
         """
+        try:
+            await self._run_rotation(zones)
+        finally:
+            if master_token:
+                await self.async_master_release(master_token)
+
+    async def _run_rotation(self, zones: list):
+        """The rotation itself (master hold is managed by the caller)."""
         max_slot = (
             max(1, (self.store.config.zone_sequencing_max_consecutive_duration or 5))
             * 60
@@ -1638,68 +1675,6 @@ class IrrigationRunnerMixin:
 
     # --- Run history + cumulative water usage (WS-2) ------------------------
 
-    def _master_cycle_seconds(self, zones: list) -> float:
-        """Wall-clock seconds the master (pump / main valve) must stay powered.
-
-        ``_master_note_run`` only ever EXTENDS a shared deadline via ``max()``, so
-        noting each zone's own duration separately yields ``max(durations)`` —
-        correct only when every zone runs at the SAME time. That is not the shape
-        of a cycle. There are TWO groups and they overlap:
-
-        * **Self-closing zones** are fire-and-forget: ``async_run_self_closing``
-          dispatches the open and returns, the hardware owns the close. They all
-          start together and run CONCURRENTLY with everything else, so the group
-          ends at ``max(durations)``.
-        * **Linked-entity zones** are driven by us. Sequential and rotating run
-          them back-to-back, so that group lasts the ``sum``; parallel really does
-          overlap, so it is ``max``.
-
-        The cycle ends at the later of the two groups. Getting this wrong breaks
-        in both directions, and both directions are bad:
-        under-estimating switches the master off mid-cycle, so later zones open
-        against a dead pump, deliver nothing, and STILL credit their buckets from
-        ``throughput × time`` (silent under-watering with a ledger that claims
-        otherwise); over-estimating dead-heads the pump past the last valve close.
-
-        Measured against the real cycle end, deliberately NOT modelled here
-        (2026-07-31 review, R4) — every remaining error is a *prediction* error:
-
-        * per-zone valve-confirm polling (up to ``VALVE_CONFIRM_TIMEOUT`` before a
-          zone's own timer starts) — 3×300 s sequential really ends at 990 s, not 900 s;
-        * rotating's ``min_absorption_time`` waits — 2×600 s with a 10 min
-          absorption really ends at 1920 s, not 1200 s;
-        * real-flow zones stop on measured volume / ``maximum_duration``, not
-          ``ZONE_DURATION`` — a −40 %-calibrated pair really ends at 1060 s, not 600 s.
-
-        The fix for all three is a deadline REFRESHED during the run (as
-        ``distributor.py`` does via rolling notes + a terminal collapse), not a
-        better up-front guess. See the review notes.
-        """
-        if not zones:
-            return 0.0
-        self_closing: list[float] = []
-        linked: list[float] = []
-        for z in zones:
-            seconds = float(z.get(const.ZONE_DURATION) or 0)
-            if self._sc_is_self_closing(z):
-                self_closing.append(seconds)
-            else:
-                linked.append(seconds)
-
-        sc_group = max(self_closing) if self_closing else 0.0
-
-        if not linked:
-            linked_group = 0.0
-        elif getattr(self.store.config, "zone_sequencing", None) in (
-            const.CONF_ZONE_SEQUENCING_SEQUENTIAL,
-            const.CONF_ZONE_SEQUENCING_ROTATING,
-        ):
-            linked_group = sum(linked)
-        else:
-            linked_group = max(linked)
-
-        return max(sc_group, linked_group)
-
     def _throughput_lpm(self, zone: dict) -> float:
         """The zone's configured throughput in L/min (volume accounting unit)."""
         throughput = zone.get(const.ZONE_THROUGHPUT) or 0.0
@@ -1796,26 +1771,40 @@ class IrrigationRunnerMixin:
                 trigger=trigger,
             )
 
-    async def _irrigate_zones_sequential(self, zones: list):
-        """Irrigate zones one after another, skipping zones with no duration."""
-        for zone in zones:
-            entity_id = zone[const.ZONE_LINKED_ENTITY]
-            real_flow = bool(zone.get(const.ZONE_FLOW_SENSOR))
-            _LOGGER.info(
-                "Sequential irrigation: zone %s (%s)",
-                zone[const.ZONE_ID],
-                "flow meter" if real_flow else "timed",
-            )
-            await self._run_valve_metered(
-                zone,
-                entity_id,
-                real_flow=real_flow,
-                trigger=self._run_trigger(zone[const.ZONE_ID]),
-            )
-            _LOGGER.info("Sequential irrigation: finished %s", entity_id)
+    async def _irrigate_zones_sequential(self, zones: list, *, master_token=None):
+        """Irrigate zones one after another, skipping zones with no duration.
+
+        Holds the master for the WHOLE chain, so the pump covers every zone plus
+        the per-zone valve-confirm polling and any flow zone that outruns its
+        nominal duration — none of which a predicted deadline could size.
+        """
+        try:
+            for zone in zones:
+                entity_id = zone[const.ZONE_LINKED_ENTITY]
+                real_flow = bool(zone.get(const.ZONE_FLOW_SENSOR))
+                _LOGGER.info(
+                    "Sequential irrigation: zone %s (%s)",
+                    zone[const.ZONE_ID],
+                    "flow meter" if real_flow else "timed",
+                )
+                await self._run_valve_metered(
+                    zone,
+                    entity_id,
+                    real_flow=real_flow,
+                    trigger=self._run_trigger(zone[const.ZONE_ID]),
+                )
+                _LOGGER.info("Sequential irrigation: finished %s", entity_id)
+        finally:
+            if master_token:
+                await self.async_master_release(master_token)
 
     async def _irrigate_zones_parallel(self, zones: list):
-        """Start all zone entities simultaneously, each accounting for its own run."""
+        """Start all zone entities simultaneously, each accounting for its own run.
+
+        One master hold per zone, taken here (before the task exists) and released
+        by that zone's runner — see _dispatch_sequencing on why acquiring inside
+        the task would race.
+        """
         for zone in zones:
             entity_id = zone[const.ZONE_LINKED_ENTITY]
             real_flow = bool(zone.get(const.ZONE_FLOW_SENSOR))
@@ -1824,7 +1813,9 @@ class IrrigationRunnerMixin:
                 zone[const.ZONE_ID],
                 "flow meter" if real_flow else "timed",
             )
-            # Tracked task — see _irrigate_linked_entities: a bare task holding a
+            token = f"zone:{zone[const.ZONE_ID]}:{uuid.uuid4().hex[:8]}"
+            await self.async_master_acquire(token)
+            # Tracked task — see _dispatch_sequencing: a bare task holding a
             # valve open is GC-able mid-run and invisible to HA shutdown.
             self.hass.async_create_task(
                 self._run_valve_metered(
@@ -1832,6 +1823,7 @@ class IrrigationRunnerMixin:
                     entity_id,
                     real_flow=real_flow,
                     trigger=self._run_trigger(zone[const.ZONE_ID]),
+                    master_token=token,
                 )
             )
 
@@ -1861,28 +1853,19 @@ class IrrigationRunnerMixin:
 
         target = "all" if zone_id is None else [zone_id]
         if zones_to_irrigate:
-            # Master (pump): power on before the first zone; record each run's end.
-            await self.async_master_begin_cycle()
-            self._master_note_run(self._master_cycle_seconds(zones_to_irrigate))
-            await self.async_master_schedule_off()
-            for z in [z for z in zones_to_irrigate if self._sc_is_self_closing(z)]:
-                await self.async_run_self_closing(z, trigger="manual")
-            remaining = [
-                z for z in zones_to_irrigate if not self._sc_is_self_closing(z)
-            ]
-            if remaining:
-                sequencing = self.store.config.zone_sequencing
-                # Tracked tasks — see _irrigate_linked_entities.
-                if sequencing == const.CONF_ZONE_SEQUENCING_SEQUENTIAL:
-                    self.hass.async_create_task(
-                        self._irrigate_zones_sequential(remaining)
-                    )
-                elif sequencing == const.CONF_ZONE_SEQUENCING_ROTATING:
-                    self.hass.async_create_task(
-                        self._irrigate_zones_rotating(remaining)
-                    )
-                else:
-                    await self._irrigate_zones_parallel(remaining)
+            # Master (pump): dispatch hold — see _irrigate_linked_entities.
+            cycle_token = f"cycle:{uuid.uuid4().hex[:8]}"
+            await self.async_master_acquire(cycle_token)
+            try:
+                for z in [z for z in zones_to_irrigate if self._sc_is_self_closing(z)]:
+                    await self.async_run_self_closing(z, trigger="manual")
+                remaining = [
+                    z for z in zones_to_irrigate if not self._sc_is_self_closing(z)
+                ]
+                if remaining:
+                    await self._dispatch_sequencing(remaining)
+            finally:
+                await self.async_master_release(cycle_token)
         else:
             _LOGGER.info("irrigate_now: no zones with linked entity and duration > 0")
         # Distributor member zones are excluded from the linked-entity path, so
@@ -1911,10 +1894,8 @@ class IrrigationRunnerMixin:
             _LOGGER.info("run_zone: zone %s is disabled, ignoring", zone_id)
             return
         # Self-closing zones run via their own service for the requested duration.
+        # async_run_self_closing takes (and later releases) its own master hold.
         if self._sc_is_self_closing(zone):
-            await self.async_master_begin_cycle()
-            self._master_note_run(float(seconds))
-            await self.async_master_schedule_off()
             run_zone = dict(zone)
             run_zone[const.ZONE_DURATION] = seconds
             await self.async_run_self_closing(run_zone, trigger="manual")
@@ -1944,10 +1925,9 @@ class IrrigationRunnerMixin:
             _LOGGER.warning("run_zone: zone %s has no linked entity", zone_id)
             return
 
-        # Master (pump): power on before opening the valve.
-        await self.async_master_begin_cycle()
-        self._master_note_run(float(seconds))
-        await self.async_master_schedule_off()
+        # Master (pump): _irrigate_zones_parallel below acquires the hold before it
+        # spawns the run and the runner releases it when the valve shuts, so the
+        # pump covers the real run length even if it overshoots `seconds`.
 
         # Override the duration on a copy and credit the bucket by what we deliver.
         run_zone = dict(zone)

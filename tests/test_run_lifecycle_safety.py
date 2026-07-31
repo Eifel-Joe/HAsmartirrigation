@@ -26,6 +26,7 @@ matching tests/test_stop_zone.py and tests/test_rain_delay.py.
 """
 
 import asyncio
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -275,113 +276,23 @@ async def test_parallel_dispatch_uses_tracked_tasks(monkeypatch):
 # --------------------------------------------------------------------------- #
 # R4 — master/pump stays on for the whole cycle
 # --------------------------------------------------------------------------- #
-def _seq_coord(monkeypatch, sequencing, self_closing_ids=()):
-    config = SimpleNamespace(
-        rain_delay_until=None,
-        zone_sequencing=sequencing,
-        live_estimate_enabled=False,
-    )
-    coord = _coord(monkeypatch, config=config)
-    ids = set(self_closing_ids)
-    coord._sc_is_self_closing = Mock(side_effect=lambda z: z.get(const.ZONE_ID) in ids)
-    return coord
-
-
-def test_master_cycle_seconds_sums_for_sequential(monkeypatch):
-    """R4 regression: back-to-back zones need the SUM, not the longest zone.
-
-    With max(), 3x300s shut the master off at 300s of a 900s cycle — zones 2
-    and 3 then opened against a dead pump, delivered nothing, and still credited
-    their buckets.
-    """
-    coord = _seq_coord(monkeypatch, const.CONF_ZONE_SEQUENCING_SEQUENTIAL)
-    zones = [
-        _timed_zone(**{const.ZONE_ID: 1, const.ZONE_DURATION: 300}),
-        _timed_zone(**{const.ZONE_ID: 2, const.ZONE_DURATION: 300}),
-        _timed_zone(**{const.ZONE_ID: 3, const.ZONE_DURATION: 300}),
-    ]
-    assert coord._master_cycle_seconds(zones) == 900
-
-
-def test_master_cycle_seconds_sums_for_rotating(monkeypatch):
-    """Rotating also runs zones back-to-back (in slices)."""
-    coord = _seq_coord(monkeypatch, const.CONF_ZONE_SEQUENCING_ROTATING)
-    zones = [
-        _timed_zone(**{const.ZONE_ID: 1, const.ZONE_DURATION: 120}),
-        _timed_zone(**{const.ZONE_ID: 2, const.ZONE_DURATION: 240}),
-    ]
-    assert coord._master_cycle_seconds(zones) == 360
-
-
-def test_master_cycle_seconds_keeps_max_for_parallel(monkeypatch):
-    """Parallel zones really do overlap — max is correct and must not regress."""
-    coord = _seq_coord(monkeypatch, const.CONF_ZONE_SEQUENCING_PARALLEL)
-    zones = [
-        _timed_zone(**{const.ZONE_ID: 1, const.ZONE_DURATION: 120}),
-        _timed_zone(**{const.ZONE_ID: 2, const.ZONE_DURATION: 240}),
-    ]
-    assert coord._master_cycle_seconds(zones) == 240
-
-
-def test_master_cycle_seconds_handles_no_zones(monkeypatch):
-    coord = _seq_coord(monkeypatch, const.CONF_ZONE_SEQUENCING_SEQUENTIAL)
-    assert coord._master_cycle_seconds([]) == 0.0
-
-
-def test_self_closing_zones_are_concurrent_not_summed(monkeypatch):
-    """Self-closing runs are fire-and-forget (hardware owns the close), so they
-    overlap each other AND the linked sequence — summing them dead-heads the pump.
-
-    2 SC x 600s + 2 linked x 300s sequential: the cycle really ends at 600s
-    (max(SC group=600, linked group=600)); summing all four gives 1800s, i.e.
-    20 minutes of the pump running against closed valves.
-    """
-    coord = _seq_coord(
-        monkeypatch, const.CONF_ZONE_SEQUENCING_SEQUENTIAL, self_closing_ids={10, 11}
-    )
-    zones = [
-        _timed_zone(**{const.ZONE_ID: 10, const.ZONE_DURATION: 600}),
-        _timed_zone(**{const.ZONE_ID: 11, const.ZONE_DURATION: 600}),
-        _timed_zone(**{const.ZONE_ID: 1, const.ZONE_DURATION: 300}),
-        _timed_zone(**{const.ZONE_ID: 2, const.ZONE_DURATION: 300}),
-    ]
-    assert coord._master_cycle_seconds(zones) == 600
-
-
-def test_self_closing_only_cycle_uses_the_longest_zone(monkeypatch):
-    """4 SC zones all start together — the cycle is 600s, not 2400s."""
-    coord = _seq_coord(
-        monkeypatch,
-        const.CONF_ZONE_SEQUENCING_SEQUENTIAL,
-        self_closing_ids={1, 2, 3, 4},
-    )
-    zones = [
-        _timed_zone(**{const.ZONE_ID: i, const.ZONE_DURATION: 600})
-        for i in (1, 2, 3, 4)
-    ]
-    assert coord._master_cycle_seconds(zones) == 600
-
-
-def test_linked_sequence_wins_when_it_outlasts_self_closing(monkeypatch):
-    """The cycle ends at the LATER group, whichever that is."""
-    coord = _seq_coord(
-        monkeypatch, const.CONF_ZONE_SEQUENCING_SEQUENTIAL, self_closing_ids={10}
-    )
-    zones = [
-        _timed_zone(**{const.ZONE_ID: 10, const.ZONE_DURATION: 100}),
-        _timed_zone(**{const.ZONE_ID: 1, const.ZONE_DURATION: 300}),
-        _timed_zone(**{const.ZONE_ID: 2, const.ZONE_DURATION: 300}),
-    ]
-    assert coord._master_cycle_seconds(zones) == 600
-
-
 @pytest.mark.asyncio
-async def test_sequential_cycle_notes_the_full_duration(monkeypatch):
-    """End-to-end: the scheduled path must note 900s, not 300s."""
+async def test_sequential_dispatch_leaves_a_master_hold_behind(monkeypatch):
+    """The scheduled path must hand the run a master HOLD, not a predicted window.
+
+    The dispatcher's own cycle hold is released when it returns; the sequencing
+    task's hold must outlive it, or the pump would switch off the moment dispatch
+    finished — regardless of how long the zones actually take.
+    """
     config = SimpleNamespace(
         rain_delay_until=None,
         zone_sequencing=const.CONF_ZONE_SEQUENCING_SEQUENTIAL,
         live_estimate_enabled=False,
+        master_entity="switch.pump",
+        master_off_after=True,
+        master_settle_seconds=0,
+        master_kick_enabled=False,
+        master_kick_pause_seconds=0,
     )
     zones = [
         _timed_zone(**{const.ZONE_ID: 1, const.ZONE_DURATION: 300}),
@@ -392,10 +303,78 @@ async def test_sequential_cycle_notes_the_full_duration(monkeypatch):
     coord._apply_live_durations = AsyncMock(side_effect=lambda zs: zs)
     coord._apply_soil_moisture_veto = AsyncMock(side_effect=lambda zs: zs)
     coord._sc_is_self_closing = Mock(return_value=False)
-    coord.async_master_begin_cycle = AsyncMock()
     coord.async_master_schedule_off = AsyncMock()
-    coord._master_note_run = Mock()
 
     await coord._irrigate_linked_entities()
 
-    coord._master_note_run.assert_called_once_with(900)
+    holds = coord.master_holds()
+    assert any(
+        t.startswith("seq:") for t in holds
+    ), f"sequencing task holds no master token: {holds}"
+    assert not any(
+        t.startswith("cycle:") for t in holds
+    ), "dispatch hold should be released once the work holds its own"
+
+
+@pytest.mark.asyncio
+async def test_master_stays_up_while_any_hold_remains(monkeypatch):
+    """The off-timer firing early is now harmless — the whole point of holds."""
+    coord = _coord(monkeypatch)
+    coord.store.config.master_entity = "switch.pump"
+    coord.store.config.master_off_after = True
+    coord._master_holds = {"zone:1"}
+    coord._master_turn = AsyncMock()
+    coord._master_off_deadline = coord._master_now() - timedelta(seconds=1)
+    captured = {}
+
+    def _capture(hass, delay, cb):
+        captured["cb"] = cb
+        return lambda: None
+
+    monkeypatch.setattr(
+        "custom_components.smart_irrigation.master.async_call_later", _capture
+    )
+
+    await coord.async_master_schedule_off()
+    # Deadline is already in the past: without holds this would power the master
+    # off. The hold must veto it.
+    await captured["cb"](None)
+
+    coord._master_turn.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_releasing_the_last_hold_collapses_a_stale_prediction(monkeypatch):
+    """A leftover over-long deadline must not keep the pump running once nothing
+    holds the master — collapsing it is what fixes the dead-heading."""
+    coord = _coord(monkeypatch)
+    coord.store.config.master_entity = "switch.pump"
+    coord.store.config.master_off_after = True
+    coord._master_holds = {"zone:1"}
+    coord.async_master_schedule_off = AsyncMock()
+    far_future = coord._master_now() + timedelta(hours=4)
+    coord._master_off_deadline = far_future
+
+    await coord.async_master_release("zone:1")
+
+    assert coord._master_off_deadline < far_future
+    assert coord._master_off_deadline <= coord._master_now() + timedelta(
+        seconds=const.MASTER_RELEASE_GRACE_SECONDS + 1
+    )
+
+
+@pytest.mark.asyncio
+async def test_release_with_other_holds_outstanding_keeps_the_deadline(monkeypatch):
+    """Only the LAST release may collapse; otherwise a finishing zone would cut
+    the pump under a zone still running."""
+    coord = _coord(monkeypatch)
+    coord.store.config.master_entity = "switch.pump"
+    coord._master_holds = {"zone:1", "zone:2"}
+    coord.async_master_schedule_off = AsyncMock()
+    far_future = coord._master_now() + timedelta(hours=4)
+    coord._master_off_deadline = far_future
+
+    await coord.async_master_release("zone:1")
+
+    assert coord._master_off_deadline == far_future
+    coord.async_master_schedule_off.assert_not_awaited()

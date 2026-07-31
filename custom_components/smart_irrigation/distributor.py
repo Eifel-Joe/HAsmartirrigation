@@ -187,22 +187,43 @@ class DistributorMixin:
     def _dist_master_off_after(self) -> bool:
         return bool(getattr(self._master_cfg(), const.CONF_MASTER_OFF_AFTER, False))
 
-    def _distributor_concurrent(self) -> bool:
+    @staticmethod
+    def _dist_master_token(distributor: dict) -> str:
+        """Master-hold token for this distributor's in-flight sweep."""
+        return f"dist:{distributor.get('id')}"
+
+    def _dist_foreign_master_holds(self, distributor: dict) -> bool:
+        """True when a consumer OTHER than this sweep is holding the master."""
+        own = self._dist_master_token(distributor)
+        return any(token != own for token in self._master_hold_set())
+
+    def _distributor_concurrent(self, distributor: dict | None = None) -> bool:
         """True when the distributor must keep the shared master powered through its
-        pauses: parallel zone_sequencing (other zones run at once), OR a normal-zone
-        run has already claimed the master (a future off-deadline is set), i.e. a
-        mixed scheduled run. False for a solo sequential/rotating distributor run,
-        where per-pause master cycling is the configured behaviour."""
+        pauses: parallel zone_sequencing (other zones run at once), OR another
+        consumer has already claimed the master, i.e. a mixed scheduled run. False
+        for a solo sequential/rotating distributor run, where per-pause master
+        cycling is the configured behaviour.
+
+        Normal-zone runs now signal their claim with a master HOLD rather than by
+        noting a future off-deadline (see MasterMixin), so holds are checked first;
+        the legacy deadline probe stays for any consumer still using it.
+        """
         if self.store.config.zone_sequencing == const.CONF_ZONE_SEQUENCING_PARALLEL:
+            return True
+        if distributor is not None and self._dist_foreign_master_holds(distributor):
             return True
         deadline = getattr(self, "_master_off_deadline", None)
         return deadline is not None and self._master_now() < deadline
 
     async def _dist_master_start(self, distributor: dict) -> None:
-        """Bring the global master up for the cycle (idempotent on+kick+settle)."""
+        """Bring the global master up for the cycle (idempotent on+kick+settle).
+
+        Takes a hold for the sweep so a concurrent consumer can never switch the
+        master off underneath it, and so this sweep is visible to the others.
+        """
         if not self._dist_uses_master(distributor):
             return
-        await self.async_master_begin_cycle()
+        await self.async_master_acquire(self._dist_master_token(distributor))
 
     async def _dist_master_window_off(
         self, distributor: dict, concurrent: bool
@@ -267,6 +288,20 @@ class DistributorMixin:
         """
         if not self._dist_uses_master(distributor):
             self._master_on = False
+            return
+        # Drop this sweep's own hold, then let the shared refcount speak: if ANY
+        # other consumer still holds the master (a concurrent normal-zone run, a
+        # self-closing run, a sibling sweep) we must not hard-cut it here — their
+        # release ends the cycle. This supersedes the pre_deadline/own_deadline
+        # probes below for every converted consumer, which only ever saw a claim
+        # expressed as a noted deadline; normal-zone runs no longer note one.
+        #
+        # Plain discard, NOT async_master_release: this method owns the terminal
+        # decision (it may power the master off synchronously so a back-to-back
+        # sibling re-arms it), and going through release would schedule a
+        # redundant off-timer on top of that.
+        self._master_hold_set().discard(self._dist_master_token(distributor))
+        if self._dist_foreign_master_holds(distributor):
             return
         now = self._master_now()
         current = getattr(self, "_master_off_deadline", None)
@@ -400,7 +435,7 @@ class DistributorMixin:
             # the caller can gate the days-since reset (review finding A).
             if await self.async_run_distributor_cycle(
                 dist,
-                concurrent=self._distributor_concurrent(),
+                concurrent=self._distributor_concurrent(dist),
                 only_zone_ids=None if target is None else list(target),
                 duration_override=duration_override,
                 force_water=manual,
