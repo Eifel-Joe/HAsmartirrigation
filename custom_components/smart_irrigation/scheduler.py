@@ -59,6 +59,30 @@ class RecurringScheduleManager:
                 self._on_config_updated,
             )
 
+    async def async_unload(self) -> None:
+        """Release every HA listener this manager registered.
+
+        MUST be called from ``SmartIrrigationCoordinator.async_unload``. The
+        trackers below are HA event listeners (``async_track_time_change`` /
+        ``async_track_sunrise`` / ``async_track_point_in_utc_time``) and a
+        dispatcher connection; none of them are tied to the config entry, so
+        nothing cancels them implicitly. A config-entry reload builds a NEW
+        coordinator and a NEW manager, which arms a fresh set — so without this
+        teardown the OLD manager's listeners stay live, still bound to the OLD
+        coordinator, and every schedule fires once per surviving manager
+        (N reloads => N+1 irrigation runs per schedule).
+        See tests/test_run_lifecycle_safety.py.
+        """
+        for tracker in self._schedule_trackers.values():
+            if tracker:
+                tracker()
+        self._schedule_trackers.clear()
+        if self._unsub_rearm is not None:
+            self._unsub_rearm()
+            self._unsub_rearm = None
+        # Fired-occurrence memory is per-manager; a fresh manager re-derives it.
+        self._finish_last_target.clear()
+
     @callback
     def _on_config_updated(self, *_args) -> None:
         """React to config/duration changes by re-arming finish schedules."""

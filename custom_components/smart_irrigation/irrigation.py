@@ -520,8 +520,7 @@ class IrrigationRunnerMixin:
         # Master (pump): power on before the first zone; record each run's end so
         # master_off (if enabled) can fire after the last zone completes.
         await self.async_master_begin_cycle()
-        for z in zones_to_irrigate:
-            self._master_note_run(float(z.get(const.ZONE_DURATION) or 0))
+        self._master_note_run(self._master_cycle_seconds(zones_to_irrigate))
         await self.async_master_schedule_off()
 
         # Self-closing zones delegate the run to their own service (the valve
@@ -535,10 +534,19 @@ class IrrigationRunnerMixin:
             # Self-closing zones were dispatched above => water WAS delivered.
             return True
 
+        # hass.async_create_task (not bare asyncio.create_task): the event loop
+        # keeps only a WEAK reference to a bare task, so a long irrigation run —
+        # which holds valves open — can be garbage-collected mid-execution. A
+        # tracked task is also cancelled on shutdown and has its exceptions
+        # logged. See tests/test_run_lifecycle_safety.py.
         if sequencing == const.CONF_ZONE_SEQUENCING_SEQUENTIAL:
-            asyncio.create_task(self._irrigate_zones_sequential(zones_to_irrigate))
+            self.hass.async_create_task(
+                self._irrigate_zones_sequential(zones_to_irrigate)
+            )
         elif sequencing == const.CONF_ZONE_SEQUENCING_ROTATING:
-            asyncio.create_task(self._irrigate_zones_rotating(zones_to_irrigate))
+            self.hass.async_create_task(
+                self._irrigate_zones_rotating(zones_to_irrigate)
+            )
         else:
             await self._irrigate_zones_parallel(zones_to_irrigate)
         # Past the veto+live gates with a non-empty set: at least one real run
@@ -842,6 +850,11 @@ class IrrigationRunnerMixin:
         # volume-bounded (unknown finish) → no end time for the countdown.
         self._register_active_run(zone_id, max_seconds, has_end=not real_flow)
         loop = asyncio.get_running_loop()
+        # The valve is open from here on. Every exit path — normal, exception, or
+        # CancelledError at shutdown/reload — MUST close it again, so the close is
+        # mirrored in the finally below and this flag keeps the happy path from
+        # closing twice. See tests/test_run_lifecycle_safety.py.
+        valve_closed = False
         try:
             while elapsed < max_seconds and delivered < target_volume:
                 step = min(const.FLOW_POLL_INTERVAL, max_seconds - elapsed)
@@ -888,6 +901,7 @@ class IrrigationRunnerMixin:
             await self.hass.services.async_call(
                 domain, "turn_off", {"entity_id": entity_id}
             )
+            valve_closed = True
             if real_flow:
                 # review finding G: a volume-bounded (real_flow) run opened with the
                 # ~maximum_duration safety window as its SI-driven suppression (the finish
@@ -959,7 +973,30 @@ class IrrigationRunnerMixin:
                 trigger=trigger,
             )
         finally:
-            self._unregister_active_run(zone_id)
+            # Safety net: if we never reached the normal close (exception, or a
+            # CancelledError from HA shutting down / reloading mid-run) the valve
+            # is still physically open and nothing else will close it — unload
+            # does not stop runs. Best-effort, and never allowed to mask the
+            # original failure; the nested finally keeps the run marker cleanup
+            # reachable even if the close itself is cancelled.
+            try:
+                if not valve_closed:
+                    _LOGGER.warning(
+                        "Zone %s run ended without closing valve '%s' — closing it now",
+                        zone_id,
+                        entity_id,
+                    )
+                    await self.hass.services.async_call(
+                        domain, "turn_off", {"entity_id": entity_id}
+                    )
+            except Exception:  # noqa: BLE001 - cleanup must not mask the real error
+                _LOGGER.exception(
+                    "Zone %s: failed to close valve '%s' during run cleanup",
+                    zone_id,
+                    entity_id,
+                )
+            finally:
+                self._unregister_active_run(zone_id)
 
     async def _irrigate_zone_flow_slot(
         self,
@@ -978,70 +1015,95 @@ class IrrigationRunnerMixin:
         self._note_si_valve(zone_id, max_seconds)
         await self.hass.services.async_call(domain, "turn_on", {"entity_id": entity_id})
 
-        # Iter FM-4 (unified flow engine, REGEL-8 sister path to _run_valve_metered):
-        # each rotating slot is its own valve-open window, so it gets its own FlowMeter
-        # seeded at the open read (rate / per-run counter / lifetime totalizer — the type
-        # resolved from the per-zone override or the already-learned streak). Replaces the
-        # retired _read_flow_increment / _flow_last_total delta baseline; also captures the
-        # slot's first interval (the old path lost it). The rotating path does not
-        # self-update the cross-run streak (its multi-window structure has no single open
-        # to observe); it honours an explicit override or a streak learned elsewhere.
-        # See test_metered_run rotating coverage.
-        resolved = flow_learn_resolve(
-            zone.get(const.ZONE_FLOW_COUNTER_TYPE, "auto"),
-            int(zone.get(const.ZONE_FLOW_RESET_STREAK) or 0),
-        )
-        meter = FlowMeter(
-            resolved,
-            near_zero_frac=const.FLOW_NEAR_ZERO_FRAC,
-            near_zero_floor=const.FLOW_NEAR_ZERO_FLOOR,
-            max_gap_s=const.FLOW_MAX_GAP_SECONDS,
-        )
-        open_sample = self._read_flow_sample(zone[const.ZONE_FLOW_SENSOR])
-        if open_sample is not None:
-            meter.sample(*open_sample, at=0.0)  # valve-open seed
-
         accumulated = 0.0
-        elapsed = 0.0
-
-        while elapsed < max_seconds and accumulated < remaining_volume:
-            stopped = await self._sleep_or_stopped(zone_id, const.FLOW_POLL_INTERVAL)
-            elapsed += const.FLOW_POLL_INTERVAL
-            sample = self._read_flow_sample(zone[const.ZONE_FLOW_SENSOR])
-            if sample is not None:
-                meter.sample(*sample, at=elapsed)
-            accumulated = meter.delivered() or 0.0
-            _LOGGER.debug(
-                "Zone %s slot: %.2f / %.2f L delivered",
-                zone_id,
-                accumulated,
-                remaining_volume,
+        # Valve is open — see _run_valve_metered: every exit path must close it,
+        # including a raise from the meter seed below (a flaky flow sensor) or a
+        # CancelledError at shutdown. The try starts immediately after the open.
+        valve_closed = False
+        try:
+            # Iter FM-4 (unified flow engine, REGEL-8 sister path to _run_valve_metered):
+            # each rotating slot is its own valve-open window, so it gets its own FlowMeter
+            # seeded at the open read (rate / per-run counter / lifetime totalizer — the type
+            # resolved from the per-zone override or the already-learned streak). Replaces the
+            # retired _read_flow_increment / _flow_last_total delta baseline; also captures the
+            # slot's first interval (the old path lost it). The rotating path does not
+            # self-update the cross-run streak (its multi-window structure has no single open
+            # to observe); it honours an explicit override or a streak learned elsewhere.
+            # See test_metered_run rotating coverage.
+            resolved = flow_learn_resolve(
+                zone.get(const.ZONE_FLOW_COUNTER_TYPE, "auto"),
+                int(zone.get(const.ZONE_FLOW_RESET_STREAK) or 0),
             )
-            if stopped:
-                break
-
-        await self.hass.services.async_call(
-            domain, "turn_off", {"entity_id": entity_id}
-        )
-        # Review finding G (REGEL-8 sister path to _run_valve_metered): the open
-        # noted the full slot cap (line 978), but a volume-bounded slot usually
-        # closes early — shrink the observed-watering suppression window to
-        # now+margin at slot close so a genuine external run of this zone's
-        # observed_entity in the tail is not silently un-credited. A rotating slot
-        # is always a flow slot, so this is unconditional.
-        # siehe test_metered_run.py::test_flow_slot_tightens_si_window_on_close
-        self._note_si_valve(zone_id, 0)
-        if meter.delivered() is None:
-            # A configured flow sensor that produced NO readings this slot degraded
-            # silently to time-based crediting (per-tick reads are DEBUG). Surface it
-            # once so a dead/misconfigured sensor isn't invisible. See Fix FM-6.
-            _LOGGER.warning(
-                "Rotating zone %s flow sensor '%s' produced no readings this slot; "
-                "the slot volume falls back to a time-based estimate",
-                zone_id,
-                zone[const.ZONE_FLOW_SENSOR],
+            meter = FlowMeter(
+                resolved,
+                near_zero_frac=const.FLOW_NEAR_ZERO_FRAC,
+                near_zero_floor=const.FLOW_NEAR_ZERO_FLOOR,
+                max_gap_s=const.FLOW_MAX_GAP_SECONDS,
             )
-        return accumulated
+            open_sample = self._read_flow_sample(zone[const.ZONE_FLOW_SENSOR])
+            if open_sample is not None:
+                meter.sample(*open_sample, at=0.0)  # valve-open seed
+
+            elapsed = 0.0
+
+            while elapsed < max_seconds and accumulated < remaining_volume:
+                stopped = await self._sleep_or_stopped(
+                    zone_id, const.FLOW_POLL_INTERVAL
+                )
+                elapsed += const.FLOW_POLL_INTERVAL
+                sample = self._read_flow_sample(zone[const.ZONE_FLOW_SENSOR])
+                if sample is not None:
+                    meter.sample(*sample, at=elapsed)
+                accumulated = meter.delivered() or 0.0
+                _LOGGER.debug(
+                    "Zone %s slot: %.2f / %.2f L delivered",
+                    zone_id,
+                    accumulated,
+                    remaining_volume,
+                )
+                if stopped:
+                    break
+
+            await self.hass.services.async_call(
+                domain, "turn_off", {"entity_id": entity_id}
+            )
+            valve_closed = True
+            # Review finding G (REGEL-8 sister path to _run_valve_metered): the open
+            # noted the full slot cap, but a volume-bounded slot usually
+            # closes early — shrink the observed-watering suppression window to
+            # now+margin at slot close so a genuine external run of this zone's
+            # observed_entity in the tail is not silently un-credited. A rotating slot
+            # is always a flow slot, so this is unconditional.
+            # siehe test_metered_run.py::test_flow_slot_tightens_si_window_on_close
+            self._note_si_valve(zone_id, 0)
+            if meter.delivered() is None:
+                # A configured flow sensor that produced NO readings this slot degraded
+                # silently to time-based crediting (per-tick reads are DEBUG). Surface it
+                # once so a dead/misconfigured sensor isn't invisible. See Fix FM-6.
+                _LOGGER.warning(
+                    "Rotating zone %s flow sensor '%s' produced no readings this slot; "
+                    "the slot volume falls back to a time-based estimate",
+                    zone_id,
+                    zone[const.ZONE_FLOW_SENSOR],
+                )
+            return accumulated
+        finally:
+            if not valve_closed:
+                try:
+                    _LOGGER.warning(
+                        "Zone %s slot ended without closing valve '%s' — closing it now",
+                        zone_id,
+                        entity_id,
+                    )
+                    await self.hass.services.async_call(
+                        domain, "turn_off", {"entity_id": entity_id}
+                    )
+                except Exception:  # noqa: BLE001 - must not mask the real error
+                    _LOGGER.exception(
+                        "Zone %s: failed to close valve '%s' during slot cleanup",
+                        zone_id,
+                        entity_id,
+                    )
 
     async def _record_rotating_stop(self, zid, volume_l: float, elapsed_s: float):
         """Log a user-stopped rotating run as a partial (water kept, fault cleared)."""
@@ -1281,26 +1343,51 @@ class IrrigationRunnerMixin:
                     await self.hass.services.async_call(
                         domain, "turn_on", {"entity_id": entity_id}
                     )
-                    if await self._confirm_valve_running(zid, entity_id) is False:
-                        # Unconfirmed valve: water the slot anyway rather than
-                        # dropping the zone — the valve may be open but slow to
-                        # report. Surface it as a warning only.
-                        _LOGGER.warning(
-                            "Zone %s valve '%s' did not confirm an on-state "
-                            "within %ss; watering the rotation slot anyway",
-                            zid,
-                            entity_id,
-                            const.VALVE_CONFIRM_TIMEOUT,
+                    # Valve open — mirror the close in a finally so a raise from
+                    # the confirm poll or a CancelledError at shutdown cannot
+                    # strand it open (see _run_valve_metered).
+                    slot_valve_closed = False
+                    try:
+                        if await self._confirm_valve_running(zid, entity_id) is False:
+                            # Unconfirmed valve: water the slot anyway rather than
+                            # dropping the zone — the valve may be open but slow to
+                            # report. Surface it as a warning only.
+                            _LOGGER.warning(
+                                "Zone %s valve '%s' did not confirm an on-state "
+                                "within %ss; watering the rotation slot anyway",
+                                zid,
+                                entity_id,
+                                const.VALVE_CONFIRM_TIMEOUT,
+                            )
+                        t0 = loop.time()
+                        slot_stopped = await self._sleep_or_stopped(zid, slot)
+                        if slot_stopped:
+                            # Count only the time actually waited so the credited
+                            # water stays honest.
+                            slot = min(slot, loop.time() - t0)
+                        await self.hass.services.async_call(
+                            domain, "turn_off", {"entity_id": entity_id}
                         )
-                    t0 = loop.time()
-                    slot_stopped = await self._sleep_or_stopped(zid, slot)
-                    if slot_stopped:
-                        # Count only the time actually waited so the credited
-                        # water stays honest.
-                        slot = min(slot, loop.time() - t0)
-                    await self.hass.services.async_call(
-                        domain, "turn_off", {"entity_id": entity_id}
-                    )
+                        slot_valve_closed = True
+                    finally:
+                        if not slot_valve_closed:
+                            try:
+                                _LOGGER.warning(
+                                    "Zone %s rotation slot ended without closing "
+                                    "valve '%s' — closing it now",
+                                    zid,
+                                    entity_id,
+                                )
+                                await self.hass.services.async_call(
+                                    domain, "turn_off", {"entity_id": entity_id}
+                                )
+                            except Exception:  # noqa: BLE001 - must not mask the error
+                                _LOGGER.exception(
+                                    "Zone %s: failed to close valve '%s' during "
+                                    "rotation-slot cleanup",
+                                    zid,
+                                    entity_id,
+                                )
                     timed_remaining[zid] -= slot
                     # Credit this slot's water continuously (absolute bucket
                     # recompute + per-slot litre delta).
@@ -1551,6 +1638,38 @@ class IrrigationRunnerMixin:
 
     # --- Run history + cumulative water usage (WS-2) ------------------------
 
+    def _master_cycle_seconds(self, zones: list) -> float:
+        """Wall-clock seconds the master (pump / main valve) must stay powered.
+
+        ``_master_note_run`` only ever EXTENDS a shared deadline via ``max()``, so
+        noting each zone's own duration separately yields ``max(durations)`` —
+        correct only when the zones run at the SAME time. Sequential and rotating
+        sequencing run them back-to-back, so the cycle actually lasts the SUM.
+        With the old per-zone notes the master switched off after the longest
+        single zone while later zones were still opening their valves: they
+        delivered nothing (no pressure) yet still credited their buckets from
+        ``throughput × time``, so the garden silently under-watered AND the ledger
+        claimed it was satisfied. Verified: 3 zones × 300 s sequential shut the
+        master off at 300 s of a 900 s cycle.
+
+        Deliberately NOT modelled here (see the 2026-07-31 review, R4):
+        rotating mode's ``min_absorption_time`` waits stretch the wall clock past
+        the sum, and a real-flow zone stops on measured volume / ``maximum_duration``
+        rather than ``ZONE_DURATION`` — so an under-delivering flow zone can still
+        outlast this estimate. Both need a deadline that is refreshed *during* the
+        run rather than predicted up front.
+        """
+        durations = [float(z.get(const.ZONE_DURATION) or 0) for z in zones]
+        if not durations:
+            return 0.0
+        sequencing = getattr(self.store.config, "zone_sequencing", None)
+        if sequencing in (
+            const.CONF_ZONE_SEQUENCING_SEQUENTIAL,
+            const.CONF_ZONE_SEQUENCING_ROTATING,
+        ):
+            return sum(durations)
+        return max(durations)
+
     def _throughput_lpm(self, zone: dict) -> float:
         """The zone's configured throughput in L/min (volume accounting unit)."""
         throughput = zone.get(const.ZONE_THROUGHPUT) or 0.0
@@ -1675,7 +1794,9 @@ class IrrigationRunnerMixin:
                 zone[const.ZONE_ID],
                 "flow meter" if real_flow else "timed",
             )
-            asyncio.create_task(
+            # Tracked task — see _irrigate_linked_entities: a bare task holding a
+            # valve open is GC-able mid-run and invisible to HA shutdown.
+            self.hass.async_create_task(
                 self._run_valve_metered(
                     zone,
                     entity_id,
@@ -1712,8 +1833,7 @@ class IrrigationRunnerMixin:
         if zones_to_irrigate:
             # Master (pump): power on before the first zone; record each run's end.
             await self.async_master_begin_cycle()
-            for z in zones_to_irrigate:
-                self._master_note_run(float(z.get(const.ZONE_DURATION) or 0))
+            self._master_note_run(self._master_cycle_seconds(zones_to_irrigate))
             await self.async_master_schedule_off()
             for z in [z for z in zones_to_irrigate if self._sc_is_self_closing(z)]:
                 await self.async_run_self_closing(z, trigger="manual")
@@ -1722,10 +1842,15 @@ class IrrigationRunnerMixin:
             ]
             if remaining:
                 sequencing = self.store.config.zone_sequencing
+                # Tracked tasks — see _irrigate_linked_entities.
                 if sequencing == const.CONF_ZONE_SEQUENCING_SEQUENTIAL:
-                    asyncio.create_task(self._irrigate_zones_sequential(remaining))
+                    self.hass.async_create_task(
+                        self._irrigate_zones_sequential(remaining)
+                    )
                 elif sequencing == const.CONF_ZONE_SEQUENCING_ROTATING:
-                    asyncio.create_task(self._irrigate_zones_rotating(remaining))
+                    self.hass.async_create_task(
+                        self._irrigate_zones_rotating(remaining)
+                    )
                 else:
                     await self._irrigate_zones_parallel(remaining)
         else:

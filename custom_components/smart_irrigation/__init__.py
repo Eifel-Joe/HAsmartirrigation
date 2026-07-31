@@ -1471,6 +1471,16 @@ class SmartIrrigationCoordinator(
         # Cancel the experimental observed-watering valve subscription.
         self.async_teardown_observed_watering()
 
+        # Release the recurring-schedule listeners. These are plain HA event
+        # listeners (not entry-scoped), so nothing else cancels them: a reload
+        # would otherwise leave the previous manager armed against the previous
+        # coordinator and fire every schedule twice. Guarded because a partially
+        # constructed coordinator must still unload cleanly (a failed unload is
+        # only recoverable by a full HA restart).
+        manager = getattr(self, "recurring_schedule_manager", None)
+        if manager is not None:
+            await manager.async_unload()
+
         # E4: cancel all opt-in distributor inlet-watch listeners so a reloaded
         # coordinator doesn't leave stale state-change subscriptions behind.
         for unsub in getattr(self, "_dist_inlet_watchers", {}).values():
