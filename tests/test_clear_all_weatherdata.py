@@ -31,6 +31,10 @@ def _coordinator(mappings, zones):
     store.async_get_zones = AsyncMock(return_value=zones)
     store.async_update_mapping = AsyncMock()
     store.async_update_zone = AsyncMock()
+    # Emptying a buffer goes through the synchronous buffer accessor, not a
+    # mapping write — the readings live in store.buffers, apart from the
+    # MappingEntry (see store.set_mapping_buffer).
+    store.set_mapping_buffer = Mock()
     coordinator.store = store
     return coordinator, store
 
@@ -51,10 +55,10 @@ class TestClearAllWeatherData:
             await coordinator._async_clear_all_weatherdata()
 
         # Every sensor group's buffer is emptied.
-        assert store.async_update_mapping.await_count == 2
-        for call in store.async_update_mapping.await_args_list:
-            _mapping_id, changes = call.args
-            assert changes[const.MAPPING_DATA] == []
+        assert store.set_mapping_buffer.call_count == 2
+        for call in store.set_mapping_buffer.call_args_list:
+            _mapping_id, readings = call.args
+            assert readings == []
 
         # Every zone is re-anchored AND its derived count cleared.
         assert store.async_update_zone.await_count == 2
@@ -103,5 +107,5 @@ class TestClearAllWeatherData:
         ):
             await coordinator._async_clear_all_weatherdata()
 
-        assert store.async_update_mapping.await_count == 1
+        assert store.set_mapping_buffer.call_count == 1
         store.async_update_zone.assert_not_called()

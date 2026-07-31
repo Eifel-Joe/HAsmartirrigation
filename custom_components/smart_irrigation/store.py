@@ -8,6 +8,7 @@ from collections.abc import MutableMapping
 from typing import cast
 
 import attr
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 from homeassistant.loader import bind_hass
@@ -164,7 +165,24 @@ _LOGGER = logging.getLogger(__name__)
 DATA_REGISTRY = f"{DOMAIN}_storage"
 STORAGE_KEY = f"{DOMAIN}.storage"
 STORAGE_VERSION = 12
-SAVE_DELAY = 0
+# Coalescing window (seconds) for the whole-document store write. Every
+# async_schedule_save() reserializes the ENTIRE store — config, zones, modules
+# and every sensor group's reading buffer — and replaces the file, so at 0 a
+# burst of writes becomes one full-file rewrite each (an SD-card killer).
+# HA's Store.async_delay_save re-evaluates the data callback at write time, so a
+# delayed save is never stale; it keeps the earliest pending timer rather than
+# resetting it, so continuous churn cannot postpone the write indefinitely; and
+# it flushes on EVENT_HOMEASSISTANT_FINAL_WRITE, so a clean restart loses
+# nothing. Only a hard crash can lose up to this window.
+SAVE_DELAY = 30
+
+# How often (seconds) unpersisted sensor readings are written out when nothing
+# else happens to write. Appends go to SmartIrrigationStorage.buffers and do NOT
+# schedule a save of their own (that is the whole point — see .buffers), so
+# without this timer a quiet install could hold hours of readings in memory only.
+# A clean shutdown flushes regardless (the EVENT_HOMEASSISTANT_STOP listener), so
+# this bounds the hard-crash loss window, not the normal one.
+BUFFER_FLUSH_INTERVAL = 600
 
 
 @attr.s(slots=True, frozen=True)
@@ -262,12 +280,18 @@ class ModuleEntry:
 
 @attr.s(slots=True, frozen=True)
 class MappingEntry:
-    """Mapping storage Entry."""
+    """Mapping storage Entry.
+
+    The reading buffer is deliberately NOT a field here: it lives in
+    ``SmartIrrigationStorage.buffers`` so that appending a reading neither drags
+    the whole configuration through a serialize+replace nor deep-copies the
+    buffer on every ``attr.asdict`` of this entry. It is still persisted into the
+    same document under the same ``data`` key — see ``_data_to_save_full``.
+    """
 
     id = attr.ib(type=int, default=None)
     name = attr.ib(type=str, default=None)
     mappings = attr.ib(type=str, default=None)
-    data = attr.ib(type=str, default="[]")
     data_last_updated = attr.ib(type=datetime, default=None)
     data_last_entry = attr.ib(type=str, default={})
     data_last_calculation = attr.ib(type=str, default={})
@@ -589,6 +613,23 @@ class MigratableStore(Store):
         return data
 
 
+def _as_buffer(value) -> list:
+    """Coerce a stored ``data`` value into a reading buffer.
+
+    Anything that is not a list is treated as "no readings": the field's legacy
+    attrs default was the string ``"[]"``, and one 2026.05 test fixture stores a
+    dict there.
+    """
+    if isinstance(value, list):
+        return value
+    if value not in (None, "", "[]", {}):
+        _LOGGER.warning(
+            "Sensor group reading buffer has unexpected type %s — starting empty",
+            type(value).__name__,
+        )
+    return []
+
+
 class SmartIrrigationStorage:
     """Class to hold Smart Irrigation configuration data."""
 
@@ -600,6 +641,16 @@ class SmartIrrigationStorage:
         self.modules: MutableMapping[ModuleEntry] = {}
         self.mappings: MutableMapping[MappingEntry] = {}
         self.distributors: MutableMapping[DistributorEntry] = {}
+        # mapping id -> that sensor group's rolling reading buffer. Held apart
+        # from MappingEntry so appends cost nothing on disk: they mutate the list
+        # in place, mark it dirty, and let the flush timer (or the next write
+        # somebody else triggers) carry it out. Configuration remains the thing
+        # that gets written promptly.
+        self.buffers: dict[int, list] = {}
+        # True when self.buffers holds rows that are not in the file yet. Read at
+        # write time to decide which payload to emit; see _data_to_save_scheduled.
+        self._buffers_dirty = False
+        self._unsub_stop = None
         self._store = MigratableStore(hass, STORAGE_VERSION, STORAGE_KEY)
 
     async def async_load(self) -> None:
@@ -624,6 +675,7 @@ class SmartIrrigationStorage:
         modules: OrderedDict[str, ModuleEntry] = OrderedDict()
         mappings: OrderedDict[str, MappingEntry] = OrderedDict()
         distributors: OrderedDict[str, DistributorEntry] = OrderedDict()
+        buffers: dict[int, list] = {}
 
         if data is not None:
             config = Config(
@@ -884,11 +936,18 @@ class SmartIrrigationStorage:
                         the_map.pop(MAPPING_MIN_TEMP)
                     if MAPPING_CURRENT_PRECIPITATION not in the_map:
                         the_map[MAPPING_CURRENT_PRECIPITATION] = {}
+                    # The buffer is stored inside the mapping record but lives
+                    # apart from it at runtime (see MappingEntry). Tolerates both
+                    # shapes without a migration: absent (a routine save wrote
+                    # this document) or present (a flush did), plus the legacy
+                    # default of the *string* "[]".
+                    buffers[int(mapping[MAPPING_ID])] = _as_buffer(
+                        mapping.get(MAPPING_DATA)
+                    )
                     mappings[mapping[MAPPING_ID]] = MappingEntry(
                         id=mapping[MAPPING_ID],
                         name=mapping[MAPPING_NAME],
                         mappings=the_map,
-                        data=mapping.get(MAPPING_DATA),
                         data_last_updated=mapping.get(MAPPING_DATA_LAST_UPDATED, None),
                         data_last_entry=mapping.get(MAPPING_DATA_LAST_ENTRY, {}),
                         data_last_calculation=mapping.get(
@@ -931,6 +990,41 @@ class SmartIrrigationStorage:
         self.modules = modules
         self.mappings = mappings
         self.distributors = distributors
+        self.buffers = buffers
+        # Everything just loaded is by definition already on disk.
+        self._buffers_dirty = False
+        self.async_ensure_stop_listener()
+
+    @callback
+    def async_ensure_stop_listener(self) -> None:
+        """Arm the shutdown flush if it is not already armed. Idempotent.
+
+        A clean shutdown must not lose the buffered readings, which no append ever
+        scheduled a write for. HA's own Store only flushes a save that is already
+        PENDING, so this listener is what makes "a restart loses nothing" true for
+        the buffer: it makes one pending, which Store then writes on
+        EVENT_HOMEASSISTANT_FINAL_WRITE.
+
+        STOP, not FINAL_WRITE: hass is already `stopping` here, so
+        async_delay_save records the payload and arms Store's own final-write
+        listener instead of a loop timer that may never fire. Writing the file
+        ourselves during FINAL_WRITE would instead race that listener — the first
+        of the two to run tears down a one-time subscription HA has already
+        consumed, which logs a core error on every shutdown.
+
+        Called from ``async_load`` and again from ``async_get_registry`` on every
+        setup. The second call is the one that matters: ``async_delete`` drops the
+        listener, but the storage instance is cached in ``hass.data`` for the
+        lifetime of hass and ``async_load`` never runs twice — so re-adding the
+        integration without restarting HA would otherwise leave it permanently
+        unarmed, silently downgrading "a clean restart loses nothing" to "loses up
+        to BUFFER_FLUSH_INTERVAL". The ``is None`` guard keeps repeat calls from
+        stacking duplicate subscriptions.
+        """
+        if self._unsub_stop is None:
+            self._unsub_stop = self.hass.bus.async_listen_once(
+                EVENT_HOMEASSISTANT_STOP, self._async_flush_on_stop
+            )
 
     async def set_up_factory_defaults(self):
         """Set up factory default zones, modules, and mappings if they do not exist."""
@@ -1035,15 +1129,75 @@ class SmartIrrigationStorage:
     @callback
     def async_schedule_save(self) -> None:
         """Schedule saving the registry of Smart Irrigation."""
-        self._store.async_delay_save(self._data_to_save, SAVE_DELAY)
+        self._store.async_delay_save(self._data_to_save_scheduled, SAVE_DELAY)
 
     async def async_save(self) -> None:
-        """Save the registry of Smart Irrigation."""
-        await self._store.async_save(self._data_to_save())
+        """Save the registry of Smart Irrigation, buffers included."""
+        await self._store.async_save(self._data_to_save_full())
+
+    @callback
+    def async_flush_buffers(self) -> None:
+        """Schedule a write if the reading buffers are not on disk yet.
+
+        The periodic backstop for appends, which never schedule a write of their
+        own. A no-op when nothing has been appended since the last write, so a
+        polled install (one reading an hour) does not turn this into an extra
+        write cadence of its own.
+        """
+        if not self._buffers_dirty:
+            return
+        self.async_schedule_save()
+
+    @callback
+    def _async_flush_on_stop(self, _event) -> None:
+        """Queue the buffered readings for HA's shutdown write."""
+        self._unsub_stop = None
+        if not self._buffers_dirty:
+            return
+        _LOGGER.debug("Queueing buffered sensor readings for the shutdown write")
+        self.async_schedule_save()
+
+    @callback
+    def _data_to_save_scheduled(self) -> dict:
+        """Payload for a *scheduled* save, chosen when the write actually happens.
+
+        The buffer-less payload is emitted ONLY when there are no buffered
+        readings at all, because writing it is not merely "omitting" the buffer —
+        it REMOVES it from the document on disk.
+
+        ⚠️ Do not narrow this to ``self._buffers_dirty``. That was the original
+        form and it silently lost data: the flag means "there are appends not yet
+        written", not "the buffer is in the file". Once a full write cleared it,
+        the next unrelated write (a zone's last_updated, a config change) emitted
+        the buffer-less payload and erased every buffered reading from the file —
+        while leaving the flag clean, so neither ``async_flush_buffers`` nor the
+        shutdown listener would ever put them back. A clean restart then loaded an
+        empty buffer: a whole calculation window of ET gone, silently, which shows
+        up as one under-watered day rather than as an error. Verified against a
+        real config: 305 readings lost across a clean restart.
+
+        Keeping the buffer in every write costs O(buffer) per WRITE, which is fine
+        — Step 4's win is that an append schedules no write at all, so writes stay
+        far rarer than readings. It also restores the invariant the rest of this
+        class depends on: **if the buffer is non-empty and not dirty, it is in the
+        file.**
+        """
+        if self._buffers_dirty or any(self.buffers.values()):
+            return self._data_to_save_full()
+        return self._data_to_save()
 
     @callback
     def _data_to_save(self) -> dict:
-        """Return data for the registry for Smart Irrigation to store in a file."""
+        """Return data for the registry for Smart Irrigation to store in a file.
+
+        WITHOUT the sensor-group reading buffers. ``async_load`` treats a missing
+        ``data`` key as an empty buffer, so this shape needs no migration.
+
+        ⚠️ Writing this payload DELETES the buffer from the stored document — the
+        key is absent, not merely stale. It must therefore only ever be the
+        payload when there are no buffered readings to lose; ``_data_to_save_full``
+        calls it as a base, and ``_data_to_save_scheduled`` owns that decision.
+        """
         store_data = {
             "config": attr.asdict(self.config),
         }
@@ -1058,10 +1212,33 @@ class SmartIrrigationStorage:
         ]
         return store_data
 
+    @callback
+    def _data_to_save_full(self) -> dict:
+        """The routine payload plus each sensor group's reading buffer.
+
+        Marks the buffers clean: HA evaluates this callback at write time (in the
+        event loop), so by the time it returns, these rows are what is about to
+        hit the file.
+        """
+        store_data = self._data_to_save()
+        for mapping in store_data["mappings"]:
+            mapping[MAPPING_DATA] = self.buffers.get(int(mapping[MAPPING_ID]), [])
+        self._buffers_dirty = False
+        return store_data
+
     async def async_delete(self):
         """Delete config."""
         _LOGGER.warning("Removing Smart Irrigation configuration data!")
         await self._store.async_remove()
+        # async_remove() cancels HA's own pending/shutdown writes so the deleted
+        # file cannot come back. Ours has to go the same way: a buffer left dirty
+        # would otherwise resurrect the whole document — with the configuration
+        # the user just deleted — at the next HA shutdown.
+        if self._unsub_stop is not None:
+            self._unsub_stop()
+            self._unsub_stop = None
+        self.buffers = {}
+        self._buffers_dirty = False
         # self.config = Config()
         # await self.async_factory_default_zones()
         # await self.async_factory_default_modules()
@@ -1279,16 +1456,87 @@ class SmartIrrigationStorage:
         return None
 
     async def async_get_mappings(self):
-        """Get all MappingEntries."""
+        """Get all MappingEntries.
+
+        Buffer-free, like ``get_mapping``: use ``get_mapping_buffer`` for readings.
+        """
         return [attr.asdict(val) for val in self.mappings.values()]
+
+    @callback
+    def get_mapping_buffer(self, mapping_id: int) -> list:
+        """Return a sensor group's reading buffer — the LIVE list, not a copy.
+
+        Callers read it (aggregation, the panel's weather-records table). To
+        change it use ``append_mapping_reading`` / ``set_mapping_buffer``, which
+        also mark it for persistence; mutating the returned list directly leaves
+        the change unwritten.
+        """
+        if mapping_id is None:
+            return []
+        return self.buffers.get(int(mapping_id), [])
+
+    @callback
+    def get_mapping_row_count(self, mapping_id: int) -> int | None:
+        """Number of buffered readings, or None if the sensor group is unknown.
+
+        Cheap: never materializes the buffer, so it is safe on hot paths (the
+        zone data-point count, "has this group any data at all" checks).
+        """
+        if mapping_id is None:
+            return None
+        mapping_id = int(mapping_id)
+        if mapping_id not in self.mappings:
+            return None
+        return len(self.buffers.get(mapping_id, []))
+
+    @callback
+    def append_mapping_reading(self, mapping_id: int, reading: dict) -> bool:
+        """Append one reading to a sensor group's buffer. O(1), no disk write.
+
+        Deliberately does NOT schedule a save — that is what keeps ingestion off
+        the disk. The row reaches the file via the flush timer
+        (``async_flush_buffers``), the next write anything else triggers, or the
+        shutdown flush. Returns False if the sensor group is unknown.
+        """
+        if mapping_id is None:
+            return False
+        mapping_id = int(mapping_id)
+        if mapping_id not in self.mappings:
+            return False
+        self.buffers.setdefault(mapping_id, []).append(reading)
+        self._buffers_dirty = True
+        return True
+
+    @callback
+    def set_mapping_buffer(self, mapping_id: int, readings) -> None:
+        """Replace a sensor group's buffer (prune, clear, source change).
+
+        Unlike an append this DOES schedule a save: these are rare, and a prune
+        that only ever lived in memory would be re-done from the same rows after
+        a restart.
+        """
+        if mapping_id is None:
+            return
+        mapping_id = int(mapping_id)
+        if mapping_id not in self.mappings:
+            return
+        self.buffers[mapping_id] = _as_buffer(readings)
+        self._buffers_dirty = True
+        self.async_schedule_save()
 
     async def async_create_mapping(self, data: dict) -> MappingEntry:
         """Create a new MappingEntry."""
+        # Readings are not a MappingEntry field; accept them in the incoming dict
+        # (stored records and the API carry the key) and route them to the buffer.
+        readings = data.pop(MAPPING_DATA, None)
         new_mapping = MappingEntry(**data)
         if not new_mapping.id:
             mappings = await self.async_get_mappings()
             new_mapping = attr.evolve(new_mapping, id=self.generate_next_id(mappings))
         self.mappings[int(new_mapping.id)] = new_mapping
+        if readings is not None:
+            self.buffers[int(new_mapping.id)] = _as_buffer(readings)
+            self._buffers_dirty = True
         self.async_schedule_save()
         return attr.asdict(new_mapping)
 
@@ -1297,6 +1545,9 @@ class SmartIrrigationStorage:
         mapping_id = int(mapping_id)
         if mapping_id in self.mappings:
             del self.mappings[mapping_id]
+            # Drop the buffer too, or it leaks for the lifetime of hass and gets
+            # re-adopted by whatever mapping is next assigned this id.
+            self.buffers.pop(mapping_id, None)
             self.async_schedule_save()
             return True
         return False
@@ -1309,6 +1560,9 @@ class SmartIrrigationStorage:
         old = self.mappings[mapping_id]
         # make sure we don't override the ID
         changes.pop("id", None)
+        # Same as in async_create_mapping: `data` is a buffer write, not a field.
+        if MAPPING_DATA in changes:
+            self.set_mapping_buffer(mapping_id, changes.pop(MAPPING_DATA))
         if old is not None:
             if old.data_last_entry is not None and len(old.data_last_entry) > 0:
                 if MAPPING_DATA_LAST_ENTRY not in changes:
@@ -1357,4 +1611,11 @@ async def async_get_registry(hass: HomeAssistant) -> SmartIrrigationStorage:
         task = hass.data[DATA_REGISTRY] = hass.async_create_task(_load_reg())
 
     data = await task
-    return cast(SmartIrrigationStorage, data)
+    registry = cast(SmartIrrigationStorage, data)
+    # Re-arm the shutdown flush. This instance is cached above for the lifetime of
+    # hass, so on the second and later setups async_load (and its own arming) does
+    # not run — and async_delete unregisters the listener. Re-adding the
+    # integration without an HA restart would otherwise leave the buffer with no
+    # shutdown flush at all. Idempotent, so the common path is a no-op.
+    registry.async_ensure_stop_listener()
+    return registry

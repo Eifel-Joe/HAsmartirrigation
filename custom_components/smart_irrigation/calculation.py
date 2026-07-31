@@ -133,9 +133,7 @@ class CalculationMixin:
         now = datetime.now()
         mappings = await self.store.async_get_mappings()
         for mapping in mappings:
-            await self.store.async_update_mapping(
-                mapping.get(const.MAPPING_ID), {const.MAPPING_DATA: []}
-            )
+            self.store.set_mapping_buffer(mapping.get(const.MAPPING_ID), [])
         for zone in await self.store.async_get_zones():
             zone_id = zone.get(const.ZONE_ID)
             await self.store.async_update_zone(
@@ -171,7 +169,7 @@ class CalculationMixin:
         mapping = self.store.get_mapping(mapping_id)
         if not mapping:
             return None, 0
-        readings = mapping.get(const.MAPPING_DATA) or []
+        readings = self.store.get_mapping_buffer(mapping_id)
         watermark = _as_datetime(zone.get(const.ZONE_LAST_CONSUMED))
         _, window = select_window(readings, watermark)
         weatherdata = aggregate_window(
@@ -197,7 +195,7 @@ class CalculationMixin:
         mapping = self.store.get_mapping(mapping_id)
         if not mapping:
             return
-        readings = mapping.get(const.MAPPING_DATA) or []
+        readings = self.store.get_mapping_buffer(mapping_id)
         if not readings:
             return
 
@@ -239,9 +237,7 @@ class CalculationMixin:
                 len(kept),
                 cutoff,
             )
-            await self.store.async_update_mapping(
-                mapping_id, {const.MAPPING_DATA: kept}
-            )
+            self.store.set_mapping_buffer(mapping_id, kept)
 
     async def _async_calculate_all(self, *args):
         """Calculate every automatic zone, each over its own consumption window.
