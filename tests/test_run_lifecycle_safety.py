@@ -275,13 +275,16 @@ async def test_parallel_dispatch_uses_tracked_tasks(monkeypatch):
 # --------------------------------------------------------------------------- #
 # R4 — master/pump stays on for the whole cycle
 # --------------------------------------------------------------------------- #
-def _seq_coord(monkeypatch, sequencing):
+def _seq_coord(monkeypatch, sequencing, self_closing_ids=()):
     config = SimpleNamespace(
         rain_delay_until=None,
         zone_sequencing=sequencing,
         live_estimate_enabled=False,
     )
-    return _coord(monkeypatch, config=config)
+    coord = _coord(monkeypatch, config=config)
+    ids = set(self_closing_ids)
+    coord._sc_is_self_closing = Mock(side_effect=lambda z: z.get(const.ZONE_ID) in ids)
+    return coord
 
 
 def test_master_cycle_seconds_sums_for_sequential(monkeypatch):
@@ -323,6 +326,53 @@ def test_master_cycle_seconds_keeps_max_for_parallel(monkeypatch):
 def test_master_cycle_seconds_handles_no_zones(monkeypatch):
     coord = _seq_coord(monkeypatch, const.CONF_ZONE_SEQUENCING_SEQUENTIAL)
     assert coord._master_cycle_seconds([]) == 0.0
+
+
+def test_self_closing_zones_are_concurrent_not_summed(monkeypatch):
+    """Self-closing runs are fire-and-forget (hardware owns the close), so they
+    overlap each other AND the linked sequence — summing them dead-heads the pump.
+
+    2 SC x 600s + 2 linked x 300s sequential: the cycle really ends at 600s
+    (max(SC group=600, linked group=600)); summing all four gives 1800s, i.e.
+    20 minutes of the pump running against closed valves.
+    """
+    coord = _seq_coord(
+        monkeypatch, const.CONF_ZONE_SEQUENCING_SEQUENTIAL, self_closing_ids={10, 11}
+    )
+    zones = [
+        _timed_zone(**{const.ZONE_ID: 10, const.ZONE_DURATION: 600}),
+        _timed_zone(**{const.ZONE_ID: 11, const.ZONE_DURATION: 600}),
+        _timed_zone(**{const.ZONE_ID: 1, const.ZONE_DURATION: 300}),
+        _timed_zone(**{const.ZONE_ID: 2, const.ZONE_DURATION: 300}),
+    ]
+    assert coord._master_cycle_seconds(zones) == 600
+
+
+def test_self_closing_only_cycle_uses_the_longest_zone(monkeypatch):
+    """4 SC zones all start together — the cycle is 600s, not 2400s."""
+    coord = _seq_coord(
+        monkeypatch,
+        const.CONF_ZONE_SEQUENCING_SEQUENTIAL,
+        self_closing_ids={1, 2, 3, 4},
+    )
+    zones = [
+        _timed_zone(**{const.ZONE_ID: i, const.ZONE_DURATION: 600})
+        for i in (1, 2, 3, 4)
+    ]
+    assert coord._master_cycle_seconds(zones) == 600
+
+
+def test_linked_sequence_wins_when_it_outlasts_self_closing(monkeypatch):
+    """The cycle ends at the LATER group, whichever that is."""
+    coord = _seq_coord(
+        monkeypatch, const.CONF_ZONE_SEQUENCING_SEQUENTIAL, self_closing_ids={10}
+    )
+    zones = [
+        _timed_zone(**{const.ZONE_ID: 10, const.ZONE_DURATION: 100}),
+        _timed_zone(**{const.ZONE_ID: 1, const.ZONE_DURATION: 300}),
+        _timed_zone(**{const.ZONE_ID: 2, const.ZONE_DURATION: 300}),
+    ]
+    assert coord._master_cycle_seconds(zones) == 600
 
 
 @pytest.mark.asyncio

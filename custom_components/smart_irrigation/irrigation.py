@@ -1643,32 +1643,62 @@ class IrrigationRunnerMixin:
 
         ``_master_note_run`` only ever EXTENDS a shared deadline via ``max()``, so
         noting each zone's own duration separately yields ``max(durations)`` —
-        correct only when the zones run at the SAME time. Sequential and rotating
-        sequencing run them back-to-back, so the cycle actually lasts the SUM.
-        With the old per-zone notes the master switched off after the longest
-        single zone while later zones were still opening their valves: they
-        delivered nothing (no pressure) yet still credited their buckets from
-        ``throughput × time``, so the garden silently under-watered AND the ledger
-        claimed it was satisfied. Verified: 3 zones × 300 s sequential shut the
-        master off at 300 s of a 900 s cycle.
+        correct only when every zone runs at the SAME time. That is not the shape
+        of a cycle. There are TWO groups and they overlap:
 
-        Deliberately NOT modelled here (see the 2026-07-31 review, R4):
-        rotating mode's ``min_absorption_time`` waits stretch the wall clock past
-        the sum, and a real-flow zone stops on measured volume / ``maximum_duration``
-        rather than ``ZONE_DURATION`` — so an under-delivering flow zone can still
-        outlast this estimate. Both need a deadline that is refreshed *during* the
-        run rather than predicted up front.
+        * **Self-closing zones** are fire-and-forget: ``async_run_self_closing``
+          dispatches the open and returns, the hardware owns the close. They all
+          start together and run CONCURRENTLY with everything else, so the group
+          ends at ``max(durations)``.
+        * **Linked-entity zones** are driven by us. Sequential and rotating run
+          them back-to-back, so that group lasts the ``sum``; parallel really does
+          overlap, so it is ``max``.
+
+        The cycle ends at the later of the two groups. Getting this wrong breaks
+        in both directions, and both directions are bad:
+        under-estimating switches the master off mid-cycle, so later zones open
+        against a dead pump, deliver nothing, and STILL credit their buckets from
+        ``throughput × time`` (silent under-watering with a ledger that claims
+        otherwise); over-estimating dead-heads the pump past the last valve close.
+
+        Measured against the real cycle end, deliberately NOT modelled here
+        (2026-07-31 review, R4) — every remaining error is a *prediction* error:
+
+        * per-zone valve-confirm polling (up to ``VALVE_CONFIRM_TIMEOUT`` before a
+          zone's own timer starts) — 3×300 s sequential really ends at 990 s, not 900 s;
+        * rotating's ``min_absorption_time`` waits — 2×600 s with a 10 min
+          absorption really ends at 1920 s, not 1200 s;
+        * real-flow zones stop on measured volume / ``maximum_duration``, not
+          ``ZONE_DURATION`` — a −40 %-calibrated pair really ends at 1060 s, not 600 s.
+
+        The fix for all three is a deadline REFRESHED during the run (as
+        ``distributor.py`` does via rolling notes + a terminal collapse), not a
+        better up-front guess. See the review notes.
         """
-        durations = [float(z.get(const.ZONE_DURATION) or 0) for z in zones]
-        if not durations:
+        if not zones:
             return 0.0
-        sequencing = getattr(self.store.config, "zone_sequencing", None)
-        if sequencing in (
+        self_closing: list[float] = []
+        linked: list[float] = []
+        for z in zones:
+            seconds = float(z.get(const.ZONE_DURATION) or 0)
+            if self._sc_is_self_closing(z):
+                self_closing.append(seconds)
+            else:
+                linked.append(seconds)
+
+        sc_group = max(self_closing) if self_closing else 0.0
+
+        if not linked:
+            linked_group = 0.0
+        elif getattr(self.store.config, "zone_sequencing", None) in (
             const.CONF_ZONE_SEQUENCING_SEQUENTIAL,
             const.CONF_ZONE_SEQUENCING_ROTATING,
         ):
-            return sum(durations)
-        return max(durations)
+            linked_group = sum(linked)
+        else:
+            linked_group = max(linked)
+
+        return max(sc_group, linked_group)
 
     def _throughput_lpm(self, zone: dict) -> float:
         """The zone's configured throughput in L/min (volume accounting unit)."""
