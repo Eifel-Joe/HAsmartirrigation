@@ -338,7 +338,10 @@ class TestHotPathDoesNotCopyTheBuffer:
         coord._sensor_state_changed(_event("sensor.temp", "21.5"))
 
         assert len(store.buffers[1]) == 501
-        assert not coord.created_tasks or True  # flush task is fine; appends are not
+        # The append itself must schedule nothing; only the debounced follow-up
+        # may, and one event can produce at most one of those. `or True` made
+        # this assertion vacuous, so a per-reading task would have gone unnoticed.
+        assert len(coord.created_tasks) <= 1
         for coro in coord.created_tasks:
             coro.close()
         coord.created_tasks.clear()
