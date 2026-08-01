@@ -23,6 +23,7 @@ from .const import (
     CONF_AUTO_UPDATE_INTERVAL,
     CONF_AUTO_UPDATE_SCHEDULE,
     CONF_CALC_TIME,
+    CONF_CONTINUOUS_UPDATES,
     CONF_DAYS_BETWEEN_IRRIGATION,
     CONF_DAYS_SINCE_LAST_IRRIGATION,
     CONF_DEFAULT_AUTO_CALC_ENABLED,
@@ -32,6 +33,7 @@ from .const import (
     CONF_DEFAULT_AUTO_UPDATE_SCHEDULE,
     CONF_DEFAULT_BUCKET_THRESHOLD,
     CONF_DEFAULT_CALC_TIME,
+    CONF_DEFAULT_CONTINUOUS_UPDATES,
     CONF_DEFAULT_DAYS_BETWEEN_IRRIGATION,
     CONF_DEFAULT_DAYS_SINCE_LAST_IRRIGATION,
     CONF_DEFAULT_DISTRIBUTORS_ENABLED,
@@ -50,6 +52,7 @@ from .const import (
     CONF_DEFAULT_RAIN_DELAY_UNTIL,
     CONF_DEFAULT_RAIN_SENSOR,
     CONF_DEFAULT_RECURRING_SCHEDULES,
+    CONF_DEFAULT_SENSOR_DEBOUNCE,
     CONF_DEFAULT_SKIP_FREEZE_ENABLED,
     CONF_DEFAULT_SKIP_IRRIGATION_ON_PRECIPITATION,
     CONF_DEFAULT_SKIP_TEMP_ENABLED,
@@ -75,6 +78,7 @@ from .const import (
     CONF_RAIN_DELAY_UNTIL,
     CONF_RAIN_SENSOR,
     CONF_RECURRING_SCHEDULES,
+    CONF_SENSOR_DEBOUNCE,
     CONF_SKIP_FREEZE_ENABLED,
     CONF_SKIP_IRRIGATION_ON_PRECIPITATION,
     CONF_SKIP_TEMP_ENABLED,
@@ -183,6 +187,21 @@ SAVE_DELAY = 30
 # A clean shutdown flushes regardless (the EVENT_HOMEASSISTANT_STOP listener), so
 # this bounds the hard-crash loss window, not the normal one.
 BUFFER_FLUSH_INTERVAL = 600
+
+
+def _as_int(value, default):
+    """Coerce a stored value to int, falling back to ``default``.
+
+    Stored config can hold a numeric setting as a string (older frontends POST
+    text-input values verbatim) or as None. Passing that straight through would
+    surface far from here — e.g. a str reaching timedelta(milliseconds=...).
+    """
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 @attr.s(slots=True, frozen=True)
@@ -359,6 +378,13 @@ class Config:
         type=bool, default=CONF_DEFAULT_LIVE_ESTIMATE_ENABLED
     )
     distributors_enabled = attr.ib(type=bool, default=CONF_DEFAULT_DISTRIBUTORS_ENABLED)
+    # Continuous (event-driven) sensor ingestion + its per-sensor-group debounce
+    # in milliseconds. Both MUST also be setdefault'ed in _async_migrate_func:
+    # that function ends by filtering data["config"] against
+    # attr.fields_dict(Config), so an attribute without a migration default is
+    # simply absent (and a stored value for a key with no attribute is dropped).
+    continuousupdates = attr.ib(type=bool, default=CONF_DEFAULT_CONTINUOUS_UPDATES)
+    sensor_debounce = attr.ib(type=int, default=CONF_DEFAULT_SENSOR_DEBOUNCE)
     # Rain delay / vacation hold (WS-5): ISO-8601 datetime string or None.
     rain_delay_until = attr.ib(type=str, default=CONF_DEFAULT_RAIN_DELAY_UNTIL)
     # Persisted in-flight self-closing valve runs (reboot resilience); list of
@@ -591,6 +617,18 @@ class MigratableStore(Store):
                 data["config"][CONF_WIND_THRESHOLD] = CONF_DEFAULT_WIND_THRESHOLD
             if CONF_RAIN_SENSOR not in data["config"]:
                 data["config"][CONF_RAIN_SENSOR] = CONF_DEFAULT_RAIN_SENSOR
+            # Continuous updates: MANDATORY here, not merely nice to have. The
+            # allowlist strip below drops any key absent from Config, and a key
+            # absent from the stored config is simply never hydrated — so without
+            # these two setdefaults the toggle silently vanishes on every load.
+            # Note `continuousupdates` is altmenorg's key: a stored True from
+            # that fork survives the strip because Config now declares it.
+            if CONF_CONTINUOUS_UPDATES not in data["config"]:
+                data["config"][
+                    CONF_CONTINUOUS_UPDATES
+                ] = CONF_DEFAULT_CONTINUOUS_UPDATES
+            if CONF_SENSOR_DEBOUNCE not in data["config"]:
+                data["config"][CONF_SENSOR_DEBOUNCE] = CONF_DEFAULT_SENSOR_DEBOUNCE
 
             # Get valid field names from Config class to filter out unrecognized keys
             valid_fields = set(attr.fields_dict(Config).keys())
@@ -792,6 +830,16 @@ class SmartIrrigationStorage:
                 distributors_enabled=data["config"].get(
                     CONF_DISTRIBUTORS_ENABLED,
                     CONF_DEFAULT_DISTRIBUTORS_ENABLED,
+                ),
+                continuousupdates=data["config"].get(
+                    CONF_CONTINUOUS_UPDATES,
+                    CONF_DEFAULT_CONTINUOUS_UPDATES,
+                ),
+                # Coerced: altmenorg's frontend could store this as a string, and
+                # a str would reach timedelta(milliseconds=...) unconverted.
+                sensor_debounce=_as_int(
+                    data["config"].get(CONF_SENSOR_DEBOUNCE),
+                    CONF_DEFAULT_SENSOR_DEBOUNCE,
                 ),
                 rain_delay_until=data["config"].get(
                     CONF_RAIN_DELAY_UNTIL, CONF_DEFAULT_RAIN_DELAY_UNTIL
@@ -1462,6 +1510,40 @@ class SmartIrrigationStorage:
         """
         return [attr.asdict(val) for val in self.mappings.values()]
 
+    # ------------------------------------------------------------------
+    # Buffer-aware fast paths.
+    #
+    # get_mapping()/async_get_mappings() return attr.asdict() DEEP COPIES of the
+    # MappingEntry — its field-config dict, both carry-forward dicts, the lot.
+    # That is fine for the hourly poll but not for anything running per sensor
+    # event, and the copy is pure waste when the caller only wants a row count or
+    # the field configs. The helpers below give the hot paths what they need
+    # without copying anything.
+    #
+    # The readings themselves are no longer part of that copy at all — they live
+    # in self.buffers rather than on the entry — which is what makes an append
+    # O(1) in buffer length instead of O(n).
+    # ------------------------------------------------------------------
+
+    @callback
+    def get_mapping_field_configs(self) -> list[tuple[int, dict]]:
+        """Return ``(mapping_id, MAPPING_MAPPINGS)`` for every sensor group.
+
+        Read-only view for the continuous-update subscription rebuild, which runs
+        on every ``_config_updated`` signal — including the ones ingestion itself
+        emits. The returned field-config dicts are the LIVE objects, not copies —
+        callers must treat them as immutable. That is safe because every writer
+        goes through ``async_update_mapping``, which ``attr.evolve``s a
+        replacement rather than mutating in place, so a held reference can only
+        ever go stale (and the ``_config_updated`` signal re-reads it), never be
+        corrupted underneath.
+        """
+        return [
+            (int(entry.id), entry.mappings or {})
+            for entry in self.mappings.values()
+            if entry.id is not None
+        ]
+
     @callback
     def get_mapping_buffer(self, mapping_id: int) -> list:
         """Return a sensor group's reading buffer — the LIVE list, not a copy.
@@ -1523,6 +1605,41 @@ class SmartIrrigationStorage:
         self.buffers[mapping_id] = _as_buffer(readings)
         self._buffers_dirty = True
         self.async_schedule_save()
+
+    @callback
+    def set_mapping_last_entry_value(self, mapping_id: int, key: str, value) -> None:
+        """Refresh one carry-forward field WITHOUT scheduling a save.
+
+        The companion to ``append_mapping_reading`` for the event-driven ingestion
+        path: every reading also updates ``data_last_entry`` (the value
+        ``aggregate_window`` falls back to for a field with no row in a zone's
+        window), and scheduling a write for that would put ingestion straight back
+        on the disk — reintroducing per-reading whole-document saves through the
+        one field of MappingEntry that an append touches.
+
+        So it rides along on the next write like the buffers do. Unlike them it
+        needs no dirty flag: ``data_last_entry`` is a MappingEntry field, so it is
+        in the routine payload and ANY subsequent write carries it. Losing it to a
+        hard crash is recoverable — it is derivable from the buffer, being simply
+        the newest value seen per field.
+
+        Deliberately NOT mutated in place: the attrs default for
+        ``data_last_entry`` is a bare ``{}``, i.e. ONE dict object shared by every
+        MappingEntry constructed without an explicit value, so writing into it
+        would leak carry-forward values between unrelated sensor groups. Evolving
+        a fresh dict costs one small copy (a handful of fields, never the buffer)
+        and is safe.
+        """
+        if mapping_id is None:
+            return
+        mapping_id = int(mapping_id)
+        entry = self.mappings.get(mapping_id)
+        if entry is None:
+            return
+        last_entry = entry.data_last_entry
+        last_entry = dict(last_entry) if isinstance(last_entry, dict) else {}
+        last_entry[key] = value
+        self.mappings[mapping_id] = attr.evolve(entry, data_last_entry=last_entry)
 
     async def async_create_mapping(self, data: dict) -> MappingEntry:
         """Create a new MappingEntry."""

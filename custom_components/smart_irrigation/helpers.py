@@ -37,6 +37,8 @@ from .const import (
     KMH_TO_MS_FACTOR,
     LITER_TO_GALLON_FACTOR,
     M2_TO_SQ_FT_FACTOR,
+    MAPPING_CONF_PRESSURE_RELATIVE,
+    MAPPING_CONF_PRESSURE_TYPE,
     MAPPING_CURRENT_PRECIPITATION,
     MAPPING_DEWPOINT,
     MAPPING_EVAPOTRANSPIRATION,
@@ -305,6 +307,33 @@ def zone_depth_default(mm_value, metric):
     if metric:
         return mm_value
     return convert_between(UNIT_MM, UNIT_INCH, mm_value)
+
+
+def resolve_sensor_unit(mapping_key, configured_unit, ha_unit, sensor_id=None):
+    """Pick the unit a sensor state should be converted FROM.
+
+    Prefers the entity's *own* reported unit over the unit hand-picked in the
+    sensor group: HA knows the sensor's real unit, and a mismatch there silently
+    corrupts the value (e.g. a W/m2 solar sensor configured as MJ/day/m2 inflates
+    ET ~12x). Falls back to the configured unit when the entity reports no unit
+    or one we don't recognise for this field.
+
+    Shared by both ingestion paths — the interval poll
+    (``build_sensor_values_for_mapping``) and the event-driven appends in
+    ``ContinuousUpdateMixin`` — so the two can never disagree about a value's
+    unit and write mutually inconsistent rows into the same buffer.
+    """
+    detected_unit = ha_unit_to_internal_unit(ha_unit, mapping_key)
+    if detected_unit and configured_unit and detected_unit != configured_unit:
+        _LOGGER.info(
+            "Sensor %s reports unit '%s' for %s; using it instead of the "
+            "configured '%s'.",
+            sensor_id,
+            detected_unit,
+            mapping_key,
+            configured_unit,
+        )
+    return detected_unit or configured_unit
 
 
 def convert_between(from_unit, to_unit, val):
@@ -730,6 +759,40 @@ def relative_to_absolute_pressure(pressure, height):
 
     # Calculate absolute pressure at given height
     return pressure * (T0 / temperature) ** (g * M / (R * 287))
+
+
+def to_absolute_pressure(value, mapping, field_config, elevation):
+    """Return a Pressure reading as ABSOLUTE (station) pressure.
+
+    ``MAPPING_PRESSURE`` must hold one physical quantity, because the calc
+    modules read it as station pressure (FAO-56 uses it for the psychrometric
+    constant) and ``weather_aggregate`` means the buffer's rows together. A
+    station reporting sea-level ("relative") pressure needs the elevation
+    correction first; a buffer mixing corrected and uncorrected rows biases ET by
+    however far apart the two writers' outputs are.
+
+    Every writer of that field therefore funnels through here: the interval poll
+    in ``__init__`` and the event-driven appends in ``continuous_update``. Takes
+    the field's own sensor-group config (the dict that carries
+    ``MAPPING_CONF_PRESSURE_TYPE``) so it can be called unconditionally in a loop
+    over all mapping keys — anything that is not a relative-typed Pressure field
+    is returned untouched.
+
+    The correction itself is ``relative_to_absolute_pressure``, shared with the
+    polled path so both writers of the field produce the same quantity.
+    """
+    if mapping != MAPPING_PRESSURE or value is None:
+        return value
+    # Legacy stored shape: a bare sensor id string instead of a config dict. No
+    # pressure_type to read, so the value is taken as already absolute.
+    if not isinstance(field_config, dict):
+        return value
+    if (
+        field_config.get(MAPPING_CONF_PRESSURE_TYPE) != MAPPING_CONF_PRESSURE_RELATIVE
+        or elevation is None
+    ):
+        return value
+    return relative_to_absolute_pressure(value, elevation)
 
 
 def altitudeToPressure(alt):
