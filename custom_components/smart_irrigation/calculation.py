@@ -131,6 +131,11 @@ class CalculationMixin:
         """
         _LOGGER.info("Clearing all weatherdata")
         now = datetime.now()
+        # The deadband's reference values are not part of the store, so emptying
+        # the buffers above does not touch them; left stale they suppress the
+        # readings that would refill those buffers. See
+        # ContinuousUpdateMixin.clear_continuous_deadband_state.
+        self.clear_continuous_deadband_state()
         mappings = await self.store.async_get_mappings()
         for mapping in mappings:
             self.store.set_mapping_buffer(mapping.get(const.MAPPING_ID), [])

@@ -276,6 +276,26 @@ class ContinuousUpdateMixin:
         self._continuous_last_value = {}
         self._continuous_flush_count = {}
 
+    def clear_continuous_deadband_state(self) -> None:
+        """Forget every field's last-appended value, keeping the subscription.
+
+        "Reset all weather data" empties the buffer and the carry-forwards, but
+        the deadband compares against the last APPENDED value, which lives here
+        and survives that wipe. On a pure-sensor group the poll is skipped, so
+        the event handler is the only writer — and it drops every reading within
+        the deadband of the pre-reset reference WITHOUT advancing it. The buffer
+        then stays empty until a reading happens to move further than the
+        threshold: minutes for temperature, but hours for pressure or humidity
+        and a whole night for solar radiation, during which the zone cannot
+        aggregate and looks like the reset broke it.
+
+        Deliberately narrower than ``async_teardown_continuous_updates``: the
+        entity set has not changed, so the subscription and its debounce timers
+        stay exactly as they are.
+        """
+        self._continuous_last_value = {}
+        self._continuous_flush_count = {}
+
     def _continuous_debounce_ms(self) -> int:
         """Configured debounce in milliseconds (0 = flush on every change)."""
         raw = getattr(self.store.config, const.CONF_SENSOR_DEBOUNCE, None)
