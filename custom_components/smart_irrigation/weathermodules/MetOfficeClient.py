@@ -44,6 +44,7 @@ from ..const import (
     MAPPING_WINDSPEED,
     OBSERVATION_TIME,
 )
+from ..pressure import relative_to_absolute_pressure
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -139,10 +140,7 @@ class MetOfficeClient:  # pylint: disable=invalid-name
 
     def _abs_pressure_from_pa(self, mslp_pa):
         """Convert MSL pressure in Pa to station (absolute) pressure in hPa."""
-        pressure_hpa = mslp_pa / 100.0
-        g, M, R, T0 = 9.80665, 0.0289644, 8.31447, 288.15
-        temp = T0 - (g * M * self.elevation) / (R * T0)
-        return pressure_hpa * (T0 / temp) ** (g * M / (R * 287))
+        return relative_to_absolute_pressure(mslp_pa / 100.0, self.elevation)
 
     @staticmethod
     def _parse_time(tstr):

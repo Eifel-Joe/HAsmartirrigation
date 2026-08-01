@@ -21,6 +21,7 @@ from ..const import (
     OBSERVATION_TIME,
     W_TO_MJ_DAY_FACTOR,
 )
+from ..pressure import relative_to_absolute_pressure
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -119,9 +120,7 @@ class OpenMeteoClient:
 
     def _abs_pressure(self, pressure_msl):
         """Convert MSL pressure to station (absolute) pressure at elevation."""
-        g, M, R, T0 = 9.80665, 0.0289644, 8.31447, 288.15
-        temp = T0 - (g * M * self.elevation) / (R * T0)
-        return pressure_msl * (T0 / temp) ** (g * M / (R * 287))
+        return relative_to_absolute_pressure(pressure_msl, self.elevation)
 
     def get_data(self):
         """Return current conditions mapped to MAPPING_* constants."""
