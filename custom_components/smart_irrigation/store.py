@@ -83,6 +83,7 @@ from .const import (
     CONF_SKIP_IRRIGATION_ON_PRECIPITATION,
     CONF_SKIP_TEMP_ENABLED,
     CONF_SKIP_WIND_ENABLED,
+    CONF_STORED_UNIT_SYSTEM,
     CONF_TEMP_THRESHOLD,
     CONF_UNITS,
     CONF_USE_WEATHER_SERVICE,
@@ -124,6 +125,8 @@ from .const import (
     MODULE_NAME,
     MODULE_SCHEMA,
     SCHEDULE_CONF_ACTION,
+    UNIT_SYSTEM_METRIC,
+    UNIT_SYSTEM_US_CUSTOMARY,
     ZONE_BUCKET,
     ZONE_BUCKET_THRESHOLD,
     ZONE_CURRENT_DRAINAGE,
@@ -168,7 +171,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_REGISTRY = f"{DOMAIN}_storage"
 STORAGE_KEY = f"{DOMAIN}.storage"
-STORAGE_VERSION = 12
+STORAGE_VERSION = 13
 # Coalescing window (seconds) for the whole-document store write. Every
 # async_schedule_save() reserializes the ENTIRE store — config, zones, modules
 # and every sensor group's reading buffer — and replaces the file, so at 0 a
@@ -385,6 +388,10 @@ class Config:
     # simply absent (and a stored value for a key with no attribute is dropped).
     continuousupdates = attr.ib(type=bool, default=CONF_DEFAULT_CONTINUOUS_UPDATES)
     sensor_debounce = attr.ib(type=int, default=CONF_DEFAULT_SENSOR_DEBOUNCE)
+    # The unit system the stored zone values were written under. Seeded by the
+    # v13 migration and rewritten whenever the coordinator reconciles a flip;
+    # None only on a store that predates the key. See unit_system.py, issue #67.
+    stored_unit_system = attr.ib(type=str, default=None)
     # Rain delay / vacation hold (WS-5): ISO-8601 datetime string or None.
     rain_delay_until = attr.ib(type=str, default=CONF_DEFAULT_RAIN_DELAY_UNTIL)
     # Persisted in-flight self-closing valve runs (reboot resilience); list of
@@ -572,6 +579,26 @@ class MigratableStore(Store):
                                 mm_default,
                                 zone[key],
                             )
+
+        if old_version <= 12:
+            # v13: record which unit system the stored zone values were written
+            # under, so a later flip is DETECTABLE (issue #67).
+            #
+            # Seeding from the CURRENT unit system is correct by construction:
+            # whatever is on disk right now was written by this install under
+            # the system it is configured with right now. Nothing is converted
+            # here — this migration only starts the bookkeeping. The first real
+            # conversion happens the next time the coordinator sees stored and
+            # current disagree.
+            data.setdefault("config", {})
+            data["config"].setdefault(
+                CONF_STORED_UNIT_SYSTEM,
+                (
+                    UNIT_SYSTEM_METRIC
+                    if self.hass.config.units is METRIC_SYSTEM
+                    else UNIT_SYSTEM_US_CUSTOMARY
+                ),
+            )
 
         # CRITICAL: Always ensure required fields are present and strip unrecognized keys
         # This prevents TypeError when Config(**config_data) is called
@@ -837,6 +864,7 @@ class SmartIrrigationStorage:
                 ),
                 # Coerced: altmenorg's frontend could store this as a string, and
                 # a str would reach timedelta(milliseconds=...) unconverted.
+                stored_unit_system=data["config"].get(CONF_STORED_UNIT_SYSTEM),
                 sensor_debounce=_as_int(
                     data["config"].get(CONF_SENSOR_DEBOUNCE),
                     CONF_DEFAULT_SENSOR_DEBOUNCE,

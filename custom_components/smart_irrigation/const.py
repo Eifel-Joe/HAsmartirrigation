@@ -96,6 +96,18 @@ CONF_DEFAULT_CONTINUOUS_UPDATES = False
 # delayed) and collapses bursts. 0 disables the debounce entirely.
 CONF_SENSOR_DEBOUNCE = "sensor_debounce"
 CONF_DEFAULT_SENSOR_DEBOUNCE = 5000
+# Which unit system the ZONE values currently on disk were written under.
+#
+# Zone depths, size and throughput are stored in the user's DISPLAY units, so
+# the digits are meaningless without knowing which system produced them. HA's
+# own `hass.config.units` only says what is configured NOW, and the coordinator's
+# in-memory `previous_unit_system` is re-seeded from it on every start — so a
+# unit change made in configuration.yaml plus a restart is invisible. Persisting
+# it is what makes the flip detectable across a restart, and what makes the
+# conversion idempotent (the guard is stored-vs-current, not an event). Issue #67.
+CONF_STORED_UNIT_SYSTEM = "stored_unit_system"
+UNIT_SYSTEM_METRIC = "metric"
+UNIT_SYSTEM_US_CUSTOMARY = "us_customary"
 # Legacy keys read as a fallback on load so an early opt-in survives the
 # renames: v2026.06.28 shipped "fresh_duration_enabled"; it was then
 # "live_duration_enabled" while the feature only *resized* a daily-approved run.

@@ -14,10 +14,11 @@ from custom_components.smart_irrigation.store import (
 )
 
 
-def test_storage_version_is_12():
-    # v12 repairs depth-valued zone defaults seeded with the raw mm constants on
-    # imperial installs (see tests/test_zone_depth_defaults.py).
-    assert STORAGE_VERSION == 12
+def test_storage_version_is_13():
+    # v13 records which unit system the stored zone values were written under,
+    # so a metric<->imperial flip is detectable across a restart (issue #67, see
+    # tests/test_unit_system_migration.py).
+    assert STORAGE_VERSION == 13
 
 
 def test_zone_entry_has_self_closing_fields():

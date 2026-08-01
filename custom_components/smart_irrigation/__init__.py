@@ -64,6 +64,7 @@ from .self_closing import SelfClosingMixin
 from .services import ServiceHandlersMixin, async_register_services
 from .skip_conditions import SkipConditionsMixin
 from .store import BUFFER_FLUSH_INTERVAL, SmartIrrigationStorage, async_get_registry
+from .unit_system import convert_zone_values
 from .watering_calendar import WateringCalendarMixin
 from .weathermodules.MetOfficeClient import MetOfficeClient
 from .weathermodules.OpenMeteoClient import OpenMeteoClient
@@ -168,6 +169,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.data[const.DOMAIN]["coordinator"] = coordinator
     hass.data[const.DOMAIN]["zones"] = {}
+
+    # Issue #67: convert stored zone values if HA's unit system changed while we
+    # were not running (a configuration.yaml edit plus a restart fires no
+    # core_config_updated event, so this is the ONLY place that path is caught).
+    # Must precede the timers and both resume steps — every one of them reads
+    # zone depths, and reading them under the wrong unit is the whole bug.
+    await coordinator.async_reconcile_stored_unit_system()
 
     # Set up the auto update/calc/clear timers (awaited, not fire-and-forget).
     await coordinator.async_setup_timers()
@@ -658,9 +666,92 @@ class SmartIrrigationCoordinator(
             # setup, mirroring the entity replay above.
             self._dist_refresh_inlet_watch(distributor)
 
+    def _current_unit_system_name(self):
+        """The unit system stored zone values would be written under right now."""
+        return (
+            const.UNIT_SYSTEM_METRIC
+            if self.hass.config.units is METRIC_SYSTEM
+            else const.UNIT_SYSTEM_US_CUSTOMARY
+        )
+
+    async def async_reconcile_stored_unit_system(self):
+        """Convert stored zone values when the unit system has changed (issue #67).
+
+        Zone depths, size and throughput are stored in DISPLAY units, so a flip
+        between metric and US customary reinterprets every one of them — by 25.4,
+        10.764 and 3.785 respectively — with nothing logged and the same digits
+        still shown in the panel. The worst of it is ``bucket_threshold``: a -10
+        written as mm becomes -10 inches, a deficit no bucket reaches, and every
+        deficit-gated run stops silently.
+
+        Called from BOTH ends so neither path is missed:
+
+        * ``async_setup_entry``, which catches a change made in
+          ``configuration.yaml`` plus a restart. That path fires no
+          ``core_config_updated`` event at all, and the in-memory
+          ``previous_unit_system`` is re-seeded from ``hass.config.units`` on
+          every start, so it cannot see the change. This is the case the issue
+          was actually reproduced on.
+        * ``async_handle_unit_system_change``, for a live change in the UI.
+
+        Idempotent because the guard is the PERSISTED value, not an event: a
+        second call finds stored == current and does nothing. That also makes it
+        safe to run on every startup.
+        """
+        current = self._current_unit_system_name()
+        stored = getattr(self.store.config, const.CONF_STORED_UNIT_SYSTEM, None)
+
+        if stored is None:
+            # Pre-v13 store that never got the migration (or a test double).
+            # Record where we are; converting would be a guess.
+            await self.store.async_update_config(
+                {const.CONF_STORED_UNIT_SYSTEM: current}
+            )
+            return 0
+
+        if stored == current:
+            return 0
+
+        _LOGGER.warning(
+            "Home Assistant unit system changed from %s to %s — converting stored "
+            "zone values so they keep their meaning (issue #67)",
+            stored,
+            current,
+        )
+
+        converted = 0
+        for zone in await self.store.async_get_zones():
+            changes = convert_zone_values(
+                zone, to_metric=current == const.UNIT_SYSTEM_METRIC
+            )
+            if not changes:
+                continue
+            await self.store.async_update_zone(zone.get(const.ZONE_ID), changes)
+            converted += 1
+            _LOGGER.info(
+                "Zone %s: converted %s to %s",
+                zone.get(const.ZONE_ID),
+                ", ".join(sorted(changes)),
+                current,
+            )
+
+        # Persist LAST: if the loop raises partway, the stored system still says
+        # the old one, so the next startup retries rather than leaving half the
+        # zones converted and the bookkeeping claiming the job is done.
+        await self.store.async_update_config({const.CONF_STORED_UNIT_SYSTEM: current})
+        _LOGGER.warning(
+            "Unit system conversion complete: %s zone(s) updated", converted
+        )
+        return converted
+
     async def async_handle_unit_system_change(self):
         """Handle changes to the Home Assistant unit system."""
         _LOGGER.info("Processing unit system change for Smart Irrigation")
+
+        # Convert the stored zone values BEFORE anything re-reads them, so the
+        # refreshed entities and panel show the converted numbers rather than
+        # the old digits reinterpreted in the new unit.
+        await self.async_reconcile_stored_unit_system()
 
         # Update sensor entities to refresh their unit display
         async_dispatcher_send(self.hass, const.DOMAIN + "_unit_system_changed")
