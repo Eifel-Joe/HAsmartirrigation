@@ -14,10 +14,18 @@ makes it the DELTA baseline and the RIEMANNSUM integration start — exactly wha
 the previous "keep one anchor after clearing" scheme produced for a single
 consumer, so single-consumer behaviour is preserved.
 
-Level fields (AVERAGE) are aggregated **over time**, not over stored rows: a row
-exists because a value moved, so row density is a property of the field rather
-than of the clock, and a plain mean of the rows weights a jittery field's
-readings the same as a still one's. See ``_time_weighted_mean``.
+Level fields (AVERAGE) can be aggregated **over time** rather than over stored
+rows: on a sparse buffer a row exists because a value moved, so row density is a
+property of the field rather than of the clock, and a plain mean of the rows
+weights a jittery field's readings the same as a still one's. See
+``_time_weighted_mean``.
+
+That is opt-in via ``time_weighted``, which callers drive from the
+``continuousupdates`` config flag. A poll-only install's rows are evenly spaced
+by the update timer — the regime where a plain mean is already right — so
+turning it on there would move existing users' ET for no benefit. With the flag
+off this module is byte-identical to the poll-only behaviour that shipped before
+continuous updates existed.
 """
 
 import datetime
@@ -185,7 +193,13 @@ def _hour_multiplier(window, watermark, now):
 
 
 def aggregate_window(
-    readings, watermark, mappings_config, *, now=None, last_entry=None
+    readings,
+    watermark,
+    mappings_config,
+    *,
+    now=None,
+    last_entry=None,
+    time_weighted=False,
 ):
     """Aggregate one zone's window of mapping readings.
 
@@ -197,6 +211,10 @@ def aggregate_window(
         now: override for "now" (testing); defaults to ``datetime.now()``.
         last_entry: optional ``MAPPING_DATA_LAST_ENTRY`` used to backfill missing
             sensors for continuous-update mappings.
+        time_weighted: aggregate AVERAGE fields over time instead of over stored
+            rows. Only correct for the sparse buffers the event-driven path
+            produces; defaults to False so poll-only installs keep the plain
+            mean they have always had.
 
     Returns:
         The aggregated weather dict (including ``MAPPING_DATA_MULTIPLIER``), or
@@ -248,7 +266,14 @@ def aggregate_window(
     resultdata = {}
     resultdata[const.MAPPING_DATA_MULTIPLIER] = _hour_multiplier(window, watermark, now)
     window_start, window_end = _window_bounds(effective, watermark, now)
-    _aggregate(by_sensor, mappings_config, resultdata, window_start, window_end)
+    _aggregate(
+        by_sensor,
+        mappings_config,
+        resultdata,
+        window_start,
+        window_end,
+        time_weighted=time_weighted,
+    )
     return resultdata
 
 
@@ -282,7 +307,14 @@ def _effective_aggregate(key, mappings_config):
     return aggregate
 
 
-def _aggregate(by_sensor, mappings_config, resultdata, window_start, window_end):
+def _aggregate(
+    by_sensor,
+    mappings_config,
+    resultdata,
+    window_start,
+    window_end,
+    time_weighted=False,
+):
     """Apply each sensor's aggregate to its ``(timestamp, value)`` samples."""
     for key, raw in by_sensor.items():
         if key == const.RETRIEVED_AT:
@@ -315,7 +347,19 @@ def _aggregate(by_sensor, mappings_config, resultdata, window_start, window_end)
                 resultdata[const.MAPPING_MIN_TEMP] = d[0]
             resultdata[key] = d[0]
         elif aggregate == const.MAPPING_CONF_AGGREGATE_AVERAGE:
-            weighted = _time_weighted_mean(times, d, window_start, window_end)
+            # Time-weighting is opt-in with continuous updates. A sparse buffer
+            # NEEDS it — a row exists because a value moved, so a plain mean
+            # weights a jittery field's readings the same as a still one's, and
+            # solar radiation (no rows overnight) becomes a daylight-only mean.
+            # But a polled install's rows are evenly spaced by the timer, where
+            # the two agree closely, so applying it there would silently move
+            # every existing user's ET. Off => byte-identical to the poll-only
+            # behaviour that shipped before continuous updates existed.
+            weighted = (
+                _time_weighted_mean(times, d, window_start, window_end)
+                if time_weighted
+                else None
+            )
             resultdata[key] = statistics.mean(d) if weighted is None else weighted
         elif aggregate == const.MAPPING_CONF_AGGREGATE_FIRST:
             resultdata[key] = d[0]

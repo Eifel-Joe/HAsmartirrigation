@@ -115,6 +115,17 @@ class LiveEstimateMixin:
             # would show up as the "Live bucket" sensor disagreeing with the
             # bucket the nightly calc produces.
             last_entry=mapping.get(const.MAPPING_DATA_LAST_ENTRY),
+            # Must match _aggregate_for_zone exactly: a different aggregation
+            # here would show up as the "Live bucket" sensor disagreeing with
+            # the bucket the nightly calc produces.
+            time_weighted=(
+                getattr(
+                    getattr(self.store, "config", None),
+                    const.CONF_CONTINUOUS_UPDATES,
+                    False,
+                )
+                is True
+            ),
         )
         if not agg:
             return 0.0

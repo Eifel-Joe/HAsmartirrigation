@@ -69,7 +69,9 @@ class TestAggregates:
             _r(3, Temperature=30),  # holds 3h -> 3.5h
             _r(3.5, Temperature=50),  # holds 3.5h -> now (4h)
         ]
-        out = aggregate_window(readings, wm, {}, now=T0 + datetime.timedelta(hours=4))
+        out = aggregate_window(
+            readings, wm, {}, now=T0 + datetime.timedelta(hours=4), time_weighted=True
+        )
         # (10*3 + 30*0.5 + 50*0.5) / 4
         assert out[const.MAPPING_TEMPERATURE] == 17.5
 
@@ -133,7 +135,9 @@ class TestContinuousUpdateRows:
             _r(2, Temperature=20),
             _r(3, Humidity=70),
         ]
-        out = aggregate_window(readings, None, {}, now=T0 + datetime.timedelta(hours=4))
+        out = aggregate_window(
+            readings, None, {}, now=T0 + datetime.timedelta(hours=4), time_weighted=True
+        )
         # Each key averages over only its OWN rows — a row missing a key must
         # not be read as a zero (that would halve the mean and under-water) —
         # and each value is weighted by how long it stood, not by how many rows
@@ -171,7 +175,9 @@ class TestContinuousUpdateRows:
             _r(17, **{sun: 60}),
             _r(18, **{sun: 0}),  # dusk: back to 0 for the rest of the day
         ]
-        out = aggregate_window(readings, T0, {}, now=T0 + datetime.timedelta(hours=24))
+        out = aggregate_window(
+            readings, T0, {}, now=T0 + datetime.timedelta(hours=24), time_weighted=True
+        )
         # (20+40+60+80+100+60) MJ/day/m2 x 1 h each = 360, over a 24 h window.
         assert out[const.MAPPING_SOLRAD] == 15.0
 

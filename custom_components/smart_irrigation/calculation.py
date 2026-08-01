@@ -198,6 +198,18 @@ class CalculationMixin:
             # calculate or substitute a default — both wrong. Never overrides a
             # field the window does contain (see aggregate_window).
             last_entry=mapping.get(const.MAPPING_DATA_LAST_ENTRY),
+            # Time-weighted AVERAGE only for the sparse buffers the event path
+            # writes. Strict identity check so a test double or an absent
+            # attribute is a safe "off", matching the poll-skip guard and the
+            # mixin's own setup.
+            time_weighted=(
+                getattr(
+                    getattr(self.store, "config", None),
+                    const.CONF_CONTINUOUS_UPDATES,
+                    False,
+                )
+                is True
+            ),
         )
         return weatherdata, len(window)
 
