@@ -1775,9 +1775,20 @@ class IrrigationRunnerMixin:
         # the OLDEST no_demand entries first; only if none remain do we fall back
         # to trimming the oldest overall. siehe
         # test_no_demand_logging.py::test_real_run_evicts_oldest_no_demand_before_a_real_run
+        # Stop at index 1, NOT 0: index 0 is the entry we just inserted. Scanning
+        # it too meant that on a log already full of REAL runs — the steady state
+        # for any established zone, and one that never drains on its own because
+        # a zone that stopped watering records no new real runs — an incoming
+        # no_demand entry was the only no_demand the scan could find, so it
+        # deleted itself. Measured: 0 no_demand entries after 30 days. The
+        # feature then does nothing for exactly the case it exists to answer
+        # ("this zone used to water and now it doesn't"). Excluding the new entry
+        # softens the invariant to "no_demand never occupies more than one slot
+        # once the log is full" — 49 real + 1 no_demand, indefinitely.
+        # siehe test_no_demand_logging.py::test_a_full_log_of_real_runs_still_shows_no_demand
         overflow = len(log) - const.RUN_LOG_MAX_ENTRIES
         if overflow > 0:
-            for i in range(len(log) - 1, -1, -1):
+            for i in range(len(log) - 1, 0, -1):
                 if overflow <= 0:
                     break
                 e = log[i]

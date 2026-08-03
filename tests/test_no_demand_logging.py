@@ -178,6 +178,48 @@ async def test_full_log_without_no_demand_trims_oldest(monkeypatch):
     assert not any(e["ts"] == "oldest-real" for e in out)  # oldest real dropped
 
 
+async def test_a_full_log_of_real_runs_still_shows_no_demand(monkeypatch):
+    """Option C follow-up: the incoming entry must not evict ITSELF.
+
+    The eviction scan used to start at index 0 — the entry ``_record_run`` had
+    just inserted. On a log already full of real runs that entry was the only
+    ``no_demand`` the scan could find, so it deleted itself and the feature
+    logged nothing at all. That log is the steady state for any established
+    zone and it never drains on its own: a zone that stopped watering records
+    no new real runs, so nothing ages out. The result was that the feature did
+    nothing for exactly the case it exists to answer.
+    """
+    log = [_run_entry(f"real-{i}") for i in range(const.RUN_LOG_MAX_ENTRIES)]
+    coord = _coord(monkeypatch, [_zone(run_log=log)])
+
+    await coord._record_no_demand_skips([1])
+
+    out = coord.store.zones[1][const.ZONE_RUN_LOG]
+    assert len(out) == const.RUN_LOG_MAX_ENTRIES
+    assert [e for e in out if e.get("detail") == const.SKIP_REASON_NO_DEMAND]
+
+
+async def test_no_demand_never_takes_more_than_one_slot(monkeypatch):
+    """The budget: 49 real runs + 1 no_demand, however many days pass."""
+    log = [_run_entry(f"real-{i}") for i in range(const.RUN_LOG_MAX_ENTRIES)]
+    coord = _coord(monkeypatch, [_zone(run_log=log)])
+
+    for _ in range(30):
+        # Age any existing no_demand entry out of "today" so the per-day dedup
+        # lets the next call through — 30 consecutive dry days.
+        for entry in coord.store.zones[1][const.ZONE_RUN_LOG]:
+            if entry.get("detail") == const.SKIP_REASON_NO_DEMAND:
+                entry["ts"] = "1999-01-01T00:00:00"
+        await coord._record_no_demand_skips([1])
+
+    out = coord.store.zones[1][const.ZONE_RUN_LOG]
+    assert len(out) == const.RUN_LOG_MAX_ENTRIES
+    no_demand = [e for e in out if e.get("detail") == const.SKIP_REASON_NO_DEMAND]
+    real = [e for e in out if str(e.get("ts", "")).startswith("real-")]
+    assert len(no_demand) == 1
+    assert len(real) == const.RUN_LOG_MAX_ENTRIES - 1
+
+
 def _linked_zone(**over):
     z = {
         const.ZONE_ID: 1,
