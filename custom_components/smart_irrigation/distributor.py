@@ -1016,18 +1016,31 @@ class DistributorMixin:
             # the identical token or a restart reconcile — potentially ~a day on a
             # daily schedule. (f7dc6c17 converted _dist_master_start/end to holds but
             # left this except path — and its now-stale "rides its own deadline down"
-            # comment — unadjusted.) async_master_release is idempotent (a plain
-            # set.discard) and no-ops when no master is configured, so it is safe even
-            # if the sweep raised before _dist_master_start ran. Best-effort — a
-            # raising release must not mask the original error.
-            # siehe test_distributor_cycle.py::test_errored_cycle_releases_the_master_hold
-            try:
-                await self.async_master_release(self._dist_master_token(distributor))
-            except Exception:  # noqa: BLE001 - best-effort hold release
-                _LOGGER.exception(
-                    "Failed to release distributor %s master hold after a cycle error",
-                    dist_id,
-                )
+            # comment — unadjusted.) Best-effort — a raising release must not mask the
+            # original error.
+            #
+            # Gated on _dist_uses_master, MIRRORING _dist_master_start (which only
+            # acquires under the same gate) and _dist_master_end (which returns early
+            # under it). Releasing unconditionally would be safe token-wise — the
+            # discard is a no-op for a token we never took — but async_master_release
+            # does more than discard: once the hold set is empty it COLLAPSES
+            # _master_off_deadline to MASTER_RELEASE_GRACE_SECONDS and schedules the
+            # off-timer. So on an install with a global master + master_off_after, a
+            # distributor configured use_master=False would switch the SHARED master
+            # off when its cycle errored — a resource it explicitly opted out of and
+            # never powered up. siehe
+            # test_distributor_cycle.py::test_errored_cycle_leaves_the_master_alone_when_unused
+            if self._dist_uses_master(distributor):
+                try:
+                    await self.async_master_release(
+                        self._dist_master_token(distributor)
+                    )
+                except Exception:  # noqa: BLE001 - best-effort hold release
+                    _LOGGER.exception(
+                        "Failed to release distributor %s master hold after a "
+                        "cycle error",
+                        dist_id,
+                    )
             raise
         finally:
             inflight.discard(dist_id)

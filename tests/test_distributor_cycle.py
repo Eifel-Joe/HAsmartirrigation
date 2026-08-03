@@ -369,6 +369,30 @@ async def test_errored_cycle_releases_the_master_hold():
     assert token not in c.master_holds(), "master hold leaked after a mid-sweep error"
 
 
+async def test_errored_cycle_leaves_the_master_alone_when_unused():
+    # Follow-up to #70: the error-path release must be gated on _dist_uses_master,
+    # mirroring _dist_master_start (which only acquires under that gate). The token
+    # discard alone would be harmless, but async_master_release ALSO collapses
+    # _master_off_deadline to the release grace and schedules the off-timer once the
+    # hold set is empty -- so an ungated release lets a distributor that opted OUT of
+    # the shared master (use_master=False) switch it off on an install with
+    # master_off_after. It never powered the master up; it must not power it down.
+    c = _loop_host([_mem(1, 1), _mem(2, 2)])
+    c.store.config.master_entity = "switch.pump"  # a global master IS configured
+    c.async_master_schedule_off = AsyncMock()
+    cfg = _dist_cfg(use_master=False)  # ...but this distributor opted out
+    c._master_holds = set()  # _dist_master_start took nothing, by that same gate
+    c._dist_run_sweep = AsyncMock(side_effect=RuntimeError("boom"))
+
+    with pytest.raises(RuntimeError):
+        await c.async_run_distributor_cycle(cfg)
+
+    c.async_master_schedule_off.assert_not_awaited()
+    assert (
+        getattr(c, "_master_off_deadline", None) is None
+    ), "an opted-out distributor collapsed the shared master's off-deadline"
+
+
 async def test_cycle_survives_none_pause_and_skip():
     # A distributor persisted with None timings must not crash the cycle.
     members = [_mem(1, 1), _mem(2, 2)]
