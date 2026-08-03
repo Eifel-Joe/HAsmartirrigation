@@ -21,8 +21,29 @@ without standing up a coordinator.
 Reported as issue #67.
 """
 
+from homeassistant.util.unit_system import METRIC_SYSTEM
+
 from . import const
 from .helpers import convert_between
+
+
+def unit_system_name(units) -> str:
+    """Return a loggable name for a Home Assistant ``UnitSystem``.
+
+    ``UnitSystem`` has no public ``name`` — only a private ``_name`` — so the
+    obvious ``units.name`` raises ``AttributeError``. That is not hypothetical:
+    it was live in the ``core_config_updated`` handler and killed it before it
+    could dispatch anything, so a unit flip made in the UI did nothing at all
+    (reported by clarejor while verifying issue #67).
+    """
+    if units is None:
+        return "unknown"
+    return (
+        const.UNIT_SYSTEM_METRIC
+        if units is METRIC_SYSTEM
+        else const.UNIT_SYSTEM_US_CUSTOMARY
+    )
+
 
 # Depth-valued zone fields, stored in mm (metric) or inches (imperial).
 #

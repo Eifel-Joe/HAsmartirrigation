@@ -9,6 +9,7 @@ import logging
 # ``dt_datetime.now()`` at runtime. The alias keeps our global name collision-free.
 from datetime import datetime as dt_datetime
 from datetime import timedelta
+from functools import partial
 
 from homeassistant.components.sensor import DOMAIN as PLATFORM
 from homeassistant.config_entries import ConfigEntry
@@ -64,7 +65,7 @@ from .self_closing import SelfClosingMixin
 from .services import ServiceHandlersMixin, async_register_services
 from .skip_conditions import SkipConditionsMixin
 from .store import BUFFER_FLUSH_INTERVAL, SmartIrrigationStorage, async_get_registry
-from .unit_system import convert_zone_values
+from .unit_system import convert_zone_values, unit_system_name
 from .watering_calendar import WateringCalendarMixin
 from .weathermodules.MetOfficeClient import MetOfficeClient
 from .weathermodules.OpenMeteoClient import OpenMeteoClient
@@ -193,49 +194,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # resume steps so crashed cycles are already reconciled. See master.py.
     await coordinator.async_reconcile_master_after_restart()
 
-    # Set up unit system change listener
-    async def handle_core_config_change(event):
-        """Handle Home Assistant core configuration changes, specifically unit system changes."""
-        _LOGGER.debug("Core_config_updated fired: %s", event.data)
-        if (
-            const.DOMAIN not in hass.data
-            or "coordinator" not in hass.data[const.DOMAIN]
-        ):
-            return
-
-        # Check if unit system has changed by comparing current vs coordinator's cached unit system
-        coordinator = hass.data[const.DOMAIN]["coordinator"]
-        current_unit_system = hass.config.units
-
-        # Store the previous unit system in coordinator if not already stored.
-        # (Was `_previous_unit_system` — an attribute never set anywhere — so this
-        # guard was always True, always early-returned, and the change detection
-        # below was dead: a metric<->imperial switch never refreshed until reload.)
-        if not hasattr(coordinator, "previous_unit_system"):
-            coordinator.previous_unit_system = current_unit_system
-            return
-
-        # Check if unit system actually changed
-        if coordinator.previous_unit_system != current_unit_system:
-            _LOGGER.info(
-                "Home Assistant unit system changed from %s to %s, updating Smart Irrigation",
-                coordinator.previous_unit_system.name,
-                current_unit_system.name,
-            )
-
-            # Update coordinator's cached unit system
-            coordinator.previous_unit_system = current_unit_system
-
-            # Trigger unit system update
-            await coordinator.async_handle_unit_system_change()
-        else:
-            _LOGGER.debug("Core config updated but unit system unchanged")
-
     coordinator.previous_unit_system = hass.config.units
-    # hass.bus.async_listen(
-    #    "core_config_updated", core_config_updated_listener_factory(hass)
-    # )
-    hass.bus.async_listen("core_config_updated", handle_core_config_change)
+    hass.bus.async_listen(
+        "core_config_updated", partial(async_handle_core_config_change, hass)
+    )
     _LOGGER.info(
         "Registered listener for Home Assistant core config changes (unit system)"
     )
@@ -285,6 +247,47 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await coordinator.recurring_schedule_manager.async_load_schedules()
 
     return True
+
+
+async def async_handle_core_config_change(hass: HomeAssistant, event) -> None:
+    """React to a live unit-system change made in the Home Assistant UI.
+
+    This is the second of the two entry points for issue #67; the first is
+    ``async_setup_entry``, which catches a ``configuration.yaml`` edit plus a
+    restart (that path fires no ``core_config_updated`` event at all).
+
+    Promoted out of ``async_setup_entry`` on 2026-08-03. As a nested closure it
+    was unreachable from the tests — the one test that covered it had been
+    skipped as "not importable" — and that is how an ``AttributeError`` in its
+    own log line survived: ``UnitSystem`` has no public ``name``, so the
+    handler died before it could dispatch, and a UI flip did nothing at all,
+    not even refresh the displayed units. Reported by clarejor against
+    v2026.07.11. Keep this a module-level function so it stays testable.
+    """
+    _LOGGER.debug("Core_config_updated fired: %s", event.data)
+    domain_data = hass.data.get(const.DOMAIN)
+    if not domain_data or "coordinator" not in domain_data:
+        return
+
+    coordinator = domain_data["coordinator"]
+    current_unit_system = hass.config.units
+    previous_unit_system = getattr(coordinator, "previous_unit_system", None)
+
+    if previous_unit_system == current_unit_system:
+        _LOGGER.debug("Core config updated but unit system unchanged")
+        return
+
+    _LOGGER.info(
+        "Home Assistant unit system changed from %s to %s, updating Smart Irrigation",
+        unit_system_name(previous_unit_system),
+        unit_system_name(current_unit_system),
+    )
+    coordinator.previous_unit_system = current_unit_system
+
+    # Safe even if we get here spuriously (a missing attribute, a duplicate
+    # event): the conversion downstream is guarded by the PERSISTED unit
+    # system, not by this comparison, so a redundant call converts nothing.
+    await coordinator.async_handle_unit_system_change()
 
 
 async def options_update_listener(hass: HomeAssistant, config_entry):
@@ -668,11 +671,7 @@ class SmartIrrigationCoordinator(
 
     def _current_unit_system_name(self):
         """The unit system stored zone values would be written under right now."""
-        return (
-            const.UNIT_SYSTEM_METRIC
-            if self.hass.config.units is METRIC_SYSTEM
-            else const.UNIT_SYSTEM_US_CUSTOMARY
-        )
+        return unit_system_name(self.hass.config.units)
 
     async def async_reconcile_stored_unit_system(self):
         """Convert stored zone values when the unit system has changed (issue #67).

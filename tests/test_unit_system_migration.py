@@ -14,9 +14,16 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
 
-from custom_components.smart_irrigation import SmartIrrigationCoordinator, const
+from custom_components.smart_irrigation import (
+    SmartIrrigationCoordinator,
+    async_handle_core_config_change,
+    const,
+)
 from custom_components.smart_irrigation.store import STORAGE_VERSION, MigratableStore
-from custom_components.smart_irrigation.unit_system import convert_zone_values
+from custom_components.smart_irrigation.unit_system import (
+    convert_zone_values,
+    unit_system_name,
+)
 
 _MM_PER_INCH = 25.4
 
@@ -215,6 +222,105 @@ class TestTheUiPath:
             assert zone_at_dispatch[const.ZONE_BUCKET_THRESHOLD] == pytest.approx(
                 -10.0 / _MM_PER_INCH
             )
+
+
+class TestTheCoreConfigEventPath:
+    """`async_handle_core_config_change` — the UI half, end to end.
+
+    Every test here would have passed against a handler that never ran, which
+    is exactly what shipped: the handler logged `previous_unit_system.name`,
+    `UnitSystem` has no public `name`, and the AttributeError killed it one
+    line before the dispatch. It went unnoticed because the handler was a
+    nested closure inside `async_setup_entry` and the only test covering it was
+    skipped as "not importable". So assert on the EFFECT, not on the call.
+    """
+
+    @staticmethod
+    def _wire(store, previous_units, current_units):
+        """A coordinator reachable the way the event handler reaches it."""
+        coord = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
+        coord.store = store
+        coord.previous_unit_system = previous_units
+        hass = Mock()
+        hass.config.units = current_units
+        hass.data = {const.DOMAIN: {"coordinator": coord}}
+        coord.hass = hass
+        return coord, hass
+
+    @staticmethod
+    def _event():
+        return Mock(data={"unit_system": "us_customary"})
+
+    @pytest.fixture(autouse=True)
+    def _silence_dispatch(self, monkeypatch):
+        monkeypatch.setattr(
+            "custom_components.smart_irrigation.async_dispatcher_send",
+            lambda *a, **kw: None,
+        )
+
+    async def test_a_ui_flip_converts_the_stored_values(self):
+        """The regression: this raised AttributeError before reaching any of it."""
+        store = _FakeStore([_zone()], const.UNIT_SYSTEM_METRIC)
+        _coord_obj, hass = self._wire(store, METRIC_SYSTEM, US_CUSTOMARY_SYSTEM)
+
+        await async_handle_core_config_change(hass, self._event())
+
+        assert store.zone()[const.ZONE_BUCKET_THRESHOLD] == pytest.approx(
+            -10.0 / _MM_PER_INCH
+        )
+        assert store.config.stored_unit_system == const.UNIT_SYSTEM_US_CUSTOMARY
+
+    async def test_the_cached_system_advances_so_it_fires_once(self):
+        store = _FakeStore([_zone()], const.UNIT_SYSTEM_METRIC)
+        coord, hass = self._wire(store, METRIC_SYSTEM, US_CUSTOMARY_SYSTEM)
+
+        await async_handle_core_config_change(hass, self._event())
+
+        assert coord.previous_unit_system is US_CUSTOMARY_SYSTEM
+
+    async def test_an_unrelated_core_config_change_converts_nothing(self):
+        """`core_config_updated` also fires for location, currency, name..."""
+        store = _FakeStore([_zone()], const.UNIT_SYSTEM_METRIC)
+        _coord_obj, hass = self._wire(store, METRIC_SYSTEM, METRIC_SYSTEM)
+        before = dict(store.zone())
+
+        await async_handle_core_config_change(hass, Mock(data={"currency": "EUR"}))
+
+        assert store.zone() == before
+        assert store.config_updates == []
+
+    async def test_it_no_ops_before_the_coordinator_exists(self):
+        hass = Mock()
+        hass.data = {}
+        await async_handle_core_config_change(hass, self._event())
+
+        hass.data = {const.DOMAIN: {}}
+        await async_handle_core_config_change(hass, self._event())
+
+    async def test_a_missing_cached_system_still_reconciles(self):
+        """Degrades to the persisted guard rather than crashing on the log line."""
+        store = _FakeStore([_zone()], const.UNIT_SYSTEM_METRIC)
+        coord, hass = self._wire(store, METRIC_SYSTEM, US_CUSTOMARY_SYSTEM)
+        del coord.previous_unit_system
+
+        await async_handle_core_config_change(hass, self._event())
+
+        assert store.config.stored_unit_system == const.UNIT_SYSTEM_US_CUSTOMARY
+
+
+class TestUnitSystemName:
+    """`UnitSystem.name` does not exist — this helper is why we stopped using it."""
+
+    def test_the_private_attribute_is_still_the_only_one(self):
+        """Pins the assumption. If HA ever adds a public `name`, revisit."""
+        assert not hasattr(METRIC_SYSTEM, "name")
+
+    def test_both_systems_get_a_loggable_name(self):
+        assert unit_system_name(METRIC_SYSTEM) == const.UNIT_SYSTEM_METRIC
+        assert unit_system_name(US_CUSTOMARY_SYSTEM) == const.UNIT_SYSTEM_US_CUSTOMARY
+
+    def test_none_does_not_masquerade_as_a_real_system(self):
+        assert unit_system_name(None) == "unknown"
 
 
 class TestV13Migration:

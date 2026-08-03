@@ -256,54 +256,11 @@ class TestSmartIrrigationCoordinator:
             await coordinator.async_setup_timers()
             mock_update_timer.assert_called_once()
 
-    @pytest.mark.skip(
-        reason="handle_core_config_change is a nested closure in async_setup_entry "
-        "(not importable) and the test uses the wrong attr name; revive in C7 if the "
-        "handler is promoted to a method (A6)"
-    )
-    async def test_unit_system_change_handler(
-        self,
-        hass: HomeAssistant,
-        mock_config_entry: ConfigEntry,
-        mock_store: AsyncMock,
-        mock_session: AsyncMock,
-    ) -> None:
-        """Test unit system change handling."""
-        from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
-
-        from custom_components.smart_irrigation import handle_core_config_change
-
-        hass.data[const.DOMAIN] = {
-            const.CONF_USE_WEATHER_SERVICE: False,
-            const.CONF_WEATHER_SERVICE: None,
-        }
-
-        coordinator = SmartIrrigationCoordinator(
-            hass, mock_session, mock_config_entry, mock_store
-        )
-
-        hass.data[const.DOMAIN]["coordinator"] = coordinator
-
-        # Mock the async_handle_unit_system_change method
-        coordinator.async_handle_unit_system_change = AsyncMock()
-
-        # Test initial setup - no previous unit system
-        hass.config.units = METRIC_SYSTEM
-        coordinator._previous_unit_system = METRIC_SYSTEM
-
-        event = {}
-        await handle_core_config_change(hass, event)
-
-        # Should not call handler for same unit system
-        coordinator.async_handle_unit_system_change.assert_not_called()
-
-        # Test unit system change
-        hass.config.units = US_CUSTOMARY_SYSTEM
-        await handle_core_config_change(hass, event)
-
-        # Should call handler for unit system change
-        coordinator.async_handle_unit_system_change.assert_called_once()
-        assert coordinator._previous_unit_system == US_CUSTOMARY_SYSTEM
+    # The core_config_updated handler is no longer a closure here — it was
+    # promoted to `async_handle_core_config_change` precisely because being
+    # unreachable from tests let an AttributeError live in it. Its tests are in
+    # tests/test_unit_system_migration.py::TestTheCoreConfigEventPath, next to
+    # the conversion they drive.
 
     @pytest.mark.skip(
         reason="Patches _convert_precipitation_threshold / _refresh_unit_dependent_data "
