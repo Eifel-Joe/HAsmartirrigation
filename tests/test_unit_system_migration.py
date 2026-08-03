@@ -126,6 +126,14 @@ class TestConversionItself:
 
 
 class TestReconciliation:
+    @pytest.fixture(autouse=True)
+    def _silence_dispatch(self, monkeypatch):
+        """These assert on the STORE; the per-zone refresh has its own class."""
+        monkeypatch.setattr(
+            "custom_components.smart_irrigation.async_dispatcher_send",
+            lambda *a, **kw: None,
+        )
+
     async def test_the_reported_bug_metric_to_us_customary(self):
         """The issue's own reproduction: same digits, new meaning."""
         store = _FakeStore([_zone()], const.UNIT_SYSTEM_METRIC)
@@ -222,6 +230,86 @@ class TestTheUiPath:
             assert zone_at_dispatch[const.ZONE_BUCKET_THRESHOLD] == pytest.approx(
                 -10.0 / _MM_PER_INCH
             )
+
+
+class TestTheConvertedValuesReachTheEntities:
+    """Converting the store is only half the job — the entities cache.
+
+    Reported by clarejor against v2026.08.02: after a live flip the store was
+    correct but `sensor.<zone>_bucket` and the duration sensor's attributes
+    still showed the PRE-conversion digits under the NEW unit label, which
+    reads as a real value rather than as a display glitch. `async_update_zone`
+    only schedules a save and dispatches nothing, and both entities answer
+    `_unit_system_changed` with `async_schedule_update_ha_state(force_refresh)`
+    — but neither class defines `async_update`, so the refresh re-renders the
+    cached value. `_config_updated` carrying the zone id is the signal they
+    already re-read the store on, so the reconcile loop has to send it.
+    """
+
+    @staticmethod
+    def _capture(monkeypatch):
+        sent = []
+        monkeypatch.setattr(
+            "custom_components.smart_irrigation.async_dispatcher_send",
+            lambda _hass, signal, *args: sent.append((signal, args)),
+        )
+        return sent
+
+    async def test_each_converted_zone_is_announced(self, monkeypatch):
+        sent = self._capture(monkeypatch)
+        store = _FakeStore([_zone(1), _zone(2), _zone(3)], const.UNIT_SYSTEM_METRIC)
+
+        await _coord(store, US_CUSTOMARY_SYSTEM).async_reconcile_stored_unit_system()
+
+        announced = [
+            args[0] for signal, args in sent if signal.endswith("_config_updated")
+        ]
+        assert announced == [1, 2, 3]
+
+    async def test_the_announcement_carries_the_converted_value(self, monkeypatch):
+        """Dispatch AFTER the write, or the entity re-reads the old digits."""
+        seen = []
+        store = _FakeStore([_zone()], const.UNIT_SYSTEM_METRIC)
+        monkeypatch.setattr(
+            "custom_components.smart_irrigation.async_dispatcher_send",
+            lambda _hass, signal, *args: seen.append(
+                (signal, store.zone()[const.ZONE_BUCKET_THRESHOLD])
+            ),
+        )
+
+        await _coord(store, US_CUSTOMARY_SYSTEM).async_reconcile_stored_unit_system()
+
+        assert seen, "the conversion must announce itself"
+        for _signal, threshold in seen:
+            assert threshold == pytest.approx(-10.0 / _MM_PER_INCH)
+
+    async def test_a_zone_with_nothing_to_convert_is_not_announced(self, monkeypatch):
+        """No write, no refresh — an empty dispatch is just noise."""
+        sent = self._capture(monkeypatch)
+        blank = {
+            const.ZONE_ID: 1,
+            const.ZONE_NAME: "Empty",
+            const.ZONE_BUCKET: None,
+            const.ZONE_MAXIMUM_BUCKET: None,
+            const.ZONE_DRAINAGE_RATE: None,
+            const.ZONE_BUCKET_THRESHOLD: None,
+            const.ZONE_IRRIGATION_TARGET_BUCKET: None,
+            const.ZONE_SIZE: None,
+            const.ZONE_THROUGHPUT: None,
+        }
+        store = _FakeStore([blank], const.UNIT_SYSTEM_METRIC)
+
+        await _coord(store, US_CUSTOMARY_SYSTEM).async_reconcile_stored_unit_system()
+
+        assert not [s for s, _ in sent if s.endswith("_config_updated")]
+
+    async def test_no_flip_announces_nothing(self, monkeypatch):
+        sent = self._capture(monkeypatch)
+        store = _FakeStore([_zone()], const.UNIT_SYSTEM_METRIC)
+
+        await _coord(store, METRIC_SYSTEM).async_reconcile_stored_unit_system()
+
+        assert sent == []
 
 
 class TestTheCoreConfigEventPath:

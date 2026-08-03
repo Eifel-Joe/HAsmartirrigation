@@ -725,14 +725,27 @@ class SmartIrrigationCoordinator(
             )
             if not changes:
                 continue
-            await self.store.async_update_zone(zone.get(const.ZONE_ID), changes)
+            zone_id = zone.get(const.ZONE_ID)
+            await self.store.async_update_zone(zone_id, changes)
             converted += 1
             _LOGGER.info(
                 "Zone %s: converted %s to %s",
-                zone.get(const.ZONE_ID),
+                zone_id,
                 ", ".join(sorted(changes)),
                 current,
             )
+            # Tell the entities the zone changed underneath them. Reported by
+            # clarejor against v2026.08.02: `async_update_zone` only schedules a
+            # save, so after a live flip the store was right while the bucket
+            # sensor and the duration sensor's attributes still showed the
+            # PRE-conversion digits — now under the NEW unit label, so a factor
+            # of 25.4 out and indistinguishable from a real reading. Their own
+            # `_unit_system_changed` handlers cannot fix it: neither class
+            # defines `async_update`, so `force_refresh=True` re-renders the
+            # cached value. `_config_updated` with the zone id is the signal
+            # they already re-read the store on. Sent AFTER the write, per zone,
+            # and only when something actually converted.
+            async_dispatcher_send(self.hass, const.DOMAIN + "_config_updated", zone_id)
 
         # Persist LAST: if the loop raises partway, the stored system still says
         # the old one, so the next startup retries rather than leaving half the

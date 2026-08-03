@@ -200,3 +200,37 @@ class TestZoneBucketSensorUnit:
         entity.async_schedule_update_ha_state.assert_called_once_with(
             force_refresh=True
         )
+
+    def test_the_flip_signal_alone_does_not_refresh_the_value(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Issue #67 follow-up: the label moves, the number does not.
+
+        There is no `async_update` on this class, so `force_refresh=True`
+        re-renders the CACHED `_bucket`. That is why the conversion loop has to
+        dispatch `_config_updated` as well — this signal is the label half only.
+        """
+        hass.config.units = METRIC_SYSTEM
+        entity = self._entity(hass, bucket=-0.8063)
+        entity.hass = hass
+        entity.async_schedule_update_ha_state = Mock()
+
+        entity._async_unit_system_changed()
+
+        assert entity._bucket == -0.8063
+
+    def test_the_zone_signal_re_reads_the_converted_value(
+        self, hass: HomeAssistant
+    ) -> None:
+        """`_config_updated` with the zone id is what actually heals it."""
+        hass.config.units = METRIC_SYSTEM
+        entity = self._entity(hass, bucket=-0.8063)
+        entity.hass = hass
+        entity.async_schedule_update_ha_state = Mock()
+        store = Mock()
+        store.get_zone.return_value = {const.ZONE_BUCKET: -20.4800}
+        hass.data[const.DOMAIN] = {"coordinator": Mock(store=store)}
+
+        entity._async_update_bucket(1)
+
+        assert entity._bucket == -20.48
