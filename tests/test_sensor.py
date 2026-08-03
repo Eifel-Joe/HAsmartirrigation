@@ -7,9 +7,11 @@ from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
 
 from custom_components.smart_irrigation import const
 from custom_components.smart_irrigation.sensor import (
+    SmartIrrigationZoneBucketEntity,
     SmartIrrigationZoneEntity,
     _to_aware_datetime,
     async_setup_entry,
@@ -148,6 +150,52 @@ class TestSmartIrrigationZoneEntity:
         entity.async_schedule_update_ha_state = Mock()
 
         entity.async_handle_unit_system_change()
+
+        entity.async_schedule_update_ha_state.assert_called_once_with(
+            force_refresh=True
+        )
+
+
+class TestZoneBucketSensorUnit:
+    """Issue #72: the bucket sensor labelled a display-unit value as mm.
+
+    `native_value` is the STORED bucket, and stored zone depths are in the
+    user's display units (see unit_system.py). Hardcoding "mm" therefore
+    published an inch value as millimetres on every imperial install — a factor
+    of 25.4 — while every sibling zone sensor already resolved it correctly.
+    """
+
+    @staticmethod
+    def _entity(hass, bucket=-0.8063):
+        return SmartIrrigationZoneBucketEntity(
+            hass, "sensor.si_test_bucket", 1, "Front South", bucket
+        )
+
+    def test_metric_is_unchanged(self, hass: HomeAssistant) -> None:
+        """Metric installs must be byte-identical — they were never wrong."""
+        hass.config.units = METRIC_SYSTEM
+        assert self._entity(hass).native_unit_of_measurement == "mm"
+
+    def test_imperial_reports_inches(self, hass: HomeAssistant) -> None:
+        hass.config.units = US_CUSTOMARY_SYSTEM
+        assert self._entity(hass).native_unit_of_measurement == "in"
+
+    def test_the_label_matches_the_value_it_labels(self, hass: HomeAssistant) -> None:
+        """The reporter's case: stored -0.8063 in, published as -0.81 mm."""
+        hass.config.units = US_CUSTOMARY_SYSTEM
+        entity = self._entity(hass)
+
+        assert entity.native_value == -0.81
+        assert entity.native_unit_of_measurement != "mm"
+
+    def test_a_unit_flip_republishes_the_state(self, hass: HomeAssistant) -> None:
+        """Otherwise the label lags until something else touches the zone."""
+        hass.config.units = METRIC_SYSTEM
+        entity = self._entity(hass)
+        entity.hass = hass
+        entity.async_schedule_update_ha_state = Mock()
+
+        entity._async_unit_system_changed()
 
         entity.async_schedule_update_ha_state.assert_called_once_with(
             force_refresh=True

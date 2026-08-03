@@ -499,6 +499,21 @@ class SmartIrrigationZoneBucketEntity(SensorEntity, RestoreEntity):
             hass, const.DOMAIN + "_config_updated", self._async_update_bucket
         )
 
+        # Issue #72: the unit is now derived from the display system, so a live
+        # flip has to re-publish the state or the entity keeps the old label
+        # until something else happens to touch the zone.
+        async_dispatcher_connect(
+            hass,
+            const.DOMAIN + "_unit_system_changed",
+            self._async_unit_system_changed,
+        )
+
+    @callback
+    def _async_unit_system_changed(self):
+        """Re-publish so the unit label follows the display system."""
+        if self.hass:
+            self.async_schedule_update_ha_state(force_refresh=True)
+
     @callback
     def _async_update_bucket(self, zone_id=None):
         """Update bucket value when zone config changes."""
@@ -538,8 +553,16 @@ class SmartIrrigationZoneBucketEntity(SensorEntity, RestoreEntity):
 
     @property
     def native_unit_of_measurement(self) -> str:
-        """Return mm as unit."""
-        return "mm"
+        """Return the unit the stored bucket is actually in.
+
+        Issue #72: this returned the literal "mm" while ``native_value`` is the
+        STORED bucket, which is a display-unit value — inches on an imperial
+        install. So a bucket of -0.81 in was published as "-0.81 mm", a factor
+        of 25.4 out. Every sibling zone sensor already resolves this through
+        ``_depth_unit``, and the panel through ``output_unit``; this one entity
+        was the outlier.
+        """
+        return "mm" if self._hass.config.units is METRIC_SYSTEM else "in"
 
     @property
     def native_value(self) -> float:
