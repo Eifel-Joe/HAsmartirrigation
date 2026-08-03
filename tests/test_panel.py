@@ -72,16 +72,26 @@ class TestSmartIrrigationPanel:
         """Storage-mode dashboards get a real Lovelace resource (awaited by HA),
         not add_extra_js_url which races the card render."""
 
-        class ResourceStorageCollection:  # name is what the code checks for
+        # The code no longer checks the class NAME (a private-API detail that
+        # would fail closed into the racy add_extra_js_url path if HA renamed
+        # it) — it checks for the MUTATORS only the storage-backed collection
+        # has. So this double must mirror that capability surface; see
+        # test_review_hardening.TestLovelaceCollectionShape, which pins it
+        # against the real HA classes.
+        class ResourceStorageCollection:
             def __init__(self):
                 self.loaded = True
                 self.created = []
+                self.updated = []
 
             def async_items(self):
                 return []
 
             async def async_create_item(self, item):
                 self.created.append(item)
+
+            async def async_update_item(self, item_id, item):
+                self.updated.append((item_id, item))
 
         resources = ResourceStorageCollection()
         mock_hass.data = {"lovelace": Mock(resources=resources)}

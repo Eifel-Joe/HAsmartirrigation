@@ -28,6 +28,34 @@ from .helpers import CannotConnect, InvalidAuth, validate_api_key
 
 _LOGGER = logging.getLogger(__name__)
 
+# Admin gating (deferred audit finding #7) — the split here is DELIBERATE, so
+# please read before "finishing the job" by gating the rest.
+#
+# The PANEL is already admin-only (panel.py registers it with require_admin),
+# but the Lovelace CARD is explicitly meant for everyone: it is how a non-admin
+# household member sees their zones, and its `actions: irrigate | full` config
+# lets them start a run. Blanket-gating every command would silently break that
+# card for exactly the users it exists for.
+#
+# So @websocket_api.require_admin goes on the config-and-secrets commands only:
+#
+#   weather_config / weather_config_save / weather_config_test
+#       -> the payload carries WEATHER SERVICE API KEYS.
+#   coordinates / coordinates_save
+#       -> the payload carries the install's LATITUDE AND LONGITUDE.
+#   schedule_save / schedule_delete
+#       -> rewrites when the system waters; not something a viewer should do.
+#
+# Deliberately left open to any authenticated user:
+#   config, zones, irrigation_outlook, distributors  (the card's reads)
+#   irrigate_now, run_zone, stop_zone,
+#   set_rain_delay, clear_rain_delay                 (the card's actions mode)
+#   mappings, modules, allmodules,
+#   weather_records, weather_forecast, watering_calendar, schedules (reads)
+#
+# NB the HTTP views below (POST /api/smart_irrigation/...) are a separate
+# surface and are NOT covered by this; they still only require authentication.
+
 
 def _safe_parse_datetime(value):
     """Safely parse a datetime value, returning datetime.min as fallback."""
@@ -627,6 +655,7 @@ async def websocket_get_schedules(hass: HomeAssistant, connection, msg):
     connection.send_result(msg["id"], schedules)
 
 
+@websocket_api.require_admin
 @async_response
 async def websocket_save_schedule(hass: HomeAssistant, connection, msg):
     """Create or update a recurring schedule."""
@@ -648,6 +677,7 @@ async def websocket_save_schedule(hass: HomeAssistant, connection, msg):
         connection.send_result(msg["id"], {"success": False, "error": str(e)})
 
 
+@websocket_api.require_admin
 @async_response
 async def websocket_delete_schedule(hass: HomeAssistant, connection, msg):
     """Delete a recurring schedule by id."""
@@ -758,6 +788,7 @@ async def websocket_clear_rain_delay(hass: HomeAssistant, connection, msg):
         connection.send_result(msg["id"], {"success": False, "error": str(e)})
 
 
+@websocket_api.require_admin
 @async_response
 async def websocket_get_weather_config(hass: HomeAssistant, connection, msg):
     """Return the current weather service configuration (without exposing the API key)."""
@@ -802,6 +833,7 @@ async def websocket_get_weather_config(hass: HomeAssistant, connection, msg):
     )
 
 
+@websocket_api.require_admin
 @async_response
 async def websocket_test_weather_config(hass: HomeAssistant, connection, msg):
     """Test the weather service API key without saving it."""
@@ -839,6 +871,7 @@ async def websocket_test_weather_config(hass: HomeAssistant, connection, msg):
         connection.send_result(msg["id"], {"success": False, "error": "unknown"})
 
 
+@websocket_api.require_admin
 @async_response
 async def websocket_save_weather_config(hass: HomeAssistant, connection, msg):
     """Save weather service configuration to config entry options and in-memory state."""
@@ -893,6 +926,7 @@ async def websocket_save_weather_config(hass: HomeAssistant, connection, msg):
     connection.send_result(msg["id"], {"success": True})
 
 
+@websocket_api.require_admin
 @async_response
 async def websocket_get_coordinates(hass: HomeAssistant, connection, msg):
     """Return the configured manual coordinates plus HA's coordinates for display.
@@ -930,6 +964,7 @@ async def websocket_get_coordinates(hass: HomeAssistant, connection, msg):
     )
 
 
+@websocket_api.require_admin
 @async_response
 async def websocket_save_coordinates(hass: HomeAssistant, connection, msg):
     """Persist manual coordinates to the config-entry options (single source of truth).

@@ -7,7 +7,10 @@ returning None (that one lives in test_localize.py, next to its siblings).
 """
 
 import inspect
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+from homeassistant.exceptions import Unauthorized
 
 from custom_components.smart_irrigation import const
 from custom_components.smart_irrigation.helpers import normalize_zone_selection
@@ -66,14 +69,200 @@ class TestIrrigateLinkedEntitiesIsNotACallback:
         )
 
 
+# The capability surfaces of the two real HA collections, pinned by
+# TestLovelaceCollectionShape below. A bare Mock() auto-creates every attribute
+# and would pass any duck-type check, so these doubles MUST be spec'd or they
+# test nothing.
+_STORAGE_API = [
+    "async_items",
+    "async_create_item",
+    "async_update_item",
+    "async_delete_item",
+    "loaded",
+    "async_load",
+]
+_YAML_API = ["async_items", "loaded"]
+
+
+class TestWebsocketAdminGating:
+    """Deferred finding #7. The split is deliberate — see websockets.py.
+
+    Gated: anything carrying weather-service API KEYS or the install's GPS
+    COORDINATES, plus schedule writes. Ungated: everything the Lovelace card
+    needs, because the card is explicitly for non-admin household members and
+    supports an actions mode. Blanket-gating would have broken it silently.
+
+    Tested by BEHAVIOUR: require_admin raises before delegating, so a non-admin
+    connection never reaches the handler body and no coordinator is needed.
+    """
+
+    GATED = [
+        "websocket_get_weather_config",
+        "websocket_save_weather_config",
+        "websocket_test_weather_config",
+        "websocket_get_coordinates",
+        "websocket_save_coordinates",
+        "websocket_save_schedule",
+        "websocket_delete_schedule",
+    ]
+    # The card's reads, then its actions mode. Every name here is resolved with
+    # getattr, so a typo would make the test vacuous — test_every_name_resolves
+    # guards that.
+    UNGATED = [
+        "websocket_get_config",
+        "websocket_get_zones",
+        "websocket_get_irrigation_outlook",
+        "websocket_get_distributors",
+        "websocket_irrigate_now",
+        "websocket_run_zone",
+        "websocket_stop_zone",
+        "websocket_set_rain_delay",
+        "websocket_clear_rain_delay",
+    ]
+
+    @staticmethod
+    def _call(name, *, is_admin):
+        from custom_components.smart_irrigation import websockets
+
+        handler = getattr(websockets, name)
+        connection = Mock(user=Mock(is_admin=is_admin))
+        return handler(Mock(), connection, {"id": 1})
+
+    @pytest.mark.parametrize("name", GATED)
+    def test_a_non_admin_is_refused(self, name):
+        with pytest.raises(Unauthorized):
+            self._call(name, is_admin=False)
+
+    @pytest.mark.parametrize("name", GATED)
+    def test_an_anonymous_connection_is_refused(self, name):
+        from custom_components.smart_irrigation import websockets
+
+        handler = getattr(websockets, name)
+        with pytest.raises(Unauthorized):
+            handler(Mock(), Mock(user=None), {"id": 1})
+
+    @staticmethod
+    def _is_admin_gated(handler) -> bool:
+        """require_admin returns a closure named `with_admin`.
+
+        @wraps copies __name__ but never __code__, so the code object's name is
+        the honest marker. Checked structurally rather than by calling, because
+        an ungated handler would build a coroutine we would then have to throw
+        away — and a stray un-awaited coroutine warning in the suite is exactly
+        the kind of noise that trains people to ignore warnings.
+        """
+        return getattr(handler, "__code__", None) is not None and (
+            handler.__code__.co_name == "with_admin"
+        )
+
+    @pytest.mark.parametrize("name", GATED + UNGATED)
+    def test_every_name_resolves(self, name):
+        """A typo'd handler name would make the gating tests pass vacuously.
+
+        This is not hypothetical: the first draft listed
+        `websocket_irrigation_outlook`, which does not exist, and the
+        behavioural version of the ungated test swallowed the AttributeError
+        and went green.
+        """
+        from custom_components.smart_irrigation import websockets
+
+        assert callable(getattr(websockets, name, None)), name
+
+    def test_the_marker_actually_detects_gating(self):
+        """Proves the check above bites, so the UNGATED test is not vacuous."""
+        from custom_components.smart_irrigation import websockets
+
+        assert self._is_admin_gated(websockets.websocket_get_coordinates)
+
+    @pytest.mark.parametrize("name", UNGATED)
+    def test_the_card_surface_is_not_gated(self, name):
+        from custom_components.smart_irrigation import websockets
+
+        assert not self._is_admin_gated(getattr(websockets, name)), (
+            f"{name} is admin-gated, which silently breaks the Lovelace card "
+            "for non-admin users"
+        )
+
+
 def _resources(items):
     """A stand-in for Lovelace's storage-backed ResourceStorageCollection."""
-    res = Mock()
-    res.__class__.__name__ = "ResourceStorageCollection"
+    res = Mock(spec=_STORAGE_API)
     res.loaded = True
     res.async_items = Mock(return_value=list(items))
     res.async_delete_item = AsyncMock()
     return res
+
+
+class TestStaticPathsRegisterOnce:
+    """HA appends to the aiohttp router with no dedup, and routes cannot be
+    removed — so re-registering on every reload leaked four dead routes each
+    time, for the life of the process."""
+
+    @staticmethod
+    def _hass():
+        hass = Mock()
+        hass.data = {}
+        hass.http.async_register_static_paths = AsyncMock()
+        hass.config.path = Mock(return_value="/config/custom_components")
+        return hass
+
+    async def _register(self, hass):
+        from custom_components.smart_irrigation.panel import async_register_panel
+
+        with (
+            patch(
+                "custom_components.smart_irrigation.panel.panel_custom.async_register_panel",
+                new=AsyncMock(),
+            ),
+            patch("custom_components.smart_irrigation.panel.frontend.add_extra_js_url"),
+        ):
+            await async_register_panel(hass)
+
+    async def test_a_reload_does_not_re_register(self):
+        hass = self._hass()
+
+        await self._register(hass)
+        await self._register(hass)
+        await self._register(hass)
+
+        hass.http.async_register_static_paths.assert_awaited_once()
+
+    async def test_the_flag_survives_the_domain_data_being_wiped(self):
+        """async_remove_entry deletes hass.data[DOMAIN]; the routes outlive it,
+        so a reinstall in the same process must NOT register them again."""
+        hass = self._hass()
+        await self._register(hass)
+
+        hass.data.pop(const.DOMAIN, None)  # what async_remove_entry does
+        await self._register(hass)
+
+        hass.http.async_register_static_paths.assert_awaited_once()
+
+
+class TestLovelaceCollectionShape:
+    """Pin the duck-type the panel relies on instead of the class NAME.
+
+    panel.py used to sniff `type(resources).__name__`. A rename would have made
+    it fail closed into the racy add_extra_js_url path — the recurring "custom
+    element doesn't exist" card error. It now asks for mutators instead, which
+    only the storage-backed collection has. If HA ever gives the YAML
+    collection write methods, this test fails and the check needs rethinking.
+    """
+
+    def test_storage_collection_is_writable(self):
+        from homeassistant.components.lovelace.resources import (
+            ResourceStorageCollection,
+        )
+
+        for attr in ("async_items", "async_create_item", "async_update_item"):
+            assert hasattr(ResourceStorageCollection, attr), attr
+
+    def test_yaml_collection_has_no_mutators(self):
+        from homeassistant.components.lovelace.resources import ResourceYAMLCollection
+
+        assert hasattr(ResourceYAMLCollection, "async_items")
+        for attr in ("async_create_item", "async_update_item", "async_delete_item"):
+            assert not hasattr(ResourceYAMLCollection, attr), attr
 
 
 def _hass_with(resources):
@@ -118,9 +307,8 @@ class TestRemoveCardResource:
         ]
 
     async def test_yaml_mode_lovelace_is_a_no_op(self):
-        """No writable resource store — must not raise."""
-        resources = Mock()
-        resources.__class__.__name__ = "ResourceYAMLCollection"
+        """No writable resource store — must not raise, must not try."""
+        resources = Mock(spec=_YAML_API)
 
         assert await async_remove_card_resource(_hass_with(resources)) is False
 

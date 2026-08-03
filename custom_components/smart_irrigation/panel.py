@@ -27,6 +27,11 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# hass.data key guarding the one-shot static-path registration. Top-level on
+# purpose so it survives async_remove_entry deleting hass.data[DOMAIN] — see
+# async_register_panel.
+_STATIC_PATHS_REGISTERED = f"{DOMAIN}_static_paths_registered"
+
 
 async def async_register_panel(hass: HomeAssistant):
     """Register the custom panel for the Smart Irrigation integration."""
@@ -37,17 +42,35 @@ async def async_register_panel(hass: HomeAssistant):
     full_card_url = panel_dir / FULL_CARD_FILENAME
     lang_dir = panel_dir / LANG_FOLDER
 
-    await hass.http.async_register_static_paths(
-        [
-            StaticPathConfig(PANEL_URL, str(view_url), cache_headers=False),
-            StaticPathConfig(CARD_URL, str(card_url), cache_headers=False),
-            # Heavy card implementation, lazy-imported by the stub on first render.
-            StaticPathConfig(FULL_CARD_URL, str(full_card_url), cache_headers=False),
-            # Per-language translation JSON (only en is bundled into the
-            # frontend; the rest are fetched on demand from here).
-            StaticPathConfig(LANG_URL, str(lang_dir), cache_headers=False),
-        ]
-    )
+    # Once per HA PROCESS, not once per setup. HA's
+    # _async_register_static_paths appends to the aiohttp router with no dedup,
+    # and aiohttp routes cannot be removed again — so every reload (and an
+    # options change triggers one, via options_update_listener) permanently
+    # added four more routes for the same four URLs. Only the first ever
+    # matched; the rest were dead weight that accumulated for the lifetime of
+    # the process.
+    #
+    # The flag deliberately does NOT live in hass.data[DOMAIN], which
+    # async_remove_entry deletes: the routes outlive an uninstall, so
+    # re-registering after a reinstall in the same process would duplicate them
+    # again. The paths are version-independent (cache-busting is done with a
+    # ?v= query string, which does not affect routing), so the routes a
+    # previous setup registered stay correct after an update.
+    if not hass.data.get(_STATIC_PATHS_REGISTERED):
+        await hass.http.async_register_static_paths(
+            [
+                StaticPathConfig(PANEL_URL, str(view_url), cache_headers=False),
+                StaticPathConfig(CARD_URL, str(card_url), cache_headers=False),
+                # Heavy card implementation, lazy-imported by the stub on first render.
+                StaticPathConfig(
+                    FULL_CARD_URL, str(full_card_url), cache_headers=False
+                ),
+                # Per-language translation JSON (only en is bundled into the
+                # frontend; the rest are fetched on demand from here).
+                StaticPathConfig(LANG_URL, str(lang_dir), cache_headers=False),
+            ]
+        )
+        hass.data[_STATIC_PATHS_REGISTERED] = True
 
     # Make the Lovelace card bundle available to every user (the admin panel is
     # admin-only, but the card lets non-admins add a zones dashboard).
@@ -84,6 +107,30 @@ async def async_register_panel(hass: HomeAssistant):
     )
 
 
+def _writable_resource_store(hass: HomeAssistant):
+    """Return Lovelace's resource collection if we can write to it, else None.
+
+    This used to test ``type(resources).__name__ == "ResourceStorageCollection"``.
+    That is a private-API name: if HA ever renames or subclasses that class, the
+    check fails CLOSED and we silently fall back to ``add_extra_js_url``, which
+    Lovelace does NOT await — which is the race behind the recurring
+    "Custom element doesn't exist" / config-error reports on the card. A support
+    issue caused by a class rename we would never see in our own logs is the
+    worst possible failure mode, so ask about CAPABILITIES instead of identity.
+
+    YAML-mode Lovelace exposes a read-only collection with no mutators, so the
+    duck-type check still separates the two modes correctly — and keeps working
+    if the storage-backed class is ever renamed.
+    """
+    resources = getattr(hass.data.get("lovelace"), "resources", None)
+    if resources is None:
+        return None
+    required = ("async_items", "async_create_item", "async_update_item", "loaded")
+    if not all(hasattr(resources, attr) for attr in required):
+        return None
+    return resources
+
+
 async def _async_register_card_resource(hass: HomeAssistant, version: int) -> bool:
     """Register the card as a storage-mode Lovelace resource (deduped/updated).
 
@@ -93,10 +140,8 @@ async def _async_register_card_resource(hass: HomeAssistant, version: int) -> bo
     is no writable resource store (e.g. YAML-mode Lovelace), so the caller can
     fall back to add_extra_js_url.
     """
-    lovelace = hass.data.get("lovelace")
-    resources = getattr(lovelace, "resources", None)
-    # Only the storage-backed collection is writable; YAML mode is read-only.
-    if resources is None or type(resources).__name__ != "ResourceStorageCollection":
+    resources = _writable_resource_store(hass)
+    if resources is None:
         return False
 
     if not resources.loaded:
@@ -144,9 +189,8 @@ async def async_remove_card_resource(hass: HomeAssistant) -> bool:
     Only removes an entry whose URL matches CARD_URL, so a resource a user
     added by hand pointing somewhere else is never touched.
     """
-    lovelace = hass.data.get("lovelace")
-    resources = getattr(lovelace, "resources", None)
-    if resources is None or type(resources).__name__ != "ResourceStorageCollection":
+    resources = _writable_resource_store(hass)
+    if resources is None or not hasattr(resources, "async_delete_item"):
         return False
 
     if not resources.loaded:
