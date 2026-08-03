@@ -14,7 +14,6 @@ import uuid
 from datetime import timedelta
 
 import homeassistant.util.dt as dt_util
-from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
@@ -439,7 +438,13 @@ class IrrigationRunnerMixin:
             await asyncio.sleep(const.VALVE_CONFIRM_POLL)
             waited += const.VALVE_CONFIRM_POLL
 
-    @callback
+    # NB: no @callback here. It used to carry one, which is wrong on a coroutine
+    # function — @callback marks a SYNCHRONOUS function as safe to invoke
+    # directly in the event loop, and HA's job-scheduling helpers read that flag
+    # to decide not to await. It was inert only because the single caller
+    # (scheduler.py) awaits this directly; routing it through async_add_job would
+    # have had HA call it and drop the coroutine on the floor, silently skipping
+    # every irrigation.
     async def _irrigate_linked_entities(self, zone_ids=None) -> bool:
         """Directly control linked valve/switch entities for zones needing irrigation.
 

@@ -116,6 +116,48 @@ async def _async_register_card_resource(hass: HomeAssistant, version: int) -> bo
 
 
 def remove_panel(hass: HomeAssistant):
-    """Unregister the custom panel for the Smart Irrigation integration."""
+    """Unregister the custom panel for the Smart Irrigation integration.
+
+    Called on RELOAD as well as uninstall, so it must not touch anything that
+    setup does not recreate. The Lovelace card resource is deliberately left
+    alone here — see ``async_remove_card_resource``.
+    """
     frontend.async_remove_panel(hass, DOMAIN)
     _LOGGER.debug("Removing panel")
+
+
+async def async_remove_card_resource(hass: HomeAssistant) -> bool:
+    """Delete the Lovelace resource this integration created. UNINSTALL ONLY.
+
+    ``_async_register_card_resource`` writes a permanent entry into Lovelace's
+    storage-mode resource collection, and nothing ever removed it: uninstalling
+    Smart Irrigation left a resource pointing at
+    ``/smart_irrigation_static/…`` that no longer exists, so every dashboard
+    load fetched a 404 forever after.
+
+    Must NOT be called from ``async_unload_entry`` — that runs on every reload
+    (including any options change, via ``options_update_listener``), and
+    dropping the resource there would deregister the card mid-session and
+    re-add it a moment later, racing any open dashboard. Uninstall is the only
+    correct trigger, which is why this is separate from ``remove_panel``.
+
+    Only removes an entry whose URL matches CARD_URL, so a resource a user
+    added by hand pointing somewhere else is never touched.
+    """
+    lovelace = hass.data.get("lovelace")
+    resources = getattr(lovelace, "resources", None)
+    if resources is None or type(resources).__name__ != "ResourceStorageCollection":
+        return False
+
+    if not resources.loaded:
+        await resources.async_load()
+
+    removed = False
+    # Snapshot first: async_items() is a live view of the collection we mutate.
+    for item in list(resources.async_items()):
+        if item.get("url", "").split("?")[0] == CARD_URL:
+            await resources.async_delete_item(item["id"])
+            removed = True
+    if removed:
+        _LOGGER.debug("Removed the Smart Irrigation Lovelace card resource")
+    return removed

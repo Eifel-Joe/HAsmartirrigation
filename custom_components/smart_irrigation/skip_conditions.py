@@ -12,6 +12,7 @@ import logging
 import homeassistant.util.dt as dt_util
 
 from . import const
+from .helpers import normalize_zone_selection
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -399,8 +400,8 @@ class SkipConditionsMixin:
         every enabled (automatic/manual) zone. Only positive durations count.
         """
         zones = await self.store.async_get_zones()
-        want_all = zone_ids is None or zone_ids == "all"
-        target = None if want_all else {int(z) for z in zone_ids}
+        selection = normalize_zone_selection(zone_ids)
+        target = None if selection is None else {int(z) for z in selection}
 
         normal = []
         for zone in zones:

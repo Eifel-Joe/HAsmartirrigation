@@ -82,10 +82,29 @@ class TestSmartIrrigationLocalize:
             assert result == "nonexistent.key"
 
     async def test_localize_file_not_found(self):
-        """Test localization when file cannot be opened."""
+        """An unreadable language file must degrade to the key, never to None.
+
+        This used to assert `result is None`, documenting the behaviour rather
+        than the intent. Callers concatenate the result straight into
+        user-facing text (`explanation += await localize(...)` in
+        calculation.py), so None raised TypeError and took out that zone's
+        whole calculation. A visible untranslated key is the correct failure.
+        """
         with patch("aiofiles.open", side_effect=OSError("File not found")):
             result = await localize("common.hello", "en")
-            assert result is None  # Function returns None on OSError
+            assert result == "common.hello"
+
+    async def test_localize_corrupt_json(self):
+        """A truncated language file (interrupted HACS update) degrades too."""
+        with _patch_aiofiles_read("{not valid json"):
+            result = await localize("common.hello", "en")
+            assert result == "common.hello"
+
+    async def test_an_unreadable_file_still_concatenates(self):
+        """The actual caller shape that used to blow up."""
+        with patch("aiofiles.open", side_effect=OSError("File not found")):
+            explanation = "prefix: " + await localize("common.hello", "en")
+        assert explanation == "prefix: common.hello"
 
     async def test_localize_case_insensitive(self, mock_translations):
         """Test localization is case insensitive for language codes."""

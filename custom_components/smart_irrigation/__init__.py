@@ -1,5 +1,6 @@
 """The Smart Irrigation Integration."""
 
+import asyncio
 import logging
 
 # NB: alias the stdlib datetime class. This package ships a ``datetime.py``
@@ -19,7 +20,7 @@ from homeassistant.const import (
     CONF_LATITUDE,
     CONF_LONGITUDE,
 )
-from homeassistant.core import HomeAssistant, asyncio, callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import (
     config_validation as cv,
 )
@@ -59,7 +60,7 @@ from .irrigation import IrrigationRunnerMixin
 from .live_estimate import LiveEstimateMixin
 from .master import MasterMixin
 from .observed_watering import ObservedWateringMixin
-from .panel import async_register_panel, remove_panel
+from .panel import async_register_panel, async_remove_card_resource, remove_panel
 from .scheduler import RecurringScheduleManager
 from .self_closing import SelfClosingMixin
 from .services import ServiceHandlersMixin, async_register_services
@@ -345,6 +346,14 @@ async def async_unload_entry(hass: HomeAssistant, entry):
 async def async_remove_entry(hass: HomeAssistant, entry):
     """Remove Smart Irrigation config entry."""
     remove_panel(hass)
+    # Uninstall only — never from async_unload_entry, which also runs on every
+    # reload. Without this the Lovelace resource we registered outlived the
+    # integration and every dashboard load 404'd on a card that was gone.
+    try:
+        await async_remove_card_resource(hass)
+    except Exception:  # noqa: BLE001
+        # Never let frontend cleanup block removal of the entry itself.
+        _LOGGER.exception("Could not remove the Lovelace card resource")
     if const.DOMAIN in hass.data:
         if "coordinator" in hass.data[const.DOMAIN]:
             coordinator = hass.data[const.DOMAIN]["coordinator"]

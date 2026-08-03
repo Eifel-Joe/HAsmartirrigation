@@ -52,8 +52,16 @@ async def localize(string: str, language: str) -> str:
         if isinstance(translated_string, str):
             return translated_string
         return string  # noqa: TRY300
-    except OSError:
+    except (OSError, json.JSONDecodeError):
+        # Fall back to the KEY, never to None. Callers concatenate the result
+        # straight into user-facing text (`explanation += await localize(...)`
+        # in calculation.py), so returning None raised TypeError and aborted
+        # that zone's whole calculation over an unreadable translation file.
+        # A visible untranslated key is a far better failure than a dead zone.
+        # JSONDecodeError is caught for the same reason: a truncated language
+        # file (an interrupted HACS update) is exactly as recoverable.
         _LOGGER.error("Couldn't load translations language file for %s", language)
+        return string
 
 
 def get_string_from_data(stringpath: list[str], data: dict) -> str:

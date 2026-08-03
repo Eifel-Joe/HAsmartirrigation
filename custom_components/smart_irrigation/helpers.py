@@ -921,6 +921,32 @@ class InvalidAuth(exceptions.HomeAssistantError):
     """Error to indicate there is invalid auth."""
 
 
+def normalize_zone_selection(zone_ids):
+    """Normalize a schedule's ``zones`` value to None (= all) or a list of ids.
+
+    The stored contract is "a list of zone ids, or the literal ``all``"
+    (const.py: SCHEDULE_CONF_ZONES), and the panel only ever writes those two
+    shapes. Every consumer, though, did its own `if zones == "all"` check and
+    then iterated the value directly — so a BARE STRING that is not "all"
+    iterates its CHARACTERS. A schedule stored with ``zones: "12"`` would
+    target zones 1 and 2 instead of zone 12, silently watering the wrong
+    ground; a single-digit id happens to work by coincidence, which is what
+    makes this the kind of bug that survives testing.
+
+    Not reachable through the panel today. It is reachable through a
+    hand-edited ``.storage`` file or a future API caller, and the cost of
+    ruling it out permanently is this function.
+
+    Returns None for "everything" so callers can keep one falsy check.
+    """
+    if zone_ids is None or zone_ids == "all":
+        return None
+    if isinstance(zone_ids, str):
+        # A bare string is a single id, never a sequence of them.
+        return [zone_ids]
+    return list(zone_ids)
+
+
 def normalize_azimuth_angle(angle: float) -> float:
     """Normalize any azimuth angle to 0-360 degree range.
 

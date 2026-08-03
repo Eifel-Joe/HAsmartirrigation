@@ -22,7 +22,11 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.sun import get_astral_event_next
 
 from . import const
-from .helpers import find_next_solar_azimuth_time, normalize_azimuth_angle
+from .helpers import (
+    find_next_solar_azimuth_time,
+    normalize_azimuth_angle,
+    normalize_zone_selection,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -762,23 +766,28 @@ class RecurringScheduleManager:
         self, action: str, zones: str | list[str], schedule_name: str
     ) -> None:
         """Perform the scheduled action."""
+        # None = every zone. Only the two loops below need this; the irrigate
+        # branch passes `zones` through unchanged because each of its consumers
+        # already accepts the raw "all"/list shape. See normalize_zone_selection
+        # for why iterating the raw value is unsafe.
+        selection = normalize_zone_selection(zones)
         try:
             if action == "calculate":
-                if zones == "all":
+                if selection is None:
                     await self.coordinator._async_calculate_all()
                 else:
                     # Per-zone calculate must aggregate the mapping's weather data
                     # first; route through async_update_zone_config (ATTR_CALCULATE),
                     # which does the aggregation + forecast fetch before calculating.
-                    for zone_id in zones:
+                    for zone_id in selection:
                         await self.coordinator.async_update_zone_config(
                             zone_id, {const.ATTR_CALCULATE: True}
                         )
             elif action == "update":
-                if zones == "all":
+                if selection is None:
                     await self.coordinator._async_update_all()
                 else:
-                    for zone_id in zones:
+                    for zone_id in selection:
                         await self.coordinator._async_update_zone(zone_id)
             elif action == "irrigate":
                 # Check skip conditions (same as trigger-based irrigation)
