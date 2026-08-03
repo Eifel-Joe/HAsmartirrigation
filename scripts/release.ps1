@@ -29,15 +29,28 @@
 .PARAMETER DryRun
   Print the plan and stop before changing anything.
 
+.PARAMETER Prerelease
+  Publish as a GitHub pre-release. HACS only offers it to users who have turned
+  on beta versions for this repository; everyone else stays on the last stable
+  release. The version string is deliberately NOT decorated with a -betaN
+  suffix: the scheme is vYYYY.MM.NN everywhere (manifest, const.py, the panel),
+  and inventing a suffix risks HACS's version comparison for no benefit. To
+  promote the same build to stable once it has been verified, just clear the
+  flag - no new version, no re-tag:
+
+      gh release edit vYYYY.MM.NN --prerelease=false
+
 .EXAMPLE
   pwsh scripts/release.ps1
   pwsh scripts/release.ps1 -Version v2026.07.01
+  pwsh scripts/release.ps1 -Prerelease
   pwsh scripts/release.ps1 -DryRun
 #>
 param(
   [string]$Version,
   [string]$Notes,
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$Prerelease
 )
 
 $ErrorActionPreference = "Stop"
@@ -135,7 +148,8 @@ if ($Version -notmatch '^v\d{4}\.\d{2}\.\d{2,}$') {
 if (git tag -l $Version) { throw "Tag $Version already exists." }
 
 $VerNoPrefix = $Version.Substring(1)
-Write-Host "Current $current  ->  releasing $Version" -ForegroundColor Cyan
+$kind = if ($Prerelease) { "pre-release" } else { "release" }
+Write-Host "Current $current  ->  publishing $Version as a $kind" -ForegroundColor Cyan
 if ($DryRun) { Write-Host "[DryRun] stopping before any changes." -ForegroundColor Yellow; exit 0 }
 
 # --- bump the three files (mirrors Makefile `bump`) -----------------------
@@ -180,10 +194,15 @@ Invoke-Checked { git archive --format=zip -o $ZipPath "${Version}:custom_compone
 if ((Get-Item $ZipPath).Length -lt 1024) { throw "Built smart_irrigation.zip looks too small - aborting before release." }
 Write-Host "Built smart_irrigation.zip from the $Version tree ($([int]((Get-Item $ZipPath).Length/1024)) KB)"
 
-if ($Notes) {
-  Invoke-Checked { gh release create $Version $ZipPath --title $Version --notes $Notes }
-} else {
-  Invoke-Checked { gh release create $Version $ZipPath --title $Version --generate-notes }
-}
+$ghArgs = @($Version, $ZipPath, "--title", $Version)
+if ($Notes) { $ghArgs += @("--notes", $Notes) } else { $ghArgs += "--generate-notes" }
+if ($Prerelease) { $ghArgs += "--prerelease" }
+Invoke-Checked { gh release create @ghArgs }
 
-Write-Host "Released $Version" -ForegroundColor Green
+if ($Prerelease) {
+  Write-Host "Published $Version as a PRE-RELEASE" -ForegroundColor Green
+  Write-Host "Only HACS users with beta versions enabled will be offered it." -ForegroundColor DarkGray
+  Write-Host "Promote with: gh release edit $Version --prerelease=false" -ForegroundColor DarkGray
+} else {
+  Write-Host "Released $Version" -ForegroundColor Green
+}
