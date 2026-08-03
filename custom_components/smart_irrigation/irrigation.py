@@ -463,29 +463,56 @@ class IrrigationRunnerMixin:
         # When off, the classic daily gate (duration > 0 AND bucket below
         # threshold) selects candidates, byte-identical to before.
         live_gate = getattr(self.store.config, "live_estimate_enabled", False) is True
-        zones_to_irrigate = [
+        # Iter ND-3 (Plan Task 3): targeted + automatic-eligible zones this
+        # scheduled run is responsible for, BEFORE the demand gate. Splitting the
+        # old single comprehension in two lets the no-demand transparency log
+        # (below) name exactly the zones that were evaluated but had no deficit.
+        # Same predicate as before, minus the demand clause.
+        #
+        # Iter Task 2 (Plan D): a distributor member zone (distributor_id
+        # set, including 0 — hence `is None`, not `not z.get(...)`, since
+        # `not 0` is truthy and would wrongly re-include distributor 0's
+        # members) is watered exclusively by its distributor's own cycle
+        # (shared inlet valve). Excluding it here prevents the normal
+        # linked-entity path from double-driving a member zone in
+        # parallel with the distributor engine.
+        targeted_eligible = [
             z
             for z in zones
-            # Iter Task 2 (Plan D): a distributor member zone (distributor_id
-            # set, including 0 — hence `is None`, not `not z.get(...)`, since
-            # `not 0` is truthy and would wrongly re-include distributor 0's
-            # members) is watered exclusively by its distributor's own cycle
-            # (shared inlet valve). Excluding it here prevents the normal
-            # linked-entity path from double-driving a member zone in
-            # parallel with the distributor engine.
             if z.get(const.ZONE_DISTRIBUTOR_ID) is None
             and (z.get(const.ZONE_LINKED_ENTITY) or self._sc_is_self_closing(z))
             and z.get(const.ZONE_STATE) != const.ZONE_STATE_DISABLED
             and (target is None or int(z.get(const.ZONE_ID)) in target)
-            and (
-                live_gate
-                or (
-                    (z.get(const.ZONE_DURATION) or 0) > 0
-                    and (z.get(const.ZONE_BUCKET) or 0)
-                    < (z.get(const.ZONE_BUCKET_THRESHOLD) or 0)
-                )
+        ]
+        zones_to_irrigate = [
+            z
+            for z in targeted_eligible
+            if live_gate
+            or (
+                (z.get(const.ZONE_DURATION) or 0) > 0
+                and (z.get(const.ZONE_BUCKET) or 0)
+                < (z.get(const.ZONE_BUCKET_THRESHOLD) or 0)
             )
         ]
+
+        # Iter ND-3: opt-in transparency (classic gate). Every targeted-eligible
+        # zone that is NOT due had no demand. Log it here — BEFORE the "nothing
+        # due" return below — so the satisfied-bucket case leaves a trace. The
+        # helper is gated on config + rain-delay + same-day dedup, so paused runs
+        # never double-log. Under live_gate the demand decision is deferred to
+        # _apply_live_durations, so that set is logged there instead (see below).
+        # N1: gate the whole computation on the flag so the off-path (the default)
+        # never builds these sets — the helper is a no-op when off, but its
+        # arguments are evaluated regardless.
+        if not live_gate and getattr(self.store.config, "log_no_demand", False):
+            _watered_ids = {int(z.get(const.ZONE_ID)) for z in zones_to_irrigate}
+            await self._record_no_demand_skips(
+                [
+                    int(z.get(const.ZONE_ID))
+                    for z in targeted_eligible
+                    if int(z.get(const.ZONE_ID)) not in _watered_ids
+                ]
+            )
 
         if not zones_to_irrigate:
             _LOGGER.debug(
@@ -513,6 +540,22 @@ class IrrigationRunnerMixin:
             return False
 
         zones_to_irrigate = await self._apply_live_durations(zones_to_irrigate)
+
+        # Iter ND-3: opt-in transparency (live-estimate gate). The zones the live
+        # estimate dropped for no live deficit. Exclude soil-vetoed zones — they
+        # already logged soil_moisture at _apply_soil_moisture_veto above.
+        if live_gate and getattr(self.store.config, "log_no_demand", False):
+            _vetoed_ids = set(self.get_zone_skips().keys())
+            _watered_ids = {int(z.get(const.ZONE_ID)) for z in zones_to_irrigate}
+            await self._record_no_demand_skips(
+                [
+                    int(z.get(const.ZONE_ID))
+                    for z in targeted_eligible
+                    if int(z.get(const.ZONE_ID)) not in _watered_ids
+                    and int(z.get(const.ZONE_ID)) not in _vetoed_ids
+                ]
+            )
+
         if not zones_to_irrigate:
             _LOGGER.debug("Live-estimate duration left no zones needing water")
             return False
@@ -1725,7 +1768,26 @@ class IrrigationRunnerMixin:
         }
         log = list(zone.get(const.ZONE_RUN_LOG) or [])
         log.insert(0, entry)
-        del log[const.RUN_LOG_MAX_ENTRIES :]
+        # Bound the log, but never let opt-in no_demand entries evict a REAL run
+        # (Option C, review of the no-demand feature): a zone that rarely waters
+        # would otherwise fill its whole history with no_demand rows and push the
+        # real runs — the very thing the user is trying to understand — out. Drop
+        # the OLDEST no_demand entries first; only if none remain do we fall back
+        # to trimming the oldest overall. siehe
+        # test_no_demand_logging.py::test_real_run_evicts_oldest_no_demand_before_a_real_run
+        overflow = len(log) - const.RUN_LOG_MAX_ENTRIES
+        if overflow > 0:
+            for i in range(len(log) - 1, -1, -1):
+                if overflow <= 0:
+                    break
+                e = log[i]
+                if (
+                    e.get("result") == const.RUN_RESULT_SKIPPED
+                    and e.get("detail") == const.SKIP_REASON_NO_DEMAND
+                ):
+                    del log[i]
+                    overflow -= 1
+            del log[const.RUN_LOG_MAX_ENTRIES :]
         changes = {const.ZONE_RUN_LOG: log}
         if add_to_total and volume_l and volume_l > 0:
             changes[const.ZONE_WATER_USED_TOTAL] = (
@@ -1769,6 +1831,55 @@ class IrrigationRunnerMixin:
                 result=const.RUN_RESULT_SKIPPED,
                 detail=detail,
                 trigger=trigger,
+            )
+
+    async def _record_no_demand_skips(self, zone_ids) -> None:
+        """Record a per-zone "no demand" skip in the run history, if opted in.
+
+        Opt-in via ``config.log_no_demand`` (default off, so existing installs
+        are byte-identical). Suppressed while a rain delay is active — that path
+        already logs ``paused`` for the targeted zones and would otherwise
+        double-log. De-duplicated to at most one ``no_demand`` entry per zone per
+        calendar day, so multiple schedules in a day do not spam the run log.
+
+        ``add_to_total=False`` — a skip delivers no water.
+        siehe test_no_demand_logging.py::test_helper_records_when_enabled et al.
+        """
+        if not getattr(self.store.config, "log_no_demand", False):
+            return
+        if self._rain_delay_active():
+            return
+        today = dt_util.now().date().isoformat()
+        for zid in zone_ids:
+            zone = self.store.get_zone(int(zid)) or {}
+            log = zone.get(const.ZONE_RUN_LOG) or []
+            # Review finding H: dedup by SCANNING the log for any today-dated
+            # no_demand entry, not just log[0]. An intervening same-day run (e.g. a
+            # manual completed run between two schedules) displaces the earlier
+            # no_demand marker out of the newest slot, so the old log[0]-only check
+            # missed it and wrote a second no_demand entry the same calendar day.
+            # Entries are newest-first, so stop at the first older-than-today ts.
+            # siehe test_no_demand_logging.py::test_helper_dedups_same_day_with_intervening_run
+            already_logged = False
+            for entry in log:
+                ts = str(entry.get("ts") or "")[:10]
+                if ts and ts < today:
+                    break
+                if (
+                    ts == today
+                    and entry.get("result") == const.RUN_RESULT_SKIPPED
+                    and entry.get("detail") == const.SKIP_REASON_NO_DEMAND
+                ):
+                    already_logged = True
+                    break
+            if already_logged:
+                continue
+            await self._record_run(
+                int(zid),
+                result=const.RUN_RESULT_SKIPPED,
+                detail=const.SKIP_REASON_NO_DEMAND,
+                trigger="schedule",
+                add_to_total=False,
             )
 
     async def _irrigate_zones_sequential(self, zones: list, *, master_token=None):
