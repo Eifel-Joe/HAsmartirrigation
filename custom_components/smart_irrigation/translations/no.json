@@ -298,6 +298,9 @@
       "irrigate_now": {
         "name": "Vann nå"
       },
+      "reset_usage": {
+        "name": "Nullstill vannforbruk"
+      },
       "irrigate_all": {
         "name": "Vann alle soner"
       },

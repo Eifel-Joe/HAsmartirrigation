@@ -114,7 +114,6 @@
           "description": "Die Berechnung berücksichtigt die bis zu diesem Zeitpunkt gesammelten Wetterdaten und aktualisiert den Vorrat für jede automatische Zone. Anschließend wird die Dauer basierend auf dem neuen Vorrat angepasst und die gesammelten Wetterdaten entfernt.",
           "labels": {
             "auto-calc-enabled": "Automatische Berechnung der Dauer pro Zone",
-            "auto-calc-time": "Berechne um",
             "calc-time": "Berechnen um"
           }
         },
@@ -157,8 +156,7 @@
           "description": "Experimentelle Funktion für granularere Wetterdaten.",
           "labels": {
             "continuousupdates": "Kontinuierliche Aktualisierungen aktivieren",
-            "sensor_debounce": "Sensor-Entprellung",
-            "sensor-debounce": "Sensor-Entprellzeit (ms)"
+            "sensor_debounce": "Sensor-Entprellung"
           }
         }
       },

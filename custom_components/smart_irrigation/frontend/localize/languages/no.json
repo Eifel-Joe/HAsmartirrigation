@@ -113,7 +113,6 @@
           "header": "Automatisk varighetsberegning",
           "labels": {
             "auto-calc-enabled": "Beregn sonevarigheter automatisk",
-            "auto-calc-time": "Beregn ved",
             "calc-time": "Beregn kl."
           },
           "description": "Beregningen bruker værdataene som er samlet inn frem til da, og oppdaterer bøtten for hver automatiske sone. Deretter justeres varigheten basert på den nye bøtteverdien, og de innsamlede værdataene fjernes."
@@ -132,7 +131,6 @@
           "header": "Automatisk oppdatering av værdata",
           "labels": {
             "auto-update-enabled": "Oppdater værdata automatisk",
-            "auto-update-first-update": "(Første) Oppdatering kl",
             "auto-update-interval": "Oppdater sensordata hvert",
             "auto-update-schedule": "Oppdateringsplan",
             "auto-update-time": "Oppdater kl.",
@@ -158,8 +156,7 @@
           "description": "Eksperimentell funksjon for mer granulære værdata.",
           "labels": {
             "continuousupdates": "Aktiver kontinuerlige oppdateringer",
-            "sensor_debounce": "Sensor-debounce",
-            "sensor-debounce": "Sensor-debouncetid (ms)"
+            "sensor_debounce": "Sensor-debounce"
           }
         }
       },
@@ -568,7 +565,6 @@
         "toast_stopped": "Kjøring stoppet"
       }
     },
-    "title": "Smart vanning",
     "schedules": {
       "title": "Tidsplaner",
       "description": "Opprett gjentakende tidsplaner for automatisk beregning, oppdatering eller vanning — uten automatiseringer.",

@@ -114,7 +114,6 @@
           "description": "Il calcolo prende i dati meteorologici raccolti fino a quel momento e aggiorna il bucket per ciascuna zona automatica. Quindi, la durata viene regolata in base al nuovo valore del segmento e i dati meteorologici raccolti vengono rimossi.",
           "labels": {
             "auto-calc-enabled": "Calcola automaticamente la durata delle zone",
-            "auto-calc-time": "Calcola a",
             "calc-time": "Calcola alle"
           }
         },
@@ -133,7 +132,6 @@
           "description": "Raccogli e archivia automaticamente i dati meteorologici. I dati meteorologici sono necessari per calcolare gli intervalli e le durate delle zone.",
           "labels": {
             "auto-update-enabled": "Aggiorna automaticamente i dati meteorologici",
-            "auto-update-first-update": "(Primo) aggiornamento alle",
             "auto-update-interval": "Aggiorna i dati del sensore ogni",
             "auto-update-schedule": "Pianificazione aggiornamento",
             "auto-update-time": "Aggiorna alle",
@@ -158,8 +156,7 @@
           "description": "Funzione sperimentale per dati meteo più granulari.",
           "labels": {
             "continuousupdates": "Abilita gli aggiornamenti continui",
-            "sensor_debounce": "Rimbalzo del sensore",
-            "sensor-debounce": "Tempo anti-rimbalzo sensore (ms)"
+            "sensor_debounce": "Rimbalzo del sensore"
           }
         }
       },
@@ -198,8 +195,7 @@
             "duration": "Durata",
             "zones": "Zone"
           },
-          "no-data": "Nessun dato disponibile",
-          "backend-todo": "TODO: API di backend necessaria per le informazioni sull'irrigazione"
+          "no-data": "Nessun dato disponibile"
         },
         "irrigation-reason": {
           "title": "Motivo irrigazione",
@@ -209,8 +205,7 @@
             "total-duration": "Durata totale",
             "explanation": "Spiegazione"
           },
-          "no-data": "Nessun dato disponibile",
-          "backend-todo": "TODO: API di backend necessaria per le informazioni sull'irrigazione"
+          "no-data": "Nessun dato disponibile"
         },
         "zone-bucket-values": {
           "title": "Valori serbatoio e durata",
@@ -360,7 +355,6 @@
         "reset-bucket": "Reimposta il secchio",
         "view-weather-info": "Visualizza dati meteo",
         "view-weather-info-message": "Informazioni meteo disponibili per",
-        "view-weather-info-todo": "TODO: Implementare la navigazione ai dettagli del gruppo di sensori",
         "view-watering-calendar": "Calendario irrigazione",
         "irrigate_all": "Irriga tutte le zone ora",
         "open_settings": "Modifica impostazioni"
@@ -403,7 +397,6 @@
         "last_calculated": "Ultimo calcolo",
         "data-last-updated": "Ultimo aggiornamento dei dati",
         "data-number-of-data-points": "Numero di dati",
-        "tasso_di_drenaggio": "tasso di drenaggio",
         "drainage_rate": "Tasso di drenaggio",
         "linked_entity": "Entità interruttore/valvola/helper collegata",
         "linked_entity_placeholder": "es. switch.valvola_giardino",

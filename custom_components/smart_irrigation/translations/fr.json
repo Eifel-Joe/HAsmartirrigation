@@ -298,6 +298,9 @@
       "irrigate_now": {
         "name": "Arroser maintenant"
       },
+      "reset_usage": {
+        "name": "Réinitialiser l'eau utilisée"
+      },
       "irrigate_all": {
         "name": "Arroser toutes les zones"
       },

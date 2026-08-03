@@ -298,6 +298,9 @@
       "irrigate_now": {
         "name": "Zavlažiť teraz"
       },
+      "reset_usage": {
+        "name": "Vynulovať spotrebovanú vodu"
+      },
       "irrigate_all": {
         "name": "Zavlažiť všetky zóny"
       },

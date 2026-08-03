@@ -113,7 +113,6 @@
           "header": "Cálculo automático de la duración",
           "labels": {
             "auto-calc-enabled": "Cálculo automático de la duración de las zonas",
-            "auto-calc-time": "Calcular en",
             "calc-time": "Calcular a las"
           },
           "description": "El cálculo toma los datos meteorológicos recopilados hasta ese momento y actualiza el depósito de cada zona automática. Después, la duración se ajusta según el nuevo valor del depósito y se eliminan los datos meteorológicos recopilados."
@@ -132,7 +131,6 @@
           "header": "Actualización automática de los datos meteorológicos",
           "labels": {
             "auto-update-enabled": "Actualizar automáticamente los datos meteorológicos",
-            "auto-update-first-update": "(Primer) Actualización a las",
             "auto-update-interval": "Actualizar datos del sensor cada",
             "auto-update-schedule": "Programa de actualización",
             "auto-update-time": "Actualizar a las",
@@ -158,8 +156,7 @@
           "description": "Función experimental para datos meteorológicos más detallados.",
           "labels": {
             "continuousupdates": "Activar actualizaciones continuas",
-            "sensor_debounce": "Antirrebote del sensor",
-            "sensor-debounce": "Tiempo de antirrebote del sensor (ms)"
+            "sensor_debounce": "Antirrebote del sensor"
           }
         }
       },

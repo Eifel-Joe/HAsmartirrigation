@@ -182,6 +182,21 @@ class RecurringScheduleManager:
                 tracker()
         self._schedule_trackers.clear()
 
+        # Drop fired-occurrence memory for schedules that no longer exist. It
+        # was only ever cleared wholesale on unload, so deleting a schedule left
+        # its entry behind for the life of the manager. Harmless as pure memory,
+        # but the key is the schedule id: if an id is ever reused, a NEW
+        # finish-anchored schedule would inherit the old one's "already fired"
+        # marker and skip its first occurrence, silently and once only — the
+        # worst kind of bug to reproduce.
+        live_ids = {
+            s[const.SCHEDULE_CONF_ID]
+            for s in self._schedules
+            if const.SCHEDULE_CONF_ID in s
+        }
+        for stale in set(self._finish_last_target) - live_ids:
+            del self._finish_last_target[stale]
+
         # Set up trackers for enabled schedules
         for schedule in self._schedules:
             if schedule.get(const.SCHEDULE_CONF_ENABLED, True):
@@ -753,7 +768,16 @@ class RecurringScheduleManager:
                 "schedule_name": schedule_name,
                 "action": action,
                 "zones": zones,
-                "timestamp": now.isoformat(),
+                # Normalised to LOCAL. `now` reaches us from whichever tracker
+                # armed this schedule, and they disagree: async_track_time_change
+                # passes local, async_track_point_in_utc_time passes UTC, and the
+                # sunrise/sunset paths pass dt_util.utcnow(). All are tz-aware, so
+                # the offset was always carried and no consumer parsing this
+                # properly was ever wrong — but two schedules firing at the same
+                # wall-clock moment produced timestamps that looked hours apart,
+                # which is the kind of thing people debug for an hour. Local
+                # matches every other time the UI shows.
+                "timestamp": dt_util.as_local(now).isoformat(),
             },
         )
 

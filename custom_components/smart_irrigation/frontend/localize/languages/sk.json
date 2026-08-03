@@ -114,7 +114,6 @@
           "description": "Výpočet berie zhromaždené údaje o počasí až do tohto bodu a aktualizuje vedro pre každú automatickú zónu. Potom sa trvanie upraví na základe novej hodnoty segmentu a zhromaždené údaje o počasí sa odstránia.",
           "labels": {
             "auto-calc-enabled": "Automaticky vypočítajte trvanie zón",
-            "auto-calc-time": "Vypočítajte pri",
             "calc-time": "Vypočítať o"
           }
         },
@@ -157,8 +156,7 @@
           "description": "Experimentálna funkcia pre podrobnejšie meteorologické dáta.",
           "labels": {
             "continuousupdates": "Povoliť priebežné aktualizácie",
-            "sensor_debounce": "Debounce senzora",
-            "sensor-debounce": "Čas odrazu senzora (ms)"
+            "sensor_debounce": "Debounce senzora"
           }
         }
       },

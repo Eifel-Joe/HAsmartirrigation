@@ -114,7 +114,6 @@
           "description": "Bij het berekenen wordt de verzamelde weersinformatie gebruikt om the voorraad en irrigatieduur per zone aan te passen. Daarna wordt de verzamelde weersinformatie verwijderd.",
           "labels": {
             "auto-calc-enabled": "Automatisch irrigatietijd berekening voor elke zone",
-            "auto-calc-time": "Berekenen op",
             "calc-time": "Berekenen om"
           }
         },
@@ -157,8 +156,7 @@
           "description": "Experimentele functie voor gedetailleerdere weergegevens.",
           "labels": {
             "continuousupdates": "Continue updates inschakelen",
-            "sensor_debounce": "Sensor-debounce",
-            "sensor-debounce": "Sensor-debouncetijd (ms)"
+            "sensor_debounce": "Sensor-debounce"
           }
         }
       },

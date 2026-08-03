@@ -193,6 +193,59 @@ def _resources(items):
     return res
 
 
+class TestFinishTargetMemoryIsPruned:
+    """`_finish_last_target` was only cleared wholesale on unload."""
+
+    @staticmethod
+    def _manager(schedules):
+        from custom_components.smart_irrigation.scheduler import (
+            RecurringScheduleManager,
+        )
+
+        mgr = RecurringScheduleManager.__new__(RecurringScheduleManager)
+        mgr.hass = Mock()
+        mgr.coordinator = Mock()
+        mgr._schedules = schedules
+        mgr._schedule_trackers = {}
+        mgr._finish_last_target = {}
+        return mgr
+
+    async def test_a_deleted_schedules_memory_is_dropped(self):
+        mgr = self._manager([{const.SCHEDULE_CONF_ID: "keep"}])
+        mgr._finish_last_target = {
+            "keep": "2026-08-03T06:00:00",
+            "deleted": "2026-08-03T06:00:00",
+        }
+
+        with patch.object(mgr, "_setup_schedule_tracker", new=AsyncMock()):
+            await mgr._setup_schedule_trackers()
+
+        assert set(mgr._finish_last_target) == {"keep"}
+
+    async def test_a_live_schedules_memory_survives(self):
+        """Pruning must not re-fire an occurrence that already ran."""
+        mgr = self._manager([{const.SCHEDULE_CONF_ID: "keep"}])
+        mgr._finish_last_target = {"keep": "2026-08-03T06:00:00"}
+
+        with patch.object(mgr, "_setup_schedule_tracker", new=AsyncMock()):
+            await mgr._setup_schedule_trackers()
+
+        assert mgr._finish_last_target == {"keep": "2026-08-03T06:00:00"}
+
+    async def test_a_reused_id_does_not_inherit_the_marker(self):
+        """The reason this matters: a new schedule reusing a deleted id would
+        otherwise skip its first occurrence."""
+        mgr = self._manager([])
+        mgr._finish_last_target = {"abc": "2026-08-03T06:00:00"}
+
+        with patch.object(mgr, "_setup_schedule_tracker", new=AsyncMock()):
+            await mgr._setup_schedule_trackers()  # "abc" deleted
+            mgr._schedules = [{const.SCHEDULE_CONF_ID: "abc"}]  # recreated
+            await mgr._setup_schedule_trackers()
+
+        assert "abc" not in mgr._finish_last_target
+
+
 class TestStaticPathsRegisterOnce:
     """HA appends to the aiohttp router with no dedup, and routes cannot be
     removed — so re-registering on every reload leaked four dead routes each

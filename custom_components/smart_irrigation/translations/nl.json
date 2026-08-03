@@ -298,6 +298,9 @@
       "irrigate_now": {
         "name": "Nu irrigeren"
       },
+      "reset_usage": {
+        "name": "Waterverbruik resetten"
+      },
       "irrigate_all": {
         "name": "Alle zones water geven"
       },
