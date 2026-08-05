@@ -64,6 +64,10 @@
     "calculation": {
       "explanation": {
         "module-returned-evapotranspiration-deficiency": "Merk: Denne forklaringen bruker '.' som desimaltegn og viser avrundede verdier. Modulen returnerte evapotranspirasjonsunderskudd på",
+        "module-returned-evapotranspiration-deficiency-hourly": "Merk: Denne forklaringen bruker '.' som desimaltegn og viser avrundede verdier. Evapotranspirasjonsunderskudd ( = summen av timevise FAO-56 et0 over perioden + nedbør) på",
+        "water-balance-substepped": "Vannbalansen ble spilt av på nytt gjennom perioden, slik at regn, drenering og begrensningen til maksimal bucket ble brukt på tidspunktene de faktisk skjedde i stedet for alt ved starten av perioden. Antall steg:",
+        "runoff-is": "Vann over maksimal bucket som gikk tapt som avrenning:",
+        "runoff-variable": "avrenning",
         "bucket-was": "Bucket var",
         "new-bucket-values-is": "Ny bucket verdien er",
         "old-bucket-variable": "gammel_bucket",
@@ -711,6 +715,12 @@
         "label": "Registrer sensoravlesninger når de endrer seg",
         "debounce_label": "Grupper endringer som kommer innen (millisekunder)",
         "note": "Gjelder sensorgrupper der verdiene kommer fra Home Assistant-sensorer. Grupperingsforsinkelsen utsetter bare den påfølgende bokføringen — ingen avlesning forkastes av den. Sett den til 0 for å slå av gruppering."
+      },
+      "hourly_calculation": {
+        "title": "Timesvis evapotranspirasjon",
+        "description": "Som standard beregnes FAO-56-ligningen én gang over gjennomsnittsværet i vinduet, noe skydekket forskyver systematisk: matet med én og samme timesserie over 362 dager gir den 1,14 ganger referansen på overskyede dager og 0,93 ganger på klare. Med dette på beregnes ligningen for hver time og timene summeres, noe som fjerner den forskyvningen, og vannbalansen kjøres om time for time, slik at regn og drenering bokføres da de skjedde i stedet for samlet ved starten av vinduet. Dagstallet kan flytte seg opptil 12 prosent, i begge retninger avhengig av himmelen. Krever målt og ikke estimert solstråling, og brukes ikke på dager der en værmelding blandes inn.",
+        "label": "Summer evapotranspirasjonen time for time",
+        "note": "Uavhengig av kontinuerlige sensoroppdateringer: planlagte oppdateringer hver time støtter dette også, og en tettere buffer gjør det mer nøyaktig uten å være et krav. Ethvert vindu som ikke kan reduseres til timesrader, beholder den daglige ligningen, så ingen serie blir noen gang oppdiktet."
       },
       "distributors": {
         "title": "Mekaniske vannfordelere",

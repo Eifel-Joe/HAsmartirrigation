@@ -64,6 +64,10 @@
     "calculation": {
       "explanation": {
         "module-returned-evapotranspiration-deficiency": "NB: in deze uitleg wordt de '.' as decimaalscheidingsteken gebruikt, worden afgeronde en metrische getallen getoond. Module berekende ET waarde van",
+        "module-returned-evapotranspiration-deficiency-hourly": "NB: in deze uitleg wordt de '.' as decimaalscheidingsteken gebruikt, worden afgeronde en metrische getallen getoond. Evapotranspiratietekort ( = som van de uurlijkse FAO-56 et0 over de periode + neerslag) van",
+        "water-balance-substepped": "De waterbalans is over de periode opnieuw doorgerekend, zodat regen, drainage en de begrenzing op de maximale voorraad zijn toegepast op de momenten waarop ze plaatsvonden in plaats van allemaal aan het begin van de periode. Aantal stappen:",
+        "runoff-is": "Water boven de maximale voorraad dat als afvoer verloren is gegaan:",
+        "runoff-variable": "afvoer",
         "bucket-was": "Voorraad was",
         "new-bucket-values-is": "Nieuwe voorraad is",
         "old-bucket-variable": "oude_voorraad",
@@ -711,6 +715,12 @@
         "label": "Sensormetingen vastleggen wanneer ze veranderen",
         "debounce_label": "Veranderingen groeperen die binnen (milliseconden) aankomen",
         "note": "Van toepassing op sensorgroepen waarvan de waarden uit Home Assistant-sensoren komen. De groeperingsvertraging stelt alleen de verdere verwerking uit — er gaat door de vertraging nooit een meting verloren. Zet op 0 om groeperen uit te schakelen."
+      },
+      "hourly_calculation": {
+        "title": "Verdamping per uur",
+        "description": "Standaard wordt de FAO-56-vergelijking één keer berekend over het gemiddelde weer van het venster, wat door bewolking stelselmatig wordt vertekend: gevoed met één en dezelfde uurreeks over 362 dagen levert zij op bewolkte dagen 1,14 keer de referentie op en op heldere dagen 0,93 keer. Met deze optie aan wordt de vergelijking voor elk uur berekend en worden de uren opgeteld, wat die vertekening wegneemt, en wordt de waterbalans uur voor uur opnieuw doorlopen, zodat regen en drainage worden geboekt wanneer ze plaatsvonden in plaats van allemaal aan het begin van het venster. Het dagcijfer kan hierdoor tot 12 procent verschuiven, in beide richtingen afhankelijk van de lucht. Vereist een gemeten in plaats van geschatte zonnestraling en wordt niet gebruikt op dagen waarop een verwachting wordt meegewogen.",
+        "label": "Verdamping per uur optellen",
+        "note": "Staat los van continue sensorupdates: geplande updates per uur ondersteunen dit ook, en een dichtere buffer maakt het nauwkeuriger zonder vereist te zijn. Elk venster dat niet tot uurregels te herleiden is, houdt de dagelijkse vergelijking aan, zodat er nooit een reeks wordt verzonnen."
       },
       "distributors": {
         "title": "Mechanische waterverdelers",

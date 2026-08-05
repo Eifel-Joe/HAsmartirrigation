@@ -64,6 +64,7 @@
     "calculation": {
       "explanation": {
         "module-returned-evapotranspiration-deficiency": "Note: this explanation uses '.' as decimal separator, shows rounded and metric values. Module returned Evapotranspiration deficiency ( = et0 * hour_multiplier + precipitation) of",
+        "module-returned-evapotranspiration-deficiency-hourly": "Note: this explanation uses '.' as decimal separator, shows rounded and metric values. Evapotranspiration deficiency ( = sum of hourly FAO-56 et0 over the window + precipitation) of",
         "bucket-was": "Bucket was",
         "new-bucket-values-is": "New bucket value is",
         "bucket": "bucket",
@@ -90,6 +91,9 @@
         "current-drainage-is": "Current drainage is calculated as",
         "drainage-integrated": "the surplus above field capacity drains continuously over the window (Brooks–Corey), so the rate falls as it drains",
         "no-drainage": "Current drainage is 0 because",
+        "water-balance-substepped": "The water balance was replayed across the window, so rain, drainage and the maximum bucket clamp were applied at the times they occurred rather than all at the start of the window. Number of steps:",
+        "runoff-is": "Water above the maximum bucket that was lost to runoff:",
+        "runoff-variable": "runoff",
         "forecast-weighting-applied": "Forecast weighting reduced the deficit for the expected rain",
         "crop-coefficient-applied": "Scaled by the crop coefficient"
       }
@@ -275,6 +279,12 @@
         "label": "Record sensor readings when they change",
         "debounce_label": "Group changes arriving within (milliseconds)",
         "note": "Applies to sensor groups whose values come from Home Assistant sensors. The grouping delay only postpones the follow-up bookkeeping — no reading is ever dropped by it. Set it to 0 to disable grouping."
+      },
+      "hourly_calculation": {
+        "title": "Hourly evapotranspiration",
+        "description": "By default the FAO-56 equation is run once, over the window's average weather, which cloud cover biases systematically: fed one identical hourly series across 362 days it returns 1.14 times the reference on overcast days and 0.93 times on clear ones. With this on, the equation is run for each hour and the hours are summed, which removes that bias, and the water balance is replayed hour by hour so rain and drainage are booked when they happened instead of all at the start of the window. Expect the daily figure to move by up to 12 percent, in either direction depending on the sky. Needs a Solar Radiation source that is measured rather than estimated, and it is not used on days where a forecast is blended in.",
+        "label": "Sum evapotranspiration hour by hour",
+        "note": "Independent of continuous sensor updates: scheduled hourly updates carry this too, and a denser buffer makes it more accurate without being required. Any window that cannot be reduced to hourly rows keeps the daily equation, so no series is ever invented."
       },
       "distributors": {
         "title": "Mechanical water distributors",

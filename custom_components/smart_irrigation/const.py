@@ -89,6 +89,16 @@ CONF_DEFAULT_DISTRIBUTORS_ENABLED = False
 # storage file). Off by default.
 CONF_CONTINUOUS_UPDATES = "continuousupdates"
 CONF_DEFAULT_CONTINUOUS_UPDATES = False
+# Hourly calculation: sum FAO-56 hourly ETo over the window and replay the water
+# balance hour by hour, instead of running the daily equation on window-mean
+# weather. Its own switch rather than riding on continuousupdates, for two
+# reasons pulling the same way: an install that enabled continuous updates asked
+# for denser ingestion and would otherwise get a change of up to 12% in its ET,
+# structured by cloudiness, with no further opt-in; and an hourly-POLLED install
+# runs this form within 8.4% of dense truth with no systematic bias, so there is
+# no technical reason to withhold it there. Off by default.
+CONF_HOURLY_CALCULATION = "hourlycalculation"
+CONF_DEFAULT_HOURLY_CALCULATION = False
 # Debounce (milliseconds) coalescing a burst of sensor changes into one
 # post-append update per sensor group. altmenorg defaulted to 100 ms, which is
 # effectively no debounce for a chatty sensor; 5 s costs nothing in ET accuracy
@@ -561,6 +571,16 @@ KMH_TO_MS_FACTOR = 0.277777777777778  # kmh * factor = ms
 MS_TO_KMH_FACTOR = 3.6  # m/s * factor = kmh
 W_TO_MJ_DAY_FACTOR = 0.0864  # w * factor = mj/day, same for w/m2 to mj/day/m2
 K_TO_C_FACTOR = 273.15  # K-factor = C, C+factor=K
+
+# Plausibility ceiling on an ingested solar-radiation reading, as a multiple of
+# the clear-sky maximum for that moment. Broken-cloud edge enhancement really can
+# push a pyranometer above clear sky for short stretches, so the ceiling has
+# headroom; nothing physical stays there.
+SOLAR_CLEAR_SKY_TOLERANCE = 1.3
+# Absolute floor on that ceiling, in W/m2 before conversion. Clear sky is exactly
+# 0 at night and near 0 around sunrise and sunset, and a pyranometer's deadband
+# noise sits at a few W/m2, so without this every night reading would clamp.
+SOLAR_PLAUSIBILITY_FLOOR_W_M2 = 10.0
 INHG_TO_PSI_FACTOR = 0.49115420057253  # inhg * factor = PSI
 PSI_TO_INHG_FACTOR = 2.0360206576012  # psi * factor = inhg
 

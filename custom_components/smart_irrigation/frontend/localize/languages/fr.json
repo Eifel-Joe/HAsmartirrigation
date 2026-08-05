@@ -64,6 +64,10 @@
     "calculation": {
       "explanation": {
         "module-returned-evapotranspiration-deficiency": "NB: cette explication utilise '.' comme séparateur décimal, et affiche des valeurs arrondies. Le module a donné un manque d'Évapotranspiration de",
+        "module-returned-evapotranspiration-deficiency-hourly": "NB: cette explication utilise '.' comme séparateur décimal, et affiche des valeurs arrondies. Manque d'évapotranspiration ( = somme des et0 horaires FAO-56 sur la période + précipitations) de",
+        "water-balance-substepped": "Le bilan hydrique a été rejoué sur la période, de sorte que la pluie, le drainage et le plafonnement au seau (bucket) maximal ont été appliqués aux moments où ils se sont produits plutôt que tous au début de la période. Nombre d'étapes:",
+        "runoff-is": "Eau au-dessus du seau (bucket) maximal perdue par ruissellement:",
+        "runoff-variable": "ruissellement",
         "bucket-was": "Le seau (bucket) était de",
         "new-bucket-values-is": "La nouvelle valeur du seau (bucket) est",
         "old-bucket-variable": "ancien_bucket",
@@ -711,6 +715,12 @@
         "label": "Enregistrer les relevés des capteurs lorsqu'ils changent",
         "debounce_label": "Regrouper les changements survenant en moins de (millisecondes)",
         "note": "S'applique aux groupes de capteurs dont les valeurs proviennent de capteurs Home Assistant. Le délai de regroupement ne fait que différer la comptabilisation qui suit — aucun relevé n'est jamais écarté pour autant. Mettre 0 pour désactiver le regroupement."
+      },
+      "hourly_calculation": {
+        "title": "Évapotranspiration horaire",
+        "description": "Par défaut, l'équation FAO-56 est calculée une seule fois sur la météo moyenne de la fenêtre, ce que la nébulosité biaise systématiquement : alimentée par une même série horaire sur 362 jours, elle rend 1,14 fois la référence les jours couverts et 0,93 fois les jours clairs. Avec cette option, l'équation est calculée pour chaque heure et les heures sont sommées, ce qui supprime ce biais, et le bilan hydrique est rejoué heure par heure, de sorte que la pluie et le drainage sont comptabilisés au moment où ils se sont produits plutôt qu'en totalité au début de la fenêtre. Le chiffre quotidien peut se déplacer jusqu'à 12 pour cent, dans un sens ou dans l'autre selon le ciel. Nécessite un rayonnement solaire mesuré plutôt qu'estimé, et n'est pas utilisée les jours où une prévision est intégrée.",
+        "label": "Sommer l'évapotranspiration heure par heure",
+        "note": "Indépendant des mises à jour continues des capteurs : les mises à jour planifiées toutes les heures la prennent en charge aussi, et un tampon plus dense la rend plus précise sans être nécessaire. Toute fenêtre qui ne peut pas être réduite en lignes horaires conserve l'équation quotidienne, si bien qu'aucune série n'est jamais inventée."
       },
       "distributors": {
         "title": "Distributeurs d'eau mécaniques",

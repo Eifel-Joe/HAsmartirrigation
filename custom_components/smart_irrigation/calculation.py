@@ -10,14 +10,21 @@ Protected by tests/test_calculate_module.py (calculate_module characterization).
 import logging
 from datetime import datetime, timedelta
 
+import homeassistant.util.dt as dt_util
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
-from .et_estimate import drained_over_window
+from .calcmodules.pyeto import SOLRAD_behavior
+from .et_estimate import drained_over_window, eto_hourly_series, replay_water_balance
 from .helpers import convert_between, loadModules, parse_datetime
 from .localize import localize
-from .weather_aggregate import aggregate_window, select_window
+from .weather_aggregate import (
+    aggregate_window,
+    build_hourly_rows,
+    build_substeps,
+    select_window,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -363,7 +370,9 @@ class CalculationMixin:
             )
             return
 
-        calc_data = await self.calculate_module(zone, weatherdata, forecastdata)
+        calc_data = await self.calculate_module(
+            zone, weatherdata, forecastdata, now=now
+        )
         if calc_data is None:
             _LOGGER.error(
                 "async_calculate_zone: calculation returned no result for zone %s "
@@ -425,7 +434,185 @@ class CalculationMixin:
                 modinst._elevation = eff_elev
         return modinst
 
-    async def calculate_module(self, zone, weatherdata, forecastdata):
+    def _hourly_calculation_enabled(self) -> bool:
+        """Whether this install has opted into the hourly form of the calculation.
+
+        The single gate for both halves of the feature, so they cannot drift
+        apart: the summed-hourly ET form and the replayed water balance each
+        move the numbers an existing install already sees, and neither should
+        arrive without the user turning something on.
+
+        Deliberately its OWN switch and not ``continuousupdates``. Reading the
+        ingestion flag would have handed a 12%-scale ET change to every install
+        that had opted into denser ingestion and nothing else, while withholding
+        it from hourly-polled installs, which measure within 8.4% of dense truth
+        on this form with no systematic bias. The two axes are independent.
+
+        Strict identity check so a test double or an absent attribute reads as
+        off, matching the poll-skip guard and the mixin's own setup.
+        """
+        return (
+            getattr(
+                getattr(self.store, "config", None),
+                const.CONF_HOURLY_CALCULATION,
+                False,
+            )
+            is True
+        )
+
+    def _hourly_et_for_zone(self, zone, modinst, *, now):
+        """Summed FAO-56 hourly ETo over this zone's window, or None to use the daily form.
+
+        The daily FAO-56 equation run on window-mean weather is systematically
+        biased by cloudiness: fed one identical Open-Meteo hourly series over 362
+        days it runs 1.144x the reference on overcast days and 0.925x on clear
+        ones, while the same series summed hour by hour sits flat at 1.02-1.04
+        across every sky band (mean absolute daily error 0.099 mm against
+        0.254 mm). The bias is in the aggregation, not the sensors, so summing
+        hourly removes it.
+
+        Returns ``(total_mm, {hour_start: mm})`` — the second so the water-balance
+        sub-steps can charge each hour its own ET rather than shaping one daily
+        number. Returns None whenever the hourly form cannot be applied honestly:
+
+        * ``hourlycalculation`` is off. This one is a blast-radius decision
+          rather than a technical limit: the hourly form moves the daily number
+          by up to 12% structured by cloudiness, and an install that has opted
+          into nothing should not have its watering change under it. It is NOT
+          gated on ingestion density -- measured against dense truth on real
+          recorded days, an hourly-polled install runs this form within 8.4% and
+          with no systematic bias, so a poll-only install may turn it on;
+        * the module estimates solar radiation rather than measuring it, so the
+          measured series is not what it would have used;
+        * forecast days are configured, which averages today with days that have
+          no hourly series at all;
+        * the site has no coordinates;
+        * the window cannot be reduced to hourly rows (see build_hourly_rows).
+
+        In every case the caller keeps the daily path, so the fallback is today's
+        behaviour rather than a fabricated series.
+        """
+        if not self._hourly_calculation_enabled():
+            return None
+        if str(getattr(modinst, "_solrad_behavior", "")) != str(
+            SOLRAD_behavior.DontEstimate.value
+        ):
+            return None
+        if getattr(modinst, "forecast_days", 0):
+            return None
+        latitude = getattr(self, "_effective_latitude", None)
+        longitude = getattr(self, "_effective_longitude", None)
+        if latitude is None or longitude is None:
+            return None
+        elevation = getattr(self, "_effective_elevation", None) or 0
+
+        mapping_id = zone.get(const.ZONE_MAPPING)
+        if mapping_id is None:
+            return None
+        mapping = self.store.get_mapping(mapping_id)
+        if not isinstance(mapping, dict):
+            return None
+        readings = self.store.get_mapping_buffer(mapping_id)
+        mappings_config = mapping.get(const.MAPPING_MAPPINGS)
+        if not isinstance(readings, list) or not isinstance(mappings_config, dict):
+            return None
+
+        # Buffer stamps are naive LOCAL times, so the solar-time correction wants
+        # the local UTC offset. The site timezone is passed alongside so each row
+        # resolves the offset from its OWN stamp: a window reaches seven days and
+        # can straddle a DST transition, and one offset for the whole window puts
+        # the rows past it an hour out in solar time. That is only 0.26-0.74% on
+        # daily ETo, but +23.5% / -16.0% on the radiation the clearness-ratio
+        # hold refills, where Rso is a denominator. The scalar remains the
+        # fallback for rows that carry no offset of their own.
+        tz = dt_util.DEFAULT_TIME_ZONE
+        offset = dt_util.now().utcoffset()
+        tz_offset_h = offset.total_seconds() / 3600.0 if offset else 0.0
+
+        rows = build_hourly_rows(
+            readings,
+            _as_datetime(zone.get(const.ZONE_LAST_CONSUMED)),
+            mappings_config,
+            now=now,
+            last_entry=mapping.get(const.MAPPING_DATA_LAST_ENTRY),
+            # An hour that saw no solar reading is refilled from the held
+            # clearness ratio rather than the last absolute value, which needs
+            # the site's own solar geometry.
+            latitude=latitude,
+            longitude=longitude,
+            elevation=elevation,
+            tz_offset_h=tz_offset_h,
+            tz=tz,
+        )
+        if not rows:
+            return None
+
+        series = eto_hourly_series(rows, latitude, longitude, tz_offset_h, elevation)
+
+        per_hour = {}
+        for row, eto in zip(rows, series, strict=True):
+            per_hour[row["hour_start"]] = per_hour.get(row["hour_start"], 0.0) + eto
+        total = sum(series)
+        _LOGGER.debug(
+            "[calculate-module]: summed hourly ETo for zone %s: %s mm over %s hours",
+            zone.get(const.ZONE_ID),
+            total,
+            len(rows),
+        )
+        return total, per_hour
+
+    def _substeps_for_zone(self, zone, precip_total, *, now, hourly_et=None):
+        """Water-balance sub-steps for this zone's window, or None to lump.
+
+        Reconciled against the aggregate's precipitation total before being
+        trusted. ZONE_DELTA is published from the aggregate while the bucket is
+        driven by these increments, so the two have to be the same water; they
+        are derived from the same rows by the same rule, and a disagreement means
+        an assumption has broken. Falling back then costs the sub-stepping but
+        keeps the ledger self-consistent, which is the more important property.
+
+        Gated behind ``hourlycalculation`` for the same reason as the hourly ET
+        form: replaying the window changes the stored bucket on any install that
+        maps precipitation, because rain that used to be booked at the window
+        start (clamped against maximum_bucket there, and over-drained for the
+        whole window afterwards) is now booked when it fell. That is a better
+        number, but it is still a change to what an install that opted into
+        nothing sees, so it travels with the same switch.
+        """
+        if not self._hourly_calculation_enabled():
+            return None
+        mapping_id = zone.get(const.ZONE_MAPPING)
+        if mapping_id is None:
+            return None
+        mapping = self.store.get_mapping(mapping_id)
+        if not isinstance(mapping, dict):
+            return None
+        readings = self.store.get_mapping_buffer(mapping_id)
+        mappings_config = mapping.get(const.MAPPING_MAPPINGS)
+        if not isinstance(readings, list) or not isinstance(mappings_config, dict):
+            return None
+        steps = build_substeps(
+            readings,
+            _as_datetime(zone.get(const.ZONE_LAST_CONSUMED)),
+            mappings_config,
+            now=now,
+            hourly_et=hourly_et,
+        )
+        if not steps:
+            return None
+        stepped = sum(s.precip_mm for s in steps)
+        if abs(stepped - precip_total) > max(1e-6, abs(precip_total) * 1e-6):
+            _LOGGER.debug(
+                "[calculate-module]: sub-step precipitation %s does not reconcile "
+                "with the aggregated %s for zone %s; using the single-shot balance",
+                stepped,
+                precip_total,
+                zone.get(const.ZONE_ID),
+            )
+            return None
+        return steps
+
+    async def calculate_module(self, zone, weatherdata, forecastdata, *, now=None):
         """Calculate irrigation values for a zone using the specified weather and forecast data.
 
         Args:
@@ -447,6 +634,13 @@ class CalculationMixin:
         if not modinst:
             _LOGGER.error("Unknown module for zone %s", zone.get(const.ZONE_NAME))
             return None
+        # Resolved ONCE. The hourly ETo rows and the water-balance sub-steps are
+        # two reductions of the same window that have to agree on where the hour
+        # boundaries fall, so reading the clock separately for each would let a
+        # window end land in different hours and silently drop the calculation
+        # back to the single-shot path.
+        if now is None:
+            now = datetime.now()
         # precip = 0
         ha_config_is_metric = self.hass.config.units is METRIC_SYSTEM
         bucket = zone.get(const.ZONE_BUCKET)
@@ -462,11 +656,29 @@ class CalculationMixin:
         explanation = ""
 
         precip = 0
+        # Only PyETO folds precipitation into the deficit, and sub-stepping the
+        # water balance is only meaningful for a module that models rain at all:
+        # replaying a window for Static or Passthrough would introduce water the
+        # shipped model deliberately leaves out.
+        module_uses_precipitation = m[const.MODULE_NAME] == "PyETO"
+        # Resolved BEFORE the daily equation runs, so that equation is skipped
+        # entirely when its answer would be discarded. It is not just wasted work:
+        # PyETO clamps the window's mean radiation against a DAILY clear-sky
+        # maximum, and a window that is all daylight legitimately exceeds that, so
+        # it would warn the user to check a sensor whose reading the calculation
+        # never used. A clamp warning has to mean something.
+        hourly = (
+            self._hourly_et_for_zone(zone, modinst, now=now)
+            if module_uses_precipitation
+            else None
+        )
+        delta = 0.0
         if m[const.MODULE_NAME] == "PyETO":
-            # pyeto expects pressure in hpa, solar radiation in mj/m2/day and wind speed in m/s
-            delta = modinst.calculate(
-                weather_data=weatherdata, forecast_data=forecastdata
-            )
+            if hourly is None:
+                # pyeto expects pressure in hpa, solar radiation in mj/m2/day and wind speed in m/s
+                delta = modinst.calculate(
+                    weather_data=weatherdata, forecast_data=forecastdata
+                )
             # only PyETO uses precipitation
             precip = weatherdata.get(const.MAPPING_PRECIPITATION, 0)
             _LOGGER.debug("[calculate-module]: precip: %s", precip)
@@ -491,24 +703,24 @@ class CalculationMixin:
         kc = zone.get(const.ZONE_KC, const.CONF_DEFAULT_KC)
         if kc is None:
             kc = const.CONF_DEFAULT_KC
-        et_term = delta
-        delta = delta * kc
         hour_multiplier = weatherdata.get(const.MAPPING_DATA_MULTIPLIER, 1.0)
         _LOGGER.debug("[calculate-module]: hour_multiplier: %s", hour_multiplier)
-        delta = delta * hour_multiplier + precip
+        hourly_et = None
+        if hourly is not None:
+            hourly_total, hourly_et = hourly
+            # hour_multiplier scales a DAILY et0 by the window's fraction of a
+            # day. Summing hourly ETo has already integrated over the window, so
+            # applying it here as well would scale the same window twice. It is
+            # still needed for elapsed_hours below, which is a drainage duration
+            # rather than an ET scale.
+            et_term = -hourly_total
+            et_delta = et_term * kc
+        else:
+            et_term = delta
+            et_delta = delta * kc * hour_multiplier
+        delta = et_delta + precip
         data[const.ZONE_DELTA] = delta
         _LOGGER.debug("[calculate-module]: new delta: %s", delta)
-        newbucket = bucket + delta
-
-        # if maximum bucket configured, limit bucket with that.
-        # any water above maximum is removed with runoff / bypass flow.
-        if maximum_bucket is not None and newbucket > maximum_bucket:
-            newbucket = float(maximum_bucket)
-            _LOGGER.debug(
-                "[calculate-module]: capped new bucket because of maximum bucket: %s",
-                newbucket,
-            )
-        bucket_plus_delta_capped = newbucket
 
         # take drainage rate into account
         drainage_rate = zone.get(const.ZONE_DRAINAGE_RATE, 0.0)
@@ -521,19 +733,63 @@ class CalculationMixin:
                 const.UNIT_INCH, const.UNIT_MM, drainage_rate
             )
         _LOGGER.debug("[calculate-module]: drainage_rate: %s", drainage_rate)
-        # Drainage only acts on water above field capacity (surplus > 0) and is
-        # integrated analytically over the elapsed window (see
-        # ``drained_over_window``). This replaces the previous single
-        # explicit-Euler step, which over-drained because the rate was sampled
-        # once at the end-of-window surplus and charged for the whole window.
         elapsed_hours = hour_multiplier * 24
-        drainage = drained_over_window(
-            bucket_plus_delta_capped,
-            drainage_rate,
-            elapsed_hours,
-            maximum_bucket if maximum_bucket and maximum_bucket > 0 else None,
+        # A maximum bucket of 0 still clamps, but there is no field capacity to
+        # scale Brooks-Corey against, so drainage falls back to a constant rate.
+        drain_maximum = (
+            maximum_bucket if maximum_bucket and maximum_bucket > 0 else None
         )
-        newbucket = bucket_plus_delta_capped - drainage
+
+        # The single-shot form of what follows lands the window's whole
+        # precipitation at the window START, clamps it against maximum_bucket
+        # there, and drains whatever survives for the entire window. Both errors
+        # run one way: late rain is over-drained and spread-out rain is
+        # over-clamped, because the drainage that would have made room between
+        # bursts never happens. Replaying the window at its own event times
+        # removes both without changing the ledger — still one calculation, one
+        # bucket write, one delta, one explanation. See ``build_substeps``.
+        steps = (
+            self._substeps_for_zone(zone, precip, now=now, hourly_et=hourly_et)
+            if module_uses_precipitation
+            else None
+        )
+        runoff = 0.0
+        # Kept for the explanation in both paths: it is the number the reader
+        # recognises as "bucket plus delta, capped", and it is what selects the
+        # no-drainage wording.
+        bucket_plus_delta_capped = bucket + delta
+        if maximum_bucket is not None and bucket_plus_delta_capped > maximum_bucket:
+            bucket_plus_delta_capped = float(maximum_bucket)
+        if steps is not None:
+            newbucket, drainage, runoff = replay_water_balance(
+                bucket,
+                et_delta,
+                steps,
+                drainage_rate,
+                maximum_bucket,
+                drain_maximum,
+            )
+            _LOGGER.debug(
+                "[calculate-module]: sub-stepped water balance over %s steps: "
+                "drainage %s, runoff %s",
+                len(steps),
+                drainage,
+                runoff,
+            )
+        else:
+            newbucket = bucket_plus_delta_capped
+            # Drainage only acts on water above field capacity (surplus > 0) and
+            # is integrated analytically over the elapsed window (see
+            # ``drained_over_window``). This replaces the previous single
+            # explicit-Euler step, which over-drained because the rate was sampled
+            # once at the end-of-window surplus and charged for the whole window.
+            drainage = drained_over_window(
+                bucket_plus_delta_capped,
+                drainage_rate,
+                elapsed_hours,
+                drain_maximum,
+            )
+            newbucket = bucket_plus_delta_capped - drainage
         _LOGGER.debug("[calculate-module]: current_drainage: %s", drainage)
 
         data[const.ZONE_CURRENT_DRAINAGE] = drainage
@@ -583,7 +839,14 @@ class CalculationMixin:
 
         explanation = (
             await localize(
-                "module.calculation.explanation.module-returned-evapotranspiration-deficiency",
+                # Which ET form produced this number. The two differ by up to
+                # ~12% on identical inputs, so a day that switches forms shows a
+                # step in the ET series that is otherwise unexplainable.
+                (
+                    "module.calculation.explanation.module-returned-evapotranspiration-deficiency-hourly"
+                    if hourly is not None
+                    else "module.calculation.explanation.module-returned-evapotranspiration-deficiency"
+                ),
                 self.hass.config.language,
             )
             + f" {data[const.ZONE_DELTA]:.2f}."
@@ -646,7 +909,36 @@ class CalculationMixin:
             self.hass.config.language,
         )
 
-        if bucket_plus_delta_capped <= 0:
+        if steps is not None:
+            # The single-shot formulas below would not add up here: the balance
+            # was replayed, so rain, drainage and the clamp were applied at the
+            # times they happened. Report what the replay actually did instead.
+            runoff_loc = await localize(
+                "module.calculation.explanation.runoff-variable",
+                self.hass.config.language,
+            )
+            explanation += (
+                await localize(
+                    "module.calculation.explanation.water-balance-substepped",
+                    self.hass.config.language,
+                )
+                + f" {len(steps)}.<br/>"
+                + await localize(
+                    "module.calculation.explanation.current-drainage-is",
+                    self.hass.config.language,
+                )
+                + f" {drainage:.2f}"
+            )
+            if runoff > 0:
+                explanation += (
+                    ".<br/>"
+                    + await localize(
+                        "module.calculation.explanation.runoff-is",
+                        self.hass.config.language,
+                    )
+                    + f" {runoff:.2f}"
+                )
+        elif bucket_plus_delta_capped <= 0:
             explanation += (
                 await localize(
                     "module.calculation.explanation.no-drainage",
@@ -675,7 +967,16 @@ class CalculationMixin:
             self.hass.config.language,
         )
 
-        if maximum_bucket is not None and maximum_bucket > 0:
+        if steps is not None:
+            # Water in minus water out, and it balances exactly: every sub-step
+            # adds its ET share and its rain and removes its drainage and its
+            # runoff, so the totals telescope back to this one line.
+            explanation += (
+                f" [{old_bucket_loc}] + [{delta_loc}] - [{drainage_loc}]"
+                f" - [{runoff_loc}] = {old_bucket:.2f}{data[const.ZONE_DELTA]:+.2f}"
+                f" - {drainage:.2f} - {runoff:.2f} = {newbucket:.2f}.<br/>"
+            )
+        elif maximum_bucket is not None and maximum_bucket > 0:
             explanation += f" min([{old_bucket_loc}] + [{delta_loc}], {max_bucket_loc}) - [{drainage_loc}] = min({old_bucket:.2f}{data[const.ZONE_DELTA]:+.2f}, {maximum_bucket:.1f}) - {drainage:.2f} = {newbucket:.2f}.<br/>"
         else:
             explanation += f" [{old_bucket_loc}] + [{delta_loc}] - [{drainage_loc}] = {old_bucket:.2f} + {data[const.ZONE_DELTA]:.2f} - {drainage:.2f} = {newbucket:.2f}.<br/>"

@@ -73,21 +73,35 @@ def proxy_et_since(
     return daily_et0 * (elapsed / all_day)
 
 
-def rigorous_et_since(
+def eto_hourly_series(
     rows: list[dict],
     latitude_deg: float,
     longitude_deg: float,
     tz_offset_h: float,
     elevation_m: float = 0.0,
-) -> float:
-    """Sum hourly FAO-56 ETo over ``rows`` (each one elapsed hour).
+) -> list[float]:
+    """Per-row FAO-56 hourly ETo [mm], one entry per row, in row order.
 
     Each row needs: ``hour`` (local clock midpoint), ``doy``, ``temperature``,
-    ``humidity``, ``wind_2m`` and ``solar_mj_h``.
+    ``humidity``, ``wind_2m`` and ``solar_mj_h``. Two optional keys:
+
+    * ``pressure_kpa`` — a measured barometer, used in place of the
+      elevation-derived standard atmosphere. The psychrometric constant is
+      linear in it, so a station 3 kPa off standard shifts ETo by ~1%.
+    * ``coverage_h`` — the fraction of the hour the row actually covers,
+      defaulting to a whole hour. The partial hours at the ends of a
+      calculation window are charged their real share this way rather than a
+      full hour of ET.
+    * ``tz_offset_h`` — this row's OWN UTC offset, overriding the argument. A
+      window can span up to seven days and therefore a DST transition, after
+      which one offset for the whole window puts the rows on the far side of it
+      an hour out in solar time. ``build_hourly_rows`` sets it when it is given
+      a timezone; rows from elsewhere (the live estimate's Open-Meteo series)
+      carry no such key and keep the argument.
     """
-    total = 0.0
+    out = []
     for r in rows:
-        total += eto_hourly(
+        eto = eto_hourly(
             t_c=r["temperature"],
             rh_pct=r["humidity"],
             wind_2m=r["wind_2m"],
@@ -96,10 +110,25 @@ def rigorous_et_since(
             longitude_deg=longitude_deg,
             doy=r["doy"],
             hour_mid=r["hour"],
-            tz_offset_h=tz_offset_h,
+            tz_offset_h=r.get("tz_offset_h", tz_offset_h),
             elevation_m=elevation_m,
+            pressure_kpa=r.get("pressure_kpa"),
         )
-    return total
+        out.append(eto * r.get("coverage_h", 1.0))
+    return out
+
+
+def rigorous_et_since(
+    rows: list[dict],
+    latitude_deg: float,
+    longitude_deg: float,
+    tz_offset_h: float,
+    elevation_m: float = 0.0,
+) -> float:
+    """Sum hourly FAO-56 ETo over ``rows`` (each one elapsed hour)."""
+    return sum(
+        eto_hourly_series(rows, latitude_deg, longitude_deg, tz_offset_h, elevation_m)
+    )
 
 
 def drained_over_window(
@@ -137,6 +166,57 @@ def drained_over_window(
     else:
         w_end = max(0.0, surplus - drainage_rate * elapsed_hours)
     return surplus - w_end
+
+
+def replay_water_balance(
+    bucket: float,
+    et_total: float,
+    steps,
+    drainage_rate: float,
+    maximum_bucket: float | None,
+    drain_maximum: float | None = None,
+) -> tuple[float, float, float]:
+    """Step the window's water balance instead of lumping it into one update.
+
+    ``et_total`` is the window's whole ET contribution (negative, already scaled
+    by the crop coefficient and the window length) and ``steps`` are
+    ``WaterStep``s whose ``et_weight`` sums to 1, so the same total ET is charged
+    either way — only its interleaving with rain and drainage changes. Each step
+    runs **ET share, then drainage, then rain, then the clamp**, which is the
+    order the single-shot form applies over the whole window at once.
+
+    Exact rather than approximate at any step length: ``drained_over_window`` is
+    the closed-form solution of the drainage ODE, so cutting the window at
+    irregular event times costs nothing in accuracy.
+
+    ``drain_maximum`` is the field capacity Brooks-Corey scales against, which is
+    ``maximum_bucket`` except when that is 0 — a bucket still clamps at 0 but has
+    no capacity to scale by, so drainage falls back to a constant rate.
+
+    Returns ``(bucket, drainage_total, runoff_total)``. The three conserve water
+    against the inputs: ``bucket + et_total + rain - drainage - runoff``.
+    """
+    value = float(bucket)
+    # The stored bucket is always the output of a previous clamp, so this is a
+    # no-op in practice; it keeps the invariant if one was set externally. Not
+    # counted as runoff — it is not this window's water.
+    if maximum_bucket is not None and value > maximum_bucket:
+        value = float(maximum_bucket)
+
+    drainage_total = 0.0
+    runoff_total = 0.0
+    for step in steps:
+        value += et_total * step.et_weight
+        drained = drained_over_window(
+            value, drainage_rate, step.dt_hours, drain_maximum
+        )
+        value -= drained
+        drainage_total += drained
+        value += step.precip_mm
+        if maximum_bucket is not None and value > maximum_bucket:
+            runoff_total += value - float(maximum_bucket)
+            value = float(maximum_bucket)
+    return value, drainage_total, runoff_total
 
 
 def live_deficit(

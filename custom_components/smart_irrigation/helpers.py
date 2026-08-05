@@ -59,6 +59,8 @@ from .const import (
     MS_TO_MILESH_FACTOR,
     PSI_TO_HPA_FACTOR,
     PSI_TO_INHG_FACTOR,
+    SOLAR_CLEAR_SKY_TOLERANCE,
+    SOLAR_PLAUSIBILITY_FLOOR_W_M2,
     SQ_FT_TO_M2_FACTOR,
     UNIT_GPM,
     UNIT_HPA,
@@ -85,6 +87,10 @@ from .const import (
     W_M2_TO_W_SQ_FT_FACTOR,
     W_SQ_FT_TO_W_M2_FACTOR,
     W_TO_MJ_DAY_FACTOR,
+)
+from .et_hourly import (
+    clear_sky_radiation_hourly,
+    extraterrestrial_radiation_hourly,
 )
 from .pressure import relative_to_absolute_pressure
 from .weathermodules.MetOfficeClient import MetOfficeClient
@@ -779,6 +785,70 @@ def to_absolute_pressure(value, mapping, field_config, elevation):
     ):
         return value
     return relative_to_absolute_pressure(value, elevation)
+
+
+def solar_reading_is_rate(unit):
+    """Return True when a Solar Radiation reading in ``unit`` is an instantaneous rate.
+
+    ``clamp_solar_to_clear_sky`` measures a reading against the clear-sky
+    radiation of the hour centred on the stamp, which is only meaningful for a
+    rate. ``MJ/day/m2`` and ``MJ/day/sq ft`` are selectable units for this field
+    and describe a DAILY TOTAL: a daily-total sensor reads the same at 02:00 as
+    at noon, so ceilinging it against a nighttime clear sky floors the whole
+    night away. Measured on a 20 MJ/day/m2 total, that destroyed 36% of the day's
+    radiation on 21 June and 72% on 21 December, biasing every zone in the group
+    towards under-watering.
+
+    An unset unit means the value is taken as W/m2 (metric) or W/sq ft
+    (imperial) by ``convert_mapping_to_metric``, i.e. a rate.
+
+    Shared by both writers of the buffer's Solar Radiation field — the interval
+    poll in ``build_sensor_values_for_mapping`` and the event-driven appends in
+    ``_continuous_metric_value`` — the same way ``to_absolute_pressure`` is
+    shared for Pressure, so the two cannot drift on which readings get a ceiling.
+    """
+    return unit not in (UNIT_MJ_DAY_M2, UNIT_MJ_DAY_SQFT)
+
+
+def clamp_solar_to_clear_sky(value, when, latitude, longitude, elevation, tz_offset_h):
+    """Ceiling a solar-radiation reading [MJ/day/m2] at clear sky for ``when``.
+
+    ET quality tracks pyranometer quality directly once ET is summed hour by
+    hour: the residual against a model reference correlates with the site-vs-model
+    solar ratio at r = 0.746 for the hourly form against 0.220 for the daily one.
+    This pyranometer misbehaves. Over 423 recorded days four report a clearness
+    index above 0.85, one of them sitting at a constant 722 W/m2 for 19 hours
+    INCLUDING the whole night (an impossible 10.8 mm/day of ETo), and peak
+    instantaneous readings reach 1488 W/m2.
+
+    Clamped to clear sky rather than rejected. Rejecting would leave the
+    carry-forward holding the last accepted value, and the failure that matters
+    is a sensor stuck at a daytime level: carrying that through the night is
+    exactly the 19-hour case above, while clamping puts it at the floor there
+    because clear sky at night is 0.
+
+    The clear-sky reference is integrated over the hour CENTRED on ``when``, not
+    over the clock hour, so a legitimate reading a few minutes after sunrise is
+    not measured against an hour that is mostly dark.
+
+    Returns the value unchanged when it is plausible or when the site has no
+    coordinates. The caller decides how to report a clamp -- see
+    ``SmartIrrigationCoordinator._clamp_solar_reading`` for why it must not be a
+    once-per-lifetime warning.
+    """
+    if value is None or latitude is None or longitude is None:
+        return value
+    hour = when.hour + when.minute / 60 + when.second / 3600
+    ra = extraterrestrial_radiation_hourly(
+        latitude, longitude, when.timetuple().tm_yday, hour, tz_offset_h
+    )
+    rso = clear_sky_radiation_hourly(ra, elevation or 0.0)
+    # Rso is MJ/m2/h and the buffer stores MJ/day/m2; the two differ by 24.
+    ceiling = max(
+        rso * 24 * SOLAR_CLEAR_SKY_TOLERANCE,
+        SOLAR_PLAUSIBILITY_FLOOR_W_M2 * W_TO_MJ_DAY_FACTOR,
+    )
+    return min(float(value), ceiling)
 
 
 def altitudeToPressure(alt):

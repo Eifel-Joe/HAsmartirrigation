@@ -12,6 +12,7 @@ from datetime import datetime as dt_datetime
 from datetime import timedelta
 from functools import partial
 
+import homeassistant.util.dt as dt_util
 from homeassistant.components.sensor import DOMAIN as PLATFORM
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -50,10 +51,12 @@ from .distributor import DistributorMixin
 from .helpers import (
     altitudeToPressure,
     check_time,
+    clamp_solar_to_clear_sky,
     convert_between,
     convert_mapping_to_metric,
     loadModules,
     resolve_sensor_unit,
+    solar_reading_is_rate,
     to_absolute_pressure,
 )
 from .irrigation import IrrigationRunnerMixin
@@ -75,6 +78,10 @@ from .weathermodules.PirateWeatherClient import PirateWeatherClient
 from .websockets import async_register_websockets
 
 _LOGGER = logging.getLogger(__name__)
+
+# How often a still-firing solar clamp is re-reported. Long enough not to spam a
+# log, short enough that a sensor stuck for a day cannot pass unnoticed.
+SOLAR_CLAMP_WARN_INTERVAL = timedelta(hours=1)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(const.DOMAIN)
 
@@ -957,6 +964,55 @@ class SmartIrrigationCoordinator(
             # psychrometric constant than leaving the calc module short a field.
             weatherdata[const.MAPPING_PRESSURE] = altitudeToPressure(elevation)
 
+    def _clamp_solar_reading(self, value, *, now=None):
+        """Ceiling one ingested solar-radiation reading at clear sky.
+
+        Shared by both writers of the buffer's Solar Radiation field, the same
+        way ``to_absolute_pressure`` is shared for Pressure: a buffer holding
+        clamped and unclamped rows would aggregate to a mix of the two.
+
+        Called only where the reading's resolved unit is known and
+        ``solar_reading_is_rate`` says it is one. Nothing else reaches here: a
+        static value and a weather service's radiation both bypass the two
+        conversion sites, so their exemption is structural rather than a check
+        that has to be kept in step with them.
+
+        The clamp is reported at WARNING and re-reported hourly for as long as it
+        keeps firing. Deliberately not once per lifetime: PyETO's clear-sky clamp
+        warns exactly once per module instance, and that is how a solar
+        aggregation bug stayed hidden for months while its symptom was being
+        clamped away every day. A sensor that needs clamping is a sensor to look
+        at, so it has to stay visible.
+        """
+        if value is None:
+            return value
+        if now is None:
+            now = dt_datetime.now()
+        offset = dt_util.now().utcoffset()
+        clamped = clamp_solar_to_clear_sky(
+            value,
+            now,
+            getattr(self, "_effective_latitude", None),
+            getattr(self, "_effective_longitude", None),
+            getattr(self, "_effective_elevation", None),
+            offset.total_seconds() / 3600.0 if offset else 0.0,
+        )
+        if clamped < value:
+            last = getattr(self, "_solar_clamp_warned_at", None)
+            if last is None or now - last >= SOLAR_CLAMP_WARN_INTERVAL:
+                self._solar_clamp_warned_at = now
+                _LOGGER.warning(
+                    "Solar radiation reading %.2f MJ/day/m2 exceeds the clear-sky "
+                    "maximum for %s and was clamped to %.2f. Check the Solar "
+                    "Radiation sensor: a stuck or miscalibrated pyranometer reads "
+                    "as extra evapotranspiration and under-waters every zone in "
+                    "the sensor group.",
+                    value,
+                    now.isoformat(timespec="seconds"),
+                    clamped,
+                )
+        return clamped
+
     async def _async_update_zone(self, zone_id):
         # update the weather data for the mapping for the zone
         _LOGGER.info("Updating weather data for zone %s", zone_id)
@@ -1406,6 +1462,15 @@ class SmartIrrigationCoordinator(
                                 unit,
                                 self.hass.config.units is METRIC_SYSTEM,
                             )
+                            # Clamped here rather than on the merged row because
+                            # this is where the reading's RESOLVED unit is known:
+                            # a daily-total sensor must not be measured against
+                            # an instantaneous clear sky, and a sensor configured
+                            # MJ/day but actually reporting W/m2 must still be.
+                            if key == const.MAPPING_SOLRAD and solar_reading_is_rate(
+                                unit
+                            ):
+                                val = self._clamp_solar_reading(val)
                             # add val to sensor values
                             sensor_values[key] = val
                         except (ValueError, TypeError):
