@@ -903,6 +903,7 @@ class DistributorMixin:
         if ceiling is not None and new_bucket > float(ceiling):
             new_bucket = float(ceiling)
         await self.store.async_update_zone(zone_id, {const.ZONE_BUCKET: new_bucket})
+        await self._stamp_run_finalized(zone_id, volume_l)
         await self._record_run(
             zone_id,
             result=result,
