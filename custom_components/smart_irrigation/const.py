@@ -657,6 +657,11 @@ EVENT_RECURRING_SCHEDULE_TRIGGERED = "recurring_schedule_triggered"
 ZONE_WATERING_MODE = "watering_mode"  # per-zone actuation adapter
 WATERING_MODE_CLASSIC = "classic"  # default: open -> sleep -> close
 WATERING_MODE_SERVICE = "service"  # fire a service, valve self-closes
+# OpenSprinkler station: dispatch opensprinkler.run_station and observe the
+# station's own running sensor. A variant of the self-closing contract (the
+# controller owns the close), but the run is QUEUED — the controller waters one
+# station at a time — so nothing about the run may be timed from dispatch.
+WATERING_MODE_OPENSPRINKLER = "opensprinkler"
 
 # 'service' adapter per-zone config. Device specifics live in the run_service
 # script (see the shipped valve blueprints), not here.
@@ -705,6 +710,18 @@ RUN_PLANNED_MM = "planned_mm"
 RUN_MODE = "mode"
 RUN_CREDITED = "credited"
 RUN_PRE_BUCKET = "pre_bucket"  # zone bucket BEFORE the optimistic self-closing credit
+# ISO-8601 UTC instant the hardware was OBSERVED to start watering, absent until
+# it does. RUN_STARTED is the DISPATCH time, which for a queued OpenSprinkler run
+# can precede the water by hours; timing anything from it would finalise a zone
+# still sitting in the controller's queue. Two consumers read this: the run's own
+# finalisation (planned window, delivered fraction) and
+# RunStateMixin._self_closing_run_in_flight.
+RUN_OBSERVED_START = "observed_start"
+# Entity whose on/off state IS the run, resolved once at dispatch and persisted so
+# restart reconciliation can re-subscribe without re-deriving it. Re-derivation
+# reads state attributes, and the integration that owns them may not have loaded
+# yet when Smart Irrigation reconciles.
+RUN_WATCH_ENTITY = "watch_entity"
 
 # Per-run events (new in this feature)
 EVENT_IRRIGATE_STARTED = "irrigation_started"
@@ -731,6 +748,67 @@ MASTER_RELEASE_GRACE_SECONDS = 5
 RUN_TRIGGER_SELF_CLOSING = "self_closing"
 RUN_DETAIL_SELF_CLOSING_STOPPED = "self_closing_stopped"
 PROBLEM_VALVE_DID_NOT_OPEN = "valve_did_not_open"
+
+# --- OpenSprinkler station mode ---------------------------------------------
+# The station entity (switch.<station>_station_enabled) goes in the zone's
+# linked_entity; everything else is derived from its state attributes, which the
+# integration builds in OpenSprinklerStationEntity.extra_state_attributes.
+OPENSPRINKLER_DOMAIN = "opensprinkler"
+OPENSPRINKLER_SERVICE_RUN_STATION = "run_station"
+OPENSPRINKLER_SERVICE_STOP = "stop"
+OPENSPRINKLER_FIELD_RUN_SECONDS = "run_seconds"
+OPENSPRINKLER_FIELD_QUEUE_OPTION = "queue_option"
+# Append: never pre-empt whatever the controller is already running, whether that
+# is another Smart Irrigation zone or one of the controller's own programs.
+OPENSPRINKLER_QUEUE_APPEND = "append"
+OPENSPRINKLER_ATTR_TYPE = "opensprinkler_type"
+OPENSPRINKLER_ATTR_INDEX = "index"
+OPENSPRINKLER_ATTR_IS_MASTER = "is_master"
+# 0 means the controller holds no run for this station. Non-zero means it has one
+# — queued if the station is not running yet, live if it is. pyopensprinkler:
+# "If a station is not running (sbit is 0) but has a non-zero pid, that means the
+# station is in the queue waiting to run."
+OPENSPRINKLER_ATTR_PROGRAM_ID = "running_program_id"
+# ISO-8601 UTC instant the CONTROLLER says the station started watering, which is
+# not the instant Home Assistant noticed: the integration polls, so the "on" and
+# the "off" transitions are each seen up to one poll late. Measuring a run between
+# the two sightings gives a window that is short as often as it is long, and a
+# short one records a run the controller completed in full as an early stop. The
+# controller's own start removes half of that error and all of its bias.
+OPENSPRINKLER_ATTR_START_TIME = "start_time"
+OPENSPRINKLER_TYPE_STATION = "station"
+# How far the controller's reported start may sit outside the window the run
+# could plausibly occupy before it is discarded for dt_util.utcnow(). It is
+# derived from the controller's clock and its configured timezone offset, so a
+# mis-set clock must not be able to invent a run that began in the future or
+# hours ago; falling back only costs the accuracy this constant exists to gain.
+OPENSPRINKLER_START_TIME_SLACK_SECONDS = 60
+
+# How long after dispatch the controller has to acknowledge the run by putting a
+# non-zero program id on the station. The integration refreshes immediately after
+# run_station returns and then polls every 5 s, so this only has to absorb a
+# transient communication failure (it tolerates 3 in a row before the entity goes
+# unavailable) — not any part of the queue wait, which is unbounded by design.
+OPENSPRINKLER_ACCEPT_SECONDS = 300
+# Backstop for a run the controller acknowledged and then never started: added to
+# the total planned time of the OTHER runs already in flight, because those are
+# exactly what this one is queued behind. Only reached when the station entity
+# stops reporting (unavailable, removed, controller offline) — a run the
+# controller drops is seen within one poll as its program id returning to 0.
+OPENSPRINKLER_QUEUE_MARGIN_SECONDS = 1800
+# Run ended with the station never having watered.
+PROBLEM_STATION_NEVER_RAN = "station_never_ran"
+# The station entity, or its running sensor, could not be resolved at dispatch.
+PROBLEM_STATION_UNRESOLVED = "station_unresolved"
+# A station entity is linked to a zone that is NOT in OpenSprinkler mode, so the
+# classic runner would have turned the station's enabled flag on instead of
+# watering. The run is refused rather than performed.
+PROBLEM_STATION_WRONG_MODE = "station_wrong_mode"
+# Same string as PROBLEM_STATION_NEVER_RAN and deliberately a separate name: the
+# two are read by different panel lookups (panels.zones.fault.* for a problem, the
+# run-log detail for this), so they are free to diverge without one silently
+# changing the other's copy.
+RUN_DETAIL_STATION_NEVER_RAN = "station_never_ran"
 
 # --- Gardena Wasserverteiler automatic (distributor) -------------------------
 # Position-state of the open-loop outlet counter. A distributor only waters via

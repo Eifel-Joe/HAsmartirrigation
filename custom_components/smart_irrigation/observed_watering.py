@@ -26,6 +26,7 @@ from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
 from .helpers import convert_between
+from .opensprinkler import zone_watch_entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,7 +53,12 @@ class ObservedWateringMixin:
             for zone in await self.store.async_get_zones():
                 # linked_entity for classic zones; else the opt-in observed_entity
                 # for service/self-closing zones (no linked valve of their own).
-                entity = zone.get(const.ZONE_LINKED_ENTITY) or zone.get(
+                # Through the accessor, because an OpenSprinkler zone's
+                # linked_entity is its station-ENABLED switch, which is on
+                # permanently — watching it would report the zone as watering for
+                # ever and credit a bucket on every restart. The accessor hands
+                # back the station's running sensor instead.
+                entity = zone_watch_entity(self.hass, zone) or zone.get(
                     const.ZONE_OBSERVED_ENTITY
                 )
                 if entity:
@@ -102,8 +108,19 @@ class ObservedWateringMixin:
 
         if new_on and not old_on:
             # Valve just opened. Ignore if Smart Irrigation itself opened it —
-            # the runner already credits the bucket for its own runs.
-            if self.hass.loop.time() < self._si_driven_until.get(zone_id, 0.0):
+            # the runner already credits the bucket for its own runs. The marker
+            # window is taken when the run is dispatched, which for a queued
+            # OpenSprinkler station is well before the water; the in-flight lookup
+            # covers that gap because the run record exists from dispatch.
+            #
+            # Checked for every mode rather than only for stations, because it
+            # costs nothing to: everywhere else the marker is taken with the run's
+            # own length (_note_si_valve run_seconds + margin) and so already
+            # spans the whole run, and _active_runs / the distributor's
+            # active_cycle are live for exactly that window too.
+            if self.zone_run_in_flight(zone_id) or self.hass.loop.time() < (
+                self._si_driven_until.get(zone_id, 0.0)
+            ):
                 _LOGGER.debug(
                     "Observed watering: zone %s opened by Smart Irrigation — not tracking",
                     zone_id,
