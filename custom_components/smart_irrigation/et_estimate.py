@@ -15,7 +15,9 @@ ET rather than a daily rate scaled by elapsed time. This is display-only; the
 stored bucket and the daily calculation are untouched.
 """
 
+import datetime
 import math
+from typing import NamedTuple
 
 from .calcmodules.pyeto.pyeto import (
     et_rad,
@@ -25,6 +27,31 @@ from .calcmodules.pyeto.pyeto import (
     sunset_hour_angle,
 )
 from .et_hourly import eto_hourly, extraterrestrial_radiation_hourly
+from .weather_aggregate import build_hourly_rows
+
+
+class SiteGeometry(NamedTuple):
+    """Where the site is, as one value rather than five loose arguments.
+
+    The same five reach both halves of the hourly form: ``build_hourly_rows``
+    needs them to refill an hour that saw no solar reading from the held
+    clearness ratio, and ``eto_hourly_series`` needs them again for the equation
+    itself. Passing them one by one is what let the two callers drift -- the
+    live estimate was a geometry argument short and silently fell back to the
+    flat hold, which prices a gapped window differently from the daily
+    calculation without raising anything.
+
+    ``tz`` is the site's timezone, carried alongside the offset it was measured
+    from so each row can resolve its OWN offset: a window reaches seven days and
+    can straddle a DST transition, where one offset for the whole window puts
+    every row past it an hour out in solar time.
+    """
+
+    latitude: float
+    longitude: float
+    elevation: float
+    tz_offset_h: float
+    tz: datetime.tzinfo | None = None
 
 
 def estimate_daily_et0_hargreaves(
@@ -116,6 +143,52 @@ def eto_hourly_series(
         )
         out.append(eto * r.get("coverage_h", 1.0))
     return out
+
+
+def hourly_eto_priced(
+    readings,
+    watermark,
+    mappings_config,
+    *,
+    now,
+    last_entry,
+    geometry: SiteGeometry,
+):
+    """Reduce a buffer window to hourly rows and price each one. ``(rows, series)``.
+
+    The one path from stored readings to a summed hourly ETo, so the daily
+    calculation and the live estimate cannot price the same window differently.
+    Two callers hand-maintaining the same seven-argument call is what put them
+    out of step before; the drift is silent, because a window that reduces with
+    the wrong geometry still returns a plausible number.
+
+    Returns None when the window will not reduce -- no readings, a required
+    field missing from both the window and the carry-forward, or a window longer
+    than the buffer's retention. Every caller then keeps its own fallback, so
+    the failure mode is the behaviour that preceded the hourly form rather than
+    a fabricated series.
+    """
+    rows = build_hourly_rows(
+        readings,
+        watermark,
+        mappings_config,
+        now=now,
+        last_entry=last_entry,
+        latitude=geometry.latitude,
+        longitude=geometry.longitude,
+        elevation=geometry.elevation,
+        tz_offset_h=geometry.tz_offset_h,
+        tz=geometry.tz,
+    )
+    if not rows:
+        return None
+    return rows, eto_hourly_series(
+        rows,
+        geometry.latitude,
+        geometry.longitude,
+        geometry.tz_offset_h,
+        geometry.elevation,
+    )
 
 
 def rigorous_et_since(
@@ -226,6 +299,32 @@ def replay_water_balance(
     return value, drainage_total, runoff_total
 
 
+def live_balance(
+    bucket: float,
+    et_since: float,
+    precip_since: float,
+    maximum_bucket: float | None = None,
+    drainage_rate: float = 0.0,
+    elapsed_hours: float = 0.0,
+) -> tuple[float, float]:
+    """``(deficit, drained)`` for the intra-day window — see :func:`live_deficit`.
+
+    The drainage is returned rather than recomputed by the caller so the figure
+    a dashboard plots as its own trace can never disagree with the deficit it is
+    plotted against: they are the two halves of one balance.
+    """
+    value = bucket - et_since + precip_since
+    if maximum_bucket is not None and value > maximum_bucket:
+        value = float(maximum_bucket)
+    drained = 0.0
+    if value > 0:
+        drained = drained_over_window(
+            value, drainage_rate, elapsed_hours, maximum_bucket
+        )
+        value -= drained
+    return value, drained
+
+
 def live_deficit(
     bucket: float,
     et_since: float,
@@ -243,11 +342,11 @@ def live_deficit(
     that only want the raw deficit are unaffected. The daily calculation
     remains the source of truth for the stored bucket.
     """
-    value = bucket - et_since + precip_since
-    if maximum_bucket is not None and value > maximum_bucket:
-        value = float(maximum_bucket)
-    if value > 0:
-        value -= drained_over_window(
-            value, drainage_rate, elapsed_hours, maximum_bucket
-        )
-    return value
+    return live_balance(
+        bucket,
+        et_since,
+        precip_since,
+        maximum_bucket,
+        drainage_rate=drainage_rate,
+        elapsed_hours=elapsed_hours,
+    )[0]
