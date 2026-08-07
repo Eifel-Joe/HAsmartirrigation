@@ -262,9 +262,17 @@ class CalculationMixin:
         """Drop buffer readings no enabled zone needs any more.
 
         Keeps everything after the oldest enabled-zone watermark (so no zone
-        loses unconsumed data) plus the single boundary reading just before it
-        (each zone's delta/Riemann baseline), and hard-drops anything older than
-        the retention cap. Disabled zones do not hold the buffer.
+        loses unconsumed data) plus, PER FIELD, the boundary reading just before
+        it (each field's delta/Riemann baseline), and hard-drops anything older
+        than the retention cap. Disabled zones do not hold the buffer.
+
+        The boundary is per field because the event path writes sparse rows —
+        one field per event — so a single kept row only preserves the baseline
+        of whichever field moved last before the cutoff. Dropping a cumulative
+        rain gauge's last pre-cutoff row silently uncounted a gauge rise that
+        straddled the calculation. Polled full rows degenerate to the single
+        newest row, as before. Bounded by the mapping's field count, so the
+        buffer stays capped.
         """
         if mapping_id is None:
             return
@@ -295,18 +303,27 @@ class CalculationMixin:
             cutoff = max(cap_cutoff, min(watermarks))
 
         kept = []
-        boundary = None
-        boundary_dt = None
+        boundaries = {}  # field -> (rt, row): latest pre-cutoff row per field
         for r in readings:
             rt = (
                 _as_datetime(r.get(const.RETRIEVED_AT)) if isinstance(r, dict) else None
             )
             if rt is None or rt > cutoff:
                 kept.append(r)
-            elif boundary_dt is None or rt >= boundary_dt:
-                boundary, boundary_dt = r, rt
-        if boundary is not None:
-            kept.insert(0, boundary)
+            else:
+                for key, val in r.items():
+                    if val is None or key == const.RETRIEVED_AT:
+                        continue
+                    prev = boundaries.get(key)
+                    if prev is None or rt >= prev[0]:
+                        boundaries[key] = (rt, r)
+        # One row can be the boundary of several fields; keep each once, in
+        # chronological order ahead of the surviving window.
+        boundary_rows = []
+        for rt, row in sorted(boundaries.values(), key=lambda p: p[0]):
+            if not any(row is seen for _, seen in boundary_rows):
+                boundary_rows.append((rt, row))
+        kept[:0] = [row for _, row in boundary_rows]
         if len(kept) != len(readings):
             _LOGGER.debug(
                 "[_prune_mapping_buffer] mapping %s: %s -> %s readings (cutoff %s)",

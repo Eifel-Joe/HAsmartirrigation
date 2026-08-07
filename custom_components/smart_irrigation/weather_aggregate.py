@@ -111,14 +111,24 @@ def _parse(value):
 def select_window(readings, watermark):
     """Split ``readings`` around ``watermark``.
 
-    Returns ``(boundary, window)`` where ``boundary`` is the latest reading at or
-    before the watermark (or None) and ``window`` is the readings strictly after
-    it. With ``watermark`` None (never-consumed zone) the whole buffer is the
-    window and there is no boundary.
+    Returns ``(boundary, window)`` where ``boundary`` carries, for each field,
+    its latest value at or before the watermark (or None when nothing precedes
+    it) and ``window`` is the readings strictly after it. With ``watermark``
+    None (never-consumed zone) the whole buffer is the window and there is no
+    boundary.
+
+    The boundary is merged PER FIELD, not taken as the single latest row: the
+    event-driven ingestion path writes sparse rows (one field per event), so
+    the latest pre-watermark row only carries whichever field moved last. Every
+    other field's carried value — the DELTA baseline for a cumulative rain
+    gauge, the RIEMANN integration start — lives in an earlier row, and taking
+    one row silently zeroed a gauge rise that straddled the watermark. Full
+    (polled) rows carry every field, so for them the merge degenerates to the
+    latest row and nothing moves.
     """
     if watermark is None:
         return None, [r for r in readings if isinstance(r, dict)]
-    boundary = None
+    fields = {}  # key -> (stamp, value): latest pre-watermark value per field
     boundary_dt = None
     window = []
     for r in readings:
@@ -127,9 +137,19 @@ def select_window(readings, watermark):
         rdt = _parse(r.get(const.RETRIEVED_AT))
         if rdt is not None and rdt <= watermark:
             if boundary_dt is None or rdt >= boundary_dt:
-                boundary, boundary_dt = r, rdt
+                boundary_dt = rdt
+            for key, val in r.items():
+                if val is None or key == const.RETRIEVED_AT:
+                    continue
+                prev = fields.get(key)
+                if prev is None or rdt >= prev[0]:
+                    fields[key] = (rdt, val)
         else:
             window.append(r)
+    if boundary_dt is None:
+        return None, window
+    boundary = {key: val for key, (_, val) in fields.items()}
+    boundary[const.RETRIEVED_AT] = boundary_dt
     return boundary, window
 
 
