@@ -63,6 +63,7 @@ from .helpers import (
     solar_reading_is_rate,
     to_absolute_pressure,
 )
+from .weather_aggregate import _effective_aggregate
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -357,6 +358,34 @@ class ContinuousUpdateMixin:
                 continue
             if self._continuous_in_deadband(mapping_id, key, value):
                 continue
+            previous = self._continuous_last_value.get((mapping_id, key))
+            if (
+                previous is not None
+                and value < previous
+                and value != 0
+                and _effective_aggregate(key, {key: the_map})
+                == const.MAPPING_CONF_AGGREGATE_DELTA
+            ):
+                # The delta aggregate treats an exact zero as a legitimate
+                # counter rollover; any other decrease re-bases at the lower
+                # value, so the climb back to the old level will be counted as
+                # NEW accumulation. One glitch costs one dip's worth of phantom
+                # rain; an oscillating value (a failing gauge, two writers on
+                # one entity) accumulates it without bound and nothing else in
+                # the pipeline can tell. Warned here, once per stored reading,
+                # rather than in the aggregation — the pure engine runs every
+                # minute per zone via the live estimate, which would turn one
+                # bad reading into thousands of log lines.
+                _LOGGER.warning(
+                    "Continuous updates: cumulative %s on sensor group %s "
+                    "decreased (%s -> %s) without resetting to zero; the rise "
+                    "back will be counted as new accumulation - check the "
+                    "sensor for glitches or a second writer",
+                    key,
+                    mapping_id,
+                    previous,
+                    value,
+                )
             self._continuous_last_value[(mapping_id, key)] = value
             # Synchronous, O(1), and no task hop: store.append_mapping_reading
             # appends to the live buffer in store.buffers and schedules NO write.

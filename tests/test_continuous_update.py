@@ -451,6 +451,68 @@ class TestStateChanged:
             30.0,
         ]
 
+    async def test_cumulative_decrease_without_reset_warns(self, caplog):
+        # A delta-aggregated counter that drops to a NON-zero value re-bases,
+        # so the climb back is booked as new accumulation — phantom rain. The
+        # ingest warning is the only tripwire (the pure aggregation engine
+        # deliberately does not log).
+        store = _FakeStore(
+            [
+                _mapping(
+                    mappings={
+                        const.MAPPING_PRECIPITATION: {
+                            const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                            const.MAPPING_CONF_SENSOR: "sensor.rain",
+                        }
+                    }
+                )
+            ]
+        )
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+        coord._sensor_state_changed(_event("sensor.rain", "25.4"))
+        coord._sensor_state_changed(_event("sensor.rain", "20.0"))
+        await _drain(coord)
+        assert "decreased" in caplog.text
+        # The reading is still stored — the warning observes, never filters.
+        assert [r[const.MAPPING_PRECIPITATION] for r in store.buffers[1]] == [
+            25.4,
+            20.0,
+        ]
+
+    async def test_cumulative_reset_to_zero_does_not_warn(self, caplog):
+        # An exact zero is a legitimate counter rollover the aggregate re-bases
+        # at by design.
+        store = _FakeStore(
+            [
+                _mapping(
+                    mappings={
+                        const.MAPPING_PRECIPITATION: {
+                            const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                            const.MAPPING_CONF_SENSOR: "sensor.rain",
+                        }
+                    }
+                )
+            ]
+        )
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+        coord._sensor_state_changed(_event("sensor.rain", "25.4"))
+        coord._sensor_state_changed(_event("sensor.rain", "0"))
+        await _drain(coord)
+        assert "decreased" not in caplog.text
+
+    async def test_non_delta_field_decrease_does_not_warn(self, caplog):
+        # Temperature falls all the time; only cumulative (delta-aggregated)
+        # fields carry the re-base hazard.
+        store = _FakeStore([_mapping()])
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+        coord._sensor_state_changed(_event("sensor.temp", "21.5"))
+        coord._sensor_state_changed(_event("sensor.temp", "15.0"))
+        await _drain(coord)
+        assert "decreased" not in caplog.text
+
     @pytest.mark.parametrize("state", [STATE_UNKNOWN, STATE_UNAVAILABLE, None, "abc"])
     async def test_non_numeric_states_are_ignored(self, state):
         store = _FakeStore([_mapping()])
