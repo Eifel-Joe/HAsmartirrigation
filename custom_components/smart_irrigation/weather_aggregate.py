@@ -108,6 +108,25 @@ def _parse(value):
     return parse_datetime(value)
 
 
+def merge_latest_per_field(fields, timestamp, row, *, keep_row):
+    """Fold ``row``'s non-null fields into ``fields`` (key -> (timestamp, payload)).
+
+    Keeps only the latest-stamped payload per field, ties won by the later
+    call (``>=``) — the same per-field latest-wins rule both ``select_window``'s
+    boundary merge and ``calculation._prune_mapping_buffer``'s per-field prune
+    need, shared so it can't drift between the two copies. ``keep_row``
+    chooses the payload: ``select_window`` wants the field's own value (it is
+    building a synthetic boundary reading), ``_prune_mapping_buffer`` wants
+    the row it came from (it is deciding what stays in the stored buffer).
+    """
+    for key, val in row.items():
+        if val is None or key == const.RETRIEVED_AT:
+            continue
+        prev = fields.get(key)
+        if prev is None or timestamp >= prev[0]:
+            fields[key] = (timestamp, row if keep_row else val)
+
+
 def select_window(readings, watermark):
     """Split ``readings`` around ``watermark``.
 
@@ -138,12 +157,7 @@ def select_window(readings, watermark):
         if rdt is not None and rdt <= watermark:
             if boundary_dt is None or rdt >= boundary_dt:
                 boundary_dt = rdt
-            for key, val in r.items():
-                if val is None or key == const.RETRIEVED_AT:
-                    continue
-                prev = fields.get(key)
-                if prev is None or rdt >= prev[0]:
-                    fields[key] = (rdt, val)
+            merge_latest_per_field(fields, rdt, r, keep_row=False)
         else:
             window.append(r)
     if boundary_dt is None:
@@ -330,7 +344,7 @@ def aggregate_window(
             # single value yields 0, which is exactly right — no change in a
             # cumulative rain gauge means no rain, and an explicit 0 is better for
             # the calc module than a missing field.
-            if _effective_aggregate(key, mappings_config) in _INTEGRAL_AGGREGATES:
+            if effective_aggregate(key, mappings_config) in _INTEGRAL_AGGREGATES:
                 continue
             # No stamp: a carry-forward is a single value, which every aggregate
             # resolves without needing to know when it was read.
@@ -350,7 +364,7 @@ def aggregate_window(
     return resultdata
 
 
-def _effective_aggregate(key, mappings_config):
+def effective_aggregate(key, mappings_config):
     """Resolve which aggregate applies to ``key``.
 
     Single source of truth for the rule, so the backfill guard in
@@ -398,7 +412,7 @@ def _aggregate(
         if key == const.MAPPING_TEMPERATURE:
             resultdata[const.MAPPING_MAX_TEMP] = max(d)
             resultdata[const.MAPPING_MIN_TEMP] = min(d)
-        aggregate = _effective_aggregate(key, mappings_config)
+        aggregate = effective_aggregate(key, mappings_config)
 
         if aggregate == const.MAPPING_CONF_AGGREGATE_DELTA:
             # Cumulative counter: sum positive increments, treating the first
@@ -852,7 +866,7 @@ def build_hourly_rows(
         if precip_samples is not None:
             increments = _precip_increments(
                 precip_samples,
-                _effective_aggregate(const.MAPPING_PRECIPITATION, mappings_config),
+                effective_aggregate(const.MAPPING_PRECIPITATION, mappings_config),
             )
             if increments is not None:
                 rain_by_hour = {}
@@ -1003,7 +1017,7 @@ def build_substeps(
             return None
         increments = _precip_increments(
             precip_samples,
-            _effective_aggregate(const.MAPPING_PRECIPITATION, mappings_config),
+            effective_aggregate(const.MAPPING_PRECIPITATION, mappings_config),
         )
         if increments is None:
             return None

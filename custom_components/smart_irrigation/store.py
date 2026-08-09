@@ -1660,24 +1660,26 @@ class SmartIrrigationStorage:
         return True
 
     @callback
-    def get_min_enabled_watermark(self, mapping_id: int):
-        """Earliest consume watermark among enabled zones on this sensor group.
+    def get_enabled_zone_watermarks(self, mapping_id: int):
+        """Consume watermarks of this sensor group's enabled zones.
 
-        ``None`` means no enabled zone using this mapping has consumed
-        anything from it yet, so nothing in the buffer is behind any
-        watermark -- there is no restriction to report. A zone with no
-        watermark of its own is skipped for the same reason: it has not
-        marked anything as read, so it imposes no upper bound either.
+        Returns ``(watermarks, any_unconsumed)``: the list of per-zone
+        watermarks for enabled zones that have consumed at least once, and
+        whether any enabled zone using this mapping has not consumed yet.
+        Callers with different tolerance for an unconsumed zone (skip it
+        vs. treat it as no restriction at all) both start from this same
+        walk instead of re-deriving it.
 
         Sync and copy-free (reads ``self.zones`` directly, not
         ``async_get_zones()``'s ``attr.asdict`` copies) so the continuous-
         update ingestion path -- a synchronous state-change callback -- can
         call it on every reading without awaiting anything.
         """
-        if mapping_id is None:
-            return None
-        mapping_id = int(mapping_id)
         watermarks = []
+        any_unconsumed = False
+        if mapping_id is None:
+            return watermarks, any_unconsumed
+        mapping_id = int(mapping_id)
         for zone in self.zones.values():
             if zone.state == ZONE_STATE_DISABLED:
                 continue
@@ -1691,8 +1693,23 @@ class SmartIrrigationStorage:
             if zone_mapping != mapping_id:
                 continue
             watermark = as_datetime(zone.last_consumed_at)
-            if watermark is not None:
+            if watermark is None:
+                any_unconsumed = True
+            else:
                 watermarks.append(watermark)
+        return watermarks, any_unconsumed
+
+    @callback
+    def get_min_enabled_watermark(self, mapping_id: int):
+        """Earliest consume watermark among enabled zones on this sensor group.
+
+        ``None`` means no enabled zone using this mapping has consumed
+        anything from it yet, so nothing in the buffer is behind any
+        watermark -- there is no restriction to report. A zone with no
+        watermark of its own is skipped for the same reason: it has not
+        marked anything as read, so it imposes no upper bound either.
+        """
+        watermarks, _any_unconsumed = self.get_enabled_zone_watermarks(mapping_id)
         return min(watermarks) if watermarks else None
 
     @callback

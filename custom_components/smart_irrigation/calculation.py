@@ -25,7 +25,12 @@ from .et_estimate import (
 from .helpers import as_datetime as _as_datetime
 from .helpers import convert_between, loadModules
 from .localize import localize
-from .weather_aggregate import aggregate_window, build_substeps, select_window
+from .weather_aggregate import (
+    aggregate_window,
+    build_substeps,
+    merge_latest_per_field,
+    select_window,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -278,17 +283,7 @@ class CalculationMixin:
             return
 
         cap_cutoff = now - BUFFER_RETENTION
-        watermarks = []
-        any_unconsumed = False
-        for zid in await self._get_zones_that_use_this_mapping(mapping_id):
-            z = self.store.get_zone(zid)
-            if z is None or z.get(const.ZONE_STATE) == const.ZONE_STATE_DISABLED:
-                continue
-            wm = _as_datetime(z.get(const.ZONE_LAST_CONSUMED))
-            if wm is None:
-                any_unconsumed = True
-            else:
-                watermarks.append(wm)
+        watermarks, any_unconsumed = self.store.get_enabled_zone_watermarks(mapping_id)
         if any_unconsumed or not watermarks:
             cutoff = cap_cutoff
         else:
@@ -303,12 +298,7 @@ class CalculationMixin:
             if rt is None or rt > cutoff:
                 kept.append(r)
             else:
-                for key, val in r.items():
-                    if val is None or key == const.RETRIEVED_AT:
-                        continue
-                    prev = boundaries.get(key)
-                    if prev is None or rt >= prev[0]:
-                        boundaries[key] = (rt, r)
+                merge_latest_per_field(boundaries, rt, r, keep_row=True)
         # One row can be the boundary of several fields; keep each once, in
         # chronological order ahead of the surviving window.
         boundary_rows = []

@@ -721,6 +721,47 @@ class TestCoalescing:
         assert set(rows[0]) == {const.MAPPING_TEMPERATURE, const.RETRIEVED_AT}
         assert set(rows[1]) == {const.MAPPING_HUMIDITY, const.RETRIEVED_AT}
 
+    async def test_watermark_advance_between_readings_forces_a_new_row(self):
+        # A row opens while nothing has consumed yet (min_watermark is None,
+        # so nothing blocks it). A calculation then lands and advances the
+        # zone's watermark past that row -- before the row's own coalescing
+        # window has closed. The next field must NOT merge into it:
+        # get_min_enabled_watermark is re-read on every call rather than
+        # cached from setup or from the first reading, so a watermark that
+        # moves mid-sequence is picked up immediately, exactly like a real
+        # _prune_mapping_buffer / async_calculate_zone landing between two
+        # sensor events would do to the real store.
+        zone = {
+            const.ZONE_ID: 1,
+            const.ZONE_MAPPING: 1,
+            const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+            const.ZONE_LAST_CONSUMED: None,
+        }
+        store = _FakeStore([_two_field_mapping()], zones=[zone])
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+
+        with freeze_time("2026-08-08 12:00:00.000000") as frozen:
+            coord._sensor_state_changed(_event("sensor.temp", "20.0"))
+            await _drain(coord)
+            assert len(store.buffers[1]) == 1
+
+            # The "calculation": advances the zone's watermark to the row's
+            # own timestamp, exactly as async_calculate_zone would via
+            # async_update_zone.
+            zone[const.ZONE_LAST_CONSUMED] = datetime.datetime(2026, 8, 8, 12, 0, 0)
+
+            # Still well within the coalescing window -- would merge if the
+            # watermark had not just moved.
+            frozen.tick(datetime.timedelta(milliseconds=10))
+            coord._sensor_state_changed(_event("sensor.humidity", "55"))
+            await _drain(coord)
+
+        rows = store.buffers[1]
+        assert len(rows) == 2
+        assert set(rows[0]) == {const.MAPPING_TEMPERATURE, const.RETRIEVED_AT}
+        assert set(rows[1]) == {const.MAPPING_HUMIDITY, const.RETRIEVED_AT}
+
     async def test_watermark_from_a_disabled_zone_is_ignored(self):
         # Disabled zones do not consume the buffer (mirrors
         # _prune_mapping_buffer), so their watermark must not block a merge.

@@ -72,7 +72,7 @@ from .helpers import (
     solar_reading_is_rate,
     to_absolute_pressure,
 )
-from .weather_aggregate import _effective_aggregate
+from .weather_aggregate import effective_aggregate
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -393,7 +393,7 @@ class ContinuousUpdateMixin:
                 previous is not None
                 and value < previous
                 and value != 0
-                and _effective_aggregate(key, {key: the_map})
+                and effective_aggregate(key, {key: the_map})
                 == const.MAPPING_CONF_AGGREGATE_DELTA
             ):
                 # The delta aggregate treats an exact zero as a legitimate
