@@ -490,3 +490,261 @@ async def test_incoming_data_key_is_routed_to_the_buffer(hass) -> None:
     await store.async_delete_mapping(mid)
     assert store.buffers.get(mid) is None
     assert store.get_mapping_row_count(mid) is None
+
+
+async def _zone(store, mapping_id, *, watermark, state=const.ZONE_STATE_AUTOMATIC):
+    """Create a zone with an EXACT watermark, including None ("never consumed").
+
+    async_create_zone anchors an unset watermark to datetime.now() on its own
+    (a brand-new zone's first calculation should not inherit a backlog), so the
+    only way to get a specific value under test -- notably None -- is to
+    overwrite it explicitly right after creation.
+    """
+    created = await store.async_create_zone(
+        {
+            const.ZONE_NAME: "z",
+            const.ZONE_MAPPING: mapping_id,
+            const.ZONE_MODULE: 1,
+            const.ZONE_STATE: state,
+        }
+    )
+    zone_id = created[const.ZONE_ID]
+    await store.async_update_zone(zone_id, {const.ZONE_LAST_CONSUMED: watermark})
+    return zone_id
+
+
+class TestGetMinEnabledWatermark:
+    """GitLab #33: the minimum consume watermark across a mapping's enabled
+    zones, which the continuous-update merge gate must never merge behind.
+    """
+
+    @pytest.mark.asyncio
+    async def test_none_when_no_zone_uses_the_mapping(self, hass) -> None:
+        store, mid = await _store_with_mapping(hass)
+        assert store.get_min_enabled_watermark(mid) is None
+
+    @pytest.mark.asyncio
+    async def test_none_when_the_only_zone_has_never_consumed(self, hass) -> None:
+        store, mid = await _store_with_mapping(hass)
+        await _zone(store, mid, watermark=None)
+        assert store.get_min_enabled_watermark(mid) is None
+
+    @pytest.mark.asyncio
+    async def test_is_the_minimum_across_several_zones(self, hass) -> None:
+        store, mid = await _store_with_mapping(hass)
+        earlier = T0
+        later = T0 + datetime.timedelta(hours=2)
+        await _zone(store, mid, watermark=later)
+        await _zone(store, mid, watermark=earlier)
+        assert store.get_min_enabled_watermark(mid) == earlier
+
+    @pytest.mark.asyncio
+    async def test_a_never_consumed_zone_does_not_widen_the_gate(self, hass) -> None:
+        """A zone with no watermark has nothing to protect -- it must not force
+        the result to None (which would lift the merge restriction) when a
+        SIBLING zone on the same mapping has a real watermark to respect.
+        """
+        store, mid = await _store_with_mapping(hass)
+        await _zone(store, mid, watermark=None)
+        await _zone(store, mid, watermark=T0)
+        assert store.get_min_enabled_watermark(mid) == T0
+
+    @pytest.mark.asyncio
+    async def test_a_disabled_zones_watermark_is_ignored(self, hass) -> None:
+        """Mirrors _prune_mapping_buffer: a disabled zone does not consume the
+        buffer, so its watermark must not gate anything either.
+        """
+        store, mid = await _store_with_mapping(hass)
+        await _zone(store, mid, watermark=T0, state=const.ZONE_STATE_DISABLED)
+        assert store.get_min_enabled_watermark(mid) is None
+
+    @pytest.mark.asyncio
+    async def test_coerces_a_string_stored_watermark(self, hass) -> None:
+        """Zone hydration does not convert ZONE_LAST_CONSUMED back to a
+        datetime on load (see store.async_load); a restarted install's
+        watermark is still the ISO string the JSON round-trip left it as.
+        """
+        store, mid = await _store_with_mapping(hass)
+        zone_id = await _zone(store, mid, watermark=T0)
+        # Simulate what a restart leaves in memory: the raw stored string,
+        # bypassing async_update_zone's normal (already-datetime) path.
+        store.zones[zone_id] = attr.evolve(
+            store.zones[zone_id], last_consumed_at=T0.isoformat()
+        )
+        assert store.get_min_enabled_watermark(mid) == T0
+
+
+class TestMergeOrAppendMappingReading:
+    """GitLab #33: collapse a burst of single-field readings into one row."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_mapping_returns_false(self, hass) -> None:
+        store, _mid = await _store_with_mapping(hass)
+        assert (
+            store.merge_or_append_mapping_reading(
+                99,
+                _reading(),
+                coalesce_before=T0,
+                min_watermark=None,
+            )
+            is False
+        )
+
+    @pytest.mark.asyncio
+    async def test_first_reading_in_an_empty_buffer_just_appends(self, hass) -> None:
+        store, mid = await _store_with_mapping(hass)
+        assert store.merge_or_append_mapping_reading(
+            mid,
+            {const.RETRIEVED_AT: T0, const.MAPPING_TEMPERATURE: 20.0},
+            coalesce_before=T0,
+            min_watermark=None,
+        )
+        assert store.get_mapping_buffer(mid) == [
+            {const.RETRIEVED_AT: T0, const.MAPPING_TEMPERATURE: 20.0}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_different_field_within_the_window_merges_in_place(
+        self, hass
+    ) -> None:
+        store, mid = await _store_with_mapping(hass)
+        store.append_mapping_reading(
+            mid, {const.RETRIEVED_AT: T0, const.MAPPING_TEMPERATURE: 20.0}
+        )
+
+        merged_at = T0 + datetime.timedelta(milliseconds=10)
+        assert store.merge_or_append_mapping_reading(
+            mid,
+            {const.RETRIEVED_AT: merged_at, const.MAPPING_HUMIDITY: 55.0},
+            coalesce_before=merged_at - datetime.timedelta(milliseconds=100),
+            min_watermark=None,
+        )
+        rows = store.get_mapping_buffer(mid)
+        assert len(rows) == 1
+        assert rows[0][const.MAPPING_TEMPERATURE] == 20.0
+        assert rows[0][const.MAPPING_HUMIDITY] == 55.0
+        # KEEPS the first reading's stamp, not the merged-in one.
+        assert rows[0][const.RETRIEVED_AT] == T0
+
+    @pytest.mark.asyncio
+    async def test_a_field_already_on_the_row_appends_instead(self, hass) -> None:
+        store, mid = await _store_with_mapping(hass)
+        store.append_mapping_reading(
+            mid, {const.RETRIEVED_AT: T0, const.MAPPING_TEMPERATURE: 20.0}
+        )
+
+        merged_at = T0 + datetime.timedelta(milliseconds=10)
+        store.merge_or_append_mapping_reading(
+            mid,
+            {const.RETRIEVED_AT: merged_at, const.MAPPING_TEMPERATURE: 21.0},
+            coalesce_before=merged_at - datetime.timedelta(milliseconds=100),
+            min_watermark=None,
+        )
+        assert len(store.get_mapping_buffer(mid)) == 2
+
+    @pytest.mark.asyncio
+    async def test_outside_the_coalescing_window_appends_instead(self, hass) -> None:
+        store, mid = await _store_with_mapping(hass)
+        store.append_mapping_reading(
+            mid, {const.RETRIEVED_AT: T0, const.MAPPING_TEMPERATURE: 20.0}
+        )
+
+        far_later = T0 + datetime.timedelta(seconds=1)
+        store.merge_or_append_mapping_reading(
+            mid,
+            {const.RETRIEVED_AT: far_later, const.MAPPING_HUMIDITY: 55.0},
+            coalesce_before=far_later - datetime.timedelta(milliseconds=100),
+            min_watermark=None,
+        )
+        assert len(store.get_mapping_buffer(mid)) == 2
+
+    @pytest.mark.asyncio
+    async def test_a_row_at_the_watermark_is_never_merged_into(self, hass) -> None:
+        """The acceptance criterion: consume a window, then a late field for
+        the now-consumed row must append, not merge -- "at or behind" is
+        inclusive.
+        """
+        store, mid = await _store_with_mapping(hass)
+        store.append_mapping_reading(
+            mid, {const.RETRIEVED_AT: T0, const.MAPPING_TEMPERATURE: 20.0}
+        )
+
+        late = T0 + datetime.timedelta(milliseconds=10)
+        merged = store.merge_or_append_mapping_reading(
+            mid,
+            {const.RETRIEVED_AT: late, const.MAPPING_HUMIDITY: 55.0},
+            coalesce_before=late - datetime.timedelta(milliseconds=100),
+            min_watermark=T0,  # exactly the boundary row's own timestamp
+        )
+        assert merged is True  # a row was written -- just not merged into
+        rows = store.get_mapping_buffer(mid)
+        assert len(rows) == 2
+        assert set(rows[0]) == {const.RETRIEVED_AT, const.MAPPING_TEMPERATURE}
+        assert set(rows[1]) == {const.RETRIEVED_AT, const.MAPPING_HUMIDITY}
+
+    @pytest.mark.asyncio
+    async def test_a_row_strictly_after_the_watermark_may_be_merged_into(
+        self, hass
+    ) -> None:
+        store, mid = await _store_with_mapping(hass)
+        after_watermark = T0 + datetime.timedelta(seconds=1)
+        store.append_mapping_reading(
+            mid, {const.RETRIEVED_AT: after_watermark, const.MAPPING_TEMPERATURE: 20.0}
+        )
+
+        late = after_watermark + datetime.timedelta(milliseconds=10)
+        store.merge_or_append_mapping_reading(
+            mid,
+            {const.RETRIEVED_AT: late, const.MAPPING_HUMIDITY: 55.0},
+            coalesce_before=late - datetime.timedelta(milliseconds=100),
+            min_watermark=T0,
+        )
+        assert len(store.get_mapping_buffer(mid)) == 1
+
+    @pytest.mark.asyncio
+    async def test_coerces_a_string_timestamped_row_left_by_a_restart(
+        self, hass
+    ) -> None:
+        """The buffer's newest row can be a freshly reloaded one with
+        RETRIEVED_AT still an ISO string (async_load never converts buffer
+        rows the way it does not convert zone watermarks either) -- comparing
+        that directly against the datetime coalesce_before/min_watermark
+        would raise, crashing the very first reading after a restart.
+        """
+        store, mid = await _store_with_mapping(hass)
+        store.append_mapping_reading(
+            mid, {const.RETRIEVED_AT: T0.isoformat(), const.MAPPING_TEMPERATURE: 20.0}
+        )
+
+        merged_at = T0 + datetime.timedelta(milliseconds=10)
+        store.merge_or_append_mapping_reading(
+            mid,
+            {const.RETRIEVED_AT: merged_at, const.MAPPING_HUMIDITY: 55.0},
+            coalesce_before=merged_at - datetime.timedelta(milliseconds=100),
+            min_watermark=None,
+        )
+        rows = store.get_mapping_buffer(mid)
+        assert len(rows) == 1
+        assert rows[0][const.MAPPING_HUMIDITY] == 55.0
+
+    @pytest.mark.asyncio
+    async def test_schedules_no_write_either_way(self, hass) -> None:
+        store, mid = await _store_with_mapping(hass)
+        writes = []
+        store._store.async_delay_save = lambda func, delay=0: writes.append(func)
+
+        store.merge_or_append_mapping_reading(
+            mid,
+            {const.RETRIEVED_AT: T0, const.MAPPING_TEMPERATURE: 20.0},
+            coalesce_before=T0,
+            min_watermark=None,
+        )
+        merged_at = T0 + datetime.timedelta(milliseconds=10)
+        store.merge_or_append_mapping_reading(
+            mid,
+            {const.RETRIEVED_AT: merged_at, const.MAPPING_HUMIDITY: 55.0},
+            coalesce_before=merged_at - datetime.timedelta(milliseconds=100),
+            min_watermark=None,
+        )
+        assert writes == []
+        assert store._buffers_dirty is True

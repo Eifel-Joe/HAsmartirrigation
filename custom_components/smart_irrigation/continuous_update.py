@@ -30,6 +30,15 @@ Three things keep event-driven ingestion from becoming a write amplifier:
    write at all — they ride out on the flush timer, on a write somebody else
    triggers, or at shutdown. ``store.SAVE_DELAY`` then coalesces whatever writes
    do happen (the debounced bookkeeping below).
+4. **A short row-coalescing window** collapses a station that reports its
+   sensors one at a time (~10 ms apart) into one buffer row instead of a run
+   of single-field ones: a field lands in the newest row, in place, when that
+   row is fresh enough and does not already carry it — see
+   ``store.merge_or_append_mapping_reading``. This is still a synchronous part
+   of the append itself, not a timer, so it does not reopen the hazard in
+   point 2 above. It only ever merges into a row no enabled zone has consumed
+   yet (``store.get_min_enabled_watermark``); the row that is already a
+   zone's boundary always gets a fresh append instead.
 
 Deliberately unlike altmenorg (where this feature came from), the debounced
 follow-up does **not** trigger zone calculations. justchr consumes the buffer
@@ -90,6 +99,14 @@ SENSOR_DEADBAND = {
     # ~86 MJ/day/m2, so 0.5 here is roughly a 6 W/m2 step.
     const.MAPPING_SOLRAD: 0.5,
 }
+
+# How close together two readings must land to collapse into one buffer row
+# (see the module docstring, point 4). Deliberately an order of magnitude above
+# the ~10 ms gap a station reporting its sensors one at a time actually produces,
+# to comfortably absorb that jitter, while staying short enough that a merged
+# field's RETRIEVED_AT (the FIRST reading's stamp — merging never rewrites it)
+# is never more than this far from when it actually arrived.
+CONTINUOUS_COALESCE_WINDOW = timedelta(milliseconds=100)
 
 # Prune the sensor group's buffer every Nth debounced flush rather than every
 # append: _prune_mapping_buffer walks every zone on the group and writes, so it
@@ -233,8 +250,14 @@ class ContinuousUpdateMixin:
         append duplicate rows on every ``_config_updated``.
         """
         timestamp = datetime.now()
+        coalesce_before = timestamp - CONTINUOUS_COALESCE_WINDOW
         system_is_metric = self.hass.config.units is METRIC_SYSTEM
         seeded = 0
+        # Every field seeded here shares the exact same timestamp (captured once,
+        # above), so within one mapping they are always eligible to coalesce —
+        # this is the same merge the live path uses, applied to what would
+        # otherwise be N single-field rows all stamped identically.
+        watermark_cache: dict[int, object] = {}
         for entity_id in entities:
             state = self.hass.states.get(entity_id)
             if state is None or state.state in (None, STATE_UNKNOWN, STATE_UNAVAILABLE):
@@ -250,8 +273,15 @@ class ContinuousUpdateMixin:
                 )
                 if value is None:
                     continue
-                if self.store.append_mapping_reading(
-                    mapping_id, {key: value, const.RETRIEVED_AT: timestamp}
+                if mapping_id not in watermark_cache:
+                    watermark_cache[mapping_id] = self.store.get_min_enabled_watermark(
+                        mapping_id
+                    )
+                if self.store.merge_or_append_mapping_reading(
+                    mapping_id,
+                    {key: value, const.RETRIEVED_AT: timestamp},
+                    coalesce_before=coalesce_before,
+                    min_watermark=watermark_cache[mapping_id],
                 ):
                     # Carry-forward too, exactly like the live path — both are
                     # save-free, so the seed costs no write either.
@@ -387,14 +417,20 @@ class ContinuousUpdateMixin:
                     value,
                 )
             self._continuous_last_value[(mapping_id, key)] = value
-            # Synchronous, O(1), and no task hop: store.append_mapping_reading
-            # appends to the live buffer in store.buffers and schedules NO write.
-            # The previous shape — read a get_mapping() copy in a task, mutate,
-            # write it back — was both a lost-update race (two events for one
-            # group could each read the pre-append snapshot) and O(buffer) per
-            # reading, because get_mapping() attr.asdict()s what it returns.
-            if not self.store.append_mapping_reading(
-                mapping_id, {key: value, const.RETRIEVED_AT: timestamp}
+            # Synchronous, O(1), and no task hop: store.merge_or_append_mapping_
+            # reading writes straight into the live buffer in store.buffers and
+            # schedules NO write. The previous shape — read a get_mapping() copy
+            # in a task, mutate, write it back — was both a lost-update race (two
+            # events for one group could each read the pre-append snapshot) and
+            # O(buffer) per reading, because get_mapping() attr.asdict()s what it
+            # returns. Merging (module docstring, point 4) collapses a station
+            # reporting its sensors one at a time into a single row, gated on the
+            # newest row not already being a zone's consumed boundary.
+            if not self.store.merge_or_append_mapping_reading(
+                mapping_id,
+                {key: value, const.RETRIEVED_AT: timestamp},
+                coalesce_before=timestamp - CONTINUOUS_COALESCE_WINDOW,
+                min_watermark=self.store.get_min_enabled_watermark(mapping_id),
             ):
                 continue
             # Carry-forward for aggregate_window(last_entry=...): a zone window

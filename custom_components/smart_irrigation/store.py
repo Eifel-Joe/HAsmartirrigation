@@ -129,6 +129,7 @@ from .const import (
     MODULE_ID,
     MODULE_NAME,
     MODULE_SCHEMA,
+    RETRIEVED_AT,
     SCHEDULE_CONF_ACTION,
     UNIT_SYSTEM_METRIC,
     UNIT_SYSTEM_US_CUSTOMARY,
@@ -167,10 +168,11 @@ from .const import (
     ZONE_SIZE,
     ZONE_STATE,
     ZONE_STATE_AUTOMATIC,
+    ZONE_STATE_DISABLED,
     ZONE_THROUGHPUT,
     ZONE_WATER_USED_TOTAL,
 )
-from .helpers import loadModules, zone_depth_default
+from .helpers import as_datetime, loadModules, zone_depth_default
 from .localize import localize
 
 _LOGGER = logging.getLogger(__name__)
@@ -1654,6 +1656,102 @@ class SmartIrrigationStorage:
         if mapping_id not in self.mappings:
             return False
         self.buffers.setdefault(mapping_id, []).append(reading)
+        self._buffers_dirty = True
+        return True
+
+    @callback
+    def get_min_enabled_watermark(self, mapping_id: int):
+        """Earliest consume watermark among enabled zones on this sensor group.
+
+        ``None`` means no enabled zone using this mapping has consumed
+        anything from it yet, so nothing in the buffer is behind any
+        watermark -- there is no restriction to report. A zone with no
+        watermark of its own is skipped for the same reason: it has not
+        marked anything as read, so it imposes no upper bound either.
+
+        Sync and copy-free (reads ``self.zones`` directly, not
+        ``async_get_zones()``'s ``attr.asdict`` copies) so the continuous-
+        update ingestion path -- a synchronous state-change callback -- can
+        call it on every reading without awaiting anything.
+        """
+        if mapping_id is None:
+            return None
+        mapping_id = int(mapping_id)
+        watermarks = []
+        for zone in self.zones.values():
+            if zone.state == ZONE_STATE_DISABLED:
+                continue
+            zone_mapping = zone.mapping
+            if zone_mapping is None:
+                continue
+            try:
+                zone_mapping = int(zone_mapping)
+            except (TypeError, ValueError):
+                continue
+            if zone_mapping != mapping_id:
+                continue
+            watermark = as_datetime(zone.last_consumed_at)
+            if watermark is not None:
+                watermarks.append(watermark)
+        return min(watermarks) if watermarks else None
+
+    @callback
+    def merge_or_append_mapping_reading(
+        self,
+        mapping_id: int,
+        reading: dict,
+        *,
+        coalesce_before,
+        min_watermark,
+    ) -> bool:
+        """Append one reading, merging it into the newest row when safe.
+
+        Collapses a burst of single-field readings -- a weather station
+        reporting its sensors one at a time, ~10 ms apart -- into one buffer
+        row: when the newest row's ``RETRIEVED_AT`` is at or after
+        ``coalesce_before`` (i.e. inside the coalescing window) and does not
+        already carry any of this reading's field(s), the new field(s) are
+        merged into it instead of appending a whole new row. The merged row
+        KEEPS the first reading's timestamp -- merging never rewrites
+        ``RETRIEVED_AT``, so a coalesced field is stamped up to the window
+        early, which is why the window must stay short.
+
+        Never merges into a row at or behind ``min_watermark``: that row has
+        already been consumed by (at least) one zone, and a field added to it
+        now would be a reading behind that zone's watermark -- which nothing
+        will ever count. Falls back to a plain append in that case, exactly
+        like the first reading after any calculation does.
+
+        Same return contract as ``append_mapping_reading``: schedules no
+        disk write either way, and returns False if the sensor group is
+        unknown.
+        """
+        if mapping_id is None:
+            return False
+        mapping_id = int(mapping_id)
+        if mapping_id not in self.mappings:
+            return False
+        buffer = self.buffers.setdefault(mapping_id, [])
+        if buffer:
+            newest = buffer[-1]
+            # A row loaded from disk still carries RETRIEVED_AT as the ISO
+            # string the JSON round-trip left it in (async_load never converts
+            # buffer rows the way it does zone watermarks) -- coerce before
+            # comparing against the datetime coalesce_before/min_watermark, or
+            # the very first reading after a restart raises.
+            newest_at = as_datetime(newest.get(RETRIEVED_AT))
+            mergeable_fields = set(reading) - {RETRIEVED_AT}
+            if (
+                newest_at is not None
+                and newest_at >= coalesce_before
+                and (min_watermark is None or newest_at > min_watermark)
+                and mergeable_fields.isdisjoint(newest)
+            ):
+                for field in mergeable_fields:
+                    newest[field] = reading[field]
+                self._buffers_dirty = True
+                return True
+        buffer.append(reading)
         self._buffers_dirty = True
         return True
 

@@ -22,7 +22,8 @@ from .et_estimate import (
     hourly_eto_priced,
     replay_water_balance,
 )
-from .helpers import convert_between, loadModules, parse_datetime
+from .helpers import as_datetime as _as_datetime
+from .helpers import convert_between, loadModules
 from .localize import localize
 from .weather_aggregate import aggregate_window, build_substeps, select_window
 
@@ -31,15 +32,6 @@ _LOGGER = logging.getLogger(__name__)
 # How long a reading may linger in the shared mapping buffer before it is pruned
 # regardless of zone watermarks (bounds storage if a zone stops consuming).
 BUFFER_RETENTION = timedelta(days=7)
-
-
-def _as_datetime(value):
-    """Coerce a stored watermark/timestamp (datetime or ISO string) to datetime."""
-    if isinstance(value, datetime):
-        return value
-    if value is None:
-        return None
-    return parse_datetime(value)
 
 
 def pending_bucket_events(zone):

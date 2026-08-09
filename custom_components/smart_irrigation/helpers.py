@@ -983,6 +983,19 @@ def parse_datetime(val) -> datetime | None:
     return None
 
 
+def as_datetime(value) -> datetime | None:
+    """Coerce a stored watermark/timestamp (datetime, ISO string, or None) to datetime.
+
+    Unlike ``parse_datetime``, ``None`` is a normal, silent input here rather
+    than a warning-worthy one: a zone's consumption watermark is legitimately
+    unset until its first calculation, and every caller of this needs that
+    case to pass through quietly.
+    """
+    if value is None:
+        return None
+    return parse_datetime(value)
+
+
 class CannotConnect(exceptions.HomeAssistantError):
     """Error to indicate we cannot connect."""
 
