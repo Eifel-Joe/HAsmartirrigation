@@ -256,6 +256,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Initialize enhanced scheduling managers
     await coordinator.recurring_schedule_manager.async_load_schedules()
 
+    # The next-irrigation sensors recompute only on this signal, and the schedule
+    # manager held an empty list until the line above ran — which is after the
+    # platforms were forwarded, so an entity added in between took its one
+    # initial reading against zero schedules and nothing ever revisited it. That
+    # left every "Next irrigation" reading `unknown` for the whole session until
+    # somebody saved a schedule, the only other sender. Fired here because this
+    # is the first point at which the coordinator and the loaded schedules are
+    # both live; an entity added after this point is covered by the refresh in
+    # SmartIrrigationZoneChildSensor.async_added_to_hass, which by then sees the
+    # same loaded schedules.
+    async_dispatcher_send(hass, const.DOMAIN + "_schedules_updated")
+
     return True
 
 
