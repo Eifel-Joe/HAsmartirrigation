@@ -1028,3 +1028,101 @@ async def test_a_classic_zone_pointed_at_a_station_is_refused(hass):
 
 def test_an_opensprinkler_zone_is_kept_off_every_classic_path():
     assert SmartIrrigationCoordinator._sc_is_self_closing(_zone()) is True
+
+
+# --------------------------------------------------------------------------- #
+# Teardown has to reach the controller, not just the tracker
+# --------------------------------------------------------------------------- #
+def _stopped(c):
+    return [call.data["entity_id"] for call in c._os_calls["stop"]]
+
+
+async def test_abort_stops_every_station_the_cycle_put_in_the_queue(hass):
+    """Dropping the watchers leaves the water running.
+
+    The controller owns the queue from the moment it is dispatched and steps
+    through it on its own clock, so a cycle handed over under `parallel`
+    outlives whatever queued it unless the stop reaches the controller too.
+    """
+    c = _coord(hass)
+    zones = _two_zones(hass, c, const.CONF_ZONE_SEQUENCING_PARALLEL)
+    await c.async_dispatch_opensprinkler_zones(zones, trigger="schedule")
+    assert _dispatched(c) == [STATION, STATION_B]
+
+    assert await c.async_abort_opensprinkler_runs("the test says so") is True
+    assert sorted(_stopped(c)) == sorted([STATION, STATION_B])
+
+
+async def test_abort_mid_chain_does_not_let_the_next_station_start(hass):
+    """The coordinator dies with one station watering and one still chained.
+
+    Advancing the chain on the way out would dispatch the next station as the
+    very last thing the integration ever did, which is the failure this whole
+    path exists to prevent.
+    """
+    c = _coord(hass)
+    zones = _two_zones(hass, c, const.CONF_ZONE_SEQUENCING_SEQUENTIAL)
+    await c.async_dispatch_opensprinkler_zones(zones, trigger="schedule")
+    await _drive(hass, running="on", program_id=99)
+    assert _dispatched(c) == [STATION]
+
+    await c.async_abort_opensprinkler_runs("Home Assistant is stopping")
+
+    assert _stopped(c) == [STATION]
+    # The chain is gone, so neither the finalisation above nor any late state
+    # change from the controller can start the zone that was waiting its turn.
+    await _drive(hass, running="off", program_id=0)
+    assert _dispatched(c) == [STATION]
+    assert c._os_chain_state().zones == []
+
+
+async def test_abort_settles_the_run_against_what_was_delivered(hass):
+    """The bucket was credited at dispatch, so a cut-short run must reconcile."""
+    c = _coord(hass)
+    zones = _two_zones(hass, c, const.CONF_ZONE_SEQUENCING_PARALLEL)
+    await c.async_dispatch_opensprinkler_zones(zones, trigger="schedule")
+    await _drive(hass, running="on", program_id=99)
+    c.store.async_update_zone.reset_mock()
+
+    await c.async_abort_opensprinkler_runs("Home Assistant is stopping")
+
+    assert c.store.async_update_zone.await_count > 0
+    assert c._runs == []
+
+
+async def test_abort_skips_the_settle_when_the_store_is_going_away(hass):
+    """Removal deletes the store, so reconciling into it writes nothing useful.
+
+    The stop still has to go out: it is the last chance to reach the controller
+    before there is no record the stations were ever ours.
+    """
+    c = _coord(hass)
+    zones = _two_zones(hass, c, const.CONF_ZONE_SEQUENCING_PARALLEL)
+    await c.async_dispatch_opensprinkler_zones(zones, trigger="schedule")
+    await _drive(hass, running="on", program_id=99)
+    c.store.async_update_zone.reset_mock()
+
+    await c.async_abort_opensprinkler_runs("removal", settle=False)
+
+    assert sorted(_stopped(c)) == sorted([STATION, STATION_B])
+    c.store.async_update_zone.assert_not_awaited()
+
+
+async def test_abort_is_a_no_op_when_nothing_is_running(hass):
+    """An unload with no cycle in flight must not touch the controller."""
+    _publish(hass)
+    c = _coord(hass)
+    assert await c.async_abort_opensprinkler_runs("Home Assistant is stopping") is False
+    assert _stopped(c) == []
+
+
+async def test_abort_survives_a_controller_that_refuses_the_stop(hass):
+    """A failure here must not be able to block an unload or a shutdown."""
+    c = _coord(hass)
+    zones = _two_zones(hass, c, const.CONF_ZONE_SEQUENCING_PARALLEL)
+    await c.async_dispatch_opensprinkler_zones(zones, trigger="schedule")
+    c._os_dispatch_stop = AsyncMock(side_effect=RuntimeError("controller offline"))
+
+    await c.async_abort_opensprinkler_runs("Home Assistant is stopping")
+
+    assert c._runs == []

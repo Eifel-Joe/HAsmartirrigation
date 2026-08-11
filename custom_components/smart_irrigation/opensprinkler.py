@@ -366,6 +366,83 @@ class OpenSprinklerMixin:
         if cancel is not None:
             cancel()
 
+    async def async_abort_opensprinkler_runs(self, reason: str, *, settle=True) -> bool:
+        """Stop every station this coordinator started, and settle its runs.
+
+        Teardown otherwise reaches the tracker and never the controller. The
+        controller owns the queue from the moment it is dispatched and steps
+        through it on its own clock, so dropping the watchers leaves the water
+        running with nothing supervising it — a station was seen starting 25
+        minutes after the Home Assistant that queued it had been killed.
+
+        Deliberately NOT called from a plain reload or a restart. Those are
+        covered by ``_os_resume_run``, which re-adopts the run with its watcher,
+        its master hold and its deadline intact, and cutting the run short there
+        would waste water on every options change. This is for the cases where
+        nothing will ever adopt the run: the integration being removed or
+        disabled, and Home Assistant stopping for good.
+
+        Works from the persisted run records rather than the in-memory chain, so
+        it still finds the stations after ``async_teardown_opensprinkler_watchers``
+        has run, and so it covers runs the controller has queued but not started.
+
+        ``settle`` reconciles each run's optimistic bucket credit down to what
+        was actually delivered. Skipped when the store is about to be deleted,
+        where the write would be pointless.
+
+        Returns True if anything was stopped. Never raises: a failure here must
+        not be able to block an unload or a shutdown.
+        """
+        try:
+            runs = await self._sc_active_runs()
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Could not read active runs to stop OpenSprinkler")
+            return False
+
+        targets = [
+            r
+            for r in runs
+            if r.get(const.RUN_MODE) == const.WATERING_MODE_OPENSPRINKLER
+            and r.get(const.RUN_ZONE_ID) is not None
+        ]
+        if not targets:
+            return False
+
+        # Before any stop, so a finalisation below cannot advance the chain and
+        # dispatch the very next station on the way out.
+        await self._os_chain_release()
+
+        stopped = False
+        for run in targets:
+            zid = int(run.get(const.RUN_ZONE_ID))
+            zone = self.store.get_zone(zid) or {}
+            try:
+                await self._os_dispatch_stop(zone)
+                stopped = True
+                _LOGGER.warning(
+                    "Zone %s: stopping its OpenSprinkler station because %s. The "
+                    "controller would otherwise have watered on unsupervised, "
+                    "with nothing left to enforce the run's finish time",
+                    zid,
+                    reason,
+                )
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception(
+                    "Zone %s: could not stop its OpenSprinkler station; it may "
+                    "still be watering",
+                    zid,
+                )
+            if not settle:
+                continue
+            try:
+                # close_valve=False: the stop above already reached the
+                # controller, and this path must not drive linked_entity, which
+                # for this mode is the station's *enabled* switch.
+                await self.async_stop_self_closing(zid, close_valve=False)
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Zone %s: could not settle its stopped run", zid)
+        return stopped
+
     def async_teardown_opensprinkler_watchers(self) -> None:
         """Drop every station subscription and pending chain (called on unload)."""
         for zone_id in list(self._os_watchers()):

@@ -20,6 +20,8 @@ from homeassistant.const import (
     CONF_ELEVATION,
     CONF_LATITUDE,
     CONF_LONGITUDE,
+    EVENT_HOMEASSISTANT_STOP,
+    RESTART_EXIT_CODE,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import (
@@ -204,6 +206,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # resume steps so crashed cycles are already reconciled. See master.py.
     await coordinator.async_reconcile_master_after_restart()
 
+    # Home Assistant going down for good must take any OpenSprinkler chain with
+    # it: the controller keeps stepping through its queue without us, and once
+    # we are gone nothing enforces the run's finish time or credits the water.
+    #
+    # A restart is exempt. exit_code is assigned before EVENT_HOMEASSISTANT_STOP
+    # is fired, so RESTART_EXIT_CODE here means Home Assistant is coming back and
+    # async_resume_self_closing_runs will re-adopt the run with its deadline and
+    # crediting intact — stopping it would waste water on every restart.
+    async def _async_stop_runs_on_shutdown(_event) -> None:
+        if hass.exit_code == RESTART_EXIT_CODE:
+            _LOGGER.debug(
+                "Home Assistant is restarting; leaving any OpenSprinkler run to "
+                "be re-adopted on the way back up"
+            )
+            return
+        await coordinator.async_abort_opensprinkler_runs("Home Assistant is stopping")
+
+    coordinator._stop_listener_unsub = hass.bus.async_listen_once(
+        EVENT_HOMEASSISTANT_STOP, _async_stop_runs_on_shutdown
+    )
+
     coordinator.previous_unit_system = hass.config.units
     hass.bus.async_listen(
         "core_config_updated", partial(async_handle_core_config_change, hass)
@@ -348,6 +371,17 @@ async def async_unload_entry(hass: HomeAssistant, entry):
     # async_remove_entry below.
     coordinator = hass.data[const.DOMAIN].get("coordinator")
     if coordinator is not None:
+        # Disabling the entry is the one unload nothing comes back from: no
+        # resume runs, so an OpenSprinkler chain would keep watering with the
+        # integration switched off. A plain reload is left alone deliberately —
+        # async_resume_self_closing_runs re-adopts its run seconds later, and
+        # cutting it short would waste water on every options change.
+        # Ordered before async_unload so the run records and the chain are still
+        # live enough to settle the bucket against what was delivered.
+        if entry.disabled_by is not None:
+            await coordinator.async_abort_opensprinkler_runs(
+                "the Smart Irrigation config entry is being disabled"
+            )
         await coordinator.async_unload()
     return True
 
@@ -366,6 +400,14 @@ async def async_remove_entry(hass: HomeAssistant, entry):
     if const.DOMAIN in hass.data:
         if "coordinator" in hass.data[const.DOMAIN]:
             coordinator = hass.data[const.DOMAIN]["coordinator"]
+            # Last chance to reach the controller: after the delete below there
+            # is no record that these stations were ever ours, and the queue
+            # would run to completion with the integration uninstalled.
+            # settle=False because async_delete_config removes the store the
+            # reconciliation would write to.
+            await coordinator.async_abort_opensprinkler_runs(
+                "the Smart Irrigation config entry is being removed", settle=False
+            )
             await coordinator.async_delete_config()
         del hass.data[const.DOMAIN]
 
@@ -1716,6 +1758,15 @@ class SmartIrrigationCoordinator(
 
         # Cancel the experimental observed-watering valve subscription.
         self.async_teardown_observed_watering()
+
+        # Release the shutdown hook. It closes over THIS coordinator, so a reload
+        # that left it armed would, at the next real shutdown, stop stations
+        # through a dead coordinator while the live one believed its runs were
+        # still in flight.
+        stop_unsub = getattr(self, "_stop_listener_unsub", None)
+        if stop_unsub is not None:
+            stop_unsub()
+            self._stop_listener_unsub = None
 
         # Cancel every OpenSprinkler station subscription and its deadline timer.
         # A surviving one would observe a station against this dead coordinator
