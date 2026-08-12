@@ -156,6 +156,134 @@ class TestSequencingAwareDuration:
         assert await coordinator.get_total_irrigation_duration([1, 2]) == 900
 
 
+def _mode_zones(mode):
+    """The same two 300s/600s zones, in one non-classic watering mode."""
+    return [dict(z, **{const.ZONE_WATERING_MODE: mode}) for z in _zones()]
+
+
+class TestTheEstimateFollowsHowEachModeIsActuallyDispatched:
+    """zone_sequencing does not govern every mode, so one global reduction is wrong.
+
+    `_dispatch_by_mode` starts three independent tracks and waits for none of
+    them, so the cycle lasts as long as the LONGEST, and each track is reduced
+    by how that mode is really dispatched — not by the setting alone.
+    """
+
+    @pytest.mark.asyncio
+    async def test_self_closing_zones_are_concurrent_under_sequential(
+        self, coordinator, mock_store
+    ):
+        """The defect: service zones were SUMMED under sequential.
+
+        `_dispatch_by_mode` fires every service zone in one loop and the
+        hardware owns each close, so nothing serialises them — they open
+        together and the cycle is the longest of them, not their total. The
+        over-estimate started a finish-anchored schedule 300 s too early here.
+        """
+        mock_store.config = Mock(zone_sequencing=const.CONF_ZONE_SEQUENCING_SEQUENTIAL)
+        mock_store.async_get_zones = AsyncMock(
+            return_value=_mode_zones(const.WATERING_MODE_SERVICE)
+        )
+        assert await coordinator.get_total_irrigation_duration() == 600
+
+    @pytest.mark.asyncio
+    async def test_self_closing_zones_are_concurrent_under_rotating(
+        self, coordinator, mock_store
+    ):
+        mock_store.config = Mock(zone_sequencing=const.CONF_ZONE_SEQUENCING_ROTATING)
+        mock_store.async_get_zones = AsyncMock(
+            return_value=_mode_zones(const.WATERING_MODE_SERVICE)
+        )
+        assert await coordinator.get_total_irrigation_duration() == 600
+
+    @pytest.mark.asyncio
+    async def test_self_closing_zones_are_concurrent_under_parallel(
+        self, coordinator, mock_store
+    ):
+        """Guard, not a change: parallel already reduced with max."""
+        mock_store.config = Mock(zone_sequencing=const.CONF_ZONE_SEQUENCING_PARALLEL)
+        mock_store.async_get_zones = AsyncMock(
+            return_value=_mode_zones(const.WATERING_MODE_SERVICE)
+        )
+        assert await coordinator.get_total_irrigation_duration() == 600
+
+    @pytest.mark.asyncio
+    async def test_stations_are_summed_under_parallel(self, coordinator, mock_store):
+        """Under parallel the controller owns the order, so assume serialised.
+
+        Whether a station waits for the ones queued before it is a flag in the
+        controller's own configuration that this integration cannot read, so
+        both orderings are possible. Only the longer one is safe to anchor on:
+        an under-estimate finishes the irrigation AFTER the requested time.
+        """
+        mock_store.config = Mock(zone_sequencing=const.CONF_ZONE_SEQUENCING_PARALLEL)
+        mock_store.async_get_zones = AsyncMock(
+            return_value=_mode_zones(const.WATERING_MODE_OPENSPRINKLER)
+        )
+        assert await coordinator.get_total_irrigation_duration() == 900
+
+    @pytest.mark.asyncio
+    async def test_stations_are_summed_under_sequential(self, coordinator, mock_store):
+        """Guard, not a change: Smart Irrigation chains stations itself here."""
+        mock_store.config = Mock(zone_sequencing=const.CONF_ZONE_SEQUENCING_SEQUENTIAL)
+        mock_store.async_get_zones = AsyncMock(
+            return_value=_mode_zones(const.WATERING_MODE_OPENSPRINKLER)
+        )
+        assert await coordinator.get_total_irrigation_duration() == 900
+
+    @pytest.mark.asyncio
+    async def test_the_tracks_do_not_add_up(self, coordinator, mock_store):
+        """Mixed install: the tracks overlap in time, so take the longest.
+
+        Two classic zones chaining for 900 s alongside one 600 s service zone
+        is a 900 s cycle, not a 1500 s one.
+        """
+        mock_store.config = Mock(zone_sequencing=const.CONF_ZONE_SEQUENCING_SEQUENTIAL)
+        mock_store.async_get_zones = AsyncMock(
+            return_value=_zones()
+            + [
+                {
+                    const.ZONE_ID: 4,
+                    const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+                    const.ZONE_DURATION: 600,
+                    const.ZONE_WATERING_MODE: const.WATERING_MODE_SERVICE,
+                }
+            ]
+        )
+        assert await coordinator.get_total_irrigation_duration() == 900
+
+    @pytest.mark.asyncio
+    async def test_a_service_zone_can_still_be_the_longest_track(
+        self, coordinator, mock_store
+    ):
+        """Non-vacuity: the service track is not simply being dropped."""
+        mock_store.config = Mock(zone_sequencing=const.CONF_ZONE_SEQUENCING_SEQUENTIAL)
+        mock_store.async_get_zones = AsyncMock(
+            return_value=_zones()
+            + [
+                {
+                    const.ZONE_ID: 4,
+                    const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+                    const.ZONE_DURATION: 4000,
+                    const.ZONE_WATERING_MODE: const.WATERING_MODE_SERVICE,
+                }
+            ]
+        )
+        assert await coordinator.get_total_irrigation_duration() == 4000
+
+    @pytest.mark.asyncio
+    async def test_a_classic_only_install_is_unchanged(self, coordinator, mock_store):
+        """The default, and every install predating the self-closing modes."""
+        for sequencing, expected in (
+            (const.CONF_ZONE_SEQUENCING_SEQUENTIAL, 900),
+            (const.CONF_ZONE_SEQUENCING_ROTATING, 900),
+            (const.CONF_ZONE_SEQUENCING_PARALLEL, 600),
+        ):
+            mock_store.config = Mock(zone_sequencing=sequencing)
+            mock_store.async_get_zones = AsyncMock(return_value=_zones())
+            assert await coordinator.get_total_irrigation_duration() == expected
+
+
 class TestFinishTrackerAdvance:
     """The self-rescheduling finish tracker must advance past an occurrence it
     already fired, instead of re-deriving the same still-future target and

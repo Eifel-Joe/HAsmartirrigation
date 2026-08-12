@@ -13,6 +13,8 @@ import homeassistant.util.dt as dt_util
 
 from . import const
 from .helpers import normalize_zone_selection
+from .opensprinkler import is_opensprinkler_zone
+from .self_closing import is_self_closing_zone
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -377,11 +379,27 @@ class SkipConditionsMixin:
     async def get_total_irrigation_duration(self, zone_ids=None) -> int:
         """Estimate the wall-clock irrigation time (seconds) for the given zones.
 
-        Two-track model, used to anchor "finish at time" schedules. Normal
-        (non-member) zones and distributor sweeps run on separate tracks:
+        Multi-track model, used to anchor "finish at time" schedules. Each track
+        is a set of zones that runs as one unit, and the tracks run CONCURRENTLY
+        with one another — ``_dispatch_by_mode`` starts each of them and returns
+        without waiting, so the wall-clock is the LONGEST track, not their sum:
 
-          * normal track — the linked-entity zones, reduced per zone_sequencing
+          * classic track — the linked-entity zones, reduced per zone_sequencing
             (parallel: max(duration); sequential/rotating: sum(duration)).
+          * self-closing track — ``service``-mode zones, always max(duration).
+            zone_sequencing does NOT reach them: ``_dispatch_by_mode`` fires
+            every one of them in a single loop and the hardware owns each close,
+            so they open together whatever the setting says. Summing them
+            over-estimated the cycle and started a finish-anchored schedule too
+            early on any install that had chosen sequential or rotating.
+          * station track — OpenSprinkler zones, always sum(duration). Under
+            sequential/rotating Smart Irrigation chains them itself; under
+            parallel it hands the controller everything at once, and whether a
+            station then waits for the ones before it is a flag in the
+            CONTROLLER's own configuration which this integration cannot read
+            (see opensprinkler.py's header). Serialised is the longer of the two
+            possibilities, and only an over-estimate is safe here — an
+            under-estimate finishes the irrigation after the anchor.
           * distributor track — one distributor_cycle_estimate per in-scope
             distributor (windows + n pauses + settle + buffer). Distributor
             cycles are dispatched strictly SEQUENTIALLY regardless of
@@ -391,10 +409,9 @@ class SkipConditionsMixin:
             so the estimate no longer over-counts an unsynced / unconfirmed /
             mid-cycle distributor, or one whose members are not due.
 
-        Normal zones run as background tasks concurrently with the awaited
-        distributor dispatch, so the wall-clock is the LONGER of the two tracks
-        (max). With no distributors this collapses to the original normal-track
-        reduction, preserving backward-compatible anchor times.
+        An install whose zones are all classic — the default, and every install
+        that predates the self-closing modes — collapses to the original
+        single-track reduction, so its anchor times are unchanged.
 
         ``zone_ids`` is an iterable of zone ids to include, or None/"all" for
         every enabled (automatic/manual) zone. Only positive durations count.
@@ -403,7 +420,7 @@ class SkipConditionsMixin:
         selection = normalize_zone_selection(zone_ids)
         target = None if selection is None else {int(z) for z in selection}
 
-        normal = []
+        classic, self_closing, stations = [], [], []
         for zone in zones:
             if zone.get(const.ZONE_STATE) not in (
                 const.ZONE_STATE_AUTOMATIC,
@@ -415,8 +432,14 @@ class SkipConditionsMixin:
             if zone.get(const.ZONE_DISTRIBUTOR_ID) is not None:
                 continue
             duration = zone.get(const.ZONE_DURATION, 0) or 0
-            if duration > 0:
-                normal.append(duration)
+            if duration <= 0:
+                continue
+            if is_opensprinkler_zone(zone):
+                stations.append(duration)
+            elif is_self_closing_zone(zone):
+                self_closing.append(duration)
+            else:
+                classic.append(duration)
 
         dist_track = 0
         for dist in await self.store.async_get_distributors():
@@ -449,12 +472,16 @@ class SkipConditionsMixin:
             )
 
         if self.store.config.zone_sequencing == const.CONF_ZONE_SEQUENCING_PARALLEL:
-            normal_track = max(normal) if normal else 0
+            classic_track = max(classic) if classic else 0
         else:
-            normal_track = sum(normal)
-        # normal zones run as background tasks concurrently with the awaited
-        # distributor dispatch, so wall-clock is the longer of the two tracks.
-        return int(max(normal_track, dist_track))
+            classic_track = sum(classic)
+        # Always max: they are dispatched in one loop and never sequenced.
+        sc_track = max(self_closing) if self_closing else 0
+        # Always sum: see the station-track note above.
+        station_track = sum(stations)
+        # Every track is started without being waited on, so the wall-clock is
+        # the longest of them rather than their total.
+        return int(max(classic_track, sc_track, station_track, dist_track))
 
     async def _increment_days_since_irrigation(self):
         """Increment the counter for days since last irrigation."""

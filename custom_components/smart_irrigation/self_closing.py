@@ -21,6 +21,20 @@ from .opensprinkler import is_opensprinkler_zone
 _LOGGER = logging.getLogger(__name__)
 
 
+def is_self_closing_zone(zone: dict) -> bool:
+    """True if the zone delegates its run to a self-closing target.
+
+    Module level, and the single source of truth for "which modes are these",
+    so a consumer that is not the coordinator — the finish-time estimate in
+    skip_conditions — can ask without needing this mixin. ``_sc_is_self_closing``
+    is the in-coordinator spelling and delegates here.
+    """
+    return isinstance(zone, dict) and zone.get(const.ZONE_WATERING_MODE) in (
+        const.WATERING_MODE_SERVICE,
+        const.WATERING_MODE_OPENSPRINKLER,
+    )
+
+
 class SelfClosingMixin:
     """Self-closing actuation lifecycle. Mixed into SmartIrrigationCoordinator."""
 
@@ -667,10 +681,7 @@ class SelfClosingMixin:
         turn_off. Turning a station switch on rewrites controller configuration
         and does not water; see opensprinkler.py.
         """
-        return zone.get(const.ZONE_WATERING_MODE) in (
-            const.WATERING_MODE_SERVICE,
-            const.WATERING_MODE_OPENSPRINKLER,
-        )
+        return is_self_closing_zone(zone)
 
     async def _sc_maybe_stop(self, zone_id) -> bool:
         """Stop a self-closing zone here; return True if it was handled."""
