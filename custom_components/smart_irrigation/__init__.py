@@ -54,7 +54,9 @@ from .helpers import (
     clamp_solar_to_clear_sky,
     convert_between,
     convert_mapping_to_metric,
+    corrected_azimuth_bearing,
     loadModules,
+    normalize_azimuth_angle,
     resolve_sensor_unit,
     solar_reading_is_rate,
     to_absolute_pressure,
@@ -252,6 +254,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     # Finish up by setting factory defaults if needed for zones, mappings and modules
     await store.set_up_factory_defaults()
+
+    # Ordered BEFORE the schedules are loaded so the manager reads the repaired
+    # angles rather than having to be told about them afterwards (issue #81).
+    await coordinator.async_correct_solar_azimuth_bearings()
 
     # Initialize enhanced scheduling managers
     await coordinator.recurring_schedule_manager.async_load_schedules()
@@ -692,6 +698,77 @@ class SmartIrrigationCoordinator(
     def _current_unit_system_name(self):
         """The unit system stored zone values would be written under right now."""
         return unit_system_name(self.hass.config.units)
+
+    async def async_correct_solar_azimuth_bearings(self):
+        """One-shot repair of solar_azimuth schedules after the #81 sign fix.
+
+        ``calculate_solar_azimuth`` subtracted the longitude correction instead
+        of adding it, and the scheduler handed it naive LOCAL time where the
+        function read UTC. Together the stored angle was out by
+        ``tz_offset - 2*longitude/15`` hours of solar time: ~13 min in Berlin,
+        but +7.9 h in Phoenix and -7.5 h in Perth. Schedules still fired at a
+        stable time each day, so nothing looked broken — the time simply had
+        little to do with the bearing the user typed.
+
+        Correcting the maths alone would move every existing schedule, by hours
+        for anyone outside central Europe. So each stored angle is rewritten to
+        the bearing the sun ACTUALLY holds at that schedule's current fire time:
+        the schedule keeps firing when it fires today, and the number in the UI
+        becomes truthful instead of arbitrary. Each rewrite is logged once at
+        WARNING with both angles and the preserved time, because a silently
+        changed number is what makes this kind of repair unauditable.
+
+        Latched by ``CONF_AZIMUTH_BEARING_CORRECTED`` so it runs exactly once.
+        A fresh install latches it with nothing to repair.
+        """
+        config = await self.store.async_get_config()
+        if config.get(const.CONF_AZIMUTH_BEARING_CORRECTED):
+            return
+        schedules = config.get(const.CONF_RECURRING_SCHEDULES) or []
+        latitude = self.hass.config.latitude
+        longitude = self.hass.config.longitude
+        now = dt_util.utcnow()
+        changed = False
+        for schedule in schedules:
+            if (
+                schedule.get(const.SCHEDULE_CONF_TYPE)
+                != const.SCHEDULE_TYPE_SOLAR_AZIMUTH
+            ):
+                continue
+            old_angle = normalize_azimuth_angle(
+                schedule.get(const.SCHEDULE_CONF_AZIMUTH_ANGLE, 90)
+            )
+            bearing, fire_time = corrected_azimuth_bearing(
+                latitude, longitude, old_angle, now
+            )
+            if bearing is None:
+                _LOGGER.warning(
+                    "Schedule '%s': its solar azimuth of %s deg produced no "
+                    "crossing to anchor to, so the angle is left as it is. It "
+                    "was measured against a bearing calculation that has been "
+                    "corrected (issue #81), so please check when it now runs",
+                    schedule.get(const.SCHEDULE_CONF_NAME),
+                    old_angle,
+                )
+                continue
+            new_angle = round(bearing)
+            if new_angle == old_angle:
+                continue
+            schedule[const.SCHEDULE_CONF_AZIMUTH_ANGLE] = new_angle
+            changed = True
+            _LOGGER.warning(
+                "Schedule '%s': solar azimuth corrected from %s deg to %s deg "
+                "so it keeps running at %s. The old value never corresponded to "
+                "a real compass bearing (issue #81); the new one does",
+                schedule.get(const.SCHEDULE_CONF_NAME),
+                old_angle,
+                new_angle,
+                dt_util.as_local(fire_time).strftime("%H:%M"),
+            )
+        updates = {const.CONF_AZIMUTH_BEARING_CORRECTED: True}
+        if changed:
+            updates[const.CONF_RECURRING_SCHEDULES] = schedules
+        await self.store.async_update_config(updates)
 
     async def async_reconcile_stored_unit_system(self):
         """Convert stored zone values when the unit system has changed (issue #67).

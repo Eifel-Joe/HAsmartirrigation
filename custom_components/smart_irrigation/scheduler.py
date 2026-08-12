@@ -339,13 +339,18 @@ class RecurringScheduleManager:
             angle = normalize_azimuth_angle(
                 schedule.get(const.SCHEDULE_CONF_AZIMUTH_ANGLE, 90)
             )
-            ref_local = dt_util.as_local(now_utc).replace(tzinfo=None)
+            # UTC, aware, end to end. This used to hand over naive LOCAL time
+            # while calculate_solar_azimuth documented (and read) UTC, so the
+            # zone offset landed on top of the sign error the helper already
+            # had — see issue #81. dt_util.as_utc on an already-UTC value below
+            # is a no-op, so the surrounding offset arithmetic is unchanged.
+            ref = now_utc
             # Same negative-offset advance as sunrise/sunset above: step past the
             # found occurrence until the offset-shifted target is strictly after
             # the reference, so the finish tracker doesn't busy-loop.
             guard = 0
             while True:
-                next_time = find_next_solar_azimuth_time(lat, lon, angle, ref_local)
+                next_time = find_next_solar_azimuth_time(lat, lon, angle, ref)
                 if next_time is None:
                     return None
                 candidate = dt_util.as_utc(next_time) + offset
@@ -355,7 +360,7 @@ class RecurringScheduleManager:
                 # step re-detects the SAME crossing (the azimuth is still within a
                 # sample of the target a moment later). Step past a full search
                 # interval so the next search lands on the following crossing.
-                ref_local = next_time + datetime.timedelta(minutes=16)
+                ref = next_time + datetime.timedelta(minutes=16)
                 guard += 1
 
         if stype == const.SCHEDULE_TYPE_INTERVAL:

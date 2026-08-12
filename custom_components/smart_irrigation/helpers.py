@@ -20,6 +20,7 @@ from homeassistant.const import (
     UnitOfVolumetricFlux,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_WEATHER_SERVICE_MET,
@@ -1042,12 +1043,18 @@ def calculate_solar_azimuth(
     Args:
         latitude: Latitude in degrees
         longitude: Longitude in degrees
-        timestamp: UTC datetime object
+        timestamp: datetime. An aware value is converted to UTC; a naive value
+            is TAKEN as UTC. Passing naive LOCAL time here is what issue #81
+            was half about, so the conversion is done here rather than trusted
+            to every caller.
 
     Returns:
         Solar azimuth angle in degrees (0-360, 0=North, 90=East, 180=South, 270=West)
     """
     import math
+
+    if timestamp.tzinfo is not None:
+        timestamp = dt_util.as_utc(timestamp)
 
     # Convert to radians
     lat_rad = math.radians(latitude)
@@ -1062,9 +1069,12 @@ def calculate_solar_azimuth(
 
     # Hour angle
     time_decimal = timestamp.hour + timestamp.minute / 60.0 + timestamp.second / 3600.0
-    # Longitude correction for local solar time
+    # Longitude correction for local solar time. East-positive longitude runs
+    # AHEAD of UTC, so local solar time is UTC + longitude/15. This was a
+    # subtraction until issue #81: the resulting bearing was 2*longitude/15
+    # hours of solar time out, which is zero at Greenwich and hours elsewhere.
     longitude_correction = longitude / 15.0
-    solar_time = time_decimal - longitude_correction
+    solar_time = time_decimal + longitude_correction
     hour_angle = math.radians((solar_time - 12) * 15)
 
     # Solar elevation (calculated but not used in this function)
@@ -1086,12 +1096,78 @@ def calculate_solar_azimuth(
     return azimuth_degrees
 
 
+def legacy_solar_azimuth(
+    latitude: float, longitude: float, timestamp: datetime
+) -> float:
+    """The pre-#81 azimuth, reproduced verbatim so a fire time can be recovered.
+
+    Kept ONLY so the one-time bearing correction can work out *when* an existing
+    schedule used to fire, and rewrite its stored angle to the bearing the sun
+    really has at that moment. Nothing else may call this: it is wrong on
+    purpose. Two errors compounded here — the longitude correction was
+    subtracted instead of added, and the scheduler handed it naive LOCAL time
+    while the docstring promised UTC — so this takes naive local time, exactly
+    as the old scheduler passed it, and reproduces both.
+    """
+    import math
+
+    lat_rad = math.radians(latitude)
+    day_of_year = timestamp.timetuple().tm_yday
+    declination = math.radians(
+        23.45 * math.sin(math.radians(360 * (284 + day_of_year) / 365))
+    )
+    time_decimal = timestamp.hour + timestamp.minute / 60.0 + timestamp.second / 3600.0
+    solar_time = time_decimal - longitude / 15.0  # the old, wrong sign
+    hour_angle = math.radians((solar_time - 12) * 15)
+    azimuth = math.atan2(
+        math.sin(hour_angle),
+        math.cos(hour_angle) * math.sin(lat_rad)
+        - math.tan(declination) * math.cos(lat_rad),
+    )
+    return (math.degrees(azimuth) + 180) % 360
+
+
+def corrected_azimuth_bearing(
+    latitude: float, longitude: float, stored_angle: float, reference: datetime
+):
+    """The true bearing that reproduces a legacy schedule's current fire time.
+
+    Returns ``(bearing, fire_time)``, or ``(None, None)`` when the old maths
+    yields no crossing to anchor to. This is what lets the issue #81 fix keep
+    every existing schedule firing when it already fires while making the
+    number in the UI mean something for the first time: the stored angle never
+    corresponded to a real bearing, so it is replaced with the bearing the sun
+    actually holds at that moment.
+
+    Caveat worth stating where it is decided: this pins TODAY's crossing. The
+    old and new bearings drift apart across the year at slightly different
+    rates, so a corrected schedule tracks its season a little differently than
+    it used to. That is unavoidable — the two were never the same curve.
+    """
+    fire_time = find_next_solar_azimuth_time(
+        latitude,
+        longitude,
+        stored_angle,
+        # The legacy path searched in naive LOCAL time; reproduce that exactly.
+        dt_util.as_local(reference).replace(tzinfo=None),
+        azimuth_fn=legacy_solar_azimuth,
+    )
+    if fire_time is None:
+        return None, None
+    # dt_util.as_utc reads a naive value as local — the same conversion the old
+    # scheduler applied to this very result, so the instant is unchanged.
+    aware = dt_util.as_utc(fire_time)
+    return calculate_solar_azimuth(latitude, longitude, aware), aware
+
+
 def find_next_solar_azimuth_time(
     latitude: float,
     longitude: float,
     target_azimuth: float,
     start_time: datetime,
     max_days: int = 1,
+    *,
+    azimuth_fn=None,
 ) -> datetime | None:
     """Find the next time when the sun will be at a specific azimuth angle.
 
@@ -1101,22 +1177,27 @@ def find_next_solar_azimuth_time(
         target_azimuth: Target azimuth angle in degrees (0-360)
         start_time: Starting datetime to search from
         max_days: Maximum days to search ahead
+        azimuth_fn: The bearing function to search with. Defaults to the real
+            one; the one-time #81 correction passes ``legacy_solar_azimuth`` to
+            recover when a schedule used to fire.
 
     Returns:
         Next datetime when sun will be at target azimuth, or None if not found
     """
     from datetime import timedelta
 
+    azimuth_fn = azimuth_fn or calculate_solar_azimuth
+
     # Search in 15-minute intervals for the next 24 hours by default
     search_interval = timedelta(minutes=15)
     max_search_time = start_time + timedelta(days=max_days)
 
     current_time = start_time
-    prev_azimuth = calculate_solar_azimuth(latitude, longitude, current_time)
+    prev_azimuth = azimuth_fn(latitude, longitude, current_time)
 
     while current_time < max_search_time:
         current_time += search_interval
-        current_azimuth = calculate_solar_azimuth(latitude, longitude, current_time)
+        current_azimuth = azimuth_fn(latitude, longitude, current_time)
 
         # Check if we've crossed the target azimuth
         if _azimuth_crossed_target(prev_azimuth, current_azimuth, target_azimuth):
@@ -1127,6 +1208,7 @@ def find_next_solar_azimuth_time(
                 target_azimuth,
                 current_time - search_interval,
                 current_time,
+                azimuth_fn=azimuth_fn,
             )
 
         prev_azimuth = current_azimuth
@@ -1159,13 +1241,16 @@ def _refine_azimuth_time(
     target_azimuth: float,
     start_time: datetime,
     end_time: datetime,
+    *,
+    azimuth_fn=None,
 ) -> datetime:
     """Refine azimuth time to minute precision using binary search."""
+    azimuth_fn = azimuth_fn or calculate_solar_azimuth
     while (end_time - start_time).total_seconds() > 60:
         mid_time = start_time + (end_time - start_time) / 2
-        mid_azimuth = calculate_solar_azimuth(latitude, longitude, mid_time)
+        mid_azimuth = azimuth_fn(latitude, longitude, mid_time)
 
-        start_azimuth = calculate_solar_azimuth(latitude, longitude, start_time)
+        start_azimuth = azimuth_fn(latitude, longitude, start_time)
 
         if _azimuth_crossed_target(start_azimuth, mid_azimuth, target_azimuth):
             end_time = mid_time

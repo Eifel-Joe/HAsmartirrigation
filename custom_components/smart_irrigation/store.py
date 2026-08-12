@@ -23,6 +23,7 @@ from .const import (
     CONF_AUTO_UPDATE_ENABLED,
     CONF_AUTO_UPDATE_INTERVAL,
     CONF_AUTO_UPDATE_SCHEDULE,
+    CONF_AZIMUTH_BEARING_CORRECTED,
     CONF_CALC_TIME,
     CONF_CONTINUOUS_UPDATES,
     CONF_DAYS_BETWEEN_IRRIGATION,
@@ -407,6 +408,10 @@ class Config:
     log_no_demand = attr.ib(type=bool, default=CONF_DEFAULT_LOG_NO_DEMAND)
     # Rain delay / vacation hold (WS-5): ISO-8601 datetime string or None.
     rain_delay_until = attr.ib(type=str, default=CONF_DEFAULT_RAIN_DELAY_UNTIL)
+    # One-shot latch for the issue #81 solar-azimuth bearing repair. False on
+    # every store that predates it, which is exactly the set needing the
+    # repair; a fresh install latches it on first setup with nothing to fix.
+    azimuth_bearing_corrected = attr.ib(type=bool, default=False)
     # Persisted in-flight self-closing valve runs (reboot resilience); list of
     # dicts, see const.CONF_ACTIVE_VALVE_RUNS.
     active_valve_runs = attr.ib(type=list, factory=list)
@@ -898,6 +903,13 @@ class SmartIrrigationStorage:
                 ),
                 rain_delay_until=data["config"].get(
                     CONF_RAIN_DELAY_UNTIL, CONF_DEFAULT_RAIN_DELAY_UNTIL
+                ),
+                # .get with a False default rather than a migration: a store
+                # written before issue #81 has no key, and False is exactly the
+                # "still needs repairing" answer. Same hydration precedent as
+                # the #66/#74/#77 flags, so STORAGE_VERSION stays put.
+                azimuth_bearing_corrected=data["config"].get(
+                    CONF_AZIMUTH_BEARING_CORRECTED, False
                 ),
                 # Recurring schedules are irrigation-only now; calculate/update
                 # are handled by the global daily settings. Drop any legacy

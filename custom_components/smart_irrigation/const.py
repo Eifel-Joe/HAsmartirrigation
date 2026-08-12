@@ -143,6 +143,10 @@ LIVE_MIN_MAXIMUM_BUCKET_MM = 10.0
 # default None ⇒ no hold ⇒ behaviour unchanged. Explicit manual runs bypass it.
 CONF_RAIN_DELAY_UNTIL = "rain_delay_until"
 CONF_DEFAULT_RAIN_DELAY_UNTIL = None
+# One-shot latch: has this store's solar_azimuth schedules had their bearings
+# repaired after the issue #81 sign fix? See coordinator
+# async_correct_solar_azimuth_bearings.
+CONF_AZIMUTH_BEARING_CORRECTED = "azimuth_bearing_corrected"
 # Run-log / skip detail token recorded when a scheduled run is held back by the
 # rain delay (surfaced in the run history + outlook like the other skip ids).
 SKIP_REASON_PAUSED = "paused"
