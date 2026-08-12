@@ -751,26 +751,6 @@ class IrrigationRunnerMixin:
         )
         return True
 
-    def _drop_zones_already_running(self, zones: list) -> list:
-        """Filter out zones that already have a run in flight.
-
-        Shared by the scheduled dispatch and Irrigate-now. A duplicate dispatch is
-        honoured, not merged: live, two Irrigate-now presses 10 s apart ran two
-        full concurrent loops on one zone, delivered twice the water, and credited
-        the bucket once (both loops write the same absolute anchor + credit).
-        """
-        out = []
-        for z in zones:
-            zone_id = z.get(const.ZONE_ID)
-            if self.zone_run_in_flight(zone_id):
-                _LOGGER.info(
-                    "Zone %s already has a run in flight; not dispatching another",
-                    zone_id,
-                )
-                continue
-            out.append(z)
-        return out
-
     async def _dispatch_sequencing(self, zones: list) -> None:
         """Start the linked-entity zones under the configured sequencing.
 
