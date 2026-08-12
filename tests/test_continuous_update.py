@@ -11,12 +11,14 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from freezegun import freeze_time
 from homeassistant.const import CONF_ELEVATION, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from custom_components.smart_irrigation import SmartIrrigationCoordinator, const
 from custom_components.smart_irrigation.const import UNIT_INHG
 from custom_components.smart_irrigation.continuous_update import (
+    CONTINUOUS_COALESCE_WINDOW,
     CONTINUOUS_PRUNE_EVERY,
     SENSOR_DEADBAND,
 )
@@ -67,7 +69,7 @@ class _FakeStore:
     property Step 4 exists for, and ``TestNoWritePerReading`` asserts it.
     """
 
-    def __init__(self, mappings, *, enabled=True, debounce=5000):
+    def __init__(self, mappings, *, enabled=True, debounce=5000, zones=None):
         self.mappings = {}
         self.buffers = {}
         for mapping in mappings:
@@ -82,6 +84,11 @@ class _FakeStore:
         )
         self.zone_updates = []
         self.saves = 0
+        # Dicts with ZONE_MAPPING / ZONE_STATE / ZONE_LAST_CONSUMED, for
+        # get_min_enabled_watermark. Unrelated to async_get_zones()/get_zones()
+        # below, which the debounced-flush bookkeeping tests use and which stay
+        # empty on purpose.
+        self.watermark_zones = list(zones or [])
 
     def get_mapping(self, mapping_id):
         mapping = self.mappings.get(int(mapping_id))
@@ -118,6 +125,46 @@ class _FakeStore:
         if mapping_id not in self.mappings:
             return False
         self.buffers.setdefault(mapping_id, []).append(reading)
+        return True
+
+    def get_min_enabled_watermark(self, mapping_id):
+        """Mirrors store.get_min_enabled_watermark against self.watermark_zones."""
+        if mapping_id is None:
+            return None
+        mapping_id = int(mapping_id)
+        watermarks = [
+            z[const.ZONE_LAST_CONSUMED]
+            for z in self.watermark_zones
+            if z.get(const.ZONE_STATE) != const.ZONE_STATE_DISABLED
+            and z.get(const.ZONE_MAPPING) == mapping_id
+            and z.get(const.ZONE_LAST_CONSUMED) is not None
+        ]
+        return min(watermarks) if watermarks else None
+
+    def merge_or_append_mapping_reading(
+        self, mapping_id, reading, *, coalesce_before, min_watermark
+    ):
+        """Mirrors store.merge_or_append_mapping_reading — no save either way."""
+        if mapping_id is None:
+            return False
+        mapping_id = int(mapping_id)
+        if mapping_id not in self.mappings:
+            return False
+        buffer = self.buffers.setdefault(mapping_id, [])
+        if buffer:
+            newest = buffer[-1]
+            newest_at = newest.get(const.RETRIEVED_AT)
+            mergeable_fields = set(reading) - {const.RETRIEVED_AT}
+            if (
+                newest_at is not None
+                and newest_at >= coalesce_before
+                and (min_watermark is None or newest_at > min_watermark)
+                and mergeable_fields.isdisjoint(newest)
+            ):
+                for field in mergeable_fields:
+                    newest[field] = reading[field]
+                return True
+        buffer.append(reading)
         return True
 
     def set_mapping_buffer(self, mapping_id, readings):
@@ -451,6 +498,68 @@ class TestStateChanged:
             30.0,
         ]
 
+    async def test_cumulative_decrease_without_reset_warns(self, caplog):
+        # A delta-aggregated counter that drops to a NON-zero value re-bases,
+        # so the climb back is booked as new accumulation — phantom rain. The
+        # ingest warning is the only tripwire (the pure aggregation engine
+        # deliberately does not log).
+        store = _FakeStore(
+            [
+                _mapping(
+                    mappings={
+                        const.MAPPING_PRECIPITATION: {
+                            const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                            const.MAPPING_CONF_SENSOR: "sensor.rain",
+                        }
+                    }
+                )
+            ]
+        )
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+        coord._sensor_state_changed(_event("sensor.rain", "25.4"))
+        coord._sensor_state_changed(_event("sensor.rain", "20.0"))
+        await _drain(coord)
+        assert "decreased" in caplog.text
+        # The reading is still stored — the warning observes, never filters.
+        assert [r[const.MAPPING_PRECIPITATION] for r in store.buffers[1]] == [
+            25.4,
+            20.0,
+        ]
+
+    async def test_cumulative_reset_to_zero_does_not_warn(self, caplog):
+        # An exact zero is a legitimate counter rollover the aggregate re-bases
+        # at by design.
+        store = _FakeStore(
+            [
+                _mapping(
+                    mappings={
+                        const.MAPPING_PRECIPITATION: {
+                            const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                            const.MAPPING_CONF_SENSOR: "sensor.rain",
+                        }
+                    }
+                )
+            ]
+        )
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+        coord._sensor_state_changed(_event("sensor.rain", "25.4"))
+        coord._sensor_state_changed(_event("sensor.rain", "0"))
+        await _drain(coord)
+        assert "decreased" not in caplog.text
+
+    async def test_non_delta_field_decrease_does_not_warn(self, caplog):
+        # Temperature falls all the time; only cumulative (delta-aggregated)
+        # fields carry the re-base hazard.
+        store = _FakeStore([_mapping()])
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+        coord._sensor_state_changed(_event("sensor.temp", "21.5"))
+        coord._sensor_state_changed(_event("sensor.temp", "15.0"))
+        await _drain(coord)
+        assert "decreased" not in caplog.text
+
     @pytest.mark.parametrize("state", [STATE_UNKNOWN, STATE_UNAVAILABLE, None, "abc"])
     async def test_non_numeric_states_are_ignored(self, state):
         store = _FakeStore([_mapping()])
@@ -494,6 +603,208 @@ class TestStateChanged:
         await _drain(coord)
         stored = store.buffers[1][0][const.MAPPING_TEMPERATURE]
         assert stored == pytest.approx(20.0, abs=0.01)
+
+
+def _two_field_mapping(mapping_id=1):
+    return _mapping(
+        mapping_id,
+        mappings={
+            const.MAPPING_TEMPERATURE: {
+                const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                const.MAPPING_CONF_SENSOR: "sensor.temp",
+            },
+            const.MAPPING_HUMIDITY: {
+                const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                const.MAPPING_CONF_SENSOR: "sensor.humidity",
+            },
+        },
+    )
+
+
+class TestCoalescing:
+    """A station reporting its sensors one at a time collapses to one row.
+
+    See GitLab #33. ``_sensor_state_changed`` fires once per changed entity, so
+    the burst this simulates — two DIFFERENT fields arriving milliseconds
+    apart — is two separate calls, one per entity, exactly like two real HA
+    state-change events would.
+    """
+
+    async def test_burst_of_different_fields_merges_into_one_row(self):
+        store = _FakeStore([_two_field_mapping()])
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+
+        with freeze_time("2026-08-08 12:00:00.000000") as frozen:
+            coord._sensor_state_changed(_event("sensor.temp", "20.0"))
+            frozen.tick(datetime.timedelta(milliseconds=10))
+            coord._sensor_state_changed(_event("sensor.humidity", "55"))
+            await _drain(coord)
+
+        rows = store.buffers[1]
+        assert len(rows) == 1
+        assert rows[0][const.MAPPING_TEMPERATURE] == 20.0
+        assert rows[0][const.MAPPING_HUMIDITY] == 55.0
+        # Keeps the FIRST reading's stamp, not the merged-in one.
+        assert rows[0][const.RETRIEVED_AT] == datetime.datetime(2026, 8, 8, 12, 0, 0)
+        # Carry-forward still updates for both fields regardless of row placement.
+        assert store.mappings[1][const.MAPPING_DATA_LAST_ENTRY] == {
+            const.MAPPING_TEMPERATURE: 20.0,
+            const.MAPPING_HUMIDITY: 55.0,
+        }
+
+    async def test_reading_outside_the_window_appends_a_new_row(self):
+        store = _FakeStore([_two_field_mapping()])
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+
+        with freeze_time("2026-08-08 12:00:00.000000") as frozen:
+            coord._sensor_state_changed(_event("sensor.temp", "20.0"))
+            frozen.tick(CONTINUOUS_COALESCE_WINDOW * 3)
+            coord._sensor_state_changed(_event("sensor.humidity", "55"))
+            await _drain(coord)
+
+        rows = store.buffers[1]
+        assert len(rows) == 2
+        assert set(rows[0]) == {const.MAPPING_TEMPERATURE, const.RETRIEVED_AT}
+        assert set(rows[1]) == {const.MAPPING_HUMIDITY, const.RETRIEVED_AT}
+
+    async def test_genuinely_sparse_source_still_produces_sparse_rows(self):
+        # A rain gauge ticking every ten minutes never lands inside the window
+        # of an unrelated field's row — nothing here is specific to rain, the
+        # point is just that unrelated bursts, far apart in time, never merge.
+        store = _FakeStore([_two_field_mapping()])
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+
+        with freeze_time("2026-08-08 12:00:00.000000") as frozen:
+            coord._sensor_state_changed(_event("sensor.temp", "20.0"))
+            frozen.tick(datetime.timedelta(minutes=10))
+            coord._sensor_state_changed(_event("sensor.humidity", "55"))
+            await _drain(coord)
+
+        assert len(store.buffers[1]) == 2
+
+    async def test_watermark_refusal_appends_new_row_for_a_late_field(self):
+        # GitLab #33 acceptance criterion: consume a window, then deliver a
+        # late field within the coalescing window of the now-consumed row.
+        watermark = datetime.datetime(2026, 8, 8, 12, 0, 0)
+        store = _FakeStore(
+            [_two_field_mapping()],
+            zones=[
+                {
+                    const.ZONE_ID: 1,
+                    const.ZONE_MAPPING: 1,
+                    const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+                    const.ZONE_LAST_CONSUMED: watermark,
+                }
+            ],
+        )
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+
+        # Appended right at the watermark: "at or behind" per the issue, so
+        # this row is already the zone's consumed boundary.
+        with freeze_time(watermark):
+            coord._sensor_state_changed(_event("sensor.temp", "20.0"))
+            await _drain(coord)
+        assert len(store.buffers[1]) == 1
+
+        # A different field arrives well within the coalescing window of that
+        # row, but the row is behind the watermark — must NOT merge into it.
+        with freeze_time(watermark + datetime.timedelta(milliseconds=10)):
+            coord._sensor_state_changed(_event("sensor.humidity", "55"))
+            await _drain(coord)
+
+        rows = store.buffers[1]
+        assert len(rows) == 2
+        assert set(rows[0]) == {const.MAPPING_TEMPERATURE, const.RETRIEVED_AT}
+        assert set(rows[1]) == {const.MAPPING_HUMIDITY, const.RETRIEVED_AT}
+
+    async def test_watermark_advance_between_readings_forces_a_new_row(self):
+        # A row opens while nothing has consumed yet (min_watermark is None,
+        # so nothing blocks it). A calculation then lands and advances the
+        # zone's watermark past that row -- before the row's own coalescing
+        # window has closed. The next field must NOT merge into it:
+        # get_min_enabled_watermark is re-read on every call rather than
+        # cached from setup or from the first reading, so a watermark that
+        # moves mid-sequence is picked up immediately, exactly like a real
+        # _prune_mapping_buffer / async_calculate_zone landing between two
+        # sensor events would do to the real store.
+        zone = {
+            const.ZONE_ID: 1,
+            const.ZONE_MAPPING: 1,
+            const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+            const.ZONE_LAST_CONSUMED: None,
+        }
+        store = _FakeStore([_two_field_mapping()], zones=[zone])
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+
+        with freeze_time("2026-08-08 12:00:00.000000") as frozen:
+            coord._sensor_state_changed(_event("sensor.temp", "20.0"))
+            await _drain(coord)
+            assert len(store.buffers[1]) == 1
+
+            # The "calculation": advances the zone's watermark to the row's
+            # own timestamp, exactly as async_calculate_zone would via
+            # async_update_zone.
+            zone[const.ZONE_LAST_CONSUMED] = datetime.datetime(2026, 8, 8, 12, 0, 0)
+
+            # Still well within the coalescing window -- would merge if the
+            # watermark had not just moved.
+            frozen.tick(datetime.timedelta(milliseconds=10))
+            coord._sensor_state_changed(_event("sensor.humidity", "55"))
+            await _drain(coord)
+
+        rows = store.buffers[1]
+        assert len(rows) == 2
+        assert set(rows[0]) == {const.MAPPING_TEMPERATURE, const.RETRIEVED_AT}
+        assert set(rows[1]) == {const.MAPPING_HUMIDITY, const.RETRIEVED_AT}
+
+    async def test_watermark_from_a_disabled_zone_is_ignored(self):
+        # Disabled zones do not consume the buffer (mirrors
+        # _prune_mapping_buffer), so their watermark must not block a merge.
+        watermark = datetime.datetime(2026, 8, 8, 12, 0, 0)
+        store = _FakeStore(
+            [_two_field_mapping()],
+            zones=[
+                {
+                    const.ZONE_ID: 1,
+                    const.ZONE_MAPPING: 1,
+                    const.ZONE_STATE: const.ZONE_STATE_DISABLED,
+                    const.ZONE_LAST_CONSUMED: watermark,
+                }
+            ],
+        )
+        coord = _coord(store)
+        await coord.async_setup_continuous_updates()
+
+        with freeze_time(watermark + datetime.timedelta(milliseconds=5)):
+            coord._sensor_state_changed(_event("sensor.temp", "20.0"))
+        with freeze_time(watermark + datetime.timedelta(milliseconds=15)):
+            coord._sensor_state_changed(_event("sensor.humidity", "55"))
+            await _drain(coord)
+
+        assert len(store.buffers[1]) == 1
+
+    async def test_seed_baseline_coalesces_same_timestamp_readings(self):
+        # Every field seeded on (re)subscribe shares one timestamp, so a
+        # multi-entity sensor group should seed as one row, not N.
+        store = _FakeStore([_two_field_mapping()])
+        coord = _coord(store)
+        coord.hass.states.get = Mock(
+            side_effect=lambda entity_id: {
+                "sensor.temp": SimpleNamespace(state="20.0", attributes={}),
+                "sensor.humidity": SimpleNamespace(state="55", attributes={}),
+            }.get(entity_id)
+        )
+        await coord.async_setup_continuous_updates()
+
+        rows = store.buffers[1]
+        assert len(rows) == 1
+        assert rows[0][const.MAPPING_TEMPERATURE] == 20.0
+        assert rows[0][const.MAPPING_HUMIDITY] == 55.0
 
 
 class TestDeadband:

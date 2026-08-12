@@ -22,24 +22,21 @@ from .et_estimate import (
     hourly_eto_priced,
     replay_water_balance,
 )
-from .helpers import convert_between, loadModules, parse_datetime
+from .helpers import as_datetime as _as_datetime
+from .helpers import convert_between, loadModules
 from .localize import localize
-from .weather_aggregate import aggregate_window, build_substeps, select_window
+from .weather_aggregate import (
+    aggregate_window,
+    build_substeps,
+    merge_latest_per_field,
+    select_window,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 # How long a reading may linger in the shared mapping buffer before it is pruned
 # regardless of zone watermarks (bounds storage if a zone stops consuming).
 BUFFER_RETENTION = timedelta(days=7)
-
-
-def _as_datetime(value):
-    """Coerce a stored watermark/timestamp (datetime or ISO string) to datetime."""
-    if isinstance(value, datetime):
-        return value
-    if value is None:
-        return None
-    return parse_datetime(value)
 
 
 def pending_bucket_events(zone):
@@ -262,9 +259,17 @@ class CalculationMixin:
         """Drop buffer readings no enabled zone needs any more.
 
         Keeps everything after the oldest enabled-zone watermark (so no zone
-        loses unconsumed data) plus the single boundary reading just before it
-        (each zone's delta/Riemann baseline), and hard-drops anything older than
-        the retention cap. Disabled zones do not hold the buffer.
+        loses unconsumed data) plus, PER FIELD, the boundary reading just before
+        it (each field's delta/Riemann baseline), and hard-drops anything older
+        than the retention cap. Disabled zones do not hold the buffer.
+
+        The boundary is per field because the event path writes sparse rows —
+        one field per event — so a single kept row only preserves the baseline
+        of whichever field moved last before the cutoff. Dropping a cumulative
+        rain gauge's last pre-cutoff row silently uncounted a gauge rise that
+        straddled the calculation. Polled full rows degenerate to the single
+        newest row, as before. Bounded by the mapping's field count, so the
+        buffer stays capped.
         """
         if mapping_id is None:
             return
@@ -278,35 +283,29 @@ class CalculationMixin:
             return
 
         cap_cutoff = now - BUFFER_RETENTION
-        watermarks = []
-        any_unconsumed = False
-        for zid in await self._get_zones_that_use_this_mapping(mapping_id):
-            z = self.store.get_zone(zid)
-            if z is None or z.get(const.ZONE_STATE) == const.ZONE_STATE_DISABLED:
-                continue
-            wm = _as_datetime(z.get(const.ZONE_LAST_CONSUMED))
-            if wm is None:
-                any_unconsumed = True
-            else:
-                watermarks.append(wm)
+        watermarks, any_unconsumed = self.store.get_enabled_zone_watermarks(mapping_id)
         if any_unconsumed or not watermarks:
             cutoff = cap_cutoff
         else:
             cutoff = max(cap_cutoff, min(watermarks))
 
         kept = []
-        boundary = None
-        boundary_dt = None
+        boundaries = {}  # field -> (rt, row): latest pre-cutoff row per field
         for r in readings:
             rt = (
                 _as_datetime(r.get(const.RETRIEVED_AT)) if isinstance(r, dict) else None
             )
             if rt is None or rt > cutoff:
                 kept.append(r)
-            elif boundary_dt is None or rt >= boundary_dt:
-                boundary, boundary_dt = r, rt
-        if boundary is not None:
-            kept.insert(0, boundary)
+            else:
+                merge_latest_per_field(boundaries, rt, r, keep_row=True)
+        # One row can be the boundary of several fields; keep each once, in
+        # chronological order ahead of the surviving window.
+        boundary_rows = []
+        for rt, row in sorted(boundaries.values(), key=lambda p: p[0]):
+            if not any(row is seen for _, seen in boundary_rows):
+                boundary_rows.append((rt, row))
+        kept[:0] = [row for _, row in boundary_rows]
         if len(kept) != len(readings):
             _LOGGER.debug(
                 "[_prune_mapping_buffer] mapping %s: %s -> %s readings (cutoff %s)",
