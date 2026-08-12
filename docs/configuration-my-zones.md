@@ -63,7 +63,7 @@ Open **Setup → My Zones**. Each zone's settings are shown directly under its n
 - **Flow meter sensor** (optional): A sensor reporting the zone's actual water flow. When set, irrigation can run until the measured volume is reached instead of relying purely on the calculated time.
 - **Bucket**: Either calculated or manually set. The zone needs irrigation when the bucket falls below its **minimum deficit to irrigate** (see below; a 10 mm deficit by default) — a bucket of 0 or above never needs watering. See [automations](usage-automations.md) for examples on how to use this value.
 
-    All four depth values on a zone — bucket, maximum bucket, drainage rate and minimum deficit — are stored in the units Home Assistant is configured for, so an imperial install stores and displays them in inches. The defaults are seeded per unit system.
+    All four depth values on a zone — bucket, maximum bucket, drainage rate and minimum deficit — are stored in the units Home Assistant is configured for, so an imperial install stores and displays them in inches. The defaults are seeded per unit system. If you later switch Home Assistant's unit system, these values are converted for you so they keep their meaning — see [Unit system responsiveness](configuration-when-to-water.md#unit-system-responsiveness).
 - **Maximum bucket**: You can manually set a maximum bucket size which represents the soil's water holding capacity. The maximum recommended bucket size is based on the type of soil:
     - clay soil: 30 mm (1.18")
     - sandy soil: 12 mm (0.47"). 
