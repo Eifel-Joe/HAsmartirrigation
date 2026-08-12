@@ -170,13 +170,77 @@ class IrrigationRunnerMixin:
                 self.hass, const.DOMAIN + "_config_updated", int(zone_id)
             )
 
+    def _persisted_self_closing_runs(self) -> list:
+        """The in-flight self-closing runs, read synchronously.
+
+        ``self_closing._sc_active_runs`` is async because it goes through
+        ``async_get_config``; this reads the live ``Config`` object instead so
+        the synchronous dashboard payload can include them. The isinstance
+        guard matters: a test double's config is often a bare ``Mock()``, whose
+        every attribute answers with another Mock that would then be iterated
+        as if it were the list.
+        """
+        runs = getattr(getattr(self.store, "config", None), "active_valve_runs", None)
+        return runs if isinstance(runs, list) else []
+
+    def _self_closing_run_window(self, record: dict):
+        """``(started_at, ends_at)`` ISO strings for one persisted run.
+
+        Mirrors ``_sc_run_elapsed``'s rule for when a run is actually watering:
+        an OpenSprinkler run sits in the controller's queue between dispatch
+        and its first observed second, so until the station is seen running
+        there is no finish to count down to. ``ends_at`` is None there, which
+        the panel already renders as a Stop control without a countdown — the
+        same shape a volume-bounded flow run registers with.
+        """
+        observed = record.get(const.RUN_OBSERVED_START)
+        started_raw = observed or record.get(const.RUN_STARTED)
+        started = dt_util.parse_datetime(started_raw) if started_raw else None
+        if started is None:
+            return None, None
+        started = dt_util.as_local(started)
+        queued = (
+            not observed
+            and record.get(const.RUN_MODE) == const.WATERING_MODE_OPENSPRINKLER
+        )
+        planned = float(record.get(const.RUN_PLANNED_SECONDS) or 0)
+        ends_at = (
+            (started + timedelta(seconds=planned)).isoformat()
+            if planned > 0 and not queued
+            else None
+        )
+        return started.isoformat(), ends_at
+
     def get_active_runs(self) -> dict:
-        """Return ``{zone_id: {started_at, ends_at}}`` for runs in progress."""
+        """Return ``{zone_id: {started_at, ends_at}}`` for runs in progress.
+
+        TWO registries feed this, and for a long time only one of them did. The
+        metered/classic runner tracks its zones in the in-memory
+        ``_active_runs`` map, but a self-closing zone never enters it: its run
+        is fire-and-forget and lives in the persisted ``CONF_ACTIVE_VALVE_RUNS``
+        list instead (``self_closing._sc_add_run``). The panel drives BOTH the
+        Stop control and the live countdown off this dict, so omitting the
+        persisted half made a watering self-closing zone look completely idle —
+        no Stop button, no remaining duration — while the valve was open, even
+        though ``binary_sensor.<zone>_watering_now`` (which watches the linked
+        entity directly) correctly read on. See issue #83.
+        """
         reg = getattr(self, "_active_runs", None) or {}
-        return {
+        runs = {
             str(zid): {"started_at": d["started_at"], "ends_at": d["ends_at"]}
             for zid, d in reg.items()
         }
+        for record in self._persisted_self_closing_runs():
+            zone_id = record.get(const.RUN_ZONE_ID)
+            # The in-memory entry is the live one; a persisted record must never
+            # shadow it (a distributor member can hold both).
+            if zone_id is None or str(zone_id) in runs:
+                continue
+            started_at, ends_at = self._self_closing_run_window(record)
+            if started_at is None:
+                continue
+            runs[str(zone_id)] = {"started_at": started_at, "ends_at": ends_at}
+        return runs
 
     def _run_stopped(self, zone_id) -> bool:
         """True if a stop was requested for this zone's in-progress run."""
@@ -228,10 +292,16 @@ class IrrigationRunnerMixin:
         _LOGGER.info("Stop requested for zone %s", zid)
 
     async def async_stop_all_zones(self) -> None:
-        """Stop every zone with an in-progress run."""
-        reg = getattr(self, "_active_runs", None) or {}
-        for zid in list(reg.keys()):
-            await self.async_stop_zone(zid)
+        """Stop every zone with an in-progress run.
+
+        Sourced from ``get_active_runs`` rather than ``_active_runs`` directly,
+        so self-closing zones are covered too. The in-memory registry alone
+        silently skipped every one of them — the second symptom of the same
+        omission behind issue #83, and the worse one: "stop all zones" reported
+        success while leaving those valves open.
+        """
+        for zid in list(self.get_active_runs()):
+            await self.async_stop_zone(int(zid))
 
     # --- Valve-run verification + per-zone fault state (WS-1) ---------------
 

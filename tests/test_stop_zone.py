@@ -13,6 +13,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
+from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from custom_components.smart_irrigation import SmartIrrigationCoordinator, const
@@ -131,6 +132,109 @@ async def test_stop_all_zones_stops_each(monkeypatch):
     e2 = coord._register_active_run(2, 600, has_end=True)
     await coord.async_stop_all_zones()
     assert e1.is_set() and e2.is_set()
+
+
+# --------------------------------------------------------------------------- #
+# issue #83: a self-closing run is invisible to the dashboard
+#
+# A self-closing run never enters the in-memory _active_runs registry — it is
+# fire-and-forget and lives in the persisted CONF_ACTIVE_VALVE_RUNS list. The
+# panel drives the Stop control AND the countdown off get_active_runs(), so
+# leaving the persisted half out made a watering zone look completely idle.
+# --------------------------------------------------------------------------- #
+def _sc_record(**over):
+    rec = {
+        const.RUN_ZONE_ID: 1,
+        const.RUN_STARTED: "2026-08-12T08:00:00+00:00",
+        const.RUN_PLANNED_SECONDS: 600.0,
+        const.RUN_MODE: const.WATERING_MODE_SERVICE,
+    }
+    rec.update(over)
+    return rec
+
+
+def test_self_closing_run_is_reported_with_a_countdown(monkeypatch):
+    coord = _coord(monkeypatch, zones=[_zone()])
+    coord.store.config.active_valve_runs = [_sc_record()]
+
+    runs = coord.get_active_runs()
+
+    assert "1" in runs, "a running self-closing zone must reach the dashboard"
+    assert runs["1"]["started_at"].startswith("2026-08-12T")
+    # 600 s after the start, so the panel can count down.
+    assert runs["1"]["ends_at"] is not None
+    assert runs["1"]["ends_at"] > runs["1"]["started_at"]
+
+
+def test_queued_opensprinkler_run_has_no_countdown_but_is_still_listed(monkeypatch):
+    """RUN_STARTED is the DISPATCH time for an OpenSprinkler run, and the
+    controller may not have started the station yet, so there is no finish to
+    count down to — but the zone must still offer Stop. Mirrors the rule in
+    _sc_run_elapsed."""
+    coord = _coord(monkeypatch, zones=[_zone()])
+    coord.store.config.active_valve_runs = [
+        _sc_record(**{const.RUN_MODE: const.WATERING_MODE_OPENSPRINKLER})
+    ]
+
+    runs = coord.get_active_runs()
+
+    assert "1" in runs
+    assert runs["1"]["ends_at"] is None
+
+
+def test_observed_start_wins_over_dispatch_for_an_opensprinkler_run(monkeypatch):
+    coord = _coord(monkeypatch, zones=[_zone()])
+    coord.store.config.active_valve_runs = [
+        _sc_record(
+            **{
+                const.RUN_MODE: const.WATERING_MODE_OPENSPRINKLER,
+                const.RUN_OBSERVED_START: "2026-08-12T08:30:00+00:00",
+            }
+        )
+    ]
+
+    runs = coord.get_active_runs()
+
+    # Instant-equality, not string matching: the payload is rendered local.
+    assert dt_util.parse_datetime(runs["1"]["started_at"]) == dt_util.parse_datetime(
+        "2026-08-12T08:30:00+00:00"
+    )
+    assert runs["1"]["ends_at"] is not None  # the station is watering now
+
+
+def test_live_registry_entry_is_not_shadowed_by_a_persisted_record(monkeypatch):
+    coord = _coord(monkeypatch, zones=[_zone()])
+    coord._register_active_run(1, 600, has_end=True)
+    live = coord.get_active_runs()["1"]["started_at"]
+    coord.store.config.active_valve_runs = [_sc_record()]
+
+    assert coord.get_active_runs()["1"]["started_at"] == live
+
+
+def test_a_mock_config_does_not_leak_into_the_payload(monkeypatch):
+    """A test double's bare Mock() answers every attribute with another Mock;
+    iterating that as the run list would blow up the whole dashboard payload."""
+    coord = _coord(monkeypatch, zones=[_zone()])
+    coord.store.config = Mock()
+
+    assert coord.get_active_runs() == {}
+
+
+async def test_stop_all_zones_reaches_a_self_closing_zone(monkeypatch):
+    """The second symptom of #83, and the worse one: "stop all" iterated the
+    in-memory registry only, so it reported success while leaving every
+    self-closing valve open."""
+    coord = _coord(
+        monkeypatch,
+        zones=[_zone(**{const.ZONE_WATERING_MODE: const.WATERING_MODE_SERVICE})],
+    )
+    coord.store.config.active_valve_runs = [_sc_record()]
+    coord.async_stop_self_closing = AsyncMock(return_value=True)
+    coord._os_drop_from_cycle = Mock()
+
+    await coord.async_stop_all_zones()
+
+    coord.async_stop_self_closing.assert_awaited_once_with(1)
 
 
 # --------------------------------------------------------------------------- #
