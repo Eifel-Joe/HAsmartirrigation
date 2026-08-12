@@ -41,38 +41,48 @@ import uuid
 from dataclasses import dataclass, field
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.core import Event, callback
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_call_later, async_track_state_change_event
+from homeassistant.helpers.event import async_call_later
 from homeassistant.util import dt as dt_util
 
 from . import const
+from .run_watch import (
+    NO_INFO_STATES as _NO_INFO_STATES,
+)
+from .run_watch import (
+    WatchPolicy,
+    planned_seconds,
+    queue_deadline_seconds,
+    register_watch_policy,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-# States that carry no attributes: HA drops an entity's extra_state_attributes
-# while it is unavailable, so a station's program id reads as absent rather than
-# as 0. Never mistake "cannot see the controller" for "the controller dropped the
-# run" — the first is transient, the second finalises the run.
-_NO_INFO_STATES = ("unavailable", "unknown")
-# The station's running sensor is a binary_sensor; these are its "watering" states.
-_RUNNING_STATES = ("on", "open", "opening")
+# The station's observation lifecycle lives in run_watch.py, shared with the
+# other modes that hand a run to a controller owning both queue and valve. This
+# is what OpenSprinkler contributes to it: the controller acknowledges a queued
+# run by putting a non-zero program id on the station, so a station that is off
+# with no program id has been dropped rather than merely not reached yet.
+WATCH_POLICY = WatchPolicy(
+    mode=const.WATERING_MODE_OPENSPRINKLER,
+    acknowledges=True,
+    give_up_problem=const.PROBLEM_STATION_NEVER_RAN,
+    accept_seconds=const.OPENSPRINKLER_ACCEPT_SECONDS,
+)
+register_watch_policy(WATCH_POLICY)
 
-
-@dataclass
-class _Watcher:
-    """One station's live subscription, plus at most one pending timer.
-
-    ``accepted`` is the reconciliation state: False until the controller has
-    acknowledged the run by putting a non-zero program id on the station, after
-    which that id returning to 0 means the run was dropped.
-    """
-
-    entity: str
-    accepted: bool = False
-    unsub: object | None = None
-    cancel: object | None = None
+# Re-exported: ``run_state`` and the tests import it from here, and it was this
+# module's before the extraction.
+__all__ = [
+    "OpenSprinklerMixin",
+    "entity_is_station",
+    "is_opensprinkler_zone",
+    "observed_start_iso",
+    "queue_deadline_seconds",
+    "resolve_running_sensor",
+    "station_attributes",
+    "zone_watch_entity",
+]
 
 
 @dataclass
@@ -248,44 +258,6 @@ def zone_watch_entity(hass, zone: dict) -> str | None:
     return linked
 
 
-def queue_deadline_seconds(runs: list, run: dict) -> float:
-    """Seconds after dispatch at which a run that never watered is written off.
-
-    Derived rather than fixed, because what a queued run waits for is the runs
-    ahead of it: a four-zone cycle on real deficits is around 288 minutes and a
-    seven-zone one considerably longer, so any single constant is either far too
-    short for a full cycle or far too long for one zone. The margin absorbs the
-    controller's own inter-station delays (master on/off delays, its programs).
-
-    This is only a backstop. A run the controller drops is seen within one poll,
-    as the station's program id returning to 0; this bound is what ends a run
-    whose station entity stopped reporting altogether.
-    """
-    planned = _planned_seconds(run)
-    ahead = 0.0
-    for other in runs or []:
-        if not isinstance(other, dict) or other is run:
-            continue
-        if other.get(const.RUN_MODE) != const.WATERING_MODE_OPENSPRINKLER:
-            continue
-        if other.get(const.RUN_ZONE_ID) == run.get(const.RUN_ZONE_ID):
-            continue
-        ahead += _planned_seconds(other)
-    return (
-        const.OPENSPRINKLER_ACCEPT_SECONDS
-        + ahead
-        + planned
-        + const.OPENSPRINKLER_QUEUE_MARGIN_SECONDS
-    )
-
-
-def _planned_seconds(run: dict) -> float:
-    try:
-        return max(0.0, float(run.get(const.RUN_PLANNED_SECONDS) or 0))
-    except (TypeError, ValueError):
-        return 0.0
-
-
 class OpenSprinklerMixin:
     """Dispatch to, and observe, OpenSprinkler stations.
 
@@ -341,6 +313,12 @@ class OpenSprinklerMixin:
 
     # --- observation --------------------------------------------------------
 
+    # The watcher registry, the subscription and the timer are the shared
+    # engine's (run_watch.RunWatchMixin). These spellings stay because the rest
+    # of this mode — and the self-closing lifecycle it reuses — call them by
+    # name, and because "cancel this station's watch" reads better at those call
+    # sites than the generic verb.
+
     def _os_watchers(self) -> dict:
         """Lazy {zone_id: watcher} of live station subscriptions.
 
@@ -349,22 +327,11 @@ class OpenSprinklerMixin:
         for every persisted record (see ``_os_resume_run``) or that record would
         block its zone until the deadline in the persisted list expires.
         """
-        watchers = getattr(self, "_os_station_watchers", None)
-        if watchers is None:
-            watchers = self._os_station_watchers = {}
-        return watchers
+        return self._watchers()
 
     def _os_cancel_watch(self, zone_id) -> None:
         """Cancel-and-pop a zone's subscription and timer (no-op if absent)."""
-        watcher = self._os_watchers().pop(int(zone_id), None)
-        if watcher is None:
-            return
-        unsub = watcher.unsub
-        if unsub is not None:
-            unsub()
-        cancel = watcher.cancel
-        if cancel is not None:
-            cancel()
+        self._watch_cancel(zone_id)
 
     async def async_abort_opensprinkler_runs(self, reason: str, *, settle=True) -> bool:
         """Stop every station this coordinator started, and settle its runs.
@@ -762,17 +729,7 @@ class OpenSprinklerMixin:
 
     def _os_arm_timer(self, zone_id, delay: float, reason: str) -> None:
         """(Re)arm the watcher's single timer."""
-        watcher = self._os_watchers().get(int(zone_id))
-        if watcher is None:
-            return
-        cancel = watcher.cancel
-        if cancel is not None:
-            cancel()
-
-        async def _expired(_now):
-            await self._os_give_up(zone_id, reason)
-
-        watcher.cancel = async_call_later(self.hass, max(0.0, delay), _expired)
+        self._watch_arm_timer(zone_id, delay, reason)
 
     async def _os_start_watch(
         self, zone_id, running_entity: str, planned_seconds: float, *, accepted: bool
@@ -783,185 +740,41 @@ class OpenSprinklerMixin:
         (the controller has not acknowledged the run yet), True when resuming a
         record whose station is already reporting a run.
         """
-        zid = int(zone_id)
-        self._os_cancel_watch(zid)
-        watcher = _Watcher(entity=running_entity, accepted=bool(accepted))
-        self._os_watchers()[zid] = watcher
-        watcher.unsub = async_track_state_change_event(
-            self.hass, [running_entity], self._os_state_changed
+        await self._watch_start(
+            zone_id, running_entity, planned_seconds, accepted=accepted
         )
-        self._os_arm_timer(
-            zid, const.OPENSPRINKLER_ACCEPT_SECONDS, const.PROBLEM_STATION_NEVER_RAN
-        )
-        # The zone's own running sensor and the observed-watering map both derive
-        # this same entity, and both may have been built before the OpenSprinkler
-        # integration published it. Nudge them now that it is known to resolve.
-        async_dispatcher_send(self.hass, const.DOMAIN + "_config_updated", zid)
-        # The controller refreshes as soon as run_station returns, so the station
-        # may already be queued (or even running, on an empty queue) before the
-        # subscription above exists. Evaluate the current state once so that run
-        # is not missed entirely.
-        await self._os_evaluate(zid, self.hass.states.get(running_entity))
-
-    @callback
-    def _os_state_changed(self, event: Event) -> None:
-        """A watched station changed state."""
-        entity_id = event.data.get("entity_id")
-        for zone_id, watcher in list(self._os_watchers().items()):
-            if watcher.entity != entity_id:
-                continue
-            self.hass.async_create_task(
-                self._os_evaluate(zone_id, event.data.get("new_state"))
-            )
 
     async def _os_evaluate(self, zone_id, state) -> None:
         """Advance a watched run from one observation of its station."""
-        zid = int(zone_id)
-        watcher = self._os_watchers().get(zid)
-        if watcher is None:
-            return
-        run = await self._sc_find_run(zid)
-        if run is None:
-            # The run was finalised by another path (a user stop, a restart
-            # reconcile). Nothing left to observe.
-            self._os_cancel_watch(zid)
-            return
+        await self._watch_evaluate(zone_id, state)
 
-        if state is None or state.state in _NO_INFO_STATES:
-            # No information: the controller is unreachable or the sensor has not
-            # been created yet. Never read this as "the run was dropped" — the
-            # deadline timer is what ends a run whose station stops reporting.
-            return
+    async def _watch_observed_start_iso(self, zone_id, run: dict, entity: str) -> str:
+        """Prefer the controller's own reported start over the observation time.
 
-        running = state.state in _RUNNING_STATES
-        program_id = state.attributes.get(const.OPENSPRINKLER_ATTR_PROGRAM_ID)
-        observed_start = run.get(const.RUN_OBSERVED_START)
+        The one place this mode refines the shared engine's timing. See
+        ``observed_start_iso`` for why the difference decides whether a full run
+        is recorded as completed or as an early stop.
 
-        if running:
-            if observed_start is None:
-                await self._os_observed_start(zid, run)
-            return
-
-        if observed_start is not None:
-            # The station stopped. The controller ended the run, on time or
-            # early; either way it is over now.
-            await self._os_finish(zid, run)
-            return
-
-        if not watcher.accepted:
-            if program_id:
-                # The controller has acknowledged the run. From here on its
-                # program id going back to 0 is meaningful.
-                watcher.accepted = True
-                runs = await self._sc_active_runs()
-                # Measured from this acknowledgement rather than from dispatch.
-                # Downtime would otherwise be spent out of the run's budget: an
-                # outage longer than the deadline leaves nothing for a station
-                # the controller is still holding, and the run is written off
-                # and its credit reversed a second after the resume, for water
-                # the controller then goes on to deliver. Acknowledgement is
-                # normally within a poll of dispatch, so this is the same bound
-                # in ordinary operation.
-                self._os_arm_timer(
-                    zid,
-                    queue_deadline_seconds(runs, run),
-                    const.PROBLEM_STATION_NEVER_RAN,
-                )
-            return
-
-        if not program_id:
-            # Acknowledged, then dropped without ever watering: a controller-side
-            # rain delay, a water level of 0, or a stop-all. The zone was credited
-            # optimistically at dispatch, so this has to unwind that credit rather
-            # than wait the deadline out.
-            await self._os_give_up(zid, const.PROBLEM_STATION_NEVER_RAN)
+        Gated on the run's own mode rather than left to fall through harmlessly
+        on the strength of a non-station entity carrying no ``start_time``. That
+        is true today, but it is a property of the entities other modes happen to
+        watch, not something this mode may assume of them.
+        """
+        if run.get(const.RUN_MODE) != const.WATERING_MODE_OPENSPRINKLER:
+            return await super()._watch_observed_start_iso(zone_id, run, entity)
+        return observed_start_iso(self.hass, entity, planned_seconds(run))
 
     async def _os_observed_start(self, zone_id, run: dict) -> None:
         """The station started watering: from here the run is a normal timed run."""
-        zid = int(zone_id)
-        watcher = self._os_watchers().get(zid)
-        planned = float(run.get(const.RUN_PLANNED_SECONDS) or 0)
-        zone = self.store.get_zone(zid) or {}
-
-        # The controller's own start, not the moment this observation arrived —
-        # see observed_start_iso for why the difference decides whether a full
-        # run is recorded as completed or as an early stop.
-        started = observed_start_iso(
-            self.hass,
-            (watcher.entity if watcher else None) or run.get(const.RUN_WATCH_ENTITY),
-            planned,
-        )
-        runs = [
-            (
-                dict(r, **{const.RUN_OBSERVED_START: started})
-                if r.get(const.RUN_ZONE_ID) == run.get(const.RUN_ZONE_ID)
-                else r
-            )
-            for r in await self._sc_active_runs()
-        ]
-        await self._sc_persist_runs(runs)
-
-        # The suppression window taken at dispatch is measured from dispatch, so
-        # for a queued run it has already expired — and observed watering is now
-        # pointed at this very sensor (zone_watch_entity). Re-take it for the real
-        # run window so the zone's own run is not also credited as external.
-        self._note_si_valve(zid, planned)
-        # Flow sampling deliberately starts HERE, not at dispatch: a meter seeded
-        # while the zone was still queued would sample a window that mostly
-        # precedes the water.
-        await self._sc_start_flow_sampling(zone)
-        if watcher is not None:
-            cancel = watcher.cancel
-            if cancel is not None:
-                cancel()
-            watcher.cancel = None
-        # Backstop only. The station going off is the primary finish signal; this
-        # covers a missed transition.
-        self._sc_schedule_cleanup(zid, planned)
-        _LOGGER.info(
-            "Zone %s: OpenSprinkler station started watering (planned %.0fs)",
-            zid,
-            planned,
-        )
+        await self._watch_observed_start(zone_id, run)
 
     async def _os_finish(self, zone_id, run: dict) -> None:
         """The station stopped. Settle the run against what it actually delivered."""
-        zid = int(zone_id)
-        self._os_cancel_watch(zid)
-        planned = float(run.get(const.RUN_PLANNED_SECONDS) or 0)
-        elapsed = self._sc_elapsed(run.get(const.RUN_OBSERVED_START))
-        # A station that ran its full window is a completed run; one the
-        # controller cut short settles like an early stop, which reconciles the
-        # optimistic credit down to what was delivered. One second of slack keeps
-        # a run that ended exactly on time out of the partial path.
-        if elapsed + 1 >= planned:
-            await self._sc_finish_run(zid)
-        else:
-            await self.async_stop_self_closing(zid, close_valve=False)
+        await self._watch_finish(zone_id, run)
 
     async def _os_give_up(self, zone_id, reason: str) -> None:
         """End a run whose station never watered, and undo its optimistic credit."""
-        zid = int(zone_id)
-        self._os_cancel_watch(zid)
-        run = await self._sc_find_run(zid)
-        if run is None:
-            return
-        zone = self.store.get_zone(zid) or {}
-        # elapsed is 0 for a run with no observed start, so this reconciles the
-        # bucket all the way back to RUN_PRE_BUCKET and logs a run that delivered
-        # nothing. No stop is sent: the station never opened, and stopping would
-        # only affect whatever the controller is running right now.
-        await self.async_stop_self_closing(
-            zid, close_valve=False, detail=const.RUN_DETAIL_STATION_NEVER_RAN
-        )
-        self._set_zone_fault(zid, reason)
-        self._fire_zone_problem(zid, zone, zone.get(const.ZONE_LINKED_ENTITY), reason)
-        _LOGGER.warning(
-            "Zone %s: OpenSprinkler station never watered (%s); the run was "
-            "written off and its bucket credit reversed",
-            zid,
-            reason,
-        )
+        await self._watch_give_up(zone_id, reason)
 
     # --- restart ------------------------------------------------------------
 

@@ -70,6 +70,7 @@ from .observed_watering import ObservedWateringMixin
 from .opensprinkler import OpenSprinklerMixin
 from .panel import async_register_panel, async_remove_card_resource, remove_panel
 from .run_state import RunStateMixin
+from .run_watch import RunWatchMixin
 from .scheduler import RecurringScheduleManager
 from .self_closing import SelfClosingMixin
 from .services import ServiceHandlersMixin, async_register_services
@@ -444,6 +445,9 @@ class SmartIrrigationCoordinator(
     ContinuousUpdateMixin,
     SelfClosingMixin,
     OpenSprinklerMixin,
+    # After OpenSprinklerMixin: that mode refines one of the engine's hooks
+    # (_watch_observed_start_iso) and must win the MRO to do it.
+    RunWatchMixin,
     MasterMixin,
     DistributorMixin,
     RunStateMixin,
