@@ -52,6 +52,39 @@ def test_entity_blueprint_sets_countdown_and_toggles():
     assert "homeassistant.turn_off" in text
 
 
+async def test_the_duration_expression_survives_a_stop_call(hass):
+    """A stop reaches these scripts with no `duration` at all — reported by
+    @pnaklicki on #83.
+
+    `duration | int(0)` looks like it defaults, but `int`'s fallback only
+    catches a value that cannot be converted; an unset variable raises before
+    the filter runs. The `default: 0` under `fields:` is no help either — Home
+    Assistant builds the UI form from it and never injects it into the script's
+    variables. So the script errored instead of closing the valve, and because
+    the service call is not blocking that showed up only in the log while the
+    run was settled as stopped.
+    """
+    from homeassistant.helpers.template import Template
+
+    for name in NAMES:
+        expr = _load(name)["sequence"][0]["variables"]["dur"]
+        # The open still works...
+        assert Template(expr, hass).async_render({"duration": 600}) == 600
+        # ...and the stop, which passes nothing, must yield 0 rather than raise.
+        assert Template(expr, hass).async_render({}) == 0, name
+
+
+def test_the_duration_expression_does_not_rely_on_int_s_fallback(hass):
+    """Pin the idiom itself, since the failure is invisible in a rendered open.
+
+    Any future edit back to `duration | int(0)` re-breaks stopping, and every
+    test that renders WITH a duration would still pass.
+    """
+    for name in NAMES:
+        expr = _load(name)["sequence"][0]["variables"]["dur"]
+        assert "default(0)" in expr.replace(" ", ""), name
+
+
 async def test_tuya_payload_templates_render(hass):
     """The Tuya open payloads (variable JSON key) render to valid JSON."""
     from homeassistant.helpers.template import Template

@@ -562,6 +562,17 @@ class SelfClosingMixin:
                 domain, service = self._sc_split_service(stop_svc)
                 data = {}
                 data["zone_id"] = zone_id
+                # A zero duration IS the stop instruction for the shipped
+                # blueprints, which run one script for both directions and
+                # branch on it. It was documented but never actually sent, so
+                # the script received no `duration` at all and a template
+                # reading it raised instead of closing the valve — the call is
+                # not blocking, so that surfaced only in the log while the run
+                # was settled as stopped and the valve went on watering to the
+                # end of its hardware countdown. Sent under the zone's own
+                # duration field, the same key the open uses.
+                field = zone.get(const.ZONE_DURATION_FIELD) or "duration"
+                data[field] = 0
                 await self.hass.services.async_call(domain, service, data)
             else:
                 _LOGGER.warning(

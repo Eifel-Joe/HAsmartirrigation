@@ -226,6 +226,88 @@ async def test_stop_calls_stop_service_and_corrects_bucket():
     assert kwargs["volume_l"] == 10.0
 
 
+async def test_stop_sends_a_zero_duration_so_a_one_script_valve_closes():
+    """The stop must carry duration 0 — reported by @pnaklicki on #83.
+
+    The shipped blueprints run ONE script for both directions and branch on the
+    duration, which the docs said was 0 for a stop; it was never actually sent.
+    A script reading an unset variable raises rather than closing the valve, and
+    the call is not blocking, so the run settled as stopped while the valve kept
+    watering to the end of its hardware countdown.
+
+    Sent under the zone's OWN duration field, not a hardcoded "duration" — a
+    zone that renamed the key for its open would otherwise get a stop its
+    script cannot read.
+    """
+    c = _coord()
+    c.store.async_get_config = AsyncMock(
+        return_value={
+            const.CONF_ACTIVE_VALVE_RUNS: [
+                {
+                    const.RUN_ZONE_ID: 2,
+                    const.RUN_STARTED: "2026-06-30T08:00:00+00:00",
+                    const.RUN_PLANNED_SECONDS: 600.0,
+                    const.RUN_PLANNED_MM: 4.0,
+                    const.RUN_CREDITED: True,
+                }
+            ]
+        }
+    )
+    c.store.get_zone = Mock(
+        return_value=_zone(
+            **{
+                const.ZONE_BUCKET: -1.0,
+                const.ZONE_STOP_SERVICE: "script.beet_off",
+                const.ZONE_DURATION_FIELD: "sekunden",
+            }
+        )
+    )
+    c._sc_elapsed = Mock(return_value=300.0)
+    c._timed_volume_l = Mock(return_value=10.0)
+
+    await c.async_stop_self_closing(2)
+
+    _, _, data = c.hass.services.async_call.await_args.args
+    assert data["sekunden"] == 0
+    assert data["zone_id"] == 2
+
+
+async def test_stop_falls_back_to_the_default_duration_field():
+    """An unset duration_field means "duration", exactly as the open path does."""
+    c = _coord()
+    c.store.async_get_config = AsyncMock(
+        return_value={
+            const.CONF_ACTIVE_VALVE_RUNS: [
+                {
+                    const.RUN_ZONE_ID: 2,
+                    const.RUN_STARTED: "2026-06-30T08:00:00+00:00",
+                    const.RUN_PLANNED_SECONDS: 600.0,
+                    const.RUN_PLANNED_MM: 4.0,
+                    const.RUN_CREDITED: True,
+                }
+            ]
+        }
+    )
+    c.store.get_zone = Mock(
+        return_value=_zone(
+            **{
+                const.ZONE_BUCKET: -1.0,
+                const.ZONE_STOP_SERVICE: "script.beet_off",
+                # The shared helper names a field; a blueprint zone leaves it
+                # unset, which is the case this pins.
+                const.ZONE_DURATION_FIELD: None,
+            }
+        )
+    )
+    c._sc_elapsed = Mock(return_value=300.0)
+    c._timed_volume_l = Mock(return_value=10.0)
+
+    await c.async_stop_self_closing(2)
+
+    _, _, data = c.hass.services.async_call.await_args.args
+    assert data["duration"] == 0
+
+
 async def test_stop_without_stop_service_corrects_accounting_only():
     c = _coord()
     run = {

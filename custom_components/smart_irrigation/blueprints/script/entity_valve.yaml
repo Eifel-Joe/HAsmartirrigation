@@ -48,7 +48,13 @@ fields:
         mode: box
 sequence:
   - variables:
-      dur: "{{ duration | int(0) }}"
+      # `default(0)`, not `int(0)`: a stop call may omit the field entirely, and
+      # `int`'s fallback only covers a value that cannot be converted, not a
+      # variable that was never set — that raises before the filter is reached.
+      # The `default: 0` under `fields:` does not help either; Home Assistant
+      # uses it to build the UI form and never injects it into the script's
+      # variables.
+      dur: "{{ duration | default(0) | int }}"
   - choose:
       - conditions: "{{ dur > 0 }}"
         sequence:

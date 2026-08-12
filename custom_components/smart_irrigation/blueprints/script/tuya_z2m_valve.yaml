@@ -67,7 +67,10 @@ sequence:
       vkey: !input valve_key
       oval: !input open_value
       cval: !input close_value
-      dur: "{{ duration | int(0) }}"
+      # `default(0)`, not `int(0)`: a stop call may omit the field entirely, and
+      # `int`'s fallback only covers a value that cannot be converted, not a
+      # variable that was never set. See entity_valve.yaml.
+      dur: "{{ duration | default(0) | int }}"
   - choose:
       - conditions: "{{ dur > 0 }}"
         sequence:
