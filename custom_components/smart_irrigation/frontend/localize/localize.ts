@@ -59,22 +59,33 @@ export function ensureTranslations(language: string): Promise<void> {
   return loaders[lang];
 }
 
+/**
+ * Walk a dotted key without throwing when a segment is missing.
+ *
+ * A key can legitimately be deeper than the catalogue: callers interpolate
+ * runtime values into keys (a fault code, a skip reason, a run-log detail), and
+ * such a value can contain full stops of its own. A plain `reduce` walks off the
+ * end of the object and then dereferences `undefined` on the NEXT segment, which
+ * throws a TypeError out of `localize` and takes the whole Lit render down with
+ * it — a zone that would not expand, with nothing in the UI to say why. See
+ * issue #87. Returns undefined for a missing key, which every caller already
+ * handles via `localize(...) || fallback`.
+ */
+function lookup(catalogue: any, key: string): any {
+  return key
+    .split(".")
+    .reduce((o, i) => (o === undefined || o === null ? undefined : o[i]), catalogue);
+}
+
 export function localize(
   string: string,
   language: string,
   ...args: any[]
 ): string {
   const lang = baseLang(language);
-  let translated: string;
+  let translated: string = lookup(languages[lang], string);
 
-  try {
-    translated = string.split(".").reduce((o, i) => o[i], languages[lang]);
-  } catch (e) {
-    translated = string.split(".").reduce((o, i) => o[i], languages["en"]);
-  }
-
-  if (translated === undefined)
-    translated = string.split(".").reduce((o, i) => o[i], languages["en"]);
+  if (translated === undefined) translated = lookup(languages["en"], string);
 
   if (!args.length) return translated;
 
