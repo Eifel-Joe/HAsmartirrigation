@@ -14,6 +14,14 @@ lint.ignore = [
   "SIM102" # nested if statements
 ]
 
+# Ruff exempts any name matching this pattern from F811 (redefinition of an
+# unused name). The default pattern matches every leading-underscore name, so a
+# private method accidentally defined twice in the same class was silently
+# accepted: Python kept the second body and the first was dead code no linter
+# reported. Narrowing it to bare underscores keeps `_`/`__` usable as throwaway
+# targets while putting every `_private` back under F811.
+lint.dummy-variable-rgx = "^_+$"
+
 [tool.pytest.ini_options]
 # Single consolidated test tree (was split across tests/, tests/unit/ and
 # custom_components/smart_irrigation/tests/ before the consolidation).

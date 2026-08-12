@@ -226,7 +226,7 @@ class TestTheUiPath:
 
         assert sent, "the handler must still notify entities and the panel"
         # Every dispatch saw the CONVERTED value, not the reinterpreted one.
-        for _signal, zone_at_dispatch in sent:
+        for _, zone_at_dispatch in sent:
             assert zone_at_dispatch[const.ZONE_BUCKET_THRESHOLD] == pytest.approx(
                 -10.0 / _MM_PER_INCH
             )
@@ -280,7 +280,7 @@ class TestTheConvertedValuesReachTheEntities:
         await _coord(store, US_CUSTOMARY_SYSTEM).async_reconcile_stored_unit_system()
 
         assert seen, "the conversion must announce itself"
-        for _signal, threshold in seen:
+        for _, threshold in seen:
             assert threshold == pytest.approx(-10.0 / _MM_PER_INCH)
 
     async def test_a_zone_with_nothing_to_convert_is_not_announced(self, monkeypatch):
