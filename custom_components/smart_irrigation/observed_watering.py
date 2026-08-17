@@ -78,6 +78,9 @@ class ObservedWateringMixin:
         if self._observed_unsub is not None:
             self._observed_unsub()
             self._observed_unsub = None
+        # Never leak an in-flight flow sampler across a subscription rebuild.
+        for zone_id in list(self._observed_meters()):
+            self._observed_cancel_meter(zone_id)
         self._observed_on_since = {}
         self._observed_entities = entities
 
@@ -95,6 +98,9 @@ class ObservedWateringMixin:
         if getattr(self, "_observed_unsub", None) is not None:
             self._observed_unsub()
             self._observed_unsub = None
+        # Cancel any in-flight flow samplers so a reload/unload can't leak a timer.
+        for zone_id in list(self._observed_meters()):
+            self._observed_cancel_meter(zone_id)
         self._observed_on_since = {}
         self._observed_entities = frozenset()
 

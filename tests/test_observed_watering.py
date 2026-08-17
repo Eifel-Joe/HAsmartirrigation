@@ -306,3 +306,41 @@ async def test_flow_zone_dead_sensor_uses_capped_time_and_flags():
     capped_l = 3.1 * ((3600 + const.OBSERVED_CAP_MARGIN_SECONDS) / 60.0)
     assert coord._record_run.call_args.kwargs["volume_l"] == pytest.approx(capped_l)
     assert flagged["n"] == 1
+
+
+# --- Task 6: lifecycle (single-flight + teardown/re-subscribe cancel) ------
+
+
+async def test_teardown_cancels_inflight_samplers():
+    coord = _obs_coord([])
+    cancel = Mock()
+    coord._observed_meters()[2] = ("meter", cancel, None, "started")
+    coord.async_teardown_observed_watering()
+    cancel.assert_called_once()
+    assert coord._observed_meters() == {}
+
+
+async def test_resubscribe_cancels_inflight_samplers():
+    # An entity-set change rebuilds the subscription; a sampler in flight for the
+    # old config must not leak across the rebuild.
+    coord = _obs_coord([{const.ZONE_ID: 2, const.ZONE_OBSERVED_ENTITY: "switch.beet"}])
+    cancel = Mock()
+    coord._observed_meters()[2] = ("meter", cancel, None, "started")
+    await coord.async_setup_observed_watering()  # empty -> {switch.beet}: rebuild
+    cancel.assert_called_once()
+    assert coord._observed_meters() == {}
+
+
+async def test_reopen_cancels_prior_sampler(monkeypatch):
+    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow",
+            const.ZONE_FLOW_COUNTER_TYPE: "lifetime", const.ZONE_SIZE: 5.0}
+    coord = _sampler_coord(zone)
+    cancels = []
+    monkeypatch.setattr(
+        "custom_components.smart_irrigation.observed_watering.async_track_time_interval",
+        lambda *a, **k: (cancels.append(Mock()) or cancels[-1]),
+    )
+    await coord._observed_start_flow_sampling(zone)
+    await coord._observed_start_flow_sampling(zone)  # re-open before close
+    cancels[0].assert_called_once()                  # first sampler cancelled
+    assert list(coord._observed_meters()) == [2]     # exactly one entry
