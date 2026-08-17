@@ -1,6 +1,5 @@
 """Observed watering extended to service/self-closing zones (Phase 1)."""
 
-import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -106,7 +105,10 @@ def test_capped_seconds_bounds_at_maximum_duration_plus_margin():
     # under the cap: unchanged
     assert coord._observed_capped_seconds(zone, 1200) == 1200
     # over the cap: bounded to maximum_duration + OBSERVED_CAP_MARGIN_SECONDS
-    assert coord._observed_capped_seconds(zone, 21304) == 3600 + const.OBSERVED_CAP_MARGIN_SECONDS
+    assert (
+        coord._observed_capped_seconds(zone, 21304)
+        == 3600 + const.OBSERVED_CAP_MARGIN_SECONDS
+    )
 
 
 def test_capped_seconds_falls_back_when_no_maximum_duration():
@@ -114,7 +116,10 @@ def test_capped_seconds_falls_back_when_no_maximum_duration():
     # a zone without maximum_duration uses the default cap, still bounded
     zone = {}
     capped = coord._observed_capped_seconds(zone, 99999)
-    assert capped == const.CONF_DEFAULT_MAXIMUM_DURATION + const.OBSERVED_CAP_MARGIN_SECONDS
+    assert (
+        capped
+        == const.CONF_DEFAULT_MAXIMUM_DURATION + const.OBSERVED_CAP_MARGIN_SECONDS
+    )
 
 
 # --- Task 2/5: crediting helper --------------------------------------------
@@ -134,9 +139,13 @@ def _credit_coord(zone):
 
 async def test_non_flow_zone_credit_capped_at_maximum_duration():
     zone = {
-        const.ZONE_ID: 2, const.ZONE_SIZE: 5.0, const.ZONE_THROUGHPUT: 3.1,
-        const.ZONE_MAXIMUM_DURATION: 3600, const.ZONE_FLOW_SENSOR: None,
-        const.ZONE_BUCKET: 0.0, const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+        const.ZONE_ID: 2,
+        const.ZONE_SIZE: 5.0,
+        const.ZONE_THROUGHPUT: 3.1,
+        const.ZONE_MAXIMUM_DURATION: 3600,
+        const.ZONE_FLOW_SENSOR: None,
+        const.ZONE_BUCKET: 0.0,
+        const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
     }
     coord = _credit_coord(zone)
     await coord._credit_observed_watering(2, 21304)  # ~6h stuck-open
@@ -160,17 +169,23 @@ def _sampler_coord(zone):
     )
     coord._reads = reads
     # Bind the REAL pure-ish _flow_build_meter (resolves counter type + seeds meter).
-    coord._flow_build_meter = SmartIrrigationCoordinator._flow_build_meter.__get__(coord)
+    coord._flow_build_meter = SmartIrrigationCoordinator._flow_build_meter.__get__(
+        coord
+    )
     return coord
 
 
 async def test_observed_finish_flow_measures_totalizer_delta():
-    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow",
-            const.ZONE_FLOW_COUNTER_TYPE: "lifetime", const.ZONE_SIZE: 5.0}
+    zone = {
+        const.ZONE_ID: 2,
+        const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_FLOW_COUNTER_TYPE: "lifetime",
+        const.ZONE_SIZE: 5.0,
+    }
     coord = _sampler_coord(zone)
-    coord._reads["v"] = 100.0          # valve-open baseline
-    await coord._observed_start_flow_sampling(zone)
-    coord._reads["v"] = 108.0          # +8 L delivered
+    coord._reads["v"] = 100.0  # valve-open baseline
+    coord._observed_start_flow_sampling(zone)
+    coord._reads["v"] = 108.0  # +8 L delivered
     coord._observed_sample_flow(2, 15.0)
     measured, present = coord._observed_finish_flow(2)  # takes a final read (108)
     assert present is True
@@ -179,26 +194,34 @@ async def test_observed_finish_flow_measures_totalizer_delta():
 
 
 async def test_observed_finish_flow_dry_valve_returns_zero_not_none():
-    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow",
-            const.ZONE_FLOW_COUNTER_TYPE: "lifetime", const.ZONE_SIZE: 5.0}
+    zone = {
+        const.ZONE_ID: 2,
+        const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_FLOW_COUNTER_TYPE: "lifetime",
+        const.ZONE_SIZE: 5.0,
+    }
     coord = _sampler_coord(zone)
-    coord._reads["v"] = 103.0          # flat all the way (stuck-open dry)
-    await coord._observed_start_flow_sampling(zone)
+    coord._reads["v"] = 103.0  # flat all the way (stuck-open dry)
+    coord._observed_start_flow_sampling(zone)
     coord._observed_sample_flow(2, 15.0)
     measured, present = coord._observed_finish_flow(2)
     assert present is True
-    assert measured == 0.0             # NOT None — the bug case
+    assert measured == 0.0  # NOT None — the bug case
 
 
 async def test_observed_finish_flow_dead_sensor_returns_none():
-    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow",
-            const.ZONE_FLOW_COUNTER_TYPE: "lifetime", const.ZONE_SIZE: 5.0}
+    zone = {
+        const.ZONE_ID: 2,
+        const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_FLOW_COUNTER_TYPE: "lifetime",
+        const.ZONE_SIZE: 5.0,
+    }
     coord = _sampler_coord(zone)
     coord._read_flow_sample = Mock(return_value=None)  # sensor never numeric
-    await coord._observed_start_flow_sampling(zone)
+    coord._observed_start_flow_sampling(zone)
     measured, present = coord._observed_finish_flow(2)
     assert present is True
-    assert measured is None            # dead sensor -> caller falls back to capped time
+    assert measured is None  # dead sensor -> caller falls back to capped time
 
 
 async def test_observed_finish_flow_per_run_midrun_reset_needs_polling():
@@ -207,14 +230,18 @@ async def test_observed_finish_flow_per_run_midrun_reset_needs_polling():
     # gated on delivered==0, credits nothing. The 15-s sampler catches the reset
     # (0.2 L) and correctly credits the 5.8 L that flowed after it. This is the
     # whole reason the sampler exists rather than a plain open/close delta.
-    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow",
-            const.ZONE_FLOW_COUNTER_TYPE: "per_run", const.ZONE_SIZE: 5.0}
+    zone = {
+        const.ZONE_ID: 2,
+        const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_FLOW_COUNTER_TYPE: "per_run",
+        const.ZONE_SIZE: 5.0,
+    }
     coord = _sampler_coord(zone)
-    coord._reads["v"] = 50.0           # valve-open read: stale prior-run end
-    await coord._observed_start_flow_sampling(zone)
-    coord._reads["v"] = 0.2            # counter reset (near-zero) mid-run
+    coord._reads["v"] = 50.0  # valve-open read: stale prior-run end
+    coord._observed_start_flow_sampling(zone)
+    coord._reads["v"] = 0.2  # counter reset (near-zero) mid-run
     coord._observed_sample_flow(2, 15.0)
-    coord._reads["v"] = 6.0            # then 5.8 L flows after the reset
+    coord._reads["v"] = 6.0  # then 5.8 L flows after the reset
     coord._observed_sample_flow(2, 30.0)
     measured, present = coord._observed_finish_flow(2)
     assert present is True
@@ -233,24 +260,24 @@ def _state_event(entity, old, new):
     )
 
 
-async def test_open_edge_starts_sampler_for_flow_zone():
-    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow"}
-    coord = _obs_coord([])
+async def test_open_edge_starts_sampler_synchronously_for_flow_zone():
+    # The sampler must be installed the instant the open callback returns, NOT via
+    # a scheduled task: a valve that flaps open->close within one event-loop batch
+    # would otherwise close before the start task runs, leaking a meter+timer for
+    # an already-closed valve and crediting time-based instead of measured.
+    zone = {
+        const.ZONE_ID: 2,
+        const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_FLOW_COUNTER_TYPE: "lifetime",
+        const.ZONE_SIZE: 5.0,
+    }
+    coord = _sampler_coord(zone)  # real _flow_build_meter, mocked _read_flow_sample
     coord._observed_zone_by_entity = {"valve.x": 2}
     coord._si_driven_until = {}
     coord.hass.loop.time = Mock(return_value=1000.0)  # real number for the SI check
-    coord.hass.async_create_task = lambda coro: asyncio.ensure_future(coro)
     coord.zone_run_in_flight = Mock(return_value=False)
-    coord.store.get_zone = Mock(return_value=zone)
-    started = {"n": 0}
-
-    async def _fake_start(z):
-        started["n"] += 1
-
-    coord._observed_start_flow_sampling = _fake_start
     coord._observed_state_changed(_state_event("valve.x", old="closed", new="open"))
-    await asyncio.sleep(0)  # let the scheduled task run
-    assert started["n"] == 1
+    assert 2 in coord._observed_meters()  # meter present synchronously, no race
     assert coord._observed_on_since.get(2) is not None
 
 
@@ -265,9 +292,13 @@ async def test_open_edge_starts_sampler_for_flow_zone():
 
 def _flow_credit_zone():
     return {
-        const.ZONE_ID: 2, const.ZONE_SIZE: 5.0, const.ZONE_THROUGHPUT: 3.1,
-        const.ZONE_MAXIMUM_DURATION: 3600, const.ZONE_FLOW_SENSOR: "sensor.flow",
-        const.ZONE_BUCKET: 0.0, const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+        const.ZONE_ID: 2,
+        const.ZONE_SIZE: 5.0,
+        const.ZONE_THROUGHPUT: 3.1,
+        const.ZONE_MAXIMUM_DURATION: 3600,
+        const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_BUCKET: 0.0,
+        const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
     }
 
 
@@ -291,7 +322,9 @@ async def test_flow_zone_dry_valve_credits_zero():
 async def test_flow_zone_measured_capped_at_time_ceiling():
     coord = _credit_coord(_flow_credit_zone())
     # sensor stuck at a huge constant reading -> measured absurdly high
-    await coord._credit_observed_watering(2, 600, measured_l=99999.0, sensor_present=True)
+    await coord._credit_observed_watering(
+        2, 600, measured_l=99999.0, sensor_present=True
+    )
     ceiling_l = 3.1 * (600 / 60.0)  # capped_s == 600 (< max), ceiling = tput × capped_s
     assert coord._record_run.call_args.kwargs["volume_l"] == pytest.approx(ceiling_l)
 
@@ -302,7 +335,9 @@ async def test_flow_zone_dead_sensor_uses_capped_time_and_flags():
     coord._observed_flag_dead_sensor = Mock(
         side_effect=lambda zid, s: flagged.__setitem__("n", flagged["n"] + 1)
     )
-    await coord._credit_observed_watering(2, 21304, measured_l=None, sensor_present=True)
+    await coord._credit_observed_watering(
+        2, 21304, measured_l=None, sensor_present=True
+    )
     capped_l = 3.1 * ((3600 + const.OBSERVED_CAP_MARGIN_SECONDS) / 60.0)
     assert coord._record_run.call_args.kwargs["volume_l"] == pytest.approx(capped_l)
     assert flagged["n"] == 1
@@ -332,15 +367,19 @@ async def test_resubscribe_cancels_inflight_samplers():
 
 
 async def test_reopen_cancels_prior_sampler(monkeypatch):
-    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow",
-            const.ZONE_FLOW_COUNTER_TYPE: "lifetime", const.ZONE_SIZE: 5.0}
+    zone = {
+        const.ZONE_ID: 2,
+        const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_FLOW_COUNTER_TYPE: "lifetime",
+        const.ZONE_SIZE: 5.0,
+    }
     coord = _sampler_coord(zone)
     cancels = []
     monkeypatch.setattr(
         "custom_components.smart_irrigation.observed_watering.async_track_time_interval",
         lambda *a, **k: (cancels.append(Mock()) or cancels[-1]),
     )
-    await coord._observed_start_flow_sampling(zone)
-    await coord._observed_start_flow_sampling(zone)  # re-open before close
-    cancels[0].assert_called_once()                  # first sampler cancelled
-    assert list(coord._observed_meters()) == [2]     # exactly one entry
+    coord._observed_start_flow_sampling(zone)
+    coord._observed_start_flow_sampling(zone)  # re-open before close
+    cancels[0].assert_called_once()  # first sampler cancelled
+    assert list(coord._observed_meters()) == [2]  # exactly one entry

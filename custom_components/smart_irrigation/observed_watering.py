@@ -143,7 +143,10 @@ class ObservedWateringMixin:
             # valve stuck reporting open inflates without bound).
             zone = self.store.get_zone(zone_id) or {}
             if zone.get(const.ZONE_FLOW_SENSOR):
-                self.hass.async_create_task(self._observed_start_flow_sampling(zone))
+                # Start the sampler SYNCHRONOUSLY (its body is non-blocking) so a
+                # rapid open->close flap can't close before a scheduled start ran,
+                # which would leak a meter+timer and miss the measured credit.
+                self._observed_start_flow_sampling(zone)
         elif old_on and not new_on:
             started = self._observed_on_since.pop(zone_id, None)
             # Finalise the sampler BEFORE the started-None early return so an
@@ -176,7 +179,7 @@ class ObservedWateringMixin:
         if entry is not None:
             entry[1]()  # the cancel handle
 
-    async def _observed_start_flow_sampling(self, zone: dict) -> None:
+    def _observed_start_flow_sampling(self, zone: dict) -> None:
         """Start NON-blocking interval sampling of an external run's flow_sensor.
 
         Mirrors :meth:`_sc_start_flow_sampling`: build a per-zone FlowMeter (counter
@@ -184,6 +187,10 @@ class ObservedWateringMixin:
         poll every ``FLOW_POLL_INTERVAL`` seconds; :meth:`_observed_finish_flow`
         finalises it on close. No-op when the zone has no flow_sensor. Single-flight:
         a re-open cancels a prior in-flight sampler for the same zone first.
+
+        Synchronous (its body only reads state and installs a timer): the open-edge
+        callback calls it directly, so it cannot race a same-batch close. Unlike
+        self-closing's sampler this is not a coroutine — it is never awaited.
         """
         sensor = zone.get(const.ZONE_FLOW_SENSOR)
         if not sensor:
