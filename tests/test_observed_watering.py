@@ -68,3 +68,23 @@ async def test_setup_maps_nothing_when_feature_off():
     )
     await coord.async_setup_observed_watering()
     assert coord._observed_zone_by_entity == {}
+
+
+# --- Task 1: capped-seconds helper -----------------------------------------
+
+
+def test_capped_seconds_bounds_at_maximum_duration_plus_margin():
+    coord = _obs_coord([])
+    zone = {const.ZONE_MAXIMUM_DURATION: 3600}
+    # under the cap: unchanged
+    assert coord._observed_capped_seconds(zone, 1200) == 1200
+    # over the cap: bounded to maximum_duration + OBSERVED_CAP_MARGIN_SECONDS
+    assert coord._observed_capped_seconds(zone, 21304) == 3600 + const.OBSERVED_CAP_MARGIN_SECONDS
+
+
+def test_capped_seconds_falls_back_when_no_maximum_duration():
+    coord = _obs_coord([])
+    # a zone without maximum_duration uses the default cap, still bounded
+    zone = {}
+    capped = coord._observed_capped_seconds(zone, 99999)
+    assert capped == const.CONF_DEFAULT_MAXIMUM_DURATION + const.OBSERVED_CAP_MARGIN_SECONDS

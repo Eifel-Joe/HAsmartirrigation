@@ -139,6 +139,19 @@ class ObservedWateringMixin:
                 self._credit_observed_watering(zone_id, seconds)
             )
 
+    def _observed_capped_seconds(self, zone: dict, seconds: float) -> float:
+        """Bound external-run seconds at maximum_duration + margin.
+
+        An external open can be as long as a stuck-open valve is willing to
+        report; SI would never run this valve longer than its maximum_duration,
+        so an observed run credits no more than that (plus a small margin for a
+        legitimate run finishing just past the cap). See OBSERVED_CAP_MARGIN_SECONDS.
+        """
+        max_dur = zone.get(const.ZONE_MAXIMUM_DURATION)
+        if not max_dur:
+            max_dur = const.CONF_DEFAULT_MAXIMUM_DURATION
+        return min(float(seconds), float(max_dur) + const.OBSERVED_CAP_MARGIN_SECONDS)
+
     async def _credit_observed_watering(self, zone_id: int, seconds: float) -> None:
         """Credit a zone's bucket for an externally-driven run of ``seconds``.
 
