@@ -30,6 +30,20 @@ def _stub_state_tracker(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _stub_track_time_interval(monkeypatch):
+    # The flow sampler installs a real async_track_time_interval timer; the unit
+    # coords have a Mock hass, so stub it to a Mock cancel handle. Tests drive
+    # sampling deterministically through the _observed_sample_flow seam instead of
+    # the timer. A test that needs to inspect the cancel handles overrides this.
+    monkeypatch.setattr(
+        "custom_components.smart_irrigation.observed_watering."
+        "async_track_time_interval",
+        Mock(return_value=Mock()),
+        raising=False,
+    )
+
+
+@pytest.fixture(autouse=True)
 def _stub_dispatcher(monkeypatch):
     # _credit_observed_watering ends with async_dispatcher_send(self.hass, ...),
     # which iterates hass.data — a Mock hass would misbehave. Stub it so the
@@ -130,3 +144,77 @@ async def test_non_flow_zone_credit_capped_at_maximum_duration():
     kwargs = coord._record_run.call_args.kwargs
     assert kwargs["volume_l"] == pytest.approx(capped_l)
     assert kwargs["actual_s"] == 3630
+
+
+# --- Task 3: per-zone flow sampler (mirror self-closing) -------------------
+
+
+def _sampler_coord(zone):
+    coord = _obs_coord([])
+    coord.store.get_zone = Mock(return_value=zone)
+    # _read_flow_sample returns (value, unit, state_class); drive it from a dict.
+    reads = {"v": 0.0}
+    coord._read_flow_sample = Mock(
+        side_effect=lambda s: (reads["v"], "L", "total_increasing")
+    )
+    coord._reads = reads
+    # Bind the REAL pure-ish _flow_build_meter (resolves counter type + seeds meter).
+    coord._flow_build_meter = SmartIrrigationCoordinator._flow_build_meter.__get__(coord)
+    return coord
+
+
+async def test_observed_finish_flow_measures_totalizer_delta():
+    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow",
+            const.ZONE_FLOW_COUNTER_TYPE: "lifetime", const.ZONE_SIZE: 5.0}
+    coord = _sampler_coord(zone)
+    coord._reads["v"] = 100.0          # valve-open baseline
+    await coord._observed_start_flow_sampling(zone)
+    coord._reads["v"] = 108.0          # +8 L delivered
+    coord._observed_sample_flow(2, 15.0)
+    measured, present = coord._observed_finish_flow(2)  # takes a final read (108)
+    assert present is True
+    assert measured == pytest.approx(8.0)
+    assert 2 not in coord._observed_meters()  # entry popped, no leak
+
+
+async def test_observed_finish_flow_dry_valve_returns_zero_not_none():
+    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow",
+            const.ZONE_FLOW_COUNTER_TYPE: "lifetime", const.ZONE_SIZE: 5.0}
+    coord = _sampler_coord(zone)
+    coord._reads["v"] = 103.0          # flat all the way (stuck-open dry)
+    await coord._observed_start_flow_sampling(zone)
+    coord._observed_sample_flow(2, 15.0)
+    measured, present = coord._observed_finish_flow(2)
+    assert present is True
+    assert measured == 0.0             # NOT None — the bug case
+
+
+async def test_observed_finish_flow_dead_sensor_returns_none():
+    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow",
+            const.ZONE_FLOW_COUNTER_TYPE: "lifetime", const.ZONE_SIZE: 5.0}
+    coord = _sampler_coord(zone)
+    coord._read_flow_sample = Mock(return_value=None)  # sensor never numeric
+    await coord._observed_start_flow_sampling(zone)
+    measured, present = coord._observed_finish_flow(2)
+    assert present is True
+    assert measured is None            # dead sensor -> caller falls back to capped time
+
+
+async def test_observed_finish_flow_per_run_midrun_reset_needs_polling():
+    # A per_run counter's valve-open read can still hold the PRIOR run's end (50 L);
+    # it resets mid-run. A two-point open/close read (50 -> 6) sees only a drop and,
+    # gated on delivered==0, credits nothing. The 15-s sampler catches the reset
+    # (0.2 L) and correctly credits the 5.8 L that flowed after it. This is the
+    # whole reason the sampler exists rather than a plain open/close delta.
+    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow",
+            const.ZONE_FLOW_COUNTER_TYPE: "per_run", const.ZONE_SIZE: 5.0}
+    coord = _sampler_coord(zone)
+    coord._reads["v"] = 50.0           # valve-open read: stale prior-run end
+    await coord._observed_start_flow_sampling(zone)
+    coord._reads["v"] = 0.2            # counter reset (near-zero) mid-run
+    coord._observed_sample_flow(2, 15.0)
+    coord._reads["v"] = 6.0            # then 5.8 L flows after the reset
+    coord._observed_sample_flow(2, 30.0)
+    measured, present = coord._observed_finish_flow(2)
+    assert present is True
+    assert measured == pytest.approx(5.8)

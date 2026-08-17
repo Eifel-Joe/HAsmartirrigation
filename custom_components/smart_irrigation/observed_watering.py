@@ -17,11 +17,15 @@ Methods live on a mixin the SmartIrrigationCoordinator inherits, so they use
 """
 
 import logging
+from datetime import timedelta
 
 import homeassistant.util.dt as dt_util
 from homeassistant.core import Event, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import (
+    async_track_state_change_event,
+    async_track_time_interval,
+)
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
@@ -138,6 +142,86 @@ class ObservedWateringMixin:
             self.hass.async_create_task(
                 self._credit_observed_watering(zone_id, seconds)
             )
+
+    # --- Measured-flow sampling (mirror of the self-closing sampler) --------
+
+    def _observed_meters(self) -> dict:
+        """Per-zone in-flight flow meters: {zone_id: (meter, cancel, open_l, started)}."""
+        m = getattr(self, "_observed_meters_state", None)
+        if m is None:
+            m = self._observed_meters_state = {}
+        return m
+
+    def _observed_cancel_meter(self, zone_id) -> None:
+        """Cancel and drop a zone's in-flight flow sampler, if any (else a no-op)."""
+        entry = self._observed_meters().pop(zone_id, None)
+        if entry is not None:
+            entry[1]()  # the cancel handle
+
+    async def _observed_start_flow_sampling(self, zone: dict) -> None:
+        """Start NON-blocking interval sampling of an external run's flow_sensor.
+
+        Mirrors :meth:`_sc_start_flow_sampling`: build a per-zone FlowMeter (counter
+        type resolved from the stored streak), seed it at the valve-open reading and
+        poll every ``FLOW_POLL_INTERVAL`` seconds; :meth:`_observed_finish_flow`
+        finalises it on close. No-op when the zone has no flow_sensor. Single-flight:
+        a re-open cancels a prior in-flight sampler for the same zone first.
+        """
+        sensor = zone.get(const.ZONE_FLOW_SENSOR)
+        if not sensor:
+            return
+        zone_id = zone.get(const.ZONE_ID)
+        self._observed_cancel_meter(zone_id)  # single-flight: drop any prior sampler
+        sample = self._read_flow_sample(sensor)
+        meter, open_start_l = self._flow_build_meter(zone, sample)  # seeds at open
+        started = dt_util.utcnow()
+
+        async def _tick(now):
+            self._observed_sample_flow(zone_id, (now - started).total_seconds())
+
+        cancel = async_track_time_interval(
+            self.hass, _tick, timedelta(seconds=const.FLOW_POLL_INTERVAL)
+        )
+        self._observed_meters()[zone_id] = (meter, cancel, open_start_l, started)
+
+    def _observed_sample_flow(self, zone_id, at: float) -> None:
+        """Feed the in-flight meter one reading at monotonic ``at`` (also the test seam)."""
+        entry = self._observed_meters().get(zone_id)
+        if not entry:
+            return
+        meter = entry[0]
+        zone = self.store.get_zone(zone_id) or {}
+        sample = self._read_flow_sample(zone.get(const.ZONE_FLOW_SENSOR))
+        if sample is not None:
+            meter.sample(*sample, at=at)
+
+    def _observed_finish_flow(self, zone_id):
+        """Cancel sampling; return ``(measured_l | None, sensor_present)``.
+
+        Unlike self-closing (:meth:`_sc_finish_flow`, which collapses a ``0.0``
+        live-but-dry meter to ``None`` so the caller keeps its time-based volume),
+        observed returns ``0.0`` AS ``0.0`` — a valve that reported ``open`` but
+        delivered no measurable flow must credit ZERO, not fall back to a time
+        estimate (the phantom-open incident). ``None`` means the sensor produced no
+        numeric reading at all (dead/misconfigured) → the caller falls back to the
+        capped time estimate and flags the sensor.
+
+        observed deliberately does NOT persist cross-run learning (``flow_last_end`` /
+        ``flow_reset_streak``): interleaved external opens would poison the SI
+        runner's clean-sequence convergence. It only CONSUMES the learned counter
+        type via :meth:`_flow_build_meter`. (Distributor precedent, irrigation.py.)
+        """
+        entry = self._observed_meters().pop(zone_id, None)
+        if not entry:
+            return None, False
+        meter, cancel, _open_start_l, started = entry
+        cancel()
+        zone = self.store.get_zone(zone_id) or {}
+        sensor = zone.get(const.ZONE_FLOW_SENSOR)
+        final = self._read_flow_sample(sensor)
+        if final is not None:
+            meter.sample(*final, at=(dt_util.utcnow() - started).total_seconds())
+        return meter.delivered(), bool(sensor)
 
     def _observed_capped_seconds(self, zone: dict, seconds: float) -> float:
         """Bound external-run seconds at maximum_duration + margin.
