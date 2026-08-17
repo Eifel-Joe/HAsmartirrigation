@@ -73,6 +73,13 @@ class ObservedWateringMixin:
         # principle be reassigned to the same entity string).
         self._observed_zone_by_entity = entity_map
         if entities == self._observed_entities:
+            # Known, accepted edge case: if a zone id is remapped to the SAME entity
+            # string while an external run is in flight, this no-op path skips the
+            # meter-cancel below and the meter stays keyed under the old zone id (a
+            # leaked 15-s timer + one uncredited run). It self-heals on the next
+            # entity-set change, the zone's next external open (single-flight cancel),
+            # or teardown; the trigger (a set-preserving remap during an active run) is
+            # exotic, so it is left unhandled rather than complicate the hot path.
             return
 
         if self._observed_unsub is not None:
