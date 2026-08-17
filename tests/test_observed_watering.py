@@ -252,3 +252,57 @@ async def test_open_edge_starts_sampler_for_flow_zone():
     await asyncio.sleep(0)  # let the scheduled task run
     assert started["n"] == 1
     assert coord._observed_on_since.get(2) is not None
+
+
+# --- Task 5: route the credit by measured flow -----------------------------
+#
+# NB: observed credits the ACTUAL applied depth (volume_l / size_m2), never
+# dividing by the zone multiplier — external water genuinely raised soil
+# moisture by that depth, unlike an SI timed run whose duration is inflated by
+# the multiplier. So the credit path does NOT use _credited_depth_native (which
+# divides by the multiplier); the assertions below are on the recorded volume_l.
+
+
+def _flow_credit_zone():
+    return {
+        const.ZONE_ID: 2, const.ZONE_SIZE: 5.0, const.ZONE_THROUGHPUT: 3.1,
+        const.ZONE_MAXIMUM_DURATION: 3600, const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_BUCKET: 0.0, const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+    }
+
+
+async def test_flow_zone_credits_measured_not_time():
+    coord = _credit_coord(_flow_credit_zone())
+    await coord._credit_observed_watering(2, 21304, measured_l=8.0, sensor_present=True)
+    # credited from measured 8 L, NOT 21304 s × 3.1
+    assert coord._record_run.call_args.kwargs["volume_l"] == pytest.approx(8.0)
+
+
+async def test_flow_zone_dry_valve_credits_zero():
+    coord = _credit_coord(_flow_credit_zone())
+    await coord._credit_observed_watering(2, 21304, measured_l=0.0, sensor_present=True)
+    # the 1349 L bug case: zero credit, bucket unchanged from 0.0
+    coord.async_write_watered_bucket.assert_awaited()
+    new_bucket = coord.async_write_watered_bucket.call_args.args[1]
+    assert new_bucket == pytest.approx(0.0)
+    assert coord._record_run.call_args.kwargs["volume_l"] == pytest.approx(0.0)
+
+
+async def test_flow_zone_measured_capped_at_time_ceiling():
+    coord = _credit_coord(_flow_credit_zone())
+    # sensor stuck at a huge constant reading -> measured absurdly high
+    await coord._credit_observed_watering(2, 600, measured_l=99999.0, sensor_present=True)
+    ceiling_l = 3.1 * (600 / 60.0)  # capped_s == 600 (< max), ceiling = tput × capped_s
+    assert coord._record_run.call_args.kwargs["volume_l"] == pytest.approx(ceiling_l)
+
+
+async def test_flow_zone_dead_sensor_uses_capped_time_and_flags():
+    coord = _credit_coord(_flow_credit_zone())
+    flagged = {"n": 0}
+    coord._observed_flag_dead_sensor = Mock(
+        side_effect=lambda zid, s: flagged.__setitem__("n", flagged["n"] + 1)
+    )
+    await coord._credit_observed_watering(2, 21304, measured_l=None, sensor_present=True)
+    capped_l = 3.1 * ((3600 + const.OBSERVED_CAP_MARGIN_SECONDS) / 60.0)
+    assert coord._record_run.call_args.kwargs["volume_l"] == pytest.approx(capped_l)
+    assert flagged["n"] == 1

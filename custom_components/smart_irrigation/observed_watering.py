@@ -235,6 +235,22 @@ class ObservedWateringMixin:
             meter.sample(*final, at=(dt_util.utcnow() - started).total_seconds())
         return meter.delivered(), bool(sensor)
 
+    def _observed_flag_dead_sensor(self, zone_id, sensor) -> None:
+        """Surface a flow-sensor zone whose sensor gave no reading on an external run.
+
+        Mirrors the self-closing dead-sensor handling (:meth:`_sc_finish_flow`): the
+        15-s polls are DEBUG, so a persistently dead/misconfigured flow sensor would
+        otherwise silently degrade an observed run to the time-based estimate. Warn
+        ONCE per run so the misconfiguration is visible. Log-only by design — a zone
+        has no per-run transient problem flag, and self-closing does the same.
+        """
+        _LOGGER.warning(
+            "Observed watering: zone %s flow sensor '%s' produced no reading this "
+            "external run; credited the capped time-based estimate instead",
+            zone_id,
+            sensor,
+        )
+
     def _observed_capped_seconds(self, zone: dict, seconds: float) -> float:
         """Bound external-run seconds at maximum_duration + margin.
 
@@ -257,15 +273,19 @@ class ObservedWateringMixin:
     ) -> None:
         """Credit a zone's bucket for an externally-driven run of ``seconds``.
 
-        Applied depth is estimated from run time × configured throughput, so it
-        needs both a size and a throughput. The counted seconds are capped at the
-        zone's maximum_duration + margin (:meth:`_observed_capped_seconds`) so a
-        valve stuck reporting ``open`` cannot book unbounded water. ``measured_l``
-        and ``sensor_present`` carry a flow-sensor reading for the measured-credit
-        path and are wired in below; until then every caller gets the capped
-        time-based estimate. The bucket can rise into surplus (capped at
-        maximum_bucket) — unlike an SI run, external watering can legitimately
-        overshoot the deficit.
+        Needs a size and a throughput. On a flow-sensor zone the applied depth
+        comes from the MEASURED volume (``measured_l``, from the open/close flow
+        sampler; ``sensor_present`` says the zone has a sensor); otherwise, and
+        when the sensor gave no reading, it is estimated from run time × configured
+        throughput. Either way the counted seconds are capped at the zone's
+        maximum_duration + margin (:meth:`_observed_capped_seconds`) so a valve
+        stuck reporting ``open`` cannot book unbounded water, and the measured
+        volume is itself capped at that time ceiling. The credited depth is the
+        actual applied depth (litres / m²), NOT divided by the zone multiplier:
+        external water genuinely raised soil moisture by that depth, unlike an SI
+        timed run whose duration is inflated by the multiplier. The bucket can rise
+        into surplus (capped at maximum_bucket) — unlike an SI run, external
+        watering can legitimately overshoot the deficit.
         """
         if seconds <= 0:
             return
@@ -293,11 +313,27 @@ class ObservedWateringMixin:
         )
 
         # Cap the counted seconds: an external run credits no more than SI itself
-        # would run this valve (see OBSERVED_CAP_MARGIN_SECONDS). Used for the
-        # time-based volume AND (Task 5) as the sanity ceiling on measured flow.
+        # would run this valve (see OBSERVED_CAP_MARGIN_SECONDS). Bounds the
+        # time-based volume AND is the sanity ceiling on measured flow.
         capped_s = self._observed_capped_seconds(zone, seconds)
         time_volume_l = tput_lpm * (capped_s / 60.0)
-        volume_l = time_volume_l  # measured-flow path overrides this below
+
+        # Route the credit:
+        #  * flow sensor + a reading  -> the MEASURED volume, capped at the time
+        #    ceiling. measured may be 0.0 (a valve that reported open but delivered
+        #    nothing — the phantom-open incident) -> credit ZERO. The ceiling stops
+        #    a sensor stuck at a constant nonzero reading booking more than a
+        #    nameplate run for the same (capped) window.
+        #  * flow sensor + NO reading -> the sensor is dead/misconfigured; fall back
+        #    to the capped time estimate and surface it (never trust raw open time).
+        #  * no flow sensor           -> the capped time estimate.
+        if sensor_present and measured_l is not None:
+            volume_l = min(float(measured_l), time_volume_l)
+        elif sensor_present and measured_l is None:
+            volume_l = time_volume_l
+            self._observed_flag_dead_sensor(zone_id, zone.get(const.ZONE_FLOW_SENSOR))
+        else:
+            volume_l = time_volume_l
         applied_mm = volume_l / size_m2  # litres / m² == mm
         applied_native = (
             applied_mm
