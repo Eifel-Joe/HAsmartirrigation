@@ -29,6 +29,18 @@ def _stub_state_tracker(monkeypatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def _stub_dispatcher(monkeypatch):
+    # _credit_observed_watering ends with async_dispatcher_send(self.hass, ...),
+    # which iterates hass.data — a Mock hass would misbehave. Stub it so the
+    # crediting tests can run against the Mock coordinator (mirrors the
+    # test_experimental_features observer setup).
+    monkeypatch.setattr(
+        "custom_components.smart_irrigation.observed_watering.async_dispatcher_send",
+        Mock(),
+    )
+
+
 def _obs_coord(zones, enabled=True):
     coord = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
     coord.hass = Mock()  # async_track_state_change_event returns a Mock
@@ -88,3 +100,33 @@ def test_capped_seconds_falls_back_when_no_maximum_duration():
     zone = {}
     capped = coord._observed_capped_seconds(zone, 99999)
     assert capped == const.CONF_DEFAULT_MAXIMUM_DURATION + const.OBSERVED_CAP_MARGIN_SECONDS
+
+
+# --- Task 2/5: crediting helper --------------------------------------------
+
+
+def _credit_coord(zone):
+    """Coordinator stub able to run _credit_observed_watering end to end."""
+    import custom_components.smart_irrigation.observed_watering as ow
+
+    coord = _obs_coord([])
+    coord.store.get_zone = Mock(return_value=zone)
+    coord._record_run = AsyncMock()
+    coord.async_write_watered_bucket = AsyncMock()
+    coord.hass.config = SimpleNamespace(units=ow.METRIC_SYSTEM)  # metric: no conv
+    return coord
+
+
+async def test_non_flow_zone_credit_capped_at_maximum_duration():
+    zone = {
+        const.ZONE_ID: 2, const.ZONE_SIZE: 5.0, const.ZONE_THROUGHPUT: 3.1,
+        const.ZONE_MAXIMUM_DURATION: 3600, const.ZONE_FLOW_SENSOR: None,
+        const.ZONE_BUCKET: 0.0, const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+    }
+    coord = _credit_coord(zone)
+    await coord._credit_observed_watering(2, 21304)  # ~6h stuck-open
+    # volume recorded uses capped seconds (3630 s), NOT 21304 s
+    capped_l = 3.1 * ((3600 + const.OBSERVED_CAP_MARGIN_SECONDS) / 60.0)
+    kwargs = coord._record_run.call_args.kwargs
+    assert kwargs["volume_l"] == pytest.approx(capped_l)
+    assert kwargs["actual_s"] == 3630

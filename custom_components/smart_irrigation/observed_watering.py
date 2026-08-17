@@ -152,13 +152,24 @@ class ObservedWateringMixin:
             max_dur = const.CONF_DEFAULT_MAXIMUM_DURATION
         return min(float(seconds), float(max_dur) + const.OBSERVED_CAP_MARGIN_SECONDS)
 
-    async def _credit_observed_watering(self, zone_id: int, seconds: float) -> None:
+    async def _credit_observed_watering(
+        self,
+        zone_id: int,
+        seconds: float,
+        measured_l: float | None = None,
+        sensor_present: bool = False,
+    ) -> None:
         """Credit a zone's bucket for an externally-driven run of ``seconds``.
 
         Applied depth is estimated from run time × configured throughput, so it
-        needs both a size and a throughput. The bucket can rise into surplus
-        (capped at maximum_bucket) — unlike an SI run, external watering can
-        legitimately overshoot the deficit.
+        needs both a size and a throughput. The counted seconds are capped at the
+        zone's maximum_duration + margin (:meth:`_observed_capped_seconds`) so a
+        valve stuck reporting ``open`` cannot book unbounded water. ``measured_l``
+        and ``sensor_present`` carry a flow-sensor reading for the measured-credit
+        path and are wired in below; until then every caller gets the capped
+        time-based estimate. The bucket can rise into surplus (capped at
+        maximum_bucket) — unlike an SI run, external watering can legitimately
+        overshoot the deficit.
         """
         if seconds <= 0:
             return
@@ -185,7 +196,12 @@ class ObservedWateringMixin:
             else convert_between(const.UNIT_GPM, const.UNIT_LPM, throughput)
         )
 
-        volume_l = tput_lpm * (seconds / 60.0)
+        # Cap the counted seconds: an external run credits no more than SI itself
+        # would run this valve (see OBSERVED_CAP_MARGIN_SECONDS). Used for the
+        # time-based volume AND (Task 5) as the sanity ceiling on measured flow.
+        capped_s = self._observed_capped_seconds(zone, seconds)
+        time_volume_l = tput_lpm * (capped_s / 60.0)
+        volume_l = time_volume_l  # measured-flow path overrides this below
         applied_mm = volume_l / size_m2  # litres / m² == mm
         applied_native = (
             applied_mm
@@ -207,7 +223,7 @@ class ObservedWateringMixin:
             zone_id,
             result=const.RUN_RESULT_OBSERVED,
             volume_l=volume_l,
-            actual_s=round(seconds),
+            actual_s=round(capped_s),
             trigger=const.RUN_TRIGGER_OBSERVED,
             add_to_total=True,
         )
