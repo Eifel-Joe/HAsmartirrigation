@@ -120,3 +120,28 @@ je Zone (Cancel-and-pop bei neuem Open, Vorlage `self_closing.py:168`).
 6. Volle Test-Suite grün; keine Regression an self-closing/distributor/normalem observed.
 7. Live (HA-Test → HA-Prod, eigener freigegebener Schritt): simulierter Phantom-`open`
    bucht nicht mehr 1349 L.
+
+## Umsetzung + Review (2026-08-17)
+
+Umgesetzt auf Branch `fix/observed-measured-flow-credit` (von `upstream/master`),
+TDD, 6 Tasks + Härtungen. Zwei bewusste Abweichungen vom Plan:
+- **Kein `_credited_depth_native`** im Credit-Pfad: das teilt durch den Zone-Multiplier
+  (nur für SI-eigene *timed* Läufe korrekt). Externes Wasser hebt die Bodenfeuchte um
+  die tatsächliche Tiefe (`volume_l / size_m2`) — der bestehende observed-Pfad rechnet
+  das bereits so; `_credited_depth_native` wäre eine Multiplier-Regression gewesen.
+- **`_observed_cancel_meter` schon in Task 3** (nicht Task 6), sonst wäre der Sampler
+  nicht eigenständig testbar (single-flight).
+- **Zusatz-Härtung:** Sampler-Start **synchron** (kein `async_create_task`) — schließt
+  einen Open→Close-Flap-Race, der Meter+Timer leaken ließe.
+
+**Adversarialer 4-Lens-Review** (Correctness / Lifecycle / REGEL-8-Integration /
+Test-Qualität, jede Findung verifiziert): 14 Funde, 6 bestätigt (alle `low`):
+- **Gefixt:** (1) negatives `measured_l` → Floor bei 0 (net-negatives Reading darf
+  Bucket nicht drainen); (2) negative `maximum_duration` → `< 0`-Guard wie
+  `calculation.py`; (4) `delivered()==0.0 AND saw_reset()` = per_run-Zähler als
+  lifetime fehl-resolved → `None` (gedeckelte Zeit) statt 0-Credit — Phantom-open
+  triggert nie `saw_reset`, Bug-Fix bleibt intakt; (6) End-to-End-Test der
+  Close-Edge-Verdrahtung ergänzt.
+- **Akzeptiert (dokumentiert, nicht gefixt):** (3) set-erhaltender Zone-id-Remap
+  während laufendem externem Lauf leakt einen 15-s-Timer — exotisch + self-healing;
+  als Code-Kommentar in `async_setup_observed_watering` festgehalten.
