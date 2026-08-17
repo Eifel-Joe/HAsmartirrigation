@@ -246,20 +246,32 @@ class ObservedWateringMixin:
         final = self._read_flow_sample(sensor)
         if final is not None:
             meter.sample(*final, at=(dt_util.utcnow() - started).total_seconds())
-        return meter.delivered(), bool(sensor)
+        d = meter.delivered()
+        # 0.0 AND a mid-run reset observed = a hold-until-reset (per_run) counter that
+        # was resolved as ``lifetime`` (observed never persists the learned streak), so
+        # the reset read like a glitch and nothing was credited despite real flow.
+        # Report it as ``None`` (dead/unusable measurement) so the caller falls back to
+        # the capped time estimate, NOT as 0.0 (which credits zero). A genuine
+        # phantom-open dry valve never trips saw_reset, so the phantom-open fix stands.
+        if d == 0.0 and meter.saw_reset():
+            return None, bool(sensor)
+        return d, bool(sensor)
 
     def _observed_flag_dead_sensor(self, zone_id, sensor) -> None:
-        """Surface a flow-sensor zone whose sensor gave no reading on an external run.
+        """Surface a flow-sensor zone with no usable measurement on an external run.
 
-        Mirrors the self-closing dead-sensor handling (:meth:`_sc_finish_flow`): the
-        15-s polls are DEBUG, so a persistently dead/misconfigured flow sensor would
-        otherwise silently degrade an observed run to the time-based estimate. Warn
-        ONCE per run so the misconfiguration is visible. Log-only by design — a zone
-        has no per-run transient problem flag, and self-closing does the same.
+        Reached when :meth:`_observed_finish_flow` returns ``None`` — either the sensor
+        gave no numeric reading (dead/misconfigured) or it reset mid-run as a mis-typed
+        per_run counter. Mirrors the self-closing dead-sensor handling
+        (:meth:`_sc_finish_flow`): the 15-s polls are DEBUG, so this would otherwise
+        silently degrade an observed run to the time-based estimate. Warn ONCE per run
+        so it is visible. Log-only by design — a zone has no per-run transient problem
+        flag, and self-closing does the same.
         """
         _LOGGER.warning(
-            "Observed watering: zone %s flow sensor '%s' produced no reading this "
-            "external run; credited the capped time-based estimate instead",
+            "Observed watering: zone %s flow sensor '%s' produced no usable "
+            "measurement this external run; credited the capped time-based estimate "
+            "instead",
             zone_id,
             sensor,
         )
@@ -273,7 +285,10 @@ class ObservedWateringMixin:
         legitimate run finishing just past the cap). See OBSERVED_CAP_MARGIN_SECONDS.
         """
         max_dur = zone.get(const.ZONE_MAXIMUM_DURATION)
-        if not max_dur:
+        # `< 0` as well as falsy: a negative maximum_duration (hand-edited store) would
+        # otherwise yield a NEGATIVE cap -> negative volume -> a credit that DRAINS the
+        # bucket. Treat it as unset, mirroring the SI calc path (calculation.py).
+        if not max_dur or max_dur < 0:
             max_dur = const.CONF_DEFAULT_MAXIMUM_DURATION
         return min(float(seconds), float(max_dur) + const.OBSERVED_CAP_MARGIN_SECONDS)
 
@@ -332,16 +347,17 @@ class ObservedWateringMixin:
         time_volume_l = tput_lpm * (capped_s / 60.0)
 
         # Route the credit:
-        #  * flow sensor + a reading  -> the MEASURED volume, capped at the time
-        #    ceiling. measured may be 0.0 (a valve that reported open but delivered
-        #    nothing — the phantom-open incident) -> credit ZERO. The ceiling stops
-        #    a sensor stuck at a constant nonzero reading booking more than a
-        #    nameplate run for the same (capped) window.
-        #  * flow sensor + NO reading -> the sensor is dead/misconfigured; fall back
-        #    to the capped time estimate and surface it (never trust raw open time).
+        #  * flow sensor + a reading  -> the MEASURED volume, floored at 0 and capped
+        #    at the time ceiling. measured may be 0.0 (a valve that reported open but
+        #    delivered nothing — the phantom-open incident) -> credit ZERO. The floor
+        #    stops a net-negative rate reading (backflow/sign glitch) DRAINING the
+        #    bucket; the ceiling stops a sensor stuck at a constant nonzero reading
+        #    booking more than a nameplate run for the same (capped) window.
+        #  * flow sensor + NO usable measurement -> dead sensor, or a reset counter we
+        #    could not measure; fall back to the capped time estimate and surface it.
         #  * no flow sensor           -> the capped time estimate.
         if sensor_present and measured_l is not None:
-            volume_l = min(float(measured_l), time_volume_l)
+            volume_l = min(max(0.0, float(measured_l)), time_volume_l)
         elif sensor_present and measured_l is None:
             volume_l = time_volume_l
             self._observed_flag_dead_sensor(zone_id, zone.get(const.ZONE_FLOW_SENSOR))

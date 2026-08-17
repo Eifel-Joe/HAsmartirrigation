@@ -383,3 +383,78 @@ async def test_reopen_cancels_prior_sampler(monkeypatch):
     coord._observed_start_flow_sampling(zone)  # re-open before close
     cancels[0].assert_called_once()  # first sampler cancelled
     assert list(coord._observed_meters()) == [2]  # exactly one entry
+
+
+# --- Review hardening (adversarial review 2026-08-17) -----------------------
+
+
+async def test_flow_zone_negative_measured_credits_zero():
+    # A rate flow sensor can accumulate a NET-NEGATIVE delivered() (backflow / sign
+    # glitch). Unfloored, min(-x, ceiling) = -x would DRAIN the bucket -> zone reads
+    # drier -> over-waters (the mirror image of the phantom-open bug). Floor at 0.
+    coord = _credit_coord(_flow_credit_zone())
+    await coord._credit_observed_watering(2, 600, measured_l=-3.0, sensor_present=True)
+    new_bucket = coord.async_write_watered_bucket.call_args.args[1]
+    assert new_bucket == pytest.approx(0.0)
+    assert coord._record_run.call_args.kwargs["volume_l"] == pytest.approx(0.0)
+
+
+def test_capped_seconds_rejects_negative_maximum_duration():
+    # A negative maximum_duration (hand-edited store) must not yield a NEGATIVE cap
+    # (which would drain the bucket); fall back to the default, like calculation.py.
+    coord = _obs_coord([])
+    capped = coord._observed_capped_seconds({const.ZONE_MAXIMUM_DURATION: -100}, 99999)
+    assert (
+        capped
+        == const.CONF_DEFAULT_MAXIMUM_DURATION + const.OBSERVED_CAP_MARGIN_SECONDS
+    )
+
+
+async def test_observed_finish_flow_reset_on_lifetime_typed_counter_returns_none():
+    # A hold-until-reset (per_run) counter typed as lifetime (auto + streak 0 — the
+    # observed-only case, since observed never learns the streak) shows delivered()==0.0
+    # despite real flow: the mid-run reset looks like a glitch to a lifetime meter.
+    # saw_reset() disambiguates it from a genuine dry valve, so finish_flow must return
+    # None (-> caller uses the capped time estimate), NOT 0.0 (which would credit zero).
+    zone = {
+        const.ZONE_ID: 2,
+        const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_FLOW_COUNTER_TYPE: "lifetime",
+        const.ZONE_SIZE: 5.0,
+    }
+    coord = _sampler_coord(zone)
+    coord._reads["v"] = 50.0  # stale prior-run end still shown at valve-open
+    coord._observed_start_flow_sampling(zone)
+    coord._reads["v"] = 0.2  # counter reset mid-run (near-zero drop)
+    coord._observed_sample_flow(2, 15.0)
+    coord._reads["v"] = 6.0  # then real flow after the reset
+    coord._observed_sample_flow(2, 30.0)
+    measured, present = coord._observed_finish_flow(2)
+    assert present is True
+    assert measured is None  # NOT 0.0 — real flow occurred, caller falls back to time
+
+
+async def test_close_edge_credits_measured_flow_end_to_end():
+    # Pin the close-edge wiring: open then close a flow-sensor valve through
+    # _observed_state_changed and assert the credit call carries the MEASURED volume
+    # (a regression that dropped measured_l would revert to the phantom-open bug).
+    zone = {
+        const.ZONE_ID: 2,
+        const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_FLOW_COUNTER_TYPE: "lifetime",
+        const.ZONE_SIZE: 5.0,
+    }
+    coord = _sampler_coord(zone)
+    coord._observed_zone_by_entity = {"valve.x": 2}
+    coord._si_driven_until = {}
+    coord.hass.loop.time = Mock(return_value=1000.0)
+    coord.zone_run_in_flight = Mock(return_value=False)
+    coord._credit_observed_watering = Mock()  # sync: records call args, no coroutine
+    coord._reads["v"] = 100.0
+    coord._observed_state_changed(_state_event("valve.x", old="closed", new="open"))
+    coord._reads["v"] = 108.0  # +8 L delivered
+    coord._observed_sample_flow(2, 15.0)
+    coord._observed_state_changed(_state_event("valve.x", old="open", new="closed"))
+    kwargs = coord._credit_observed_watering.call_args.kwargs
+    assert kwargs["sensor_present"] is True
+    assert kwargs["measured_l"] == pytest.approx(8.0)
