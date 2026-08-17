@@ -132,15 +132,27 @@ class ObservedWateringMixin:
                 return
             self._observed_on_since[zone_id] = dt_util.utcnow()
             _LOGGER.debug("Observed watering: zone %s valve opened (external)", zone_id)
+            # Flow-sensor zones: start measuring the external run's real flow so the
+            # close edge credits the MEASURED volume, not time × throughput (which a
+            # valve stuck reporting open inflates without bound).
+            zone = self.store.get_zone(zone_id) or {}
+            if zone.get(const.ZONE_FLOW_SENSOR):
+                self.hass.async_create_task(self._observed_start_flow_sampling(zone))
         elif old_on and not new_on:
             started = self._observed_on_since.pop(zone_id, None)
+            # Finalise the sampler BEFORE the started-None early return so an
+            # untracked close (SI-driven, or on-at-subscribe) can never leak an
+            # in-flight sampler. Returns (None, False) when there was none.
+            measured, sensor_present = self._observed_finish_flow(zone_id)
             if started is None:
                 # We weren't tracking this run (SI-driven, or it was already on
                 # when we subscribed).
                 return
             seconds = (dt_util.utcnow() - started).total_seconds()
             self.hass.async_create_task(
-                self._credit_observed_watering(zone_id, seconds)
+                self._credit_observed_watering(
+                    zone_id, seconds, measured_l=measured, sensor_present=sensor_present
+                )
             )
 
     # --- Measured-flow sampling (mirror of the self-closing sampler) --------

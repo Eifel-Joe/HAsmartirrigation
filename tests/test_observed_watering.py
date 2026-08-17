@@ -1,5 +1,6 @@
 """Observed watering extended to service/self-closing zones (Phase 1)."""
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -218,3 +219,36 @@ async def test_observed_finish_flow_per_run_midrun_reset_needs_polling():
     measured, present = coord._observed_finish_flow(2)
     assert present is True
     assert measured == pytest.approx(5.8)
+
+
+# --- Task 4: wire the open/close edges to the sampler ----------------------
+
+
+def _state_event(entity, old, new):
+    def _st(s):
+        return None if s is None else SimpleNamespace(state=s)
+
+    return SimpleNamespace(
+        data={"entity_id": entity, "old_state": _st(old), "new_state": _st(new)}
+    )
+
+
+async def test_open_edge_starts_sampler_for_flow_zone():
+    zone = {const.ZONE_ID: 2, const.ZONE_FLOW_SENSOR: "sensor.flow"}
+    coord = _obs_coord([])
+    coord._observed_zone_by_entity = {"valve.x": 2}
+    coord._si_driven_until = {}
+    coord.hass.loop.time = Mock(return_value=1000.0)  # real number for the SI check
+    coord.hass.async_create_task = lambda coro: asyncio.ensure_future(coro)
+    coord.zone_run_in_flight = Mock(return_value=False)
+    coord.store.get_zone = Mock(return_value=zone)
+    started = {"n": 0}
+
+    async def _fake_start(z):
+        started["n"] += 1
+
+    coord._observed_start_flow_sampling = _fake_start
+    coord._observed_state_changed(_state_event("valve.x", old="closed", new="open"))
+    await asyncio.sleep(0)  # let the scheduled task run
+    assert started["n"] == 1
+    assert coord._observed_on_since.get(2) is not None
