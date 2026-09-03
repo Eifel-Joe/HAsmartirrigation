@@ -66,7 +66,12 @@ describe("si-zone-history", () => {
   });
 
   it("renders the empty note and no table when the run log is empty", () => {
-    const el = makeEl({ id: 1, name: "Front", water_used_total: 0, run_log: [] });
+    const el = makeEl({
+      id: 1,
+      name: "Front",
+      water_used_total: 0,
+      run_log: [],
+    });
     const { text } = flatten(el.render());
     expect(text).toContain('class="weather-note"');
     expect(text).not.toContain('class="history-table"');
@@ -82,7 +87,8 @@ describe("si-zone-history", () => {
         { ts: 2000, result: "skipped", volume_l: 0, detail: "rain" },
       ],
     });
-    const chips = (flatten(el.render()).text.match(/history-chip/g) || []).length;
+    const chips = (flatten(el.render()).text.match(/history-chip/g) || [])
+      .length;
     expect(chips).toBe(2);
   });
 });
