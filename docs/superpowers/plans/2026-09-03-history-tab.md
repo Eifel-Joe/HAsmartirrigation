@@ -98,10 +98,13 @@ describe("si-zone-history", () => {
         { ts: 1000, result: "completed", volume_l: 12, detail: "" },
       ],
     });
-    const { text } = flatten(el.render());
+    const { text, values } = flatten(el.render());
     expect(text).toContain('class="history-usage"');
     expect(text).toContain('class="history-table"');
-    expect(text).toContain('class="history-chip history-completed"');
+    // The result token is interpolated, so flatten() appends it to `values`
+    // rather than inline in `text` (same convention as si-schedule-dialog.test.ts).
+    expect(text).toContain('class="history-chip history-');
+    expect(values).toContain("completed");
     expect(text).not.toContain('class="weather-note"');
   });
 
