@@ -443,7 +443,7 @@ function flatten(node: any): { text: string; values: any[] } {
 function makeView(zones: any[]) {
   const el: any = new SmartIrrigationViewHistory();
   el.hass = { language: "en" };
-  el.config = { units: "metric" };
+  el._config = { units: "metric" };
   el._zones = zones;
   return el;
 }
@@ -468,6 +468,15 @@ describe("view-history", () => {
     ]);
     el._selectedZoneId = 2;
     expect(el._effectiveZone().id).toBe(2);
+  });
+
+  it("falls back to the first zone when the selected zone no longer exists", () => {
+    const el = makeView([
+      { id: 1, name: "Front", run_log: [], water_used_total: 0 },
+      { id: 2, name: "Back", run_log: [], water_used_total: 0 },
+    ]);
+    el._selectedZoneId = 999; // a zone that was deleted
+    expect(el._effectiveZone().id).toBe(1);
   });
 
   it("shows the no-zones note when there are no zones", () => {
