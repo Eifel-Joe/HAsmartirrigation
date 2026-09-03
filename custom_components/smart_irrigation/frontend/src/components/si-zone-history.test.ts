@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { localize } from "../../localize/localize";
 
 // DOM-free shim, same as si-schedule-dialog.test.ts: define + instantiate the
 // LitElement subclass without a real registry, call render() and introspect
@@ -83,5 +84,15 @@ describe("si-zone-history", () => {
     });
     const chips = (flatten(el.render()).text.match(/history-chip/g) || []).length;
     expect(chips).toBe(2);
+  });
+});
+
+describe("history tab strings exist", () => {
+  it("has the tab title, selector label and no-zones note in English", () => {
+    expect(localize("panels.history.title", "en")).toBe("History");
+    expect(localize("panels.history.select_zone", "en")).toBe("Select zone");
+    expect(localize("panels.history.no_zones", "en")).toBe(
+      "No zones configured yet.",
+    );
   });
 });
