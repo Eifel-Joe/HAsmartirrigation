@@ -771,6 +771,124 @@ async def async_migrate_device_areas(hass: HomeAssistant) -> int:
     return len(moves)
 
 
+# The last release on the `smart_irrigation` domain. It announced the rename and
+# copied the four weather key slots into the storage file so the migration would
+# stop depending on the order the user removed things in. A pre-#120 install that
+# never ran it therefore has no staged credentials to fall back on -- which only
+# bites when the old config entry is gone as well, but that is precisely the case
+# that cannot be recovered afterwards.
+BRIDGE_VERSION = "v2026.09.06"
+
+
+def parse_version(value) -> tuple | None:
+    """``vYYYY.MM.NN`` as a comparable tuple, or ``None`` if it is not one.
+
+    Deliberately strict: anything that is not this project's scheme returns
+    ``None`` (unknown) rather than a best guess, because the answer is used to
+    decide what to tell a user about credentials they may have to re-enter.
+    """
+    if not isinstance(value, str):
+        return None
+    text = value.strip().lstrip("vV")
+    parts = text.split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        return tuple(int(part) for part in parts)
+    except ValueError:
+        return None
+
+
+def came_from_bridge(installed_version) -> bool | None:
+    """Whether the pre-#120 install had reached the bridge release.
+
+    ``True`` / ``False`` / ``None`` for "cannot tell", and the three are
+    genuinely different: an install whose version cannot be read is not the same
+    as one known to predate the bridge, and only the latter justifies telling a
+    user their API key was never staged.
+    """
+    installed = parse_version(installed_version)
+    if installed is None:
+        return None
+    return installed >= parse_version(BRIDGE_VERSION)
+
+
+def legacy_manifest_version(hass: HomeAssistant) -> str | None:
+    """The ``version`` recorded in the leftover pre-#120 manifest.
+
+    HACS writes the release tag into the manifest it installs and leaves the
+    whole directory behind on a domain change, so this is the most direct record
+    of the last version that actually ran -- more reliable than inferring it from
+    what the storage file happens to contain.
+    """
+    manifest = legacy_directory(hass) / "manifest.json"
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    version = data.get("version")
+    return version if isinstance(version, str) else None
+
+
+async def async_bridge_status(hass: HomeAssistant) -> dict:
+    """What the previous install was, and whether it had the bridge release.
+
+    ``{"legacy_version": str | None, "came_from_bridge": bool | None}``. Never
+    raises: this is reporting, and it is read by diagnostics.
+    """
+
+    def _read() -> dict:
+        version = legacy_manifest_version(hass)
+        return {
+            "legacy_version": version,
+            "came_from_bridge": came_from_bridge(version),
+        }
+
+    try:
+        return await hass.async_add_executor_job(_read)
+    except OSError as err:  # pragma: no cover - reporting must not fail setup
+        _LOGGER.debug("Could not read the previous install's version: %s", err)
+        return {"legacy_version": None, "came_from_bridge": None}
+
+
+async def async_report_bridge_status(hass: HomeAssistant) -> dict:
+    """Log what the migration is working from. Returns the status.
+
+    Says the useful thing in each case rather than one generic line: a user who
+    skipped the bridge needs to know their weather credentials were never staged
+    BEFORE they remove the old integration, because afterwards there is nothing
+    left to recover from.
+    """
+    status = await async_bridge_status(hass)
+    version, from_bridge = status["legacy_version"], status["came_from_bridge"]
+
+    if from_bridge is None:
+        _LOGGER.info(
+            "Could not read the previous installation's version, so it is not "
+            "known whether it included the %s preparation release. The migration "
+            "carries on regardless",
+            BRIDGE_VERSION,
+        )
+    elif from_bridge:
+        _LOGGER.info(
+            "The previous installation was %s, which includes the %s preparation "
+            "release, so the weather credentials were staged for this migration",
+            version,
+            BRIDGE_VERSION,
+        )
+    else:
+        _LOGGER.warning(
+            "The previous installation was %s, which predates the %s preparation "
+            "release, so no weather credentials were staged into the storage "
+            "file. They are still carried across from the old integration's "
+            "config entry -- so do NOT remove the old integration until this one "
+            "is working, or the API key goes with it",
+            version,
+            BRIDGE_VERSION,
+        )
+    return status
+
+
 def cleanup_is_safe(is_ours: bool, our_zone_count: int | None) -> bool:
     """Whether the leftover pre-#120 install may be removed for the user.
 

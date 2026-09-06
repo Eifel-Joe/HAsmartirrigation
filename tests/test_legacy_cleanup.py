@@ -15,11 +15,16 @@ import pytest
 
 from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.migrate_domain import (
+    BRIDGE_VERSION,
+    async_bridge_status,
     async_cleanup_is_safe,
     async_delete_legacy_directory,
     async_remove_legacy_entry,
+    async_report_bridge_status,
+    came_from_bridge,
     cleanup_is_safe,
     legacy_directory,
+    parse_version,
     storage_path,
 )
 from custom_components.irrigation_plus.repairs import LeftoverInstallRepairFlow
@@ -255,3 +260,108 @@ class TestTheRepairFlow:
         flow = self._flow(hass)
         result = await getattr(flow, f"async_step_{step}")(user_input={})
         assert result["type"] == "create_entry"
+
+
+class TestBridgeDetection:
+    """Did the install we are migrating from ever run the bridge release?
+
+    It decides what to tell a user about credentials, so "cannot tell" must stay
+    distinct from "no": only a KNOWN pre-bridge version justifies warning that
+    nothing was staged.
+    """
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("v2026.09.06", (2026, 9, 6)),
+            ("2026.09.06", (2026, 9, 6)),
+            ("v2026.10.00", (2026, 10, 0)),
+            ("V2026.09.06", (2026, 9, 6)),
+            ("  v2026.09.06  ", (2026, 9, 6)),
+        ],
+    )
+    def test_parses_the_scheme(self, value, expected):
+        assert parse_version(value) == expected
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "",
+            "latest",
+            "1.2",
+            "2026.09",
+            "v2026.09.06.1",
+            None,
+            20260906,
+            "vYYYY.MM.NN",
+            "2026.09.xx",
+        ],
+    )
+    def test_anything_else_is_unknown(self, value):
+        assert parse_version(value) is None
+
+    def test_the_bridge_itself_counts(self):
+        assert came_from_bridge("v2026.09.06") is True
+
+    def test_a_later_release_counts(self):
+        """The bridge was the last on the old domain, but be ordering-correct."""
+        assert came_from_bridge("v2026.09.07") is True
+        assert came_from_bridge("v2026.10.01") is True
+
+    @pytest.mark.parametrize("value", ["v2026.09.05", "v2026.08.18", "v2025.12.01"])
+    def test_earlier_releases_do_not(self, value):
+        assert came_from_bridge(value) is False
+
+    def test_an_unreadable_version_is_unknown_not_false(self):
+        assert came_from_bridge(None) is None
+        assert came_from_bridge("garbage") is None
+
+    async def test_reads_the_version_from_the_leftover_manifest(self, tmp_path):
+        hass = _hass(tmp_path)
+        _install(tmp_path, {**OUR_MANIFEST, "version": "v2026.09.06"})
+
+        status = await async_bridge_status(hass)
+
+        assert status == {"legacy_version": "v2026.09.06", "came_from_bridge": True}
+
+    async def test_a_pre_bridge_install_is_reported_as_such(self, tmp_path):
+        hass = _hass(tmp_path)
+        _install(tmp_path, {**OUR_MANIFEST, "version": "v2026.08.18"})
+
+        status = await async_bridge_status(hass)
+
+        assert status == {"legacy_version": "v2026.08.18", "came_from_bridge": False}
+
+    async def test_a_missing_directory_is_unknown(self, tmp_path):
+        assert await async_bridge_status(_hass(tmp_path)) == {
+            "legacy_version": None,
+            "came_from_bridge": None,
+        }
+
+    async def test_a_manifest_without_a_version_is_unknown(self, tmp_path):
+        hass = _hass(tmp_path)
+        _install(tmp_path, OUR_MANIFEST)  # no version key
+        assert (await async_bridge_status(hass))["came_from_bridge"] is None
+
+    async def test_the_warning_names_the_bridge_and_the_order(self, tmp_path, caplog):
+        """The warning is only actionable BEFORE the old integration is removed."""
+        hass = _hass(tmp_path)
+        _install(tmp_path, {**OUR_MANIFEST, "version": "v2026.08.18"})
+
+        with caplog.at_level("INFO"):
+            await async_report_bridge_status(hass)
+
+        text = caplog.text
+        assert BRIDGE_VERSION in text
+        assert "v2026.08.18" in text
+        assert "do NOT remove the old integration" in text
+
+    async def test_a_bridged_install_does_not_warn(self, tmp_path, caplog):
+        hass = _hass(tmp_path)
+        _install(tmp_path, {**OUR_MANIFEST, "version": "v2026.09.06"})
+
+        with caplog.at_level("INFO"):
+            await async_report_bridge_status(hass)
+
+        assert "do NOT remove" not in caplog.text
+        assert "staged for this migration" in caplog.text

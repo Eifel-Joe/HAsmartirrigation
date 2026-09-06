@@ -77,6 +77,7 @@ from .migrate_domain import (
     async_import_legacy_store,
     async_migrate_device_areas,
     async_migrate_history,
+    async_report_bridge_status,
     async_verify_import,
 )
 from .observed_watering import ObservedWateringMixin
@@ -180,6 +181,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # (#120). No-ops once we have storage of our own, and only runs when the
     # user accepted the offer in the config flow.
     if entry.data.get(const.CONF_MIGRATED_FROM_LEGACY):
+        # Say what we are migrating FROM before touching anything. A user who
+        # never installed the bridge release has no staged credentials, and the
+        # only moment that warning is actionable is before they remove the old
+        # integration (#120).
+        await async_report_bridge_status(hass)
         await async_import_legacy_store(hass)
 
     store = await async_get_registry(hass)

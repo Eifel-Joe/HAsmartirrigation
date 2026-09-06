@@ -97,6 +97,16 @@ async def async_get_config_entry_diagnostics(
     # caller did not hand us. Diagnostics is the support path: a dump that
     # raises leaves a user unable to file the issue at all, which is a worse
     # outcome than a dump missing one optional table.
+    # Which pre-#120 release this install migrated from, and therefore whether
+    # the weather credentials were ever staged. The first question on a
+    # "my API key is gone" report, and not answerable from anything else.
+    try:
+        from .migrate_domain import async_bridge_status
+
+        data["migrated_from"] = await async_bridge_status(hass)
+    except Exception as err:  # noqa: BLE001 - diagnostics must always produce a dump
+        _LOGGER.debug("Could not read the previous install's version: %s", err)
+
     try:
         from .migrate_domain import async_rename_report
 
