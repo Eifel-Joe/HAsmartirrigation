@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 
 beforeAll(() => {
   (globalThis as any).HTMLElement = class {};
@@ -80,5 +80,51 @@ describe("view-general: the sequencing card's batch note", () => {
   it("says the setting governs the other modes rather than promising it flatly", () => {
     const text = flatten(makeView([CLASSIC])._renderZoneSequencingCard());
     expect(text).toContain("classic, self-closing and OpenSprinkler zones");
+  });
+});
+
+describe("view-general: a failed zones fetch does not take the page down", () => {
+  it("still renders the settings, with the batch note simply absent", async () => {
+    // The zones are read only to decide whether the sequencing card mentions
+    // queue-driven zones. Joined into the same rejection as the config, a
+    // failure here would leave `config` unassigned and render the whole view as
+    // a load error -- a settings page lost to an advisory line.
+    const websockets = await import("../../data/websockets");
+    const config = { zone_sequencing: "rotating" };
+
+    vi.spyOn(websockets, "fetchConfig").mockResolvedValue(config as any);
+    vi.spyOn(websockets, "fetchWeatherConfig").mockResolvedValue({
+      use_weather_service: false,
+    } as any);
+    vi.spyOn(websockets, "fetchCoordinates").mockResolvedValue({} as any);
+    vi.spyOn(websockets, "fetchZones").mockRejectedValue(
+      new Error("zones unavailable"),
+    );
+
+    const el: any = new View();
+    el.hass = { language: "en" };
+    el.requestUpdate = () => {};
+    el._applyCoordinates = () => {};
+    // showErrorToast dispatches on the element, so a stub without this turns
+    // the load-error path into a TypeError and hides which failure occurred.
+    const toasts: string[] = [];
+    el.dispatchEvent = (event: any) => {
+      toasts.push(event?.detail?.message ?? String(event?.type));
+      return true;
+    };
+
+    await el._fetchData();
+
+    // The page loaded: the config landed and no load-error toast was raised.
+    expect(el.config).toBe(config);
+    expect(el._initialLoadDone).toBe(true);
+    expect(toasts).toEqual([]);
+    // And the only thing lost is the note.
+    expect(el._zones).toEqual([]);
+    const text = flatten(el._renderZoneSequencingCard());
+    expect(text).toContain("Zone Sequencing");
+    expect(text).not.toContain("Batch zones are not included");
+
+    vi.restoreAllMocks();
   });
 });

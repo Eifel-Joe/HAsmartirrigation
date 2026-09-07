@@ -178,7 +178,19 @@ export class SmartIrrigationViewGeneral extends SubscribeMixin(LitElement) {
           fetchConfig(this.hass),
           fetchWeatherConfig(this.hass),
           fetchCoordinates(this.hass),
-          fetchZones(this.hass),
+          // Settled separately rather than joined into the rejection above: the
+          // zones are read ONLY to decide whether the sequencing card mentions
+          // queue-driven zones, so a failure there must not take the settings
+          // page down with it. Falling back to none shows one advisory line
+          // fewer; rejecting would leave `config` unassigned and render the
+          // whole view as a load error.
+          fetchZones(this.hass).catch((error) => {
+            console.warn(
+              "Could not fetch zones for the sequencing note:",
+              error,
+            );
+            return [] as SmartIrrigationZone[];
+          }),
         ]);
       this.config = configResult;
       this._zones = zonesResult;
