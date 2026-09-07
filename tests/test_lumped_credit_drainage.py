@@ -212,6 +212,57 @@ def test_a_late_credit_is_drained_only_for_the_hours_it_was_there():
     assert new - old_bucket > 0.5
 
 
+def test_a_credit_that_overtops_the_bucket_is_clamped_and_the_spill_reported():
+    """The clamp that runs AFTER a credit, which no other case here reaches.
+
+    Every other credited case in this file lands the credit below field
+    capacity, so their ``min(..., MAXIMUM_BUCKET)`` is inert and their runoff is
+    zero either way. Delete the post-credit clamp and they all still pass: the
+    balance closes to ``bucket + delta - drainage - runoff`` whether the spill is
+    counted as runoff or left sitting in the bucket, so the conservation
+    assertion cannot see the difference. This drives a credit through the ceiling
+    and pins both halves of it -- the level the next segment opens at, and the
+    water the clamp took off.
+
+    A zone at field capacity that is credited a full run and then catches rain is
+    the ordinary way to get here: the runner clamps what it writes, so the stored
+    bucket sits at the maximum, and rewinding the credit leaves room that the
+    credit alone more than fills.
+    """
+    bucket, delta, credit, at = MAXIMUM_BUCKET, 2.0, 20.0, 6.0
+
+    new, drainage, runoff, segments = lumped_water_balance(
+        bucket,
+        delta,
+        [(at, credit)],
+        WINDOW,
+        DRAINAGE_RATE,
+        MAXIMUM_BUCKET,
+        MAXIMUM_BUCKET,
+    )
+
+    level_before = bucket - credit + delta
+    first = drained_over_window(level_before, DRAINAGE_RATE, at, MAXIMUM_BUCKET)
+    overtopped = level_before - first + credit
+    # The credit alone carries it through the ceiling, or this proves nothing.
+    assert overtopped > MAXIMUM_BUCKET
+    second = drained_over_window(
+        MAXIMUM_BUCKET, DRAINAGE_RATE, WINDOW - at, MAXIMUM_BUCKET
+    )
+
+    # The next segment opens AT the ceiling, never above it: a level above field
+    # capacity is not a state the zone can hold, and it is printed in the
+    # explanation the user reads.
+    assert segments[1].level_in == pytest.approx(MAXIMUM_BUCKET)
+    assert segments[0].level_out + segments[0].credit_mm > segments[1].level_in
+
+    assert runoff == pytest.approx(overtopped - MAXIMUM_BUCKET)
+    assert runoff > 0
+    assert drainage == pytest.approx(first + second)
+    assert new == pytest.approx(MAXIMUM_BUCKET - second)
+    assert new == pytest.approx(bucket + delta - drainage - runoff)
+
+
 def test_a_fractional_window_and_a_fractional_credit_time():
     """Nothing here arrives whole.
 
