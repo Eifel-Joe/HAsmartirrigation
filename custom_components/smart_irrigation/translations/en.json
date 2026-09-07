@@ -10,7 +10,7 @@
     "step": {
       "user": {
         "title": "General set up",
-        "description": "If you need help with the configuration, please see https://github.com/JustChr/HAsmartirrigation",
+        "description": "If you need help with the configuration, please refer to the integration documentation.",
         "data": {
           "name": "Unique name of the integration",
           "use_weather_service": "Use a weather service (Open-Meteo, Open Weather Map or Pirate Weather) for weather data or forecasting. Enable this option if you intent to use one of the supported weather services for at least part of the weather data, including forecasting. Disable this option if you want to use another source, such as your own weather station, exclusively. In this case, Smart Irrigation will not be able to use forecasts."
@@ -18,7 +18,7 @@
       },
       "step1": {
         "title": "Weather service API set up",
-        "description": "If you need help with the configuration, please see https://github.com/JustChr/HAsmartirrigation",
+        "description": "If you need help with the configuration, please refer to the integration documentation.",
         "data": {
           "weather_service": "Weather service to use",
           "weather_service_api_key": "API key for weather service (not required for Open-Meteo)",
@@ -35,14 +35,14 @@
     "step": {
       "init": {
         "title": "Weather service API set up",
-        "description": "If you need help with the configuration, please see https://github.com/JustChr/HAsmartirrigation",
+        "description": "If you need help with the configuration, please refer to the integration documentation.",
         "data": {
           "use_weather_service": "Use a weather service (Open-Meteo, Open Weather Map or Pirate Weather) for weather data or forecasting. Enable this option if you intent to use one of the supported weather services for at least part of the weather data, including forecasting. Disable this option if you want to use another source, such as your own weather station, exclusively. In this case, Smart Irrigation will not be able to use forecasts."
         }
       },
       "step1": {
         "title": "Weather service API set up",
-        "description": "If you need help with the configuration, please see https://github.com/JustChr/HAsmartirrigation",
+        "description": "If you need help with the configuration, please refer to the integration documentation.",
         "data": {
           "weather_service": "Weather service to use",
           "weather_service_api_key": "API key for weather service (not required for Open-Meteo)",
@@ -331,8 +331,8 @@
   },
   "issues": {
     "renamed_to_irrigation_plus": {
-      "title": "Smart Irrigation is becoming {new_name}",
-      "description": "This integration is being renamed to **{new_name}** and will move to the `{new_domain}` domain. This is the last release under the old name.\n\nThe reason is a collision: this project and the upstream one it was forked from both used `smart_irrigation`, install into the same folder and produce the same entity IDs, so only one of them could ever work on a given system.\n\nYour zones, schedules, history, statistics and weather API key are carried across automatically — **but the order matters**: add {new_name} *before* you remove this integration. Removing this one first deletes its stored data.\n\nNothing is required of you today. Read the guide before you update."
+      "title": "Renaming upstream: Smart Irrigation becomes {new_name}",
+      "description": "The line this fork builds on is being renamed to **{new_name}** and moves to the `{new_domain}` domain. The reason is a collision: this project and the original it was forked from both use the same domain.\n\n**Nothing to do for this build.** It deliberately stays on the domain it has; the move will be prepared and announced as its own step.\n\nDo **not** follow the linked guide here: it applies to JustChr's repository. On this fork the import does not recognise the existing installation, {new_name} would start empty — and removing this integration afterwards would lose your zones, schedules and history."
     }
   }
 }

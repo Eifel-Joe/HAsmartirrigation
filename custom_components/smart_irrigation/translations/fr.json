@@ -331,8 +331,8 @@
   },
   "issues": {
     "renamed_to_irrigation_plus": {
-      "title": "Smart Irrigation devient {new_name}",
-      "description": "Cette intégration est renommée en **{new_name}** et passe au domaine `{new_domain}`. C’est la dernière version sous l’ancien nom.\n\nLa raison est une collision : ce projet et celui dont il est issu utilisent tous deux `smart_irrigation`, s’installent dans le même dossier et produisent les mêmes identifiants d’entité — un seul des deux pouvait donc fonctionner sur un même système.\n\nVos zones, programmations, historique, statistiques et clé API météo sont repris automatiquement, **mais l’ordre compte** : ajoutez {new_name} *avant* de supprimer cette intégration. Supprimer celle-ci en premier efface ses données enregistrées.\n\nRien ne vous est demandé aujourd’hui. Lisez le guide avant de mettre à jour."
+      "title": "Renommage chez JustChr : Smart Irrigation devient {new_name}",
+      "description": "La ligne sur laquelle repose ce fork est renommée en **{new_name}** et passe au domaine `{new_domain}`. La raison est une collision : ce projet et l'original dont il est issu utilisent le même domaine.\n\n**Rien à faire pour cette version.** Elle reste volontairement sur le domaine actuel ; le changement sera préparé et annoncé comme une étape distincte.\n\nNe suivez **pas** le guide lié ici : il concerne le dépôt de JustChr. Sur ce fork, l'import ne reconnaît pas l'installation existante, {new_name} démarrerait vide — et supprimer ensuite cette intégration ferait perdre zones, programmations et historique."
     }
   }
 }

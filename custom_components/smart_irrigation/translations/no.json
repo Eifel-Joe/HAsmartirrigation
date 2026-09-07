@@ -331,8 +331,8 @@
   },
   "issues": {
     "renamed_to_irrigation_plus": {
-      "title": "Smart Irrigation blir {new_name}",
-      "description": "Denne integrasjonen bytter navn til **{new_name}** og flytter til domenet `{new_domain}`. Dette er den siste versjonen under det gamle navnet.\n\nÅrsaken er en kollisjon: dette prosjektet og prosjektet det ble forket fra bruker begge `smart_irrigation`, installeres i samme mappe og lager de samme enhets-ID-ene — bare ett av dem kunne fungere på samme system.\n\nSoner, tidsplaner, historikk, statistikk og vær-API-nøkkelen følger med automatisk, **men rekkefølgen betyr noe**: legg til {new_name} *før* du fjerner denne integrasjonen. Fjerner du denne først, slettes de lagrede dataene.\n\nDu trenger ikke gjøre noe i dag. Les veiledningen før du oppdaterer."
+      "title": "Navneendring hos JustChr: Smart Irrigation blir {new_name}",
+      "description": "Linjen denne forken bygger på får nytt navn, **{new_name}**, og flytter til domenet `{new_domain}`. Årsaken er en kollisjon: dette prosjektet og originalen det ble forket fra bruker samme domene.\n\n**Det er ingenting å gjøre for denne byggen.** Den blir bevisst værende på dagens domene; flyttingen forberedes og varsles som et eget steg.\n\nFølg **ikke** den lenkede veiledningen her: den gjelder JustChrs repositorium. På denne forken gjenkjenner ikke importen den eksisterende installasjonen, {new_name} ville startet tom — og fjerner du denne integrasjonen etterpå, mister du soner, tidsplaner og historikk."
     }
   }
 }

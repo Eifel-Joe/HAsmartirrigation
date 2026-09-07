@@ -331,8 +331,8 @@
   },
   "issues": {
     "renamed_to_irrigation_plus": {
-      "title": "Zo Smart Irrigation sa stáva {new_name}",
-      "description": "Táto integrácia sa premenováva na **{new_name}** a presúvame ju do domény `{new_domain}`. Toto je posledná verzia pod starým názvom.\n\nDôvodom je kolízia: tento projekt aj projekt, z ktorého vznikol, používajú `smart_irrigation`, inštalujú sa do rovnakého priečinka a vytvárajú rovnaké ID entít — na jednom systéme teda mohol fungovať vždy len jeden z nich.\n\nZóny, harmonogramy, história, štatistiky aj API kľúč k počasiu sa prenesú automaticky, **ale záleží na poradí**: {new_name} pridaj *skôr*, než odstrániš túto integráciu. Ak najprv odstrániš túto, jej uložené údaje sa zmažú.\n\nDnes nemusíš robiť nič. Pred aktualizáciou si prečítaj návod."
+      "title": "Premenovanie u JustChr: zo Smart Irrigation sa stáva {new_name}",
+      "description": "Vetva, na ktorej je tento fork postavený, sa premenúva na **{new_name}** a presúva sa na doménu `{new_domain}`. Dôvodom je kolízia: tento projekt aj pôvodný, z ktorého vznikol, používajú tú istú doménu.\n\n**Pri tomto builde nie je čo robiť.** Zámerne zostáva na doterajšej doméne; prechod sa pripraví a oznámi ako samostatný krok.\n\nNepostupuj podľa priloženého návodu: platí pre repozitár JustChr. V tomto forku import nerozpozná existujúcu inštaláciu, {new_name} by sa spustila prázdna — a ak by si potom túto integráciu odstránil, prišiel by si o zóny, plány aj históriu."
     }
   }
 }
