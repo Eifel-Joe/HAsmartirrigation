@@ -171,3 +171,24 @@ class TestImportedStoreIsReadable:
 
         assert await async_import_legacy_store(hass) is True
         assert storage_path(hass).is_file()
+
+    @pytest.mark.asyncio
+    async def test_the_import_survives_a_manager_that_changed_shape(
+        self, tmp_path, monkeypatch
+    ):
+        """The name being present does not promise the method still is.
+
+        The ImportError guard covers `STORAGE_MANAGER` disappearing. This covers
+        the manager keeping the name and losing the method -- the same failure
+        mode as `DeviceEntry.identifiers`, which was typed as a pair, was not
+        enforced, and crashed setup on the first registry that disagreed.
+        """
+        hass = _hass(tmp_path)
+        legacy_storage_path(hass).write_text(
+            json.dumps(LEGACY_DOCUMENT), encoding="utf-8"
+        )
+        await _start_home_assistant(hass)
+        hass.data[ha_storage.STORAGE_MANAGER] = SimpleNamespace()  # no async_invalidate
+
+        assert await async_import_legacy_store(hass) is True
+        assert storage_path(hass).is_file()

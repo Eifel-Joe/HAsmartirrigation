@@ -352,8 +352,17 @@ def _async_forget_cached_absence(hass: HomeAssistant) -> None:
         _LOGGER.debug("No storage manager to invalidate")
         return
     manager = hass.data.get(STORAGE_MANAGER)
-    if manager is not None:
+    if manager is None:
+        return
+    try:
         manager.async_invalidate(storage_path(hass).name)
+    except AttributeError as err:
+        # The import guard above covers the name being gone; this covers its
+        # SHAPE changing, which is the failure that actually bit this project:
+        # `DeviceEntry.identifiers` was typed as a pair, was not enforced, and
+        # crashed setup on a HomeKit bridge. An undocumented cache deserves the
+        # same suspicion as an unenforced annotation.
+        _LOGGER.debug("Storage manager has no async_invalidate: %s", err)
 
 
 def _replaces_an_empty_store(dst: Path, src: Path) -> bool:
