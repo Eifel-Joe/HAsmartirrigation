@@ -33,9 +33,15 @@ from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 
 from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.calcmodules.pyeto import SOLRAD_behavior
-from custom_components.irrigation_plus.calculation import zone_module_models_weather
+from custom_components.irrigation_plus.calculation import (
+    hourly_calculation_enabled,
+    zone_module_models_weather,
+)
 from custom_components.irrigation_plus.live_estimate import (
+    REASON_FAILED,
     REASON_NEVER_CALCULATED,
+    REASON_NO_BUCKET,
+    REASON_NO_COORDINATES,
     REASON_NO_ET_SOURCE,
     REASON_NOT_COMPUTED,
 )
@@ -438,3 +444,71 @@ class TestTheSensorPublishesTheReason:
         await c.async_get_zone_estimates()
 
         assert zone_id not in c._zone_estimate_reasons
+
+
+class TestThePremiseTheChangeRestsOn:
+    """The whole argument is that the switch does not decide the equation.
+
+    Everything else here would still pass if the commit quietly summed hourly ETo
+    for an estimated-solar zone, because the estimate would simply be mirroring a
+    different thing consistently. This is the assertion that makes the mirror
+    meaningful, and it has to be made with the switch ON, where the commit's
+    hourly gate is actually reached.
+    """
+
+    async def test_the_hourly_form_declines_on_the_solar_check_with_the_switch_on(
+        self, coordinator
+    ):
+        c, store = coordinator
+        await store.async_update_config({const.CONF_HOURLY_CALCULATION: True})
+        zone, _module, _instance = await _estimating_zone(c, store, 2.0)
+        modinst = await c.getModuleInstanceByID(zone[const.ZONE_MODULE])
+
+        # The switch is on, so the first gate passes and the refusal below can
+        # only be the solar-behavior check.
+        assert hourly_calculation_enabled(store) is True
+        assert c._hourly_et_for_zone(zone, modinst, now=WINDOW_END) is None
+
+
+class TestTheRemainingReasons:
+    """The reason strings are published as an interface, so each one is driven.
+
+    Three of them are reachable only through a malformed or half-built zone,
+    which is exactly the state a reader of the attribute is trying to diagnose.
+    """
+
+    async def test_a_site_with_no_coordinates_says_so(self, coordinator):
+        c, store = coordinator
+        zone, module, instance = await _estimating_zone(c, store, 2.0)
+        c._effective_latitude = None
+        c._effective_longitude = None
+        inputs = _estimating_inputs(instance, module)
+        inputs["client"] = None
+
+        est = c._intraday_for_zone(zone, inputs)
+
+        assert est["available"] is False
+        assert est["unavailable_reason"] == REASON_NO_COORDINATES
+
+    async def test_a_zone_with_no_bucket_says_so(self, coordinator):
+        c, store = coordinator
+        zone, module, instance = await _estimating_zone(c, store, 2.0)
+        zone = dict(zone)
+        zone[const.ZONE_BUCKET] = None
+
+        est = c._intraday_for_zone(zone, _estimating_inputs(instance, module))
+
+        assert est["available"] is False
+        assert est["unavailable_reason"] == REASON_NO_BUCKET
+
+    async def test_a_reduction_that_raises_says_so(self, coordinator):
+        """The estimate swallows exceptions by design, so without this the
+        attribute would read as an answer while the reduction was failing."""
+        c, store = coordinator
+        zone, module, instance = await _estimating_zone(c, store, 2.0)
+        c._aggregate_live_window = Mock(side_effect=RuntimeError("boom"))
+
+        est = c._intraday_for_zone(zone, _estimating_inputs(instance, module))
+
+        assert est["available"] is False
+        assert est["unavailable_reason"] == REASON_FAILED
