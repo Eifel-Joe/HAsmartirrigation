@@ -744,6 +744,15 @@ class SmartIrrigationZoneLiveDeficitSensor(SmartIrrigationZoneChildSensor):
         except (KeyError, AttributeError, TypeError):
             return {}
 
+    def _unavailable_reason(self):
+        """Why this zone has no estimate, or None while it has one."""
+        try:
+            coordinator = self._hass.data[const.DOMAIN]["coordinator"]
+            reasons = coordinator._zone_estimate_reasons or {}  # noqa: SLF001
+            return reasons.get(str(self._zone_id))
+        except (KeyError, AttributeError, TypeError):
+            return None
+
     @property
     def native_unit_of_measurement(self) -> str:
         """Estimates are reported in the display unit system."""
@@ -783,6 +792,13 @@ class SmartIrrigationZoneLiveDeficitSensor(SmartIrrigationZoneChildSensor):
             # three on the temperature range they supply, so the live figure
             # alone never says which one produced it.
             "forecast_tier": est.get("forecast_tier"),
+            # Why this sensor has no value, for the zones that have none: which
+            # of the preconditions is missing, rather than an empty state and a
+            # guess. None whenever there is a value. An operator who turned
+            # live-estimate watering on and sees nothing has no other way to
+            # tell a zone that has never been calculated from one whose sensor
+            # group cannot price a window.
+            "unavailable_reason": self._unavailable_reason(),
         }
 
 

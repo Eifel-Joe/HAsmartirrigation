@@ -54,6 +54,7 @@ from .calculation import (
     pending_bucket_events,
     replayed_balance_applies,
     trailing_temperature_amplitude,
+    zone_module_models_weather,
 )
 from .day_projection import (
     TIER_OBSERVED,
@@ -84,6 +85,19 @@ _LOGGER = logging.getLogger(__name__)
 # the hour) and every refresh writes an entity state, so a shorter floor buys
 # nothing and costs recorder rows.
 LIVE_ESTIMATE_MIN_REFRESH_SECONDS = 60
+
+# Why a zone has no live estimate. Stable machine-readable strings: they are
+# published as an entity attribute and an operator's template will match on them,
+# so they are part of the interface and not log copy. Ordered as the estimate
+# reaches them.
+REASON_NO_COORDINATES = "no_site_coordinates"
+REASON_NO_BUCKET = "no_stored_bucket"
+REASON_NEVER_CALCULATED = "never_calculated"
+REASON_NO_ET_SOURCE = "no_evapotranspiration_source"
+REASON_FAILED = "estimate_failed"
+# The estimate has not run for this zone yet -- a fresh coordinator, before the
+# first refresh cycle. Distinct from every reason above, which are answers.
+REASON_NOT_COMPUTED = "not_computed_yet"
 
 
 class _HourlyCarry(NamedTuple):
@@ -463,10 +477,19 @@ class LiveEstimateMixin:
 
         Forecast days are excluded: with them the commit averages today with days
         that need a projection of their own, which is a separate construction.
+
+        Reads the module half of ``replayed_balance_applies`` and not the whole
+        predicate. That predicate's ``hourlycalculation`` half decides the balance
+        FORM, and the commit runs this same daily equation whether the switch is
+        on or off; asking it here refused the mirror to every shipped-default
+        install, since the switch ships off. Such a zone now gets its commit's own
+        evapotranspiration together with the lumped balance the commit also uses.
+        The balance form is still gated by the full predicate, at its own call
+        site, so the two axes mirror the commit independently.
         """
         if modinst is None:
             return False
-        if not replayed_balance_applies(self.store, zone):
+        if not zone_module_models_weather(self.store, zone):
             return False
         if str(getattr(modinst, "_solrad_behavior", "")) == str(
             SOLRAD_behavior.DontEstimate.value
@@ -686,6 +709,30 @@ class LiveEstimateMixin:
             carry = self._hourly_carry_by_zone = {}
         return carry
 
+    def _estimate_reasons(self) -> dict:
+        """Why each zone WITHOUT an estimate has none, created on first use.
+
+        Kept apart from ``_zone_estimates_cache`` so the payload the panel and the
+        runner read still contains only zones that carry a number. Lazy for the
+        reason the carry above is: the mixin is instantiated on its own in its
+        tests, where anything the coordinator's ``__init__`` set is absent.
+        """
+        reasons = getattr(self, "_zone_estimate_reasons", None)
+        if reasons is None:
+            reasons = self._zone_estimate_reasons = {}
+        return reasons
+
+    def _estimate_warned(self) -> dict:
+        """The reason each zone was last WARNED about, created on first use.
+
+        Not the same set as the record above: the warning is gated on
+        ``live_estimate_enabled`` and the record is not.
+        """
+        warned = getattr(self, "_zone_estimate_warned", None)
+        if warned is None:
+            warned = self._zone_estimate_warned = {}
+        return warned
+
     def invalidate_live_estimate_carry(self, mapping_id=None) -> None:
         """Drop the completed-hour ETo carry after the buffer under it changed.
 
@@ -755,6 +802,12 @@ class LiveEstimateMixin:
             # tiers differ by a factor of three on the input they supply, so a
             # figure alone never says which one produced it.
             "forecast_tier": None,
+            # Why there is no estimate, for the zones that get none. Every exit
+            # below sets one, so an operator who turned ``live_estimate_enabled``
+            # on and sees an empty sensor is told which precondition is missing
+            # instead of being left to guess between six of them. None once an
+            # estimate is produced.
+            "unavailable_reason": REASON_NOT_COMPUTED,
         }
         try:
             client = inputs["client"]
@@ -771,9 +824,11 @@ class LiveEstimateMixin:
                 elevation = getattr(client, "elevation", 0)
             elevation = elevation or 0
             if lat is None or lon is None:
+                result["unavailable_reason"] = REASON_NO_COORDINATES
                 return result
             bucket = zone.get(const.ZONE_BUCKET)
             if bucket is None:
+                result["unavailable_reason"] = REASON_NO_BUCKET
                 return result
             max_bucket = zone.get(const.ZONE_MAXIMUM_BUCKET)
             metric = self.hass.config.units is METRIC_SYSTEM
@@ -798,6 +853,7 @@ class LiveEstimateMixin:
             # showing a whole-day estimate would be misleading (and looks like a
             # shared, un-anchored value). Offer no estimate until the first calc.
             if last_calc is None:
+                result["unavailable_reason"] = REASON_NEVER_CALCULATED
                 return result
             # ONE anchor for both halves of the balance, but not earlier than the
             # consume watermark. The two are equal in normal operation; a weather
@@ -891,11 +947,13 @@ class LiveEstimateMixin:
             else:
                 forecast = inputs["forecast"]
                 if not forecast:
+                    result["unavailable_reason"] = REASON_NO_ET_SOURCE
                     return result
                 day0 = forecast[0]
                 tmin = day0.get(const.MAPPING_MIN_TEMP)
                 tmax = day0.get(const.MAPPING_MAX_TEMP)
                 if tmin is None or tmax is None:
+                    result["unavailable_reason"] = REASON_NO_ET_SOURCE
                     return result
                 local = now_local
                 tz = tz_offset_h
@@ -1037,9 +1095,11 @@ class LiveEstimateMixin:
                 as_of=as_of,
                 balance_form="replayed" if steps is not None else "lumped",
                 forecast_tier=forecast_tier,
+                unavailable_reason=None,
             )
         except Exception as e:  # noqa: BLE001 — estimate must never raise
             _LOGGER.debug("intraday estimate failed for a zone: %s", e)
+            result["unavailable_reason"] = REASON_FAILED
         return result
 
     @staticmethod
@@ -1065,15 +1125,51 @@ class LiveEstimateMixin:
         return zone_run_duration(zone, deficit, metric)
 
     async def async_get_zone_estimates(self) -> dict:
-        """Return ``{zone_id: estimate}`` for every zone with an available value."""
+        """Return ``{zone_id: estimate}`` for every zone with an available value.
+
+        Zones without one are left out, so the panel outlook and the runner still
+        see only zones that carry a number. Their reason is recorded separately in
+        ``_zone_estimate_reasons``, where the live-deficit sensor publishes it.
+        """
         inputs = await self._fetch_intraday_inputs()
         zones = await self.store.async_get_zones()
         inputs["modules"] = await self._resolve_zone_modules(zones)
-        out = {}
+        live_gate = getattr(self.store.config, "live_estimate_enabled", False) is True
+        out, reasons = {}, {}
         for zone in zones:
+            zone_id = str(zone.get(const.ZONE_ID))
             est = self._intraday_for_zone(zone, inputs)
             if est["available"]:
-                out[str(zone.get(const.ZONE_ID))] = est
+                out[zone_id] = est
+                continue
+            reason = est["unavailable_reason"]
+            reasons[zone_id] = reason
+            # Warned rather than debugged, and only under the gate that makes it
+            # matter: with live-estimate watering ON, a zone with no estimate is
+            # watered from the last commit's frozen duration instead, which is a
+            # silently different run from the one the operator turned the feature
+            # on to get. Once per zone per reason -- this loop runs every minute.
+            #
+            # Deduped against what was WARNED, not against what was recorded: a
+            # reason first recorded while the gate was off would otherwise
+            # swallow the one warning the operator needs, at the moment they
+            # turn the feature on.
+            if live_gate and self._estimate_warned().get(zone_id) != reason:
+                self._estimate_warned()[zone_id] = reason
+                _LOGGER.warning(
+                    "Live-estimate watering is on, but zone %s has no live "
+                    "estimate (%s); its runs are sized from the last "
+                    "calculation instead",
+                    zone_id,
+                    reason,
+                )
+        self._estimate_reasons().clear()
+        self._estimate_reasons().update(reasons)
+        # A zone that recovers is dropped, so the next time it goes quiet it is
+        # announced again rather than staying silent on a stale match.
+        warned = self._estimate_warned()
+        for zone_id in [z for z in warned if z not in reasons]:
+            warned.pop(zone_id)
         return out
 
     async def async_refresh_zone_estimates(self) -> dict:
