@@ -51,6 +51,7 @@ from homeassistant.util.unit_system import METRIC_SYSTEM
 from . import const
 from .calcmodules.pyeto import SOLRAD_behavior
 from .calculation import (
+    hourly_calculation_enabled,
     pending_bucket_events,
     replayed_balance_applies,
     trailing_temperature_amplitude,
@@ -369,7 +370,13 @@ class LiveEstimateMixin:
         estimates it already had, which is why the check is here rather than in
         ``_intraday_for_zone``.
         """
-        if not replayed_balance_applies(self.store, zone):
+        # The two conditions ``_hourly_et_for_zone`` gates on, in its own wording.
+        # Equal to ``replayed_balance_applies`` today, and deliberately not read
+        # through it: that predicate answers the BALANCE FORM, and a third
+        # condition added to it would silently move this source gate with it.
+        if not hourly_calculation_enabled(self.store):
+            return False
+        if not zone_module_models_weather(self.store, zone):
             return False
         module = self.store.get_module(zone.get(const.ZONE_MODULE))
         config = module.get(const.MODULE_CONFIG) or {}

@@ -26,6 +26,7 @@ from .distributor_entity import (
     zone_on_outlet,
 )
 from .entity import zone_device_info
+from .live_estimate import REASON_NOT_COMPUTED
 from .performance import async_timer
 
 _LOGGER = logging.getLogger(__name__)
@@ -745,13 +746,21 @@ class SmartIrrigationZoneLiveDeficitSensor(SmartIrrigationZoneChildSensor):
             return {}
 
     def _unavailable_reason(self):
-        """Why this zone has no estimate, or None while it has one."""
+        """Why this zone has no estimate, or None while it has one.
+
+        A zone in neither the cache nor the reasons reads ``not_computed_yet``
+        rather than None: after a restart the sensors render before the first
+        refresh cycle has run, and None there would tell an operator a value
+        exists at the one moment they are most likely to look.
+        """
+        if self._estimate():
+            return None
         try:
             coordinator = self._hass.data[const.DOMAIN]["coordinator"]
             reasons = coordinator._zone_estimate_reasons or {}  # noqa: SLF001
-            return reasons.get(str(self._zone_id))
         except (KeyError, AttributeError, TypeError):
-            return None
+            reasons = {}
+        return reasons.get(str(self._zone_id), REASON_NOT_COMPUTED)
 
     @property
     def native_unit_of_measurement(self) -> str:

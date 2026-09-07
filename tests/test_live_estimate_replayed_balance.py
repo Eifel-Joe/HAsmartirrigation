@@ -103,19 +103,27 @@ def _readings(rain_at=None):
     return readings
 
 
-@pytest.fixture
-async def coordinator(hass):
-    """A real coordinator over a real in-memory store, hourly form opted in."""
+async def make_coordinator(hass, *, hourly_calculation=True, units=METRIC_SYSTEM):
+    """A real coordinator over a real in-memory store.
+
+    Shared with the sibling module that varies ``hourly_calculation``: the site
+    pinning below is what makes the commit's window and the estimate's window
+    comparable at all, so a copy of it that missed a later field would leave both
+    modules green while comparing different things.
+    """
     hass.data[const.DOMAIN] = {
         const.CONF_USE_WEATHER_SERVICE: False,
         const.CONF_WEATHER_SERVICE: None,
     }
-    hass.config.units = METRIC_SYSTEM
+    hass.config.units = units
     hass.config.language = "en"
     store = SmartIrrigationStorage(hass)
     await store.async_load()
     await store.async_update_config(
-        {const.CONF_CONTINUOUS_UPDATES: True, const.CONF_HOURLY_CALCULATION: True}
+        {
+            const.CONF_CONTINUOUS_UPDATES: True,
+            const.CONF_HOURLY_CALCULATION: hourly_calculation,
+        }
     )
     entry = Mock()
     entry.unique_id = "t"
@@ -129,6 +137,12 @@ async def coordinator(hass):
     c._effective_longitude = LON
     c._effective_elevation = ELEV
     return c, store
+
+
+@pytest.fixture
+async def coordinator(hass):
+    """A real coordinator over a real in-memory store, hourly form opted in."""
+    return await make_coordinator(hass)
 
 
 async def _zone(

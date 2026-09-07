@@ -27,20 +27,21 @@ the two paths had drifted.
 
 from unittest.mock import Mock
 
+import attr
 import pytest
-from homeassistant.util.unit_system import METRIC_SYSTEM
+from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 
-from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
+from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.calcmodules.pyeto import SOLRAD_behavior
 from custom_components.irrigation_plus.live_estimate import (
     REASON_NEVER_CALCULATED,
     REASON_NO_ET_SOURCE,
+    REASON_NOT_COMPUTED,
 )
-from custom_components.irrigation_plus.store import SmartIrrigationStorage
+from custom_components.irrigation_plus.sensor import (
+    SmartIrrigationZoneLiveDeficitSensor,
+)
 from tests.test_live_estimate_replayed_balance import (
-    ELEV,
-    LAT,
-    LON,
     WINDOW_END,
     _committed,
     _estimating_inputs,
@@ -48,40 +49,26 @@ from tests.test_live_estimate_replayed_balance import (
     _hourly_forecast,
     _inputs,
     _zone,
+    make_coordinator,
 )
 
 
 @pytest.fixture
 async def coordinator(hass):
-    """A real coordinator over a real in-memory store, hourly form left OFF.
+    """The shipped default: the hourly form left OFF.
 
-    The sibling module's fixture opts the hourly form IN, which is the one thing
-    every case here has to vary, so this is its own fixture rather than an import
-    the cases would immediately override.
+    The sibling module's fixture opts it in, which is the one thing every case
+    here varies, so this calls the shared builder rather than copying it.
     """
-    hass.data[const.DOMAIN] = {
-        const.CONF_USE_WEATHER_SERVICE: False,
-        const.CONF_WEATHER_SERVICE: None,
-    }
-    hass.config.units = METRIC_SYSTEM
-    hass.config.language = "en"
-    store = SmartIrrigationStorage(hass)
-    await store.async_load()
-    await store.async_update_config(
-        {const.CONF_CONTINUOUS_UPDATES: True, const.CONF_HOURLY_CALCULATION: False}
+    return await make_coordinator(hass, hourly_calculation=False)
+
+
+@pytest.fixture
+async def imperial(hass):
+    """The same install on inches, where the depth fields are stored in inches."""
+    return await make_coordinator(
+        hass, hourly_calculation=False, units=US_CUSTOMARY_SYSTEM
     )
-    entry = Mock()
-    entry.unique_id = "t"
-    entry.data = {}
-    entry.options = {}
-    c = SmartIrrigationCoordinator(hass, None, entry, store)
-    c.store = store
-    # Both halves resolve the site from these, so pinning them here is what makes
-    # the two priced windows comparable at all.
-    c._effective_latitude = LAT
-    c._effective_longitude = LON
-    c._effective_elevation = ELEV
-    return c, store
 
 
 class TestTheMirrorAppliesWithTheSwitchOff:
@@ -186,13 +173,41 @@ class TestTheStoredBucketIsUntouched:
             c, store, 2.0, rain_at={20: 14.0}
         )
 
+        before = attr.asdict(store.zones[zone[const.ZONE_ID]])
+
         est = c._intraday_for_zone(zone, _estimating_inputs(instance, module))
-        booked = est["precip_since"]
+        # The commit's OWN precipitation total, not the estimate's: the sub-step
+        # gate refuses a window whose rain does not reconcile, so feeding it the
+        # estimate's figure would answer a question about the estimate.
+        weatherdata, _ = await c._aggregate_for_zone(zone, now=WINDOW_END)
+        booked = weatherdata.get(const.MAPPING_PRECIPITATION) or 0.0
         commit_replays = c._substeps_for_zone(zone, booked, now=WINDOW_END) is not None
 
         assert est["available"] is True
         assert (est["balance_form"] == "replayed") is commit_replays
         assert commit_replays is hourly_calculation
+        # The estimate is read-only, and the widened source gate does not change
+        # that. Nothing about the zone moved.
+        assert attr.asdict(store.zones[zone[const.ZONE_ID]]) == before
+
+    async def test_the_commit_still_runs_the_daily_form_and_lumps(self, coordinator):
+        """The blast radius the switch guards, stated at the commit itself.
+
+        Both of the commit's own gates are asked directly: no summed-hourly ET,
+        no sub-stepped balance. That is what a switch-off install had before the
+        source gate widened, and it is what it has after.
+        """
+        c, store = coordinator
+        zone, module, instance = await _estimating_zone(
+            c, store, 2.0, rain_at={20: 14.0}
+        )
+
+        modinst = await c.getModuleInstanceByID(zone[const.ZONE_MODULE])
+        weatherdata, _ = await c._aggregate_for_zone(zone, now=WINDOW_END)
+        booked = weatherdata.get(const.MAPPING_PRECIPITATION) or 0.0
+
+        assert c._hourly_et_for_zone(zone, modinst, now=WINDOW_END) is None
+        assert c._substeps_for_zone(zone, booked, now=WINDOW_END) is None
 
 
 class TestAZoneWithNoEstimateSaysWhy:
@@ -283,3 +298,121 @@ def _returns(value):
         return dict(value) if isinstance(value, dict) else value
 
     return _fetch
+
+
+class TestTheImperialInstall:
+    """The population this change serves is every shipped-default install, and
+    the depth fields on half of them are stored in inches. The estimate converts
+    to millimetres for the maths and back before publishing, so a unit bug here
+    reads as a plausible number rather than as an error."""
+
+    async def test_the_live_bucket_lands_on_the_committed_bucket(self, imperial):
+        c, store = imperial
+        zone, module, instance = await _estimating_zone(
+            c, store, 0.08, rain_at={20: 14.0}
+        )
+
+        est = c._intraday_for_zone(
+            zone, _estimating_inputs(instance, module, forecast=_hourly_forecast())
+        )
+        data = await _committed(c, zone, now=WINDOW_END)
+
+        assert est["method"] == "daily_mirror"
+        assert est["live_deficit"] == pytest.approx(
+            round(data[const.ZONE_BUCKET], 3), abs=0.001
+        )
+
+
+class TestTheConditionsThatStillRefuseTheMirror:
+    """Widening the gate changed WHO reaches the checks below it. They were
+    unreachable on a switch-off install before, so they are pinned here."""
+
+    async def test_forecast_days_still_refuse_it(self, coordinator):
+        """With forecast days the commit averages today with days that need a
+        projection of their own, which is a construction this does not have."""
+        c, store = coordinator
+        zone, module, instance = await _estimating_zone(
+            c, store, 2.0, rain_at={20: 14.0}
+        )
+        instance.forecast_days = 2
+
+        assert c._daily_form_applies(zone, instance) is False
+
+    async def test_a_module_instance_that_never_resolved_refuses_it(self, coordinator):
+        c, store = coordinator
+        zone, _module, _instance = await _estimating_zone(c, store, 2.0)
+
+        assert c._daily_form_applies(zone, None) is False
+
+
+class TestTheSensorPublishesTheReason:
+    """The user-visible half. An operator reads this off the entity, not the log."""
+
+    async def test_a_zone_with_no_estimate_yet_says_so(self, coordinator):
+        """What every zone reads immediately after a restart, before the first
+        refresh cycle. None there would say a value exists."""
+        c, store = coordinator
+        zone = await _zone(c, store, 2.0, solrad=SOLRAD_behavior.DontEstimate.value)
+        c.hass.data[const.DOMAIN]["coordinator"] = c
+
+        sensor = SmartIrrigationZoneLiveDeficitSensor(
+            c.hass, "sensor.ip_live_deficit", zone
+        )
+
+        assert sensor.native_value is None
+        assert (
+            sensor.extra_state_attributes["unavailable_reason"] == REASON_NOT_COMPUTED
+        )
+
+    async def test_a_zone_that_declined_publishes_the_reason_it_declined_for(
+        self, coordinator
+    ):
+        c, store = coordinator
+        zone = await _zone(c, store, 2.0, solrad=SOLRAD_behavior.DontEstimate.value)
+        c.hass.data[const.DOMAIN]["coordinator"] = c
+        c._fetch_intraday_inputs = _returns(_inputs())
+        c._resolve_zone_modules = _returns({})
+        await c.async_get_zone_estimates()
+
+        sensor = SmartIrrigationZoneLiveDeficitSensor(
+            c.hass, "sensor.ip_live_deficit", zone
+        )
+
+        assert (
+            sensor.extra_state_attributes["unavailable_reason"] == REASON_NO_ET_SOURCE
+        )
+
+    async def test_a_zone_with_a_value_publishes_no_reason(self, coordinator):
+        c, store = coordinator
+        zone, module, instance = await _estimating_zone(c, store, 2.0)
+        c.hass.data[const.DOMAIN]["coordinator"] = c
+        c._zone_estimates_cache = {
+            str(zone[const.ZONE_ID]): c._intraday_for_zone(
+                zone, _estimating_inputs(instance, module)
+            )
+        }
+
+        sensor = SmartIrrigationZoneLiveDeficitSensor(
+            c.hass, "sensor.ip_live_deficit", zone
+        )
+
+        assert sensor.native_value is not None
+        assert sensor.extra_state_attributes["unavailable_reason"] is None
+
+    async def test_the_reasons_are_rebuilt_each_cycle_not_accumulated(
+        self, coordinator
+    ):
+        """A zone that stops declining stops publishing a stale diagnosis."""
+        c, store = coordinator
+        zone = await _zone(c, store, 2.0, solrad=SOLRAD_behavior.DontEstimate.value)
+        zone_id = str(zone[const.ZONE_ID])
+        c._fetch_intraday_inputs = _returns(_inputs())
+        c._resolve_zone_modules = _returns({})
+
+        await c.async_get_zone_estimates()
+        assert c._zone_estimate_reasons[zone_id] == REASON_NO_ET_SOURCE
+
+        await store.async_delete_zone(zone[const.ZONE_ID])
+        await c.async_get_zone_estimates()
+
+        assert zone_id not in c._zone_estimate_reasons
