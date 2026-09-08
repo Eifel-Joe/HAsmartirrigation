@@ -580,3 +580,84 @@ class TestAcknowledgementPersistence:
         await async_acknowledge_rename_report(hass)
         assert await async_rename_report_acknowledged(hass) is True
         assert data["entity_id_map"] == {"sensor.old": "sensor.new"}
+
+
+class TestRepairTextsNameTheWateringHazard:
+    """A leftover install is two schedulers on one set of valves, not two sensors.
+
+    Every rename repair described the consequence of the old integration still
+    being loaded as "two of every sensor". The HA-Test rehearsal on 2026-09-08
+    showed what it actually is: both integrations hold the same schedules and
+    point at the same valve entities, the distributor single-flight claim
+    (`distributor.py`) and the master refcount (`master.py`) are per-coordinator
+    in-memory sets, and nothing in the watering path ever asks whether the other
+    domain is running. All sixteen next-irrigation sensors read the same second.
+
+    A user told "duplicate sensors" leaves the old install running for days,
+    which is the one thing they must not do -- overlapping runs credit both
+    buckets in full while the plants get a fraction, and that reads as "watered"
+    afterwards with nothing in the log to say otherwise.
+
+    Pinned per language rather than in English only, because the maintainer's own
+    install is German: an English-only fix here is invisible to the person most
+    likely to notice it is wrong.
+    """
+
+    # Stem of each language's word for watering/irrigation, lower-cased.
+    _WATERING = {
+        "de": "bewässer",
+        "en": "water",
+        "es": "rieg",
+        "fr": "arros",
+        # Not "irrig": that stem is inside the product name "Irrigation Plus".
+        "it": "irrigazion",
+        "nl": "water",
+        "no": "vann",
+        "sk": "zavla",
+    }
+
+    _CATALOGUES = Path(__file__).resolve().parents[1] / (
+        "custom_components/irrigation_plus/translations"
+    )
+
+    def _catalogue(self, lang):
+        return json.loads(
+            (self._CATALOGUES / f"{lang}.json").read_text(encoding="utf-8")
+        )
+
+    def _cleanup_step(self, lang, step):
+        issues = self._catalogue(lang)["issues"]
+        flow = issues["leftover_legacy_directory_removable"]["fix_flow"]["step"]
+        return flow[step]["description"].lower()
+
+    @pytest.mark.parametrize("lang", sorted(_WATERING))
+    def test_the_cleanup_repair_says_the_old_install_still_waters(self, lang):
+        assert self._WATERING[lang] in self._cleanup_step(lang, "confirm"), (
+            f"{lang}.json still describes a leftover install as duplicate "
+            "entities only; it also runs its own schedules on the same valves"
+        )
+
+    @pytest.mark.parametrize("lang", sorted(_WATERING))
+    def test_the_standing_notice_says_it_too(self, lang):
+        text = self._catalogue(lang)["issues"]["leftover_legacy_directory"][
+            "description"
+        ].lower()
+        assert (
+            self._WATERING[lang] in text
+        ), f"{lang}.json's standing leftover notice warns about sensors only"
+
+    @pytest.mark.parametrize("lang", sorted(_WATERING))
+    def test_the_done_step_explains_what_the_restart_actually_fixes(self, lang):
+        """The old integration never unregisters its services.
+
+        Verified on HA-Test: after the repair removed the config entry AND the
+        folder, all 24 `smart_irrigation.*` names were still registered, bound to
+        a torn-down coordinator. The alias cannot take a name that is taken, so
+        until the restart those names are dead rather than forwarded. "The
+        duplicate entities disappear" made the restart sound cosmetic.
+        """
+        text = self._cleanup_step(lang, "done")
+        assert f"{const.LEGACY_DOMAIN}." in text, (
+            f"{lang}.json's done step does not mention the {const.LEGACY_DOMAIN}.* "
+            "service names, which are dead until the restart it is asking for"
+        )
