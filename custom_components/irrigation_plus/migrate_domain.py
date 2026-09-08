@@ -42,8 +42,23 @@ from . import const
 
 _LOGGER = logging.getLogger(__name__)
 
-# Identifies a pre-#120 manifest as belonging to THIS fork rather than upstream.
+# Identifies a pre-#120 manifest as belonging to THIS project's line rather than
+# the upstream it was forked from.
+#
+# A downstream fork re-badges `documentation` and `codeowners` to its own
+# account, so matching a single marker makes such an install read as FOREIGN and
+# every path that protects it turns itself off: the import step is never offered
+# (config_flow), the dead Lovelace card resource is never removed (panel), the
+# `smart_irrigation.*` service aliases are never registered (legacy_services),
+# and the cleanup repair refuses to delete the old directory (repairs). The
+# installation is then migrated as if it belonged to someone else — which, for
+# its owner, means not migrated at all.
+#
+# Matching a LIST keeps the protection that actually matters: an install from
+# the ORIGINAL project carries neither marker, so it is still recognised as
+# foreign and left alone. Only the badge changes, not the test's purpose.
 _OUR_MARKER = "justchr"
+_FORK_MARKERS = (_OUR_MARKER, "eifel-joe")
 
 # Every slot a weather credential can occupy. This restates
 # `rename_notice._API_KEY_SLOTS` from the bridge release (v2026.09.06), which is
@@ -275,7 +290,8 @@ def legacy_install_is_ours(hass: HomeAssistant) -> bool:
         return True
     documentation = str(data.get("documentation", ""))
     codeowners = " ".join(data.get("codeowners") or [])
-    return _OUR_MARKER in f"{documentation} {codeowners}".lower()
+    haystack = f"{documentation} {codeowners}".lower()
+    return any(marker in haystack for marker in _FORK_MARKERS)
 
 
 def legacy_install_present(hass: HomeAssistant) -> bool:

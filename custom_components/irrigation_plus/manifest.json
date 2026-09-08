@@ -5,19 +5,19 @@
     "recorder"
   ],
   "codeowners": [
-    "@JustChr"
+    "@Eifel-Joe"
   ],
   "config_flow": true,
   "dependencies": [
     "http",
     "panel_custom"
   ],
-  "documentation": "https://github.com/JustChr/HAsmartirrigation",
+  "documentation": "https://github.com/Eifel-Joe/HAsmartirrigation",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/JustChr/HAsmartirrigation/issues",
+  "issue_tracker": "https://github.com/Eifel-Joe/HAsmartirrigation/issues",
   "requirements": [
     "aiofiles",
     "python-dateutil"
   ],
-  "version": "v2026.09.10"
+  "version": "v2026.09.11"
 }

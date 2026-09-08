@@ -1,12 +1,27 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
 [![release][release-badge]][release-url]
 
-[release-url]: https://github.com/JustChr/HAsmartirrigation/releases
-[release-badge]: https://img.shields.io/github/v/release/JustChr/HAsmartirrigation?style=flat-square
+[release-url]: https://github.com/Eifel-Joe/HAsmartirrigation/releases
+[release-badge]: https://img.shields.io/github/v/release/Eifel-Joe/HAsmartirrigation?style=flat-square
 
 # Irrigation Plus — Maintained Community Fork
 
 ![](logo.png?raw=true)
+
+> **Heads-up — this is a personal build of [JustChr/HAsmartirrigation](https://github.com/JustChr/HAsmartirrigation).**
+> The base is JustChr's **v2026.09.10**, the release that renamed the integration
+> from `smart_irrigation` to **Irrigation Plus** (`irrigation_plus`, see
+> [#120](https://github.com/JustChr/HAsmartirrigation/issues/120)). Every feature this
+> fork pioneered has been merged upstream, so what is left on top of that base is this
+> fork's Eifel-Joe branding plus **one functional patch**: `migrate_domain` matches a
+> LIST of fork markers rather than a single one, so an installation carrying this
+> fork's badge is recognised as its own and actually gets migrated. Without it the
+> import step is never offered and the old Lovelace card resource is never cleaned up.
+> That patch is offered upstream; once it lands the delta is branding again.
+>
+> You can switch back to JustChr at any time with no data loss and nothing to leave
+> behind. This fork stays a staging ground where new experiments are tried before they
+> are offered upstream.
 
 This is an actively maintained community fork of [jeroenterheerdt/HAsmartirrigation](https://github.com/jeroenterheerdt/HAsmartirrigation), which has been stale since late 2025. It ships all the original functionality plus a growing set of bug fixes and improvements — see [What's been fixed and improved](#whats-been-fixed-and-improved) below.
 

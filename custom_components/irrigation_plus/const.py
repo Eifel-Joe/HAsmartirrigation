@@ -5,7 +5,7 @@ class SmartIrrigationError(Exception):
     """Exception raised for errors in the Irrigation Plus integration."""
 
 
-VERSION = "v2026.09.10"
+VERSION = "v2026.09.11"
 NAME = "Irrigation Plus"
 MANUFACTURER = "@JustChr"
 
@@ -406,10 +406,12 @@ LEGACY_ALIAS_URL = f"{CARD_STATIC_ROOT}/{PANEL_SLUG}-card-legacy.js"
 # so the flows pass this in as {docs}. Restated from manifest.json's
 # "documentation" because a manifest read at flow time would be a blocking call on
 # the event loop; test_manifest_documentation_matches_const pins the two together.
-DOCUMENTATION_URL = "https://github.com/JustChr/HAsmartirrigation"
+DOCUMENTATION_URL = "https://github.com/Eifel-Joe/HAsmartirrigation"
 
 
-MIGRATION_GUIDE_URL = "https://justchr.github.io/HAsmartirrigation/installation-rename"
+MIGRATION_GUIDE_URL = (
+    "https://eifel-joe.github.io/HAsmartirrigation/installation-rename"
+)
 
 ATTR_REMOVE = "remove"
 ATTR_CALCULATE = "calculate"

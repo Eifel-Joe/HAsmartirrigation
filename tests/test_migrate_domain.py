@@ -246,6 +246,29 @@ class TestLegacyOwnership:
         )
         assert legacy_install_is_ours(_hass(tmp_path)) is True
 
+    def test_a_rebranded_downstream_fork_is_recognised(self, tmp_path):
+        """A fork of this line re-badges the manifest to its own account.
+
+        Matching one marker made such an install read as foreign, which turns
+        off every path that exists to protect it — the import step, the card
+        resource cleanup, the service aliases and the cleanup repair. Pinned
+        because the marker list looks redundant next to the single constant it
+        replaced, and deleting it is silent: the suite stays green and only a
+        downstream install notices, by not being migrated.
+        """
+        from custom_components.irrigation_plus.migrate_domain import (
+            legacy_install_is_ours,
+        )
+
+        self._write_manifest(
+            tmp_path,
+            {
+                "documentation": "https://github.com/Eifel-Joe/HAsmartirrigation",
+                "codeowners": ["@Eifel-Joe"],
+            },
+        )
+        assert legacy_install_is_ours(_hass(tmp_path)) is True
+
     def test_upstreams_install_is_refused(self, tmp_path):
         from custom_components.irrigation_plus.migrate_domain import (
             legacy_install_is_ours,
