@@ -31,6 +31,10 @@
         "data": {
           "migrated_from_legacy": "Importa la mia configurazione Smart Irrigation esistente"
         }
+      },
+      "credentials": {
+        "title": "Reinserisci la tua chiave API meteo",
+        "description": "È stato importato tutto: zone, bucket, programmazioni e cronologia ci sono.\n\nUna cosa non è passata — la tua chiave API **{service}**. Si trovava nella voce di configurazione di Smart Irrigation, già rimossa quando questa importazione è stata eseguita, quindi non c'era più da nessuna parte da cui leggerla.\n\nGli aggiornamenti meteo restano disattivati finché non la reinserisci. Vai su **Configurazione → Servizio meteo**, reinserisci la chiave e tutto riprende."
       }
     }
   },

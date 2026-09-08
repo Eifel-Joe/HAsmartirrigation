@@ -31,6 +31,10 @@
         "data": {
           "migrated_from_legacy": "Import my existing Smart Irrigation configuration"
         }
+      },
+      "credentials": {
+        "title": "Re-enter your weather API key",
+        "description": "Everything imported: your zones, buckets, schedules and history are all here.\n\nOne thing did not come across — your **{service}** API key. It lived in the Smart Irrigation config entry, which was already gone by the time this import ran, so there was nowhere left to read it from.\n\nWeather updates stay switched off until you put it back. Go to **Setup → Weather service**, re-enter the key, and everything resumes."
       }
     }
   },

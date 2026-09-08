@@ -31,6 +31,10 @@
         "data": {
           "migrated_from_legacy": "Importer ma configuration Smart Irrigation existante"
         }
+      },
+      "credentials": {
+        "title": "Saisissez à nouveau votre clé d'API météo",
+        "description": "Tout a été importé : vos zones, réservoirs, programmations et historique sont bien là.\n\nUne seule chose n'a pas suivi — votre clé d'API **{service}**. Elle se trouvait dans l'entrée de configuration de Smart Irrigation, déjà supprimée au moment de cet import, donc il n'y avait plus nulle part où la lire.\n\nLes mises à jour météo restent désactivées tant que vous ne l'avez pas remise. Allez dans **Configuration → Service météo**, saisissez à nouveau la clé, et tout reprend."
       }
     }
   },

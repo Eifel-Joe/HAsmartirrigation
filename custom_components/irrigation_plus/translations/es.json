@@ -31,6 +31,10 @@
         "data": {
           "migrated_from_legacy": "Importar mi configuración de Smart Irrigation"
         }
+      },
+      "credentials": {
+        "title": "Vuelva a introducir su clave de API meteorológica",
+        "description": "Todo se ha importado: sus zonas, depósitos, programaciones e historial están aquí.\n\nUna cosa no se ha traído — su clave de API de **{service}**. Estaba en la entrada de configuración de Smart Irrigation, que ya no existía cuando se ejecutó esta importación, así que no quedaba de dónde leerla.\n\nLas actualizaciones meteorológicas seguirán desactivadas hasta que la reponga. Vaya a **Configuración → Servicio meteorológico**, introduzca la clave de nuevo y todo se reanudará."
       }
     }
   },

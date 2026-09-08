@@ -31,6 +31,10 @@
         "data": {
           "migrated_from_legacy": "Importovať moju existujúcu konfiguráciu Smart Irrigation"
         }
+      },
+      "credentials": {
+        "title": "Znova zadajte svoj API kľúč pre počasie",
+        "description": "Všetko sa importovalo: vaše zóny, zásobníky, plány aj história sú tu.\n\nJedno sa neprenieslo — váš API kľúč **{service}**. Bol v konfiguračnom zázname Smart Irrigation, ktorý už v čase tohto importu neexistoval, takže nebolo odkiaľ ho prečítať.\n\nAktualizácie počasia zostanú vypnuté, kým ho nedoplníte. Prejdite na **Nastavenie → Služba počasia**, zadajte kľúč znova a všetko bude pokračovať."
       }
     }
   },

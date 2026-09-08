@@ -70,8 +70,16 @@ class TestMigrateStep:
         assert created["data"][const.CONF_USE_WEATHER_SERVICE] is True
         assert created["data"][const.CONF_MIGRATED_FROM_LEGACY] is True
 
-    async def test_falls_back_to_the_key_the_bridge_staged(self, tmp_path):
-        """Entry already removed, storage file left behind with the staged key."""
+    async def test_a_leftover_storage_file_supplies_no_credentials(self, tmp_path):
+        """Entry already removed. The key is gone, and the flow says so (#128).
+
+        This used to assert the opposite -- that the bridge release's staged
+        copy was read back out of the storage file. It passed because the
+        fixture wrote those keys by hand, which no release ever did: the store
+        filters every write against `attr.fields_dict(Config)` and `Config` has
+        no credential attribute, so the staging wrote nothing on every install.
+        The fixture agreed with the annotation instead of with the code.
+        """
         hass = _hass(tmp_path)
         legacy_storage_path(hass).write_text(
             json.dumps(
@@ -81,7 +89,7 @@ class TestMigrateStep:
                         "config": {
                             const.CONF_USE_WEATHER_SERVICE: True,
                             const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_PW,
-                            const.CONF_PW_API_KEY: "staged-by-the-bridge",
+                            const.CONF_PW_API_KEY: "never-actually-written",
                         }
                     },
                 }
@@ -90,12 +98,20 @@ class TestMigrateStep:
         )
         flow, created = _flow(hass)
 
-        await flow.async_step_migrate({const.CONF_MIGRATED_FROM_LEGACY: True})
+        result = await flow.async_step_migrate({const.CONF_MIGRATED_FROM_LEGACY: True})
 
-        assert created["data"][const.CONF_PW_API_KEY] == "staged-by-the-bridge"
-        # Not left switched off by the setdefault below it, which is what makes
-        # the recovered key actually reach a weather client.
-        assert created["data"][const.CONF_USE_WEATHER_SERVICE] is True
+        # Nothing was created yet -- the user is told first, and told WHICH
+        # provider, which the store can still answer even though the entry
+        # that held the key is gone.
+        assert created == {}
+        assert result["step_id"] == "credentials"
+        assert (
+            result["description_placeholders"]["service"]
+            == const.CONF_WEATHER_SERVICE_PW
+        )
+
+        await flow.async_step_credentials({})
+        assert const.CONF_PW_API_KEY not in created["data"]
 
     async def test_nothing_recoverable_still_creates_a_usable_entry(self, tmp_path):
         """A pre-bridge install with its entry gone: empty, but weather off, not broken."""
@@ -118,3 +134,66 @@ class TestMigrateStep:
 
         assert created == {}
         assert result["step_id"] == "user"
+
+
+class TestCredentialsStep:
+    """The migration tells the user about the key it could not carry (#128).
+
+    Without this the first evidence is weather quietly not updating, days
+    later, on an install where everything else imported perfectly.
+    """
+
+    async def test_warns_and_names_the_service_then_still_creates_the_entry(
+        self, tmp_path
+    ):
+        entry = SimpleNamespace(
+            entry_id="legacy1",
+            data={},
+            options={
+                const.CONF_USE_WEATHER_SERVICE: True,
+                const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_OWM,
+            },
+        )
+        flow, created = _flow(_hass(tmp_path, [entry]))
+
+        result = await flow.async_step_migrate({const.CONF_MIGRATED_FROM_LEGACY: True})
+        assert result["step_id"] == "credentials"
+        assert (
+            result["description_placeholders"]["service"]
+            == const.CONF_WEATHER_SERVICE_OWM
+        )
+
+        # Informational only: acknowledging it creates the entry, with
+        # everything that DID import intact.
+        await flow.async_step_credentials({})
+        assert created["data"][const.CONF_MIGRATED_FROM_LEGACY] is True
+        assert created["data"][const.CONF_WEATHER_SERVICE] == (
+            const.CONF_WEATHER_SERVICE_OWM
+        )
+
+    async def test_no_warning_when_the_key_came_across(self, tmp_path):
+        entry = SimpleNamespace(
+            entry_id="legacy1",
+            data={},
+            options={
+                const.CONF_USE_WEATHER_SERVICE: True,
+                const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_OWM,
+                const.CONF_OWM_API_KEY: "carried",
+            },
+        )
+        flow, created = _flow(_hass(tmp_path, [entry]))
+
+        await flow.async_step_migrate({const.CONF_MIGRATED_FROM_LEGACY: True})
+
+        assert created["data"][const.CONF_OWM_API_KEY] == "carried"
+
+    async def test_no_warning_for_an_install_that_used_no_weather_service(
+        self, tmp_path
+    ):
+        # The commonest shape of "nothing recoverable" is also the one with
+        # nothing to recover. A warning here trains the user to skip them.
+        flow, created = _flow(_hass(tmp_path))
+
+        await flow.async_step_migrate({const.CONF_MIGRATED_FROM_LEGACY: True})
+
+        assert created["data"][const.CONF_USE_WEATHER_SERVICE] is False
