@@ -307,18 +307,23 @@ class TestLegacyOwnership:
         assert legacy_install_is_ours(_hass(tmp_path)) is True
 
     def test_this_repository_derives_exactly_the_upstream_marker(self):
-        """The widening must be a no-op for upstream itself.
+        """The marker set must match THIS build's identity, whichever it is.
 
-        The marker set is now read from this build's own manifest instead of a
-        constant, so for this repository it has to come back as the one value
-        the constant used to hold. If it ever does not, "widening" has quietly
-        changed who upstream counts as its own.
+        FORK DELTA -- upstream's copy of this test asserts ``("justchr",)``,
+        because there the derived set has to equal the value the old constant
+        held on its own. Here the manifest says ``@Eifel-Joe``, so the set is
+        both names: the fork's own, plus the upstream marker that a pre-rename
+        release of this lineage still carries in its manifest.
+
+        Deliberately left under the same name as upstream's so the next merge
+        conflicts on it rather than silently taking one side. If this ever comes
+        back as ``("justchr",)`` here, the branding has been lost.
         """
         from custom_components.irrigation_plus.migrate_domain import (
             our_owner_markers,
         )
 
-        assert our_owner_markers() == ("justchr",)
+        assert our_owner_markers() == ("eifel-joe", "justchr")
 
     def test_a_rebranded_fork_recognises_its_own_previous_release(self):
         """The case the hard-coded marker got wrong.
