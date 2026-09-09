@@ -247,29 +247,6 @@ class TestLegacyOwnership:
         )
         assert legacy_install_is_ours(_hass(tmp_path)) is True
 
-    def test_a_rebranded_downstream_fork_is_recognised(self, tmp_path):
-        """A fork of this line re-badges the manifest to its own account.
-
-        Matching one marker made such an install read as foreign, which turns
-        off every path that exists to protect it — the import step, the card
-        resource cleanup, the service aliases and the cleanup repair. Pinned
-        because the marker list looks redundant next to the single constant it
-        replaced, and deleting it is silent: the suite stays green and only a
-        downstream install notices, by not being migrated.
-        """
-        from custom_components.irrigation_plus.migrate_domain import (
-            legacy_install_is_ours,
-        )
-
-        self._write_manifest(
-            tmp_path,
-            {
-                "documentation": "https://github.com/Eifel-Joe/HAsmartirrigation",
-                "codeowners": ["@Eifel-Joe"],
-            },
-        )
-        assert legacy_install_is_ours(_hass(tmp_path)) is True
-
     def test_upstreams_install_is_refused(self, tmp_path):
         from custom_components.irrigation_plus.migrate_domain import (
             legacy_install_is_ours,
@@ -307,17 +284,17 @@ class TestLegacyOwnership:
         assert legacy_install_is_ours(_hass(tmp_path)) is True
 
     def test_this_repository_derives_exactly_the_upstream_marker(self):
-        """The marker set must match THIS build's identity, whichever it is.
+        """The widening must be a no-op for upstream itself.
 
-        FORK DELTA -- upstream's copy of this test asserts ``("justchr",)``,
-        because there the derived set has to equal the value the old constant
-        held on its own. Here the manifest says ``@Eifel-Joe``, so the set is
-        both names: the fork's own, plus the upstream marker that a pre-rename
-        release of this lineage still carries in its manifest.
+        FORK DELTA -- upstream's copy asserts ``("justchr",)``, because there
+        the derived set has to equal the value the old constant held on its own.
+        Here the manifest says ``@Eifel-Joe``, so the set is both names: this
+        fork's own, plus the upstream marker a pre-rename release of this
+        lineage still carries.
 
-        Deliberately left under the same name as upstream's so the next merge
-        conflicts on it rather than silently taking one side. If this ever comes
-        back as ``("justchr",)`` here, the branding has been lost.
+        Deliberately left under upstream's test name so the next merge conflicts
+        on it rather than silently taking one side. If this ever comes back as
+        ``("justchr",)`` here, the branding has been lost.
         """
         from custom_components.irrigation_plus.migrate_domain import (
             our_owner_markers,
@@ -374,6 +351,50 @@ class TestLegacyOwnership:
                 "codeowners": ["@altmenorg", "@jeroenterheerdt"],
             },
             markers,
+        )
+
+    @pytest.mark.parametrize("owner", ["org", "alt", "ha", "hub", "git", "smart"])
+    def test_a_short_fork_owner_does_not_inherit_upstreams_url(self, owner):
+        """The cost of deriving the markers, had the match stayed a substring.
+
+        `@org` is a substring of `https://altmenorg.github.io/HAsmartirrigation/`,
+        which is the documentation style upstream actually uses -- so a fork
+        owned by any of these names would have answered True on altmenorg's
+        install and offered to migrate an integration that is still running.
+        The marker set became fork-supplied in #132; the match has to be exact
+        for that widening to cost nothing, which is what this pins.
+        """
+        from custom_components.irrigation_plus.migrate_domain import (
+            manifest_is_ours,
+            plan_owner_markers,
+        )
+
+        markers = plan_owner_markers([f"@{owner}"])
+        assert owner in markers
+        assert not manifest_is_ours(
+            {
+                "documentation": "https://altmenorg.github.io/HAsmartirrigation/",
+                "codeowners": ["@altmenorg", "@jeroenterheerdt"],
+            },
+            markers,
+        )
+
+    def test_a_hyphenated_owner_is_still_found_in_its_own_url(self):
+        """The exact match must not be an over-correction.
+
+        GitHub allows hyphens in owner names, so a token split on every
+        non-alphanumeric character would turn `eifel-joe` into two tokens and
+        the fork's own documentation URL would stop naming it -- reintroducing
+        exactly the bug #132 fixed, from the other side.
+        """
+        from custom_components.irrigation_plus.migrate_domain import (
+            manifest_is_ours,
+            plan_owner_markers,
+        )
+
+        assert manifest_is_ours(
+            {"documentation": "https://github.com/Eifel-Joe/HAsmartirrigation"},
+            plan_owner_markers(["@Eifel-Joe"]),
         )
 
 

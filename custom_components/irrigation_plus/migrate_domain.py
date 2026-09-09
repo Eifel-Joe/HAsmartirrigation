@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 from functools import lru_cache
 from pathlib import Path
@@ -321,10 +322,10 @@ def plan_owner_markers(codeowners) -> tuple:
     here that altered who UPSTREAM counts as its own would be a regression
     wearing the clothes of a fix.
 
-    Note the matching stays a substring test, as it was: `documentation` is a
-    URL and has to be. A fork whose owner name is a substring of another
-    project's is therefore matching loosely -- but it is the fork's own manifest
-    that decides, which is the same trust boundary as before.
+    The matching is an EXACT one, which the hard-coded constant did not need to
+    be: see :func:`manifest_owner_tokens`. Once a fork's own manifest can widen
+    this set, a substring test against the raw manifest text hands short owner
+    names a match on upstream's documentation URL.
     """
     owners = {_UPSTREAM_MARKER}
     for owner in codeowners or []:
@@ -353,16 +354,45 @@ def our_owner_markers() -> tuple:
     return plan_owner_markers(data.get("codeowners"))
 
 
+def manifest_owner_tokens(data) -> frozenset:
+    """Every name a manifest can be said to belong to, lower-cased. Pure.
+
+    Split rather than searched, because the markers stopped being a constant
+    (#132): they now include whatever a fork's own manifest declares, and a
+    substring test against the raw text let a short fork owner match text that
+    was never about them. ``@org`` matches upstream's
+    ``https://altmenorg.github.io/HAsmartirrigation/`` -- so a fork owned by
+    ``@org``, ``@alt`` or ``@ha`` would have claimed altmenorg's install as its
+    own and offered to migrate it. That is the one gate this predicate exists
+    for, and widening the marker set must not spend it.
+
+    Split on the URL's own separators only. Splitting on every non-alphanumeric
+    character would break the hyphenated owner names GitHub allows: ``eifel-joe``
+    would become ``eifel`` + ``joe`` and the fork's own documentation URL would
+    stop naming it.
+    """
+    tokens = set()
+    documentation = str((data or {}).get("documentation", ""))
+    for part in re.split(r"[/:\s]+", documentation.lower()):
+        if part:
+            tokens.add(part)
+    for owner in (data or {}).get("codeowners") or []:
+        cleaned = str(owner).lstrip("@").strip().lower()
+        if cleaned:
+            tokens.add(cleaned)
+    return frozenset(tokens)
+
+
 def manifest_is_ours(data, markers) -> bool:
     """Whether a manifest document names any of ``markers``.
 
     Pure, so the ownership decision can be exercised for a fork's configuration
     without writing that fork's manifest to disk first.
+
+    An exact match against :func:`manifest_owner_tokens` -- see there for why a
+    substring test is not safe now that the markers are fork-supplied.
     """
-    documentation = str((data or {}).get("documentation", ""))
-    codeowners = " ".join((data or {}).get("codeowners") or [])
-    haystack = f"{documentation} {codeowners}".lower()
-    return any(marker in haystack for marker in markers)
+    return bool(manifest_owner_tokens(data) & set(markers))
 
 
 def legacy_install_present(hass: HomeAssistant) -> bool:
