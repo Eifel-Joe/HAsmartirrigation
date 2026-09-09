@@ -348,6 +348,50 @@ class TestLegacyOwnership:
             markers,
         )
 
+    @pytest.mark.parametrize("owner", ["org", "alt", "ha", "hub", "git", "smart"])
+    def test_a_short_fork_owner_does_not_inherit_upstreams_url(self, owner):
+        """The cost of deriving the markers, had the match stayed a substring.
+
+        `@org` is a substring of `https://altmenorg.github.io/HAsmartirrigation/`,
+        which is the documentation style upstream actually uses -- so a fork
+        owned by any of these names would have answered True on altmenorg's
+        install and offered to migrate an integration that is still running.
+        The marker set became fork-supplied in #132; the match has to be exact
+        for that widening to cost nothing, which is what this pins.
+        """
+        from custom_components.irrigation_plus.migrate_domain import (
+            manifest_is_ours,
+            plan_owner_markers,
+        )
+
+        markers = plan_owner_markers([f"@{owner}"])
+        assert owner in markers
+        assert not manifest_is_ours(
+            {
+                "documentation": "https://altmenorg.github.io/HAsmartirrigation/",
+                "codeowners": ["@altmenorg", "@jeroenterheerdt"],
+            },
+            markers,
+        )
+
+    def test_a_hyphenated_owner_is_still_found_in_its_own_url(self):
+        """The exact match must not be an over-correction.
+
+        GitHub allows hyphens in owner names, so a token split on every
+        non-alphanumeric character would turn `eifel-joe` into two tokens and
+        the fork's own documentation URL would stop naming it -- reintroducing
+        exactly the bug #132 fixed, from the other side.
+        """
+        from custom_components.irrigation_plus.migrate_domain import (
+            manifest_is_ours,
+            plan_owner_markers,
+        )
+
+        assert manifest_is_ours(
+            {"documentation": "https://github.com/Eifel-Joe/HAsmartirrigation"},
+            plan_owner_markers(["@Eifel-Joe"]),
+        )
+
 
 def _write_legacy_store(hass, config):
     """A legacy storage file whose `data.config` holds `config`."""
