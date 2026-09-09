@@ -27,7 +27,7 @@
       },
       "migrate": {
         "title": "Neem je bestaande installatie over",
-        "description": "Er is een bestaande Smart Irrigation-installatie gevonden. Irrigation Plus kan de configuratie overnemen: zones, buckets, schema's, beregeningsgeschiedenis en weerinstellingen, inclusief je API-sleutel.\n\nBelangrijk: verwijder de oude Smart Irrigation-integratie pas nadat dit is afgerond. Verwijder je die eerder, dan gaat de opgeslagen API-sleutel definitief verloren.",
+        "description": "Er is een bestaande Smart Irrigation-installatie gevonden. Irrigation Plus kan de configuratie overnemen: zones, buckets, schema's, beregeningsgeschiedenis en weerinstellingen, inclusief je API-sleutel.\n\nBelangrijk: verwijder de oude Smart Irrigation-integratie pas nadat dit is afgerond. Verwijder je die eerder, dan gaat de opgeslagen API-sleutel definitief verloren.\n\nRond de overstap in dezelfde sessie af: zolang beide geïnstalleerd zijn, draait elk zijn eigen schema's op dezelfde kleppen.",
         "data": {
           "migrated_from_legacy": "Mijn bestaande Smart Irrigation-configuratie importeren"
         }
@@ -355,7 +355,7 @@
           },
           "done": {
             "title": "Verwijderd",
-            "description": "De oude integratie en de map `{path}` zijn verwijderd.\n\n**Herstart Home Assistant nu.** Deze herstart is geen cosmetiek. De dubbele entiteiten verdwijnen ermee — en ook de servicenamen `smart_irrigation.*`, die de oude integratie nooit heeft afgemeld: ze bestaan nog, maar bereiken niets meer, dus een automatisering die er een aanroept mislukt stilletjes. De herstart vervangt ze door de compatibiliteitsaliassen die doorsturen naar `irrigation_plus.*`."
+            "description": "De oude integratie en de map `{path}` zijn verwijderd, en de servicenamen `smart_irrigation.*` zijn overgenomen — een automatisering die er nog een aanroept, wordt vanaf nu doorgestuurd naar Irrigation Plus.\n\n**Herstart Home Assistant** om het af te ronden: dat ruimt de dubbele entiteiten op die de tweede installatie heeft achtergelaten."
           },
           "partial": {
             "title": "De map staat er nog",

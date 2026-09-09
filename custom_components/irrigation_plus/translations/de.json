@@ -27,7 +27,7 @@
       },
       "migrate": {
         "title": "Bestehende Einrichtung übernehmen",
-        "description": "Es wurde eine bestehende Smart-Irrigation-Installation gefunden. Irrigation Plus kann deren Konfiguration übernehmen — Zonen, Buckets, Zeitpläne, Bewässerungsverlauf und Wettereinstellungen einschließlich API-Schlüssel.\n\nWichtig: Entferne die alte Smart-Irrigation-Integration erst, wenn dieser Vorgang abgeschlossen ist. Wird sie vorher entfernt, geht der gespeicherte API-Schlüssel unwiederbringlich verloren.",
+        "description": "Es wurde eine bestehende Smart-Irrigation-Installation gefunden. Irrigation Plus kann deren Konfiguration übernehmen — Zonen, Buckets, Zeitpläne, Bewässerungsverlauf und Wettereinstellungen einschließlich API-Schlüssel.\n\nWichtig: Entferne die alte Smart-Irrigation-Integration erst, wenn dieser Vorgang abgeschlossen ist. Wird sie vorher entfernt, geht der gespeicherte API-Schlüssel unwiederbringlich verloren.\n\nSchließe den Umzug dann in derselben Sitzung ab: Solange beide installiert sind, fahren beide ihre eigenen Zeitpläne auf denselben Ventilen.",
         "data": {
           "migrated_from_legacy": "Bestehende Smart-Irrigation-Konfiguration übernehmen"
         }
@@ -355,7 +355,7 @@
           },
           "done": {
             "title": "Entfernt",
-            "description": "Die alte Integration und der Ordner `{path}` sind entfernt.\n\n**Starte Home Assistant jetzt neu.** Dieser Neustart ist keine Kosmetik. Mit ihm verschwinden die doppelten Entitäten — und die Dienstnamen `smart_irrigation.*`, die die alte Integration nie abgemeldet hat: Sie existieren weiterhin, erreichen aber nichts mehr, sodass eine Automation, die einen davon aufruft, stillschweigend ins Leere läuft. Der Neustart ersetzt sie durch die Kompatibilitäts-Aliase, die an `irrigation_plus.*` weiterleiten."
+            "description": "Die alte Integration und der Ordner `{path}` sind entfernt, und die Dienstnamen `smart_irrigation.*` wurden übernommen — eine Automation, die einen davon noch aufruft, wird ab sofort an Irrigation Plus weitergeleitet.\n\n**Starte Home Assistant neu**, um den Vorgang abzuschließen: Das räumt die doppelten Entitäten weg, die die zweite Installation hinterlassen hat."
           },
           "partial": {
             "title": "Der Ordner ist noch vorhanden",

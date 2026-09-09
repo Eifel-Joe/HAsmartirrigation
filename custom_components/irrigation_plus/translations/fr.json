@@ -27,7 +27,7 @@
       },
       "migrate": {
         "title": "Reprendre votre installation existante",
-        "description": "Une installation Smart Irrigation existante a été détectée. Irrigation Plus peut importer sa configuration : zones, réservoirs, programmations, historique d'arrosage et paramètres météo, y compris votre clé API.\n\nImportant : ne supprimez pas l'ancienne intégration Smart Irrigation avant la fin de cette opération. La supprimer d'abord efface sa clé API, qui sera alors irrécupérable.",
+        "description": "Une installation Smart Irrigation existante a été détectée. Irrigation Plus peut importer sa configuration : zones, réservoirs, programmations, historique d'arrosage et paramètres météo, y compris votre clé API.\n\nImportant : ne supprimez pas l'ancienne intégration Smart Irrigation avant la fin de cette opération. La supprimer d'abord efface sa clé API, qui sera alors irrécupérable.\n\nTerminez la migration dans la même session : tant que les deux sont installées, chacune exécute ses propres programmations sur les mêmes vannes.",
         "data": {
           "migrated_from_legacy": "Importer ma configuration Smart Irrigation existante"
         }
@@ -355,7 +355,7 @@
           },
           "done": {
             "title": "Supprimée",
-            "description": "L'ancienne intégration et le dossier `{path}` ont été supprimés.\n\n**Redémarrez Home Assistant maintenant.** Ce redémarrage n'est pas cosmétique. Il fait disparaître les entités en double — ainsi que les noms de service `smart_irrigation.*`, que l'ancienne intégration n'a jamais désenregistrés : ils existent encore mais n'atteignent plus rien, si bien qu'une automatisation qui en appelle un échoue silencieusement. Le redémarrage les remplace par les alias de compatibilité qui redirigent vers `irrigation_plus.*`."
+            "description": "L'ancienne intégration et le dossier `{path}` ont été supprimés, et les noms de service `smart_irrigation.*` ont été repris : une automatisation qui en appelle encore un est désormais redirigée vers Irrigation Plus.\n\n**Redémarrez Home Assistant** pour terminer : c'est ce qui fait disparaître les entités en double laissées par la seconde installation."
           },
           "partial": {
             "title": "Le dossier est toujours là",

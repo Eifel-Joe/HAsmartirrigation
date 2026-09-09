@@ -27,7 +27,7 @@
       },
       "migrate": {
         "title": "Preniesok existujúce nastavenie",
-        "description": "Našla sa existujúca inštalácia Smart Irrigation. Irrigation Plus dokáže prevziať jej konfiguráciu — zóny, buckety, harmonogramy, históriu zavlažovania a nastavenia počasia vrátane API kľúča.\n\nDôležité: starú integráciu Smart Irrigation odstráň až po dokončení. Ak ju odstrániš skôr, uložený API kľúč sa nenávratne stratí.",
+        "description": "Našla sa existujúca inštalácia Smart Irrigation. Irrigation Plus dokáže prevziať jej konfiguráciu — zóny, buckety, harmonogramy, históriu zavlažovania a nastavenia počasia vrátane API kľúča.\n\nDôležité: starú integráciu Smart Irrigation odstráň až po dokončení. Ak ju odstrániš skôr, uložený API kľúč sa nenávratne stratí.\n\nDokonči presun v tej istej relácii: kým sú nainštalované obe, každá spúšťa vlastné harmonogramy na tých istých ventiloch.",
         "data": {
           "migrated_from_legacy": "Importovať moju existujúcu konfiguráciu Smart Irrigation"
         }
@@ -355,7 +355,7 @@
           },
           "done": {
             "title": "Odstránené",
-            "description": "Stará integrácia a priečinok `{path}` boli odstránené.\n\n**Reštartuj Home Assistant teraz.** Tento reštart nie je kozmetika. Zmiznú s ním zdvojené entity — a aj názvy služieb `smart_irrigation.*`, ktoré stará integrácia nikdy neodregistrovala: stále existujú, ale už sa nikam nedostanú, takže automatizácia, ktorá niektorú z nich zavolá, zlyhá potichu. Reštart ich nahradí kompatibilitnými aliasmi, ktoré presmerujú na `irrigation_plus.*`."
+            "description": "Stará integrácia a priečinok `{path}` boli odstránené a názvy služieb `smart_irrigation.*` boli prevzaté — automatizácia, ktorá niektorú z nich ešte volá, sa odteraz presmeruje na Irrigation Plus.\n\n**Reštartuj Home Assistant**, aby sa úkon dokončil: to odstráni zdvojené entity, ktoré zanechala druhá inštalácia."
           },
           "partial": {
             "title": "Priečinok tam stále je",

@@ -27,7 +27,7 @@
       },
       "migrate": {
         "title": "Bring your existing set-up across",
-        "description": "We found an existing Smart Irrigation installation. Irrigation Plus can import its configuration — your zones, buckets, schedules, run history and weather settings, including your API key.\n\nImportant: leave the old Smart Irrigation integration in place until this finishes. Removing it first deletes its stored API key, which cannot be recovered afterwards.",
+        "description": "We found an existing Smart Irrigation installation. Irrigation Plus can import its configuration — your zones, buckets, schedules, run history and weather settings, including your API key.\n\nImportant: leave the old Smart Irrigation integration in place until this finishes. Removing it first deletes its stored API key, which cannot be recovered afterwards.\n\nThen finish the move in this session: while both are installed, both run their own schedules on the same valves.",
         "data": {
           "migrated_from_legacy": "Import my existing Smart Irrigation configuration"
         }
@@ -355,7 +355,7 @@
           },
           "done": {
             "title": "Removed",
-            "description": "The old integration and its folder at `{path}` are gone.\n\n**Restart Home Assistant now.** This one is not cosmetic. The duplicate entities go with it — and so do the `smart_irrigation.*` service names, which the old integration never unregistered: they still exist but no longer reach anything, so an automation calling one fails quietly. The restart replaces them with the compatibility aliases that forward to `irrigation_plus.*`."
+            "description": "The old integration and its folder at `{path}` are gone, and the `smart_irrigation.*` service names have been taken back — an automation still calling one of them forwards to Irrigation Plus from now on.\n\n**Restart Home Assistant** to finish: that is what clears the duplicate entities the second installation left behind."
           },
           "partial": {
             "title": "The folder is still there",

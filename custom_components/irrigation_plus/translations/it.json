@@ -27,7 +27,7 @@
       },
       "migrate": {
         "title": "Trasferisci la configurazione esistente",
-        "description": "È stata trovata un'installazione di Smart Irrigation. Irrigation Plus può importarne la configurazione: zone, bucket, pianificazioni, cronologia delle irrigazioni e impostazioni meteo, inclusa la tua chiave API.\n\nImportante: non rimuovere la vecchia integrazione Smart Irrigation prima che l'operazione sia completata. Rimuoverla prima cancella la chiave API memorizzata, che non potrà più essere recuperata.",
+        "description": "È stata trovata un'installazione di Smart Irrigation. Irrigation Plus può importarne la configurazione: zone, bucket, pianificazioni, cronologia delle irrigazioni e impostazioni meteo, inclusa la tua chiave API.\n\nImportante: non rimuovere la vecchia integrazione Smart Irrigation prima che l'operazione sia completata. Rimuoverla prima cancella la chiave API memorizzata, che non potrà più essere recuperata.\n\nCompleta il passaggio nella stessa sessione: finché entrambe sono installate, ciascuna esegue le proprie pianificazioni sulle stesse valvole.",
         "data": {
           "migrated_from_legacy": "Importa la mia configurazione Smart Irrigation esistente"
         }
@@ -355,7 +355,7 @@
           },
           "done": {
             "title": "Rimossa",
-            "description": "La vecchia integrazione e la cartella `{path}` sono state rimosse.\n\n**Riavvia subito Home Assistant.** Questo riavvio non è cosmetico. Fa sparire le entità duplicate — e anche i nomi di servizio `smart_irrigation.*`, che la vecchia integrazione non ha mai deregistrato: esistono ancora ma non raggiungono più nulla, quindi un'automazione che ne chiama uno fallisce in silenzio. Il riavvio li sostituisce con gli alias di compatibilità che inoltrano a `irrigation_plus.*`."
+            "description": "La vecchia integrazione e la cartella `{path}` sono state rimosse e i nomi di servizio `smart_irrigation.*` sono stati ripresi: un'automazione che ne chiama ancora uno viene ora inoltrata a Irrigation Plus.\n\n**Riavvia Home Assistant** per completare: è questo a far sparire le entità duplicate lasciate dalla seconda installazione."
           },
           "partial": {
             "title": "La cartella è ancora presente",

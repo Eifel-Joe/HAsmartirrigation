@@ -27,7 +27,7 @@
       },
       "migrate": {
         "title": "Ta med det eksisterende oppsettet",
-        "description": "Det ble funnet en eksisterende Smart Irrigation-installasjon. Irrigation Plus kan importere konfigurasjonen — soner, buckets, tidsplaner, vanningshistorikk og værinnstillinger, inkludert API-nøkkelen din.\n\nViktig: la den gamle Smart Irrigation-integrasjonen stå til dette er ferdig. Fjerner du den først, slettes den lagrede API-nøkkelen, og den kan ikke gjenopprettes.",
+        "description": "Det ble funnet en eksisterende Smart Irrigation-installasjon. Irrigation Plus kan importere konfigurasjonen — soner, buckets, tidsplaner, vanningshistorikk og værinnstillinger, inkludert API-nøkkelen din.\n\nViktig: la den gamle Smart Irrigation-integrasjonen stå til dette er ferdig. Fjerner du den først, slettes den lagrede API-nøkkelen, og den kan ikke gjenopprettes.\n\nFullfør flyttingen i samme økt: så lenge begge er installert, kjører hver sine egne tidsplaner på de samme ventilene.",
         "data": {
           "migrated_from_legacy": "Importer det eksisterende Smart Irrigation-oppsettet mitt"
         }
@@ -355,7 +355,7 @@
           },
           "done": {
             "title": "Fjernet",
-            "description": "Den gamle integrasjonen og mappen `{path}` er fjernet.\n\n**Start Home Assistant på nytt nå.** Denne omstarten er ikke kosmetikk. De doble entitetene forsvinner med den — og det gjør også tjenestenavnene `smart_irrigation.*`, som den gamle integrasjonen aldri avregistrerte: de finnes fortsatt, men når ikke lenger fram, så en automasjon som kaller ett av dem feiler stille. Omstarten erstatter dem med kompatibilitetsaliasene som videresender til `irrigation_plus.*`."
+            "description": "Den gamle integrasjonen og mappen `{path}` er fjernet, og tjenestenavnene `smart_irrigation.*` er tatt tilbake — en automasjon som fortsatt kaller ett av dem, videresendes fra nå av til Irrigation Plus.\n\n**Start Home Assistant på nytt** for å fullføre: det er det som fjerner de doble entitetene den andre installasjonen etterlot seg."
           },
           "partial": {
             "title": "Mappen ligger der fortsatt",
