@@ -43,9 +43,22 @@ remove the integration from **Settings → Devices & Services** until the new on
 is set up and you are happy with it.
 
 If you already deleted the folder *and* removed the entry that then showed as
-broken, your storage file is still on disk and Irrigation Plus will import it.
-Your API key comes back too, as long as Home Assistant ran **v2026.09.06** at
-least once — that release copied it into the storage file for exactly this case.
+broken, your storage file is still on disk and Irrigation Plus will import it —
+zones, buckets, schedules and history all come back.
+
+**Your API key does not.** It lives only in Smart Irrigation's config entry, and
+nothing else on your system holds a copy, so once that entry is gone the key is
+gone with it. v2026.09.06 was meant to stage a copy into the storage file for
+exactly this case and never actually wrote one ([#128]); that release is tagged
+and cannot be corrected, and the domain it shipped under now belongs to the
+upstream project again, so there is no version of this that recovers it. The
+import will tell you which service needs its key re-entered, and everything else
+comes across untouched.
+
+This is why the order above is not a convenience — it is the only path that
+keeps the key.
+
+[#128]: https://github.com/JustChr/HAsmartirrigation/issues/128
 
 ### Keep that window short, and pause watering before you open it
 
@@ -134,7 +147,8 @@ than days, and do it at a time of day when no schedule can fire.
 |---|---|
 | Zones, buckets, schedules, modules, sensor groups | ✅ imported |
 | Run history and flow-learning state | ✅ imported |
-| Weather service settings **and your API key** | ✅ imported |
+| Weather service settings | ✅ imported |
+| Your weather API key | ⚠️ only while the old config entry still exists — see [above](#do-this-in-the-right-order) |
 | Recorded history (the graphs on each entity) | ✅ follows the new entity IDs |
 | Long-term statistics | ✅ follows the new entity IDs |
 | Zone device **area** assignments | ✅ copied onto the new devices |
@@ -261,9 +275,10 @@ promptly. If you install the upstream `smart_irrigation` integration as well:
   `irrigation_plus.set_bucket`, or reset them and let the next daily calculation
   rebuild from the weather.
 - **Weather updates are switched off after importing.** The API key could not be
-  recovered — the old config entry was already gone and the storage file held no
-  copy of it (installs that never ran v2026.09.06 have none). Everything else
-  imported: re-enter the key under **Setup → Weather service** and it resumes.
+  recovered, because the old config entry was already gone when the import ran
+  and that entry is the only place the key ever lived. The setup flow says so at
+  the time, naming the service. Everything else imported: re-enter the key under
+  **Setup → Weather service** and it resumes.
 - **Graphs start from scratch on one or two entities.** The recorder rename is
   applied per entity and any that failed are named in the log. The integration is
   fine; only those entities' history stays under the old ID.

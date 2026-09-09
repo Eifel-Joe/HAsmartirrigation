@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.irrigation_plus import const
+from custom_components.irrigation_plus import const, legacy_services
 from custom_components.irrigation_plus.migrate_domain import (
     BRIDGE_VERSION,
     async_bridge_status,
@@ -29,6 +29,17 @@ from custom_components.irrigation_plus.migrate_domain import (
 )
 from custom_components.irrigation_plus.repairs import LeftoverInstallRepairFlow
 
+
+@pytest.fixture(autouse=True)
+def _clean_alias_state():
+    """Alias bookkeeping is module-level; one test must not decide the next."""
+    legacy_services._ALIASED.clear()
+    legacy_services._WARNED.clear()
+    yield
+    legacy_services._ALIASED.clear()
+    legacy_services._WARNED.clear()
+
+
 OUR_MANIFEST = {
     "domain": const.LEGACY_DOMAIN,
     "documentation": "https://github.com/JustChr/HAsmartirrigation",
@@ -41,7 +52,44 @@ THEIR_MANIFEST = {
 }
 
 
-def _hass(tmp_path, entries=(), removed=None):
+class _Service:
+    """Home Assistant stores a wrapper, not the handler. Mirror that."""
+
+    def __init__(self, func):
+        self.job = SimpleNamespace(target=func)
+
+
+class _Services:
+    """Enough of hass.services for the reclaim step."""
+
+    def __init__(self, registry=None):
+        self._registry = {
+            d: {n: _Service(h) for n, h in s.items()}
+            for d, s in (registry or {}).items()
+        }
+
+    def async_services(self):
+        return {d: dict(s) for d, s in self._registry.items()}
+
+    def has_service(self, domain, service):
+        return service in self._registry.get(domain, {})
+
+    def async_register(self, domain, service, handler):
+        self._registry.setdefault(domain, {})[service] = _Service(handler)
+
+    def async_remove(self, domain, service):
+        self._registry.get(domain, {}).pop(service, None)
+
+    def supports_response(self, domain, service):
+        from homeassistant.core import SupportsResponse
+
+        return SupportsResponse.NONE
+
+    async def async_call(self, domain, service, data, blocking=False, context=None):
+        return None
+
+
+def _hass(tmp_path, entries=(), removed=None, services=None):
     """A hass double with a real config dir and a recording entry remover."""
     (tmp_path / ".storage").mkdir(parents=True, exist_ok=True)
 
@@ -53,13 +101,23 @@ def _hass(tmp_path, entries=(), removed=None):
             removed.append(entry_id)
 
     return SimpleNamespace(
-        config=SimpleNamespace(path=lambda *parts: str(tmp_path.joinpath(*parts))),
+        config=SimpleNamespace(
+            path=lambda *parts: str(tmp_path.joinpath(*parts)),
+            components=set(),
+        ),
         config_entries=SimpleNamespace(
             async_entries=lambda domain: (
                 list(entries) if domain == const.LEGACY_DOMAIN else []
             ),
             async_remove=_async_remove,
         ),
+        # The repair reclaims the old domain's service names once its entry is
+        # gone (#130): removing a config entry does not unregister the services
+        # its integration declared, and the pre-rename tree never removed its
+        # own, so without this they stay bound to a torn-down coordinator until
+        # the next restart.
+        services=services if services is not None else _Services(),
+        data={},
         async_add_executor_job=_executor,
     )
 
@@ -365,3 +423,98 @@ class TestBridgeDetection:
 
         assert "do NOT remove" not in caplog.text
         assert "staged for this migration" in caplog.text
+
+
+class TestTheRepairReclaimsTheOldServiceNames:
+    """#130: the entry goes, its 24 services do not.
+
+    Removing a config entry does not unregister the services its integration
+    declared, and the pre-rename tree never called `hass.services.async_remove`
+    for its own -- so until the next restart every `smart_irrigation.*` name is
+    still there, now bound to a torn-down coordinator whose storage file has
+    just been deleted. What the user sees is not uniform, which is what makes
+    it hard to recognise: entity-targeted services silently no-op, `run_zone`
+    raises and aborts the automation.
+    """
+
+    def _flow(self, hass):
+        flow = LeftoverInstallRepairFlow()
+        flow.hass = hass
+        return flow
+
+    def _ready(self, tmp_path, services):
+        entry = SimpleNamespace(entry_id="legacy1", data={}, options={})
+        hass = _hass(tmp_path, entries=[entry], services=services)
+        _install(tmp_path)
+        _our_store(hass, {"1": {"name": "Lawn"}})
+        return hass
+
+    async def test_the_dead_handlers_are_replaced_by_live_forwarders(self, tmp_path):
+        dead = object()
+        services = _Services(
+            {
+                const.DOMAIN: {"reset_bucket": object(), "run_zone": object()},
+                const.LEGACY_DOMAIN: {"reset_bucket": dead, "run_zone": dead},
+            }
+        )
+        hass = self._ready(tmp_path, services)
+
+        result = await self._flow(hass).async_step_confirm(user_input={})
+
+        assert result["step_id"] == "done"
+        legacy = services.async_services()[const.LEGACY_DOMAIN]
+        assert set(legacy) == {"reset_bucket", "run_zone"}
+        for name in legacy:
+            assert legacy[name].job.target is not dead
+
+    async def test_it_happens_on_the_partial_path_too(self, tmp_path):
+        """A directory that could not be deleted leaves the same dead services."""
+        dead = object()
+        services = _Services(
+            {
+                const.DOMAIN: {"reset_bucket": object()},
+                const.LEGACY_DOMAIN: {"reset_bucket": dead},
+            }
+        )
+        hass = self._ready(tmp_path, services)
+
+        inner = hass.async_add_executor_job
+
+        async def _fail_the_delete(func, *args):
+            if "delete" in getattr(func, "__name__", "").lower():
+                raise OSError("permission denied")
+            return await inner(func, *args)
+
+        hass.async_add_executor_job = _fail_the_delete
+
+        result = await self._flow(hass).async_step_confirm(user_input={})
+
+        assert result["step_id"] == "partial"
+        legacy = services.async_services()[const.LEGACY_DOMAIN]
+        assert legacy["reset_bucket"].job.target is not dead
+
+    async def test_a_refused_cleanup_leaves_the_old_services_alone(self, tmp_path):
+        """`unsafe` removed nothing, so there is nothing dead to reclaim.
+
+        Taking the names here would strip a still-running integration of its
+        services on the strength of a repair that deliberately did nothing.
+        """
+        alive = object()
+        services = _Services(
+            {
+                const.DOMAIN: {"reset_bucket": object()},
+                const.LEGACY_DOMAIN: {"reset_bucket": alive},
+            }
+        )
+        entry = SimpleNamespace(entry_id="legacy1", data={}, options={})
+        hass = _hass(tmp_path, entries=[entry], services=services)
+        _install(tmp_path)
+        _our_store(hass, {})  # no zones -> the migration does not look complete
+
+        result = await self._flow(hass).async_step_confirm(user_input={})
+
+        assert result["step_id"] == "unsafe"
+        assert (
+            services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"].job.target
+            is alive
+        )

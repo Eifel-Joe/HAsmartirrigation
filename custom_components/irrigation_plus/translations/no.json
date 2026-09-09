@@ -31,6 +31,10 @@
         "data": {
           "migrated_from_legacy": "Importer det eksisterende Smart Irrigation-oppsettet mitt"
         }
+      },
+      "credentials": {
+        "title": "Legg inn vær-API-nøkkelen på nytt",
+        "description": "Alt ble importert: sonene, bøttene, tidsplanene og historikken er på plass.\n\nÉn ting kom ikke med — **{service}**-API-nøkkelen din. Den lå i konfigurasjonsoppføringen til Smart Irrigation, som allerede var borte da denne importen kjørte, så det fantes ikke lenger noe sted å lese den fra.\n\nVæroppdateringer forblir avslått til du legger den inn igjen. Gå til **Oppsett → Værtjeneste**, skriv inn nøkkelen på nytt, så fortsetter alt."
       }
     }
   },

@@ -42,23 +42,8 @@ from . import const
 
 _LOGGER = logging.getLogger(__name__)
 
-# Identifies a pre-#120 manifest as belonging to THIS project's line rather than
-# the upstream it was forked from.
-#
-# A downstream fork re-badges `documentation` and `codeowners` to its own
-# account, so matching a single marker makes such an install read as FOREIGN and
-# every path that protects it turns itself off: the import step is never offered
-# (config_flow), the dead Lovelace card resource is never removed (panel), the
-# `smart_irrigation.*` service aliases are never registered (legacy_services),
-# and the cleanup repair refuses to delete the old directory (repairs). The
-# installation is then migrated as if it belonged to someone else — which, for
-# its owner, means not migrated at all.
-#
-# Matching a LIST keeps the protection that actually matters: an install from
-# the ORIGINAL project carries neither marker, so it is still recognised as
-# foreign and left alone. Only the badge changes, not the test's purpose.
+# Identifies a pre-#120 manifest as belonging to THIS fork rather than upstream.
 _OUR_MARKER = "justchr"
-_FORK_MARKERS = (_OUR_MARKER, "eifel-joe")
 
 # Every slot a weather credential can occupy. This restates
 # `rename_notice._API_KEY_SLOTS` from the bridge release (v2026.09.06), which is
@@ -84,16 +69,6 @@ _WEATHER_SEED_KEYS = (
     # these, so carrying them keeps that path working for very old installs.
     # (`owm_api_key` is already CONF_OWM_API_KEY above; `use_owm` is not.)
     "use_owm",
-)
-
-# What the bridge release staged into the storage file, and therefore all this
-# module can recover once the config entry is gone. The two flags matter as much
-# as the keys: without them the new entry is created with weather switched off,
-# and a recovered credential sits unused behind a disabled service.
-_STAGED_SEED_KEYS = (
-    const.CONF_USE_WEATHER_SERVICE,
-    const.CONF_WEATHER_SERVICE,
-    *_API_KEY_SLOTS,
 )
 
 
@@ -170,80 +145,111 @@ def legacy_config_seed(hass: HomeAssistant) -> dict:
     return seed
 
 
-def plan_staged_seed(stored: dict | None, seed: dict | None) -> dict:
-    """What the staged storage config can add to a config-entry ``seed``.
+async def async_legacy_config_seed(hass: HomeAssistant) -> dict:
+    """The weather seed for a new config entry, out of the old config entry.
 
-    Pure, so the precedence can be exercised without a running Home Assistant.
+    **There is no fallback, and there cannot be one.** The bridge release
+    (v2026.09.06) was supposed to leave a copy of the credentials in the
+    storage file so the key survived in either order, and this function used to
+    read it back. It never wrote anything: ``Store.async_update_config``
+    filters incoming changes against ``attr.fields_dict(Config)``, and ``Config``
+    has no credential attribute -- so ``attr.evolve`` wrote an unchanged config
+    while the module logged the success it had planned rather than the one it
+    made (#128, Eifel-Joe, confirmed against a live install's diagnostics).
 
-    The config entry always wins: it is the live value the old integration was
-    actually running on, while the store holds a copy the bridge release took at
-    some earlier setup. So this only ever FILLS what the entry could not supply
-    — which in practice means the entry is gone entirely.
+    The read side is deleted rather than kept as an inert fallback: it fooled
+    our own documentation into promising a recovery that has never once
+    happened, and a reader who finds it will believe the key is safe when it is
+    not. The write side cannot be repaired -- it lives in a tagged release, in a
+    tree whose domain now belongs to upstream again (#120).
 
-    An empty value never counts as supplied, in either direction: a seed that
-    carries ``owm_api_key: None`` has told us nothing.
+    So the key survives ONLY while the old config entry does, which makes the
+    documented order mandatory rather than merely convenient: removing Smart
+    Irrigation through the UI first deletes that entry, and takes the
+    credentials with it. ``async_config_flow_credential_warning`` is what tells
+    the user when that has happened, at the moment it still means something to
+    them.
     """
-    stored = stored or {}
-    seed = seed or {}
-    out = {}
-    for key in _STAGED_SEED_KEYS:
-        if seed.get(key) is not None and seed.get(key) != "":
-            continue
-        value = stored.get(key)
-        if value is None or value == "":
-            continue
-        out[key] = value
-    return out
+    return legacy_config_seed(hass)
 
 
-def _read_staged_config(path: Path) -> dict:
-    """The ``config`` dict out of a Home Assistant storage file. Never raises.
+def read_legacy_weather_profile(path: Path) -> dict:
+    """Which weather service the old install used, out of its storage file.
 
-    Best-effort by design, like everything else here: an unreadable or
-    hand-edited legacy store costs the user a re-typed API key, and must not
-    cost them the config flow.
+    NOT a credential read -- that is the path #128 deleted, and it could only
+    ever return empty. These two fields are different in kind: they are real
+    ``Config`` attributes, so the old store genuinely holds them, and neither
+    is a secret.
+
+    That split is the whole reason the warning can work at all. The key lived
+    in the config entry; the service NAME lives in the store. An install that
+    removed Smart Irrigation through the UI first has lost the former and kept
+    the latter -- which is precisely the population that needs telling, and the
+    only reason we can name their provider while doing it.
+
+    Blocking read; hand it to an executor. Never raises.
     """
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as err:
-        _LOGGER.debug("Could not read staged weather settings from %s: %s", path, err)
+        _LOGGER.debug(
+            "Could not read the previous weather profile from %s: %s", path, err
+        )
         return {}
     config = (document or {}).get("data", {}).get("config")
-    return config if isinstance(config, dict) else {}
+    if not isinstance(config, dict):
+        return {}
+    return {
+        key: config[key]
+        for key in (const.CONF_USE_WEATHER_SERVICE, const.CONF_WEATHER_SERVICE)
+        if key in config
+    }
 
 
-async def async_legacy_config_seed(hass: HomeAssistant) -> dict:
-    """The weather seed for a new config entry: config entry first, store second.
-
-    The config entry is the whole story whenever it is still there, which is the
-    order the migration guide asks for. The fallback covers the one way it can
-    be gone while the data is not: deleting the old integration's DIRECTORY and
-    then removing the now-broken entry. Home Assistant cannot run a missing
-    integration's ``async_remove_entry``, so ``store.async_delete()`` never
-    fires and ``smart_irrigation.storage`` outlives the entry — carrying the
-    credentials the bridge release (v2026.09.06) staged into it.
-
-    Nothing here can recover a key from an install that removed the old
-    integration through the UI in working order: that deletes the storage file
-    along with the entry, and takes every zone with it.
-    """
-    seed = legacy_config_seed(hass)
-    if all(seed.get(key) for key in _STAGED_SEED_KEYS):
-        return seed
-
-    stored = await hass.async_add_executor_job(
-        _read_staged_config, legacy_storage_path(hass)
+async def async_legacy_weather_profile(hass: HomeAssistant) -> dict:
+    """``read_legacy_weather_profile`` off the event loop."""
+    return await hass.async_add_executor_job(
+        read_legacy_weather_profile, legacy_storage_path(hass)
     )
-    staged = plan_staged_seed(stored, seed)
-    if staged:
-        # The NAMES only — these are live credentials.
-        _LOGGER.info(
-            "Recovered %s weather setting(s) staged in the previous storage file: %s",
-            len(staged),
-            sorted(staged),
-        )
-        seed.update(staged)
-    return seed
+
+
+def plan_credential_warning(
+    seed: dict | None, profile: dict | None = None
+) -> str | None:
+    """Which weather credential the user will have to re-enter, if any. Pure.
+
+    Returns the name of the weather service whose key could not be carried
+    across, or None when there is nothing to warn about -- either the seed has
+    its key, or the old install was not using a weather service that needs one.
+
+    ``profile`` is the old STORE's view of the same two settings, and is only
+    consulted where the seed is silent. The seed comes from the config entry
+    and is authoritative when it exists; when it does not, the entry is gone --
+    and that is exactly the case where the key is unrecoverable, so falling
+    back here is what lets the warning reach the users who need it.
+
+    Answering "nothing to warn about" for an install with weather switched off
+    matters: an unnecessary warning about a key they never had is how a user
+    learns to skip the ones that count.
+    """
+    seed = seed or {}
+    profile = profile or {}
+
+    def _setting(key):
+        return seed[key] if key in seed else profile.get(key)
+
+    if not _setting(const.CONF_USE_WEATHER_SERVICE):
+        return None
+    service = _setting(const.CONF_WEATHER_SERVICE)
+    if not service:
+        return None
+    # Derived, never restated: a provider that needs no credential cannot have
+    # lost one, and a missing key there is the expected state rather than a loss.
+    if service in const.CONF_WEATHER_SERVICES_NO_API_KEY:
+        return None
+    if any(seed.get(slot) for slot in _API_KEY_SLOTS):
+        return None
+    return str(service)
 
 
 def legacy_directory(hass: HomeAssistant) -> Path:
@@ -290,8 +296,7 @@ def legacy_install_is_ours(hass: HomeAssistant) -> bool:
         return True
     documentation = str(data.get("documentation", ""))
     codeowners = " ".join(data.get("codeowners") or [])
-    haystack = f"{documentation} {codeowners}".lower()
-    return any(marker in haystack for marker in _FORK_MARKERS)
+    return _OUR_MARKER in f"{documentation} {codeowners}".lower()
 
 
 def legacy_install_present(hass: HomeAssistant) -> bool:

@@ -31,6 +31,10 @@
         "data": {
           "migrated_from_legacy": "Mijn bestaande Smart Irrigation-configuratie importeren"
         }
+      },
+      "credentials": {
+        "title": "Voer uw weer-API-sleutel opnieuw in",
+        "description": "Alles is geïmporteerd: uw zones, buckets, schema's en geschiedenis staan er allemaal.\n\nEén ding kwam niet mee — uw **{service}**-API-sleutel. Die stond in de configuratie van Smart Irrigation, en die was al verwijderd toen deze import liep, dus er was niets meer om hem uit te lezen.\n\nWeerupdates blijven uitgeschakeld totdat u hem terugzet. Ga naar **Instellen → Weerdienst**, voer de sleutel opnieuw in en alles hervat."
       }
     }
   },

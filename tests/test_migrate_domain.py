@@ -20,7 +20,8 @@ from custom_components.irrigation_plus.migrate_domain import (
     legacy_config_seed,
     legacy_install_present,
     legacy_storage_path,
-    plan_staged_seed,
+    plan_credential_warning,
+    read_legacy_weather_profile,
     storage_path,
     stored_zone_count,
 )
@@ -314,102 +315,207 @@ def _write_legacy_store(hass, config):
     )
 
 
-class TestStagedSeedPlanning:
-    """`plan_staged_seed` — what the staged store may add to an entry seed."""
+class TestCredentialWarningPlanning:
+    """`plan_credential_warning` — is the user about to lose their API key?
 
-    def test_fills_what_the_entry_could_not_supply(self):
-        stored = {
-            const.CONF_USE_WEATHER_SERVICE: True,
-            const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_OWM,
-            const.CONF_OWM_API_KEY: "staged",
-        }
-        assert plan_staged_seed(stored, {}) == stored
+    Replaces the staged-seed suite. The bridge release was supposed to leave a
+    copy of the credentials in the storage file so this module could recover
+    them once the config entry was gone, and it never wrote one: the store
+    filters every incoming change against `attr.fields_dict(Config)`, and
+    `Config` has no credential attribute (#128). The read path is deleted --
+    it could only ever return empty, and it was inert code that had already
+    talked our own documentation into promising a recovery that never happened.
 
-    def test_the_config_entry_always_wins(self):
-        """The entry is live; the store is a copy the bridge took earlier."""
-        stored = {const.CONF_OWM_API_KEY: "staged-earlier"}
-        seed = {const.CONF_OWM_API_KEY: "from-the-entry"}
-        assert plan_staged_seed(stored, seed) == {}
-
-    def test_an_empty_seed_value_does_not_count_as_supplied(self):
-        stored = {const.CONF_PW_API_KEY: "staged"}
-        assert plan_staged_seed(stored, {const.CONF_PW_API_KEY: ""}) == {
-            const.CONF_PW_API_KEY: "staged"
-        }
-        assert plan_staged_seed(stored, {const.CONF_PW_API_KEY: None}) == {
-            const.CONF_PW_API_KEY: "staged"
-        }
-
-    def test_an_empty_stored_value_is_never_carried(self):
-        assert plan_staged_seed({const.CONF_MET_API_KEY: ""}, {}) == {}
-
-    def test_use_weather_service_false_is_not_mistaken_for_missing(self):
-        """False is a real answer, and it is what the store holds most often."""
-        seed = {const.CONF_USE_WEATHER_SERVICE: False}
-        stored = {const.CONF_USE_WEATHER_SERVICE: True}
-        assert const.CONF_USE_WEATHER_SERVICE not in plan_staged_seed(stored, seed)
-
-    def test_unrelated_stored_config_is_not_dragged_along(self):
-        stored = {"zones": 3, "auto_calc_enabled": True, const.CONF_OWM_API_KEY: "k"}
-        assert plan_staged_seed(stored, {}) == {const.CONF_OWM_API_KEY: "k"}
-
-
-class TestStagedSeedRecovery:
-    """The end of the seam: entry gone, storage file (and its staged keys) left.
-
-    Reachable by deleting the old integration's DIRECTORY and then removing the
-    now-broken config entry: Home Assistant cannot run a missing integration's
-    `async_remove_entry`, so `store.async_delete()` never fires.
+    What is left is telling the user, at the moment it still means something.
     """
 
-    async def test_recovers_the_staged_key_when_the_entry_is_gone(self, tmp_path):
+    def test_names_the_service_whose_key_did_not_survive(self):
+        seed = {
+            const.CONF_USE_WEATHER_SERVICE: True,
+            const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_OWM,
+        }
+        assert plan_credential_warning(seed) == const.CONF_WEATHER_SERVICE_OWM
+
+    def test_silent_when_the_key_came_across(self):
+        for slot in (
+            const.CONF_WEATHER_SERVICE_API_KEY,
+            const.CONF_OWM_API_KEY,
+            const.CONF_PW_API_KEY,
+            const.CONF_MET_API_KEY,
+        ):
+            seed = {
+                const.CONF_USE_WEATHER_SERVICE: True,
+                const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_OWM,
+                slot: "recovered",
+            }
+            assert plan_credential_warning(seed) is None, slot
+
+    def test_silent_when_the_old_install_used_no_weather_service(self):
+        # Warning about a key they never had is how a user learns to skip the
+        # warnings that count.
+        assert plan_credential_warning({const.CONF_USE_WEATHER_SERVICE: False}) is None
+        assert plan_credential_warning({}) is None
+        assert plan_credential_warning(None) is None
+
+    def test_silent_for_a_provider_that_needs_no_key(self):
+        # Open-Meteo cannot lose a credential it never uses. Derived from
+        # CONF_WEATHER_SERVICES_NO_API_KEY rather than restated, so adding a
+        # second free provider cannot leave a stale copy of the list here.
+        for service in const.CONF_WEATHER_SERVICES_NO_API_KEY:
+            seed = {
+                const.CONF_USE_WEATHER_SERVICE: True,
+                const.CONF_WEATHER_SERVICE: service,
+            }
+            assert plan_credential_warning(seed) is None, service
+
+    def test_silent_when_the_service_itself_is_unknown(self):
+        # Nothing useful to name, and "your  API key" reads as a bug.
+        seed = {const.CONF_USE_WEATHER_SERVICE: True, const.CONF_WEATHER_SERVICE: ""}
+        assert plan_credential_warning(seed) is None
+
+    def test_the_store_answers_when_the_config_entry_is_gone(self):
+        # THE case this warning exists for: removing Smart Irrigation through
+        # the UI first deletes the entry and the key with it, so the seed is
+        # empty. Without the store there is nothing to warn about and nothing
+        # to name, and the only users who lost a key get no warning at all.
+        profile = {
+            const.CONF_USE_WEATHER_SERVICE: True,
+            const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_MET,
+        }
+        assert plan_credential_warning({}, profile) == const.CONF_WEATHER_SERVICE_MET
+
+    def test_the_config_entry_still_wins_over_the_store(self):
+        # The entry is what the old integration was actually running on; the
+        # store can be an older copy. A stale "true" there must not manufacture
+        # a warning for an install that had already switched weather off.
+        seed = {const.CONF_USE_WEATHER_SERVICE: False}
+        profile = {
+            const.CONF_USE_WEATHER_SERVICE: True,
+            const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_OWM,
+        }
+        assert plan_credential_warning(seed, profile) is None
+
+    def test_the_store_alone_cannot_invent_a_service(self):
+        assert plan_credential_warning({}, {}) is None
+        assert plan_credential_warning({}, None) is None
+        assert (
+            plan_credential_warning({}, {const.CONF_USE_WEATHER_SERVICE: True}) is None
+        )
+
+    def test_an_empty_key_does_not_count_as_supplied(self):
+        seed = {
+            const.CONF_USE_WEATHER_SERVICE: True,
+            const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_PW,
+            const.CONF_PW_API_KEY: "",
+        }
+        assert plan_credential_warning(seed) == const.CONF_WEATHER_SERVICE_PW
+
+
+class TestReadLegacyWeatherProfile:
+    """The store answers WHICH service, never the key (#128).
+
+    The split is the point: the credential lived in the config entry, the
+    service name is a real `Config` attribute and is genuinely in the store.
+    That is what lets the warning name a provider for the one population whose
+    entry is already gone.
+    """
+
+    def test_reads_the_two_settings_it_is_allowed_to(self, tmp_path):
+        p = tmp_path / "s.json"
+        p.write_text(
+            json.dumps(
+                {
+                    "version": 9,
+                    "data": {
+                        "config": {
+                            const.CONF_USE_WEATHER_SERVICE: True,
+                            const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_MET,
+                            "days_between_irrigation": 3,
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        assert read_legacy_weather_profile(p) == {
+            const.CONF_USE_WEATHER_SERVICE: True,
+            const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_MET,
+        }
+
+    def test_never_returns_a_credential_even_if_one_is_somehow_there(self, tmp_path):
+        # A hand-edited store, or a downstream fork that added the attribute.
+        # Reading it back would resurrect the promise #128 removed, and put a
+        # secret into a code path whose whole justification is that it handles
+        # none.
+        p = tmp_path / "s.json"
+        p.write_text(
+            json.dumps(
+                {
+                    "version": 9,
+                    "data": {
+                        "config": {
+                            const.CONF_USE_WEATHER_SERVICE: True,
+                            const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_OWM,
+                            const.CONF_OWM_API_KEY: "should-never-be-read",
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        assert const.CONF_OWM_API_KEY not in read_legacy_weather_profile(p)
+
+    def test_unreadable_and_missing_files_are_empty_not_fatal(self, tmp_path):
+        missing = tmp_path / "nope.json"
+        assert read_legacy_weather_profile(missing) == {}
+        corrupt = tmp_path / "c.json"
+        corrupt.write_text("{not json", encoding="utf-8")
+        assert read_legacy_weather_profile(corrupt) == {}
+        empty = tmp_path / "e.json"
+        empty.write_text('{"version": 9, "data": {}}', encoding="utf-8")
+        assert read_legacy_weather_profile(empty) == {}
+
+
+class TestLegacyConfigSeed:
+    """The seed comes from the old config entry, and from nowhere else (#128)."""
+
+    async def test_the_entry_supplies_the_key(self, tmp_path):
+        entry = _entry(options={const.CONF_OWM_API_KEY: "live-key"})
+        hass = _hass(tmp_path, [entry])
+
+        seed = await async_legacy_config_seed(hass)
+
+        assert seed[const.CONF_OWM_API_KEY] == "live-key"
+
+    async def test_a_storage_file_is_never_read_for_credentials(self, tmp_path):
+        """The staged copy the guide used to promise does not exist.
+
+        No release ever wrote one, so a store that appears to hold a key is
+        either hand-edited or from a downstream fork -- and reading it back
+        would resurrect the promise this issue removed. Pinned so the fallback
+        cannot quietly return.
+        """
         hass = _hass(tmp_path)
         _write_legacy_store(
             hass,
             {
                 const.CONF_USE_WEATHER_SERVICE: True,
                 const.CONF_WEATHER_SERVICE: const.CONF_WEATHER_SERVICE_OWM,
-                const.CONF_OWM_API_KEY: "staged-by-the-bridge",
+                const.CONF_OWM_API_KEY: "not-a-real-staging-slot",
             },
         )
 
         seed = await async_legacy_config_seed(hass)
 
-        assert seed[const.CONF_OWM_API_KEY] == "staged-by-the-bridge"
-        # The flags travel too, or the recovered key sits behind a service the
-        # new entry was created with switched off.
-        assert seed[const.CONF_USE_WEATHER_SERVICE] is True
-        assert seed[const.CONF_WEATHER_SERVICE] == const.CONF_WEATHER_SERVICE_OWM
-
-    async def test_the_entry_still_wins_when_both_are_present(self, tmp_path):
-        entry = _entry(options={const.CONF_OWM_API_KEY: "live-key"})
-        hass = _hass(tmp_path, [entry])
-        _write_legacy_store(hass, {const.CONF_OWM_API_KEY: "staged-key"})
-
-        seed = await async_legacy_config_seed(hass)
-
-        assert seed[const.CONF_OWM_API_KEY] == "live-key"
-
-    async def test_a_pre_bridge_store_recovers_nothing(self, tmp_path):
-        """Releases before v2026.09.06 staged no keys; there is nothing to find."""
-        hass = _hass(tmp_path)
-        _write_legacy_store(hass, {const.CONF_USE_WEATHER_SERVICE: False})
-
-        seed = await async_legacy_config_seed(hass)
-
         assert const.CONF_OWM_API_KEY not in seed
+        assert seed == {}
+
+    async def test_no_entry_and_no_store_is_simply_empty(self, tmp_path):
+        assert await async_legacy_config_seed(_hass(tmp_path)) == {}
 
     async def test_a_corrupt_store_does_not_break_the_config_flow(self, tmp_path):
         hass = _hass(tmp_path)
         legacy_storage_path(hass).write_text("{not json", encoding="utf-8")
-        assert await async_legacy_config_seed(hass) == {}
-
-    async def test_a_missing_store_does_not_break_the_config_flow(self, tmp_path):
-        assert await async_legacy_config_seed(_hass(tmp_path)) == {}
-
-    async def test_a_store_without_a_config_section(self, tmp_path):
-        hass = _hass(tmp_path)
-        legacy_storage_path(hass).write_text('{"version": 9, "data": {}}', "utf-8")
         assert await async_legacy_config_seed(hass) == {}
 
 

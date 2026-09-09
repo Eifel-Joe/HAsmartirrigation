@@ -31,6 +31,10 @@
         "data": {
           "migrated_from_legacy": "Bestehende Smart-Irrigation-Konfiguration übernehmen"
         }
+      },
+      "credentials": {
+        "title": "Wetter-API-Schlüssel erneut eingeben",
+        "description": "Alles wurde importiert: Ihre Zonen, Füllstände, Zeitpläne und der Verlauf sind vollständig vorhanden.\n\nEines konnte nicht übernommen werden — Ihr **{service}**-API-Schlüssel. Er lag im Konfigurationseintrag von Smart Irrigation, der bei diesem Import bereits gelöscht war, sodass er nirgends mehr auslesbar war.\n\nDie Wetteraktualisierung bleibt deaktiviert, bis Sie ihn wieder eintragen. Gehen Sie zu **Einrichtung → Wetterdienst**, geben Sie den Schlüssel erneut ein, und alles läuft weiter."
       }
     }
   },

@@ -7,7 +7,12 @@ from homeassistant.helpers.selector import selector
 
 from . import const
 from .helpers import CannotConnect, InvalidAuth, validate_api_key
-from .migrate_domain import async_legacy_config_seed, async_legacy_install_present
+from .migrate_domain import (
+    async_legacy_config_seed,
+    async_legacy_install_present,
+    async_legacy_weather_profile,
+    plan_credential_warning,
+)
 from .options_flow import SmartIrrigationOptionsFlowHandler
 
 
@@ -24,6 +29,8 @@ class SmartIrrigationConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         self._weather_service_api_key = ""
         self._weather_service = ""
         self._migrate_offered = False
+        self._migrate_seed: dict | None = None
+        self._migrate_warning: str | None = None
         # not needed anymore because versions are hardcoded
         # self._forecasting_api_version = 3.0
 
@@ -71,10 +78,32 @@ class SmartIrrigationConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
                 return await self._show_step_user(None)
 
             seed = await async_legacy_config_seed(self.hass)
+
+            # Decide the warning BEFORE the defaults below. `setdefault` writes
+            # use_weather_service=False into an empty seed, which is the right
+            # thing to CREATE the entry with -- weather cannot run without its
+            # key -- but read back as "they had no weather service" it silences
+            # the warning for exactly the installs that lost one.
+            #
+            # The store, consulted second and never for credentials (it has
+            # never held any -- #128), answers which service that was. The key
+            # lived in the old config entry and nowhere else, so an install
+            # that removed Smart Irrigation before adding us arrives with
+            # everything else imported perfectly and no credential, which is
+            # what makes it so easy to miss. Left unsaid, the first evidence is
+            # weather quietly not updating days later.
+            profile = await async_legacy_weather_profile(self.hass)
+            warn_about = plan_credential_warning(seed, profile)
+
             seed[const.CONF_MIGRATED_FROM_LEGACY] = True
             seed.setdefault(const.CONF_INSTANCE_NAME, const.NAME)
             seed.setdefault(const.CONF_USE_WEATHER_SERVICE, False)
             await self._check_unique(seed[const.CONF_INSTANCE_NAME])
+
+            self._migrate_seed = seed
+            if warn_about:
+                self._migrate_warning = warn_about
+                return await self.async_step_credentials()
             return self.async_create_entry(title=const.NAME, data=seed)
 
         return self.async_show_form(
@@ -84,6 +113,27 @@ class SmartIrrigationConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
                     vol.Required(const.CONF_MIGRATED_FROM_LEGACY, default=True): bool,
                 }
             ),
+            errors=self._errors,
+        )
+
+    async def async_step_credentials(self, user_input=None):
+        """Tell the user the API key could not be carried across.
+
+        Informational only -- the entry is created either way. Asking for the
+        key here would mean validating it mid-migration and failing the import
+        over a typo; Setup -> Weather service already does that job properly,
+        and everything else has imported by this point.
+        """
+        seed = self._migrate_seed or {}
+        if user_input is not None:
+            return self.async_create_entry(title=const.NAME, data=seed)
+
+        return self.async_show_form(
+            step_id="credentials",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "service": self._migrate_warning or "",
+            },
             errors=self._errors,
         )
 

@@ -25,6 +25,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 
 from . import const
+from .legacy_services import async_reclaim_legacy_service_names
 from .lovelace_cards import (
     CARD_TYPE,
     LEGACY_CARD_TYPE,
@@ -327,6 +328,14 @@ class LeftoverInstallRepairFlow(RepairsFlow):
 
             self._entry_removed = await async_remove_legacy_entry(self.hass)
             self._directory_deleted = await async_delete_legacy_directory(self.hass)
+            # Both halves of the old install are gone, but its 24 services are
+            # not: removing a config entry does not unregister them, and the
+            # pre-rename tree never removed its own. Left alone they stay bound
+            # to a torn-down coordinator until the next restart, so an
+            # automation calling smart_irrigation.run_zone aborts rather than
+            # forwarding. Safe here and only here: async_cleanup_is_safe above
+            # has just established the install was ours (#130).
+            await async_reclaim_legacy_service_names(self.hass)
             if self._directory_deleted:
                 return await self.async_step_done()
             return await self.async_step_partial()

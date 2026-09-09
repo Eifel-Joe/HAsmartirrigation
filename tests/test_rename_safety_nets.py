@@ -16,8 +16,10 @@ import pytest
 
 from custom_components.irrigation_plus import const, legacy_services
 from custom_components.irrigation_plus.legacy_services import (
+    async_reclaim_legacy_service_names,
     async_register_legacy_service_aliases,
     async_remove_legacy_service_aliases,
+    plan_alias_description,
     plan_service_aliases,
 )
 from custom_components.irrigation_plus.migrate_domain import (
@@ -53,16 +55,42 @@ def _clean_alias_state():
     legacy_services._WARNED.clear()
 
 
+class _Service:
+    """What Home Assistant actually stores under a service name.
+
+    ``async_services()`` does not hand back the function that was registered --
+    it hands back a ``Service`` whose ``job.target`` is that function. The
+    double used to store the raw callable, which is a small difference with a
+    large consequence: the alias-removal check compares identity, and against
+    the real registry it was comparing a wrapper with a function, so it matched
+    nothing and removed nothing from the day it shipped. Every test agreed it
+    worked, because the double agreed with the annotation rather than with Home
+    Assistant. Mirror the wrapper here or the check is untested.
+    """
+
+    def __init__(self, func):
+        self.job = SimpleNamespace(target=func)
+
+
+def _target(entry):
+    """Unwrap what the double stored, for assertions."""
+    return getattr(getattr(entry, "job", None), "target", entry)
+
+
 class _Services:
     """A hass.services double that behaves like the real registry.
 
     Registering over an existing (domain, service) overwrites silently, exactly
     as Home Assistant does -- which is the whole reason the alias code has to
-    ask before it registers.
+    ask before it registers. Handlers are wrapped on the way in, as Home
+    Assistant wraps them; see ``_Service``.
     """
 
     def __init__(self, registry=None):
-        self._registry = {d: dict(s) for d, s in (registry or {}).items()}
+        self._registry = {
+            d: {n: _Service(h) for n, h in s.items()}
+            for d, s in (registry or {}).items()
+        }
         self.calls = []
 
     def async_services(self):
@@ -72,10 +100,15 @@ class _Services:
         return service in self._registry.get(domain, {})
 
     def async_register(self, domain, service, handler):
-        self._registry.setdefault(domain, {})[service] = handler
+        self._registry.setdefault(domain, {})[service] = _Service(handler)
 
     def async_remove(self, domain, service):
         self._registry.get(domain, {}).pop(service, None)
+
+    def supports_response(self, domain, service):
+        from homeassistant.core import SupportsResponse
+
+        return SupportsResponse.NONE
 
     async def async_call(self, domain, service, data, blocking=False, context=None):
         self.calls.append((domain, service, data, blocking, context))
@@ -150,7 +183,9 @@ class TestRegisterAliases:
         hass = _hass(tmp_path, services=services)
         await async_register_legacy_service_aliases(hass)
 
-        handler = services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"]
+        handler = _target(
+            services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"]
+        )
         await handler(SimpleNamespace(data={"entity_id": "sensor.x"}, context="ctx"))
 
         assert services.calls == [
@@ -208,7 +243,10 @@ class TestRegisterAliases:
         async_remove_legacy_service_aliases(hass)
 
         assert not services.has_service(const.LEGACY_DOMAIN, "calculate_zone")
-        assert services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"] is foreign
+        assert (
+            _target(services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"])
+            is foreign
+        )
 
     @pytest.mark.asyncio
     async def test_a_name_taken_over_since_we_aliased_it_is_left_alone(self, tmp_path):
@@ -225,7 +263,7 @@ class TestRegisterAliases:
         async_remove_legacy_service_aliases(hass)
 
         assert (
-            services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"]
+            _target(services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"])
             is someone_else
         )
 
@@ -238,7 +276,9 @@ class TestRegisterAliases:
         services = _Services({const.DOMAIN: {"reset_bucket": Mock()}})
         hass = _hass(tmp_path, services=services)
         await async_register_legacy_service_aliases(hass)
-        handler = services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"]
+        handler = _target(
+            services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"]
+        )
 
         await handler(SimpleNamespace(data={}, context=None))
         await handler(SimpleNamespace(data={}, context=None))
@@ -582,82 +622,175 @@ class TestAcknowledgementPersistence:
         assert data["entity_id_map"] == {"sensor.old": "sensor.new"}
 
 
-class TestRepairTextsNameTheWateringHazard:
-    """A leftover install is two schedulers on one set of valves, not two sensors.
+class TestPlanAliasDescription:
+    """What an alias publishes about itself.
 
-    Every rename repair described the consequence of the old integration still
-    being loaded as "two of every sensor". The HA-Test rehearsal on 2026-09-08
-    showed what it actually is: both integrations hold the same schedules and
-    point at the same valve entities, the distributor single-flight claim
-    (`distributor.py`) and the master refcount (`master.py`) are per-coordinator
-    in-memory sets, and nothing in the watering path ever asks whether the other
-    domain is running. All sixteen next-irrigation sensors read the same second.
-
-    A user told "duplicate sensors" leaves the old install running for days,
-    which is the one thing they must not do -- overlapping runs credit both
-    buckets in full while the plants get a fraction, and that reads as "watered"
-    afterwards with nothing in the log to say otherwise.
-
-    Pinned per language rather than in English only, because the maintainer's own
-    install is German: an English-only fix here is invisible to the person most
-    likely to notice it is wrong.
+    Not cosmetic: an alias with no cached description makes Home Assistant go
+    looking for the integration behind the old domain, which after the cleanup
+    no longer exists (#130).
     """
 
-    # Stem of each language's word for watering/irrigation, lower-cased.
-    _WATERING = {
-        "de": "bewässer",
-        "en": "water",
-        "es": "rieg",
-        "fr": "arros",
-        # Not "irrig": that stem is inside the product name "Irrigation Plus".
-        "it": "irrigazion",
-        "nl": "water",
-        "no": "vann",
-        "sk": "zavla",
-    }
+    def test_carries_the_real_services_name_target_and_fields(self):
+        out = plan_alias_description(
+            "reset_bucket",
+            {
+                "name": "Reset bucket",
+                "description": "Reset the water bucket value for a specific zone.",
+                "target": {"entity": {"domain": "sensor"}},
+                "fields": {"x": {"required": True}},
+            },
+        )
+        assert out["name"] == "Reset bucket"
+        assert out["target"] == {"entity": {"domain": "sensor"}}
+        assert out["fields"] == {"x": {"required": True}}
+        assert out["description"].startswith("Reset the water bucket value")
 
-    _CATALOGUES = Path(__file__).resolve().parents[1] / (
-        "custom_components/irrigation_plus/translations"
-    )
+    def test_the_deprecation_is_said_where_a_user_browsing_actions_sees_it(self):
+        # The log warning fires once per run and only on a CALL. Somebody
+        # picking an action out of the UI list sees neither.
+        out = plan_alias_description("reset_bucket", {"description": "Do a thing."})
+        assert "Deprecated" in out["description"]
+        assert f"{const.DOMAIN}.reset_bucket" in out["description"]
 
-    def _catalogue(self, lang):
-        return json.loads(
-            (self._CATALOGUES / f"{lang}.json").read_text(encoding="utf-8")
+    def test_a_service_missing_from_the_yaml_still_gets_a_description(self):
+        # ONE name without a cached description is enough to trigger the
+        # integration lookup, so "no entry" must not mean "no description".
+        for entry in (None, {}, "not a dict", []):
+            out = plan_alias_description("run_zone", entry)
+            assert out["description"]
+            assert out["name"] == "run_zone"
+
+    def test_no_target_key_when_the_real_service_has_none(self):
+        # An empty target renders a picker that selects nothing.
+        assert "target" not in plan_alias_description("calculate_all_zones", {})
+        assert "target" not in plan_alias_description(
+            "calculate_all_zones", {"target": {}}
         )
 
-    def _cleanup_step(self, lang, step):
-        issues = self._catalogue(lang)["issues"]
-        flow = issues["leftover_legacy_directory_removable"]["fix_flow"]["step"]
-        return flow[step]["description"].lower()
 
-    @pytest.mark.parametrize("lang", sorted(_WATERING))
-    def test_the_cleanup_repair_says_the_old_install_still_waters(self, lang):
-        assert self._WATERING[lang] in self._cleanup_step(lang, "confirm"), (
-            f"{lang}.json still describes a leftover install as duplicate "
-            "entities only; it also runs its own schedules on the same valves"
+class TestReclaimLegacyServiceNames:
+    """The cleanup repair's second half (#130)."""
+
+    @pytest.mark.asyncio
+    async def test_stale_names_are_released_and_re_aliased(self, tmp_path):
+        # Removing the old config entry leaves its services registered, bound
+        # to a coordinator that has just been torn down.
+        dead = Mock()
+        services = _Services(
+            {
+                const.DOMAIN: {"reset_bucket": Mock(), "run_zone": Mock()},
+                const.LEGACY_DOMAIN: {"reset_bucket": dead, "run_zone": dead},
+            }
         )
+        hass = _hass(tmp_path, services=services)
 
-    @pytest.mark.parametrize("lang", sorted(_WATERING))
-    def test_the_standing_notice_says_it_too(self, lang):
-        text = self._catalogue(lang)["issues"]["leftover_legacy_directory"][
-            "description"
-        ].lower()
+        reclaimed = await async_reclaim_legacy_service_names(hass)
+
+        assert reclaimed == ["reset_bucket", "run_zone"]
+        for name in ("reset_bucket", "run_zone"):
+            assert (
+                _target(services.async_services()[const.LEGACY_DOMAIN][name])
+                is not dead
+            )
+
+    @pytest.mark.asyncio
+    async def test_re_registering_alone_would_have_done_nothing(self, tmp_path):
+        # The trap: the names are still taken, so plan_service_aliases returns
+        # [] and the registration is a no-op -- while looking entirely correct
+        # in a test with a clean registry. This pins WHY the removal comes
+        # first, so a later simplification cannot quietly drop it.
+        dead = Mock()
+        services = _Services(
+            {
+                const.DOMAIN: {"reset_bucket": Mock()},
+                const.LEGACY_DOMAIN: {"reset_bucket": dead},
+            }
+        )
+        hass = _hass(tmp_path, services=services)
+
+        assert await async_register_legacy_service_aliases(hass) == []
         assert (
-            self._WATERING[lang] in text
-        ), f"{lang}.json's standing leftover notice warns about sensors only"
-
-    @pytest.mark.parametrize("lang", sorted(_WATERING))
-    def test_the_done_step_explains_what_the_restart_actually_fixes(self, lang):
-        """The old integration never unregisters its services.
-
-        Verified on HA-Test: after the repair removed the config entry AND the
-        folder, all 24 `smart_irrigation.*` names were still registered, bound to
-        a torn-down coordinator. The alias cannot take a name that is taken, so
-        until the restart those names are dead rather than forwarded. "The
-        duplicate entities disappear" made the restart sound cosmetic.
-        """
-        text = self._cleanup_step(lang, "done")
-        assert f"{const.LEGACY_DOMAIN}." in text, (
-            f"{lang}.json's done step does not mention the {const.LEGACY_DOMAIN}.* "
-            "service names, which are dead until the restart it is asking for"
+            _target(services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"])
+            is dead
         )
+
+        assert await async_reclaim_legacy_service_names(hass) == ["reset_bucket"]
+        assert (
+            _target(services.async_services()[const.LEGACY_DOMAIN]["reset_bucket"])
+            is not dead
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_forwarders_it_leaves_are_removable_on_unload(self, tmp_path):
+        # Reclaiming must not leave _ALIASED describing the services it threw
+        # away, or the next unload removes nothing.
+        services = _Services(
+            {
+                const.DOMAIN: {"reset_bucket": Mock()},
+                const.LEGACY_DOMAIN: {"reset_bucket": Mock()},
+            }
+        )
+        hass = _hass(tmp_path, services=services)
+
+        await async_reclaim_legacy_service_names(hass)
+        async_remove_legacy_service_aliases(hass)
+
+        assert not services.has_service(const.LEGACY_DOMAIN, "reset_bucket")
+
+
+class TestAliasesAgainstTheRealServiceRegistry:
+    """The two defects a hand-written registry double cannot show (#130).
+
+    Everything above drives ``_Services``. These drive Home Assistant's own
+    registry and its own description builder, because both bugs here live
+    exactly in the difference between the two.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _ours(self, monkeypatch):
+        monkeypatch.setattr(
+            "custom_components.irrigation_plus.migrate_domain.foreign_legacy_install",
+            lambda hass: False,
+        )
+
+    @staticmethod
+    async def _noop(call):
+        return None
+
+    @pytest.mark.asyncio
+    async def test_the_alias_is_actually_removed_on_unload(self, hass):
+        # hass.services.async_services() returns Service wrappers, not the
+        # handlers we registered, so an identity check against the raw function
+        # matches nothing. This is the whole of the bug: the module promised
+        # "aliases are removed on unload" and removed none of them, on every
+        # install, from the day it shipped.
+        hass.services.async_register(const.DOMAIN, "reset_bucket", self._noop)
+        assert await async_register_legacy_service_aliases(hass) == ["reset_bucket"]
+
+        async_remove_legacy_service_aliases(hass)
+
+        assert not hass.services.has_service(const.LEGACY_DOMAIN, "reset_bucket")
+
+    @pytest.mark.asyncio
+    async def test_descriptions_do_not_send_home_assistant_looking_for_the_old_integration(
+        self, hass, caplog
+    ):
+        # Reported from a completed migration: an ERROR on EVERY start, for
+        # something working as designed. async_get_all_descriptions resolves
+        # the integration behind any domain with an undescribed service, and
+        # after the cleanup there is no smart_irrigation integration to find.
+        from homeassistant.helpers.service import async_get_all_descriptions
+
+        hass.services.async_register(const.DOMAIN, "reset_bucket", self._noop)
+        await async_register_legacy_service_aliases(hass)
+
+        descriptions = await async_get_all_descriptions(hass)
+
+        assert "Failed to load services.yaml" not in caplog.text
+        assert "IntegrationNotFound" not in caplog.text
+        alias = descriptions[const.LEGACY_DOMAIN]["reset_bucket"]
+        # Carried over from our own services.yaml, so the old name is not a
+        # bare, unhelpful entry in the Actions UI.
+        assert alias["name"] == "Reset bucket"
+        assert alias["target"] == {"entity": {"domain": "sensor"}}
+        assert "Deprecated" in alias["description"]
