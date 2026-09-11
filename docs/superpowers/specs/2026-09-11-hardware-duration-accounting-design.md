@@ -147,6 +147,27 @@ bis 40 s, um die der Backstop dem Ventil zuvorkam, verschwinden.
 steigt pro Lauf stärker, weil er endlich das ganze Wasser sieht. Der nächste Lauf
 fällt kürzer aus oder kommt später.
 
+**Für die Release-Notes**, im Review gefunden: ein manueller Lauf über „2,5 Minuten"
+auf einer Minuten-Zone bucht künftig 180 s statt 150 s. Das ist genau das, was das
+Ventil tut, aber Verlauf und Eimer zeigen dann 3 Minuten, wo der Nutzer 2,5 getippt
+hat. Gehört benannt, nicht in den Code.
+
+**Was der Fix nebenbei mitheilt**, ebenfalls im Review nachgewiesen und wert, im
+PR-Text zu stehen:
+
+- `async_stop_self_closing` rechnet `delivered_frac = min(elapsed / planned, 1.0)`.
+  Ein Stopp bei t = 280 s auf einem echten 300-s-Ventil ergab bisher `280/263 --> 1,0`,
+  also **volle** Gutschrift für 93 % des Wassers. Künftig 0,933.
+- Der Neustart-Abgleich (`self_closing.py:807`) vergleicht `elapsed >= planned`. Ein
+  Neustart bei t = 270 s las bisher 263, nahm den Finalisierungs-Zweig, gab den
+  Master-Hold frei und schrieb `completed`, während das Ventil noch 30 s offen war.
+- `_watch_finish` entscheidet `completed` gegen Früh-Stopp an derselben Zahl.
+
+**Nicht in den PR-Text**, weil im Review widerlegt: die beiden Wiederarmierungen in
+`run_watch.py` erben zwar formal mit, sind für diesen Modus aber unerreichbar —
+beide hängen an `not opens_at_dispatch` beziehungsweise am segmentierten Pfad, und
+`SERVICE_WATCH_POLICY` setzt `opens_at_dispatch=True` und `segmented=False`.
+
 ## Tests
 
 Test vor Code, je ein fehlschlagender Test pro Punkt:
@@ -157,11 +178,25 @@ Test vor Code, je ein fehlschlagender Test pro Punkt:
 - Batch: der Plan an den Controller und die Buchhaltung nennen dieselbe Dauer.
 - Verteiler: Einlass-Fenster und Buchhaltung nennen dieselbe Dauer.
 
-Dazu zwei Pins für das, was gleich bleiben muss:
+Dazu zwei Pins:
 
-- Eine Sekunden-Zone verhält sich unverändert.
+- **KORREKTUR 2026-09-11, im Review gemessen:** die ursprüngliche Zusage „eine
+  Sekunden-Zone verhält sich unverändert" ist **falsch**, und der Pin, der sie
+  behauptete, konnte es nicht sehen, weil er mit einer ganzen Zahl arbeitete. Bei einer
+  ganzzahligen Dauer ist die Umrechnung ein No-op; bei einer **gebrochenen** nicht, und
+  eine gerechnete Dauer ist praktisch immer gebrochen. Gemessen: 263,4 s werden dem
+  Ventil als 263 gemeldet und künftig als 263,0 gebucht statt 263,4; 263,6 s werden als
+  264 gemeldet und als 264,0 gebucht. Das ist **richtig und dieselbe Regel** — das
+  Ventil läuft die gerundete Zahl, also gehört sie in die Bücher —, nur eben unter einer
+  Sekunde statt bis zu 59. Der Pin heißt jetzt
+  `test_seconds_zone_books_what_the_rounding_told_the_valve` und arbeitet mit 263,6.
 - Beide Aufrufer benutzen denselben Helfer — die Zusicherung schlägt fehl, sobald
   jemand eine zweite Kopie einführt.
+
+**Was daraus für die Beschreibung folgt:** die Bedingung im Abschnitt „Wer betroffen
+ist" bleibt richtig, sie benennt nur die Größenordnung. Minuten-Hardware ist der Fall,
+der weh tut. Sekunden-Hardware hat denselben Fehler im Sub-Sekunden-Bereich und wird
+vom selben Fix miterledigt, ohne dass dafür etwas Zusätzliches nötig wäre.
 
 Maßgeblich ist die CI. Die lokale Suite ist unter Windows nicht verlässlich
 (Memory `hasi-local-test-env-rebuild`).
