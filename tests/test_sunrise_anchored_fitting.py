@@ -53,6 +53,10 @@ def _schedule(**kw):
 
 def _manager(plan=(), sequencing=const.CONF_ZONE_SEQUENCING_SEQUENTIAL):
     mgr = RecurringScheduleManager(Mock(), Mock())
+    # A real dict, because arming tells the next-irrigation entities to
+    # recompute and the dispatcher walks hass.data for its subscribers. A Mock
+    # there is not iterable and the arm raises before it decides anything.
+    mgr.hass.data = {}
     coord = mgr.coordinator
     coord.async_plan_zone_runs = AsyncMock(return_value=list(plan))
     coord.sequencing_timing = Mock(return_value=(sequencing, 300.0, 0.0))
@@ -561,6 +565,74 @@ class TestDecideAndArm:
         assert mgr._finish_last_target["s1"] == target.isoformat()
 
 
+class TestTheArmIsPublishedToTheProjection:
+    """The next-run projection reports the DECIDED run once one exists, so the
+    decision has to leave a record and has to tell the entities it did. Both
+    happen inside a timer callback hours after the write that armed it, and
+    nothing else dispatches at that moment."""
+
+    @pytest.mark.asyncio
+    @freeze_time("2026-06-20 20:00:00")
+    async def test_the_decision_records_its_start_and_its_zones(self):
+        mgr = _manager(plan=[_run(0, 600), _run(1, 900)])
+        target = datetime.datetime(2026, 6, 21, 6, 0, tzinfo=UTC)
+        with patch(
+            "custom_components.irrigation_plus.scheduler."
+            "async_track_point_in_utc_time"
+        ):
+            await mgr._decide_and_arm(
+                _schedule(fit_to_window=True), target, None, commit=False
+            )
+
+        armed = mgr._armed_runs["s1"]
+        assert armed["target"] == target
+        assert armed["start_utc"] == target - datetime.timedelta(seconds=1500)
+        assert armed["zones"] == {0: 600.0, 1: 900.0}
+
+    @pytest.mark.asyncio
+    @freeze_time("2026-06-20 20:00:00")
+    async def test_a_night_the_decision_refused_is_still_a_decision(self):
+        """Recording nothing would leave the pre-decision estimate published as
+        though the decision had not been made yet."""
+        mgr = _manager(plan=[])
+        target = datetime.datetime(2026, 6, 21, 6, 0, tzinfo=UTC)
+        with patch(
+            "custom_components.irrigation_plus.scheduler."
+            "async_track_point_in_utc_time"
+        ):
+            await mgr._decide_and_arm(
+                _schedule(fit_to_window=True), target, None, commit=False
+            )
+
+        assert mgr._armed_runs["s1"]["zones"] == {}
+        assert mgr._armed_runs["s1"]["start_utc"] is None
+
+    @pytest.mark.asyncio
+    @freeze_time("2026-06-20 20:00:00")
+    async def test_the_decision_invalidates_the_published_projection(self):
+        mgr = _manager(plan=[_run(0, 600)])
+        mgr._projection_cache = [{"stale": True}]
+        mgr._projection_at = 1.0
+        target = datetime.datetime(2026, 6, 21, 6, 0, tzinfo=UTC)
+        with (
+            patch(
+                "custom_components.irrigation_plus.scheduler."
+                "async_track_point_in_utc_time"
+            ),
+            patch(
+                "custom_components.irrigation_plus.scheduler.async_dispatcher_send"
+            ) as send,
+        ):
+            await mgr._decide_and_arm(
+                _schedule(fit_to_window=True), target, None, commit=False
+            )
+
+        assert mgr._projection_cache is None
+        assert any(
+            call.args[1].endswith("_schedules_updated") for call in send.call_args_list
+        )
+
+
 class TestScheduleValidation:
     """Bad Start/Finish settings are rejected, not silently dropped."""
 
@@ -655,6 +727,38 @@ class TestAnInvertedPairingIsAnnouncedOncePerPairing:
                 const.SCHEDULE_CONF_FINISH_TIME: "06:00",
             }
         )
+
+    @pytest.mark.asyncio
+    @freeze_time("2026-06-20 20:00:00")
+    async def test_a_viewer_read_does_not_spend_the_announcement(self, caplog):
+        """The dashboard and every zone's Next irrigation entity resolve the
+        same pairing, now on the estimate refresh rather than only on a config
+        write. Reading it is not deciding anything, so a read must not consume
+        the one announcement the arm is entitled to make -- otherwise the
+        misconfiguration is reported at DEBUG, where nobody sees it, and the
+        only trace of it is in a log level.
+        """
+        mgr = _manager()
+        sched = self._inverted()
+        mgr._schedules = [sched]
+        caplog.set_level(logging.DEBUG)
+
+        for _ in range(3):
+            await mgr.async_get_upcoming_runs()
+        assert [
+            r for r in caplog.records if "does not precede/follow" in r.message
+        ] == []
+
+        with patch(
+            "custom_components.irrigation_plus.scheduler."
+            "async_track_point_in_utc_time"
+        ):
+            await mgr._setup_schedule_tracker(sched)
+
+        levels = [
+            r.levelno for r in caplog.records if "does not precede/follow" in r.message
+        ]
+        assert levels[:1] == [logging.WARNING]
 
     @pytest.mark.asyncio
     @freeze_time("2026-06-20 20:00:00")

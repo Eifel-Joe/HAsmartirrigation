@@ -26,11 +26,16 @@ from custom_components.irrigation_plus.day_projection import (
     compose_extremes,
     diurnal_fraction,
     diurnal_remainder,
+    forecast_rain_mm,
     forecast_remainder,
+    radiation_share,
     remainder_hours,
     solar_marks,
 )
-from custom_components.irrigation_plus.et_estimate import SiteGeometry
+from custom_components.irrigation_plus.et_estimate import (
+    SiteGeometry,
+    proxy_et_since,
+)
 
 # The install's own coordinates, as every other test in this area uses.
 GEO = SiteGeometry(39.68987, -84.07865, 311.0, -4.0, None)
@@ -214,3 +219,120 @@ class TestTheTierVocabulary:
         """Published as an entity attribute, so these strings are part of what
         a dashboard template reads."""
         assert len({TIER_SERVICE, TIER_SELF_CONTAINED, TIER_OBSERVED}) == 3
+
+
+class TestTheRadiationShare:
+    """How much of a day's evapotranspiration falls between two instants, for a
+    zone whose charge accrues with the sun. A remainder charged uniformly would
+    price an evening at a noon rate, and the hours between a midday glance and a
+    night-anchored decision point are mostly evening."""
+
+    def test_a_whole_day_is_the_whole_share(self):
+        assert radiation_share(_at(0), _at(24), GEO) == pytest.approx(1.0, abs=1e-6)
+
+    def test_a_closed_span_charges_nothing(self):
+        """What makes the projection collapse onto the live bucket at the
+        decision point rather than approach it."""
+        assert radiation_share(_at(12), _at(12), GEO) == 0.0
+        assert radiation_share(_at(12), _at(11), GEO) == 0.0
+
+    def test_the_night_is_worth_almost_nothing(self):
+        night = radiation_share(_at(22), _at(28), GEO)
+        afternoon = radiation_share(_at(12), _at(18), GEO)
+
+        assert night < 0.02
+        assert afternoon > 10 * night
+
+    def test_it_crosses_midnight(self):
+        """A decision point routinely sits on the far side of one from the
+        moment the projection is asked for."""
+        split = radiation_share(_at(20), _at(24), GEO) + radiation_share(
+            _at(24), _at(30), GEO
+        )
+
+        assert radiation_share(_at(20), _at(30), GEO) == pytest.approx(split, abs=1e-9)
+
+    def test_a_partial_hour_is_charged_its_own_share(self):
+        """Rounded onto the hourly grid instead, a span shorter than an hour
+        would either vanish or be charged a whole one."""
+        half = radiation_share(_at(12), _at(12.5), GEO)
+        whole = radiation_share(_at(12), _at(13), GEO)
+
+        assert 0 < half < whole
+
+    def test_it_matches_the_shape_the_commit_distributes_a_day_with(self):
+        """The one assertion the others cannot make. Everything above is an
+        internal property -- a whole day is 1.0, the parts sum to the whole,
+        night is worth less than afternoon -- and every one of them survives
+        this function drifting away from ``proxy_et_since``, which is the thing
+        it is a generalisation of. A self-consistent copy of the wrong shape
+        passes them all.
+
+        So drive both on the same geometry and the same hours. ``proxy_et_since``
+        takes a list of whole hours and weights them by the same Ra; over a span
+        aligned to the hourly grid the two have to agree, or the remainder a
+        projection charges is not the shape the commit will book.
+        """
+        hours = list(range(6, 18))
+        expected = proxy_et_since(
+            daily_et0=1.0,
+            latitude_deg=GEO.latitude,
+            longitude_deg=GEO.longitude,
+            doy=_at(0).timetuple().tm_yday,
+            tz_offset_h=GEO.tz_offset_h,
+            elapsed_hours=[h + 0.5 for h in hours],
+        )
+
+        assert radiation_share(_at(6), _at(18), GEO) == pytest.approx(
+            expected, rel=1e-9
+        )
+
+
+class TestTheForecastRain:
+    """The rain a run's decision point will already have seen. Rates rather than
+    accumulations, so a three-hourly product and an hourly one integrate to the
+    same water."""
+
+    def _hourly(self, rate, hours=12):
+        return [(_at(h), rate) for h in range(hours)]
+
+    def test_a_steady_rate_integrates_over_the_span(self):
+        assert forecast_rain_mm(self._hourly(2.0), _at(2), _at(6)) == pytest.approx(8.0)
+
+    def test_a_three_hourly_product_gives_the_same_water_as_an_hourly_one(self):
+        hourly = self._hourly(2.0)
+        three_hourly = [(_at(h), 2.0) for h in range(0, 12, 3)]
+
+        assert forecast_rain_mm(three_hourly, _at(3), _at(9)) == pytest.approx(
+            forecast_rain_mm(hourly, _at(3), _at(9))
+        )
+
+    def test_a_partial_interval_is_charged_its_own_share(self):
+        assert forecast_rain_mm(self._hourly(2.0), _at(2.5), _at(3.5)) == pytest.approx(
+            2.0
+        )
+
+    def test_no_series_at_all_is_no_answer_rather_than_no_rain(self):
+        """The caller distinguishes them: without a series the projection is
+        evapotranspiration-only and says so, and a zero would read as a forecast
+        of no rain."""
+        assert forecast_rain_mm(None, _at(2), _at(6)) is None
+        assert forecast_rain_mm([], _at(2), _at(6)) is None
+
+    def test_a_series_that_stops_short_is_refused(self):
+        assert forecast_rain_mm(self._hourly(2.0, hours=4), _at(2), _at(8)) is None
+
+    def test_a_series_that_starts_late_is_refused(self):
+        """Its first sample only closes an interval whose start is unknown, so a
+        series beginning inside the span leaves its opening hours uncovered."""
+        late = [(_at(h), 2.0) for h in range(4, 12)]
+
+        assert forecast_rain_mm(late, _at(2), _at(8)) is None
+
+    def test_a_hole_wider_than_a_three_hourly_step_is_refused(self):
+        gappy = [(_at(0), 2.0), (_at(8), 2.0), (_at(9), 2.0)]
+
+        assert forecast_rain_mm(gappy, _at(1), _at(9)) is None
+
+    def test_a_closed_span_is_no_rain_rather_than_no_answer(self):
+        assert forecast_rain_mm(self._hourly(2.0), _at(6), _at(6)) == 0.0
