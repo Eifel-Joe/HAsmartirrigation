@@ -26,6 +26,7 @@ from .distributor_entity import (
     zone_on_outlet,
 )
 from .entity import zone_device_info
+from .live_estimate import REASON_NOT_COMPUTED
 from .performance import async_timer
 
 _LOGGER = logging.getLogger(__name__)
@@ -744,6 +745,23 @@ class SmartIrrigationZoneLiveDeficitSensor(SmartIrrigationZoneChildSensor):
         except (KeyError, AttributeError, TypeError):
             return {}
 
+    def _unavailable_reason(self):
+        """Why this zone has no estimate, or None while it has one.
+
+        A zone in neither the cache nor the reasons reads ``not_computed_yet``
+        rather than None: after a restart the sensors render before the first
+        refresh cycle has run, and None there would tell an operator a value
+        exists at the one moment they are most likely to look.
+        """
+        if self._estimate():
+            return None
+        try:
+            coordinator = self._hass.data[const.DOMAIN]["coordinator"]
+            reasons = coordinator._zone_estimate_reasons or {}  # noqa: SLF001
+        except (KeyError, AttributeError, TypeError):
+            reasons = {}
+        return reasons.get(str(self._zone_id), REASON_NOT_COMPUTED)
+
     @property
     def native_unit_of_measurement(self) -> str:
         """Estimates are reported in the display unit system."""
@@ -783,6 +801,13 @@ class SmartIrrigationZoneLiveDeficitSensor(SmartIrrigationZoneChildSensor):
             # three on the temperature range they supply, so the live figure
             # alone never says which one produced it.
             "forecast_tier": est.get("forecast_tier"),
+            # Why this sensor has no value, for the zones that have none: which
+            # of the preconditions is missing, rather than an empty state and a
+            # guess. None whenever there is a value. An operator who turned
+            # live-estimate watering on and sees nothing has no other way to
+            # tell a zone that has never been calculated from one whose sensor
+            # group cannot price a window.
+            "unavailable_reason": self._unavailable_reason(),
         }
 
 

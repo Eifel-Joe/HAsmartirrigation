@@ -87,6 +87,24 @@ def hourly_calculation_enabled(store) -> bool:
     )
 
 
+def zone_module_models_weather(store, zone) -> bool:
+    """Whether this zone's module derives its answer from weather at all.
+
+    True for PyETO and false for Static and Passthrough, which hand back a number
+    the install supplied. Named for the question rather than for the module,
+    because two separate gates ask it for two separate reasons: replaying a window
+    for a module that does not model precipitation would introduce water the
+    shipped model deliberately leaves out, and mirroring the daily FAO-56 equation
+    is only meaningful where that equation is what the commit runs.
+
+    Reads the STORED module rather than an instance: these gates are asked every
+    minute per zone, and instantiating a module re-scans the calc-module
+    directory.
+    """
+    module = store.get_module(zone.get(const.ZONE_MODULE))
+    return bool(module) and module.get(const.MODULE_NAME) == "PyETO"
+
+
 def replayed_balance_applies(store, zone) -> bool:
     """Whether a zone's water balance is replayed rather than lumped.
 
@@ -99,9 +117,8 @@ def replayed_balance_applies(store, zone) -> bool:
 
     Two conditions, for two different reasons:
 
-    * the module has to model precipitation at all -- replaying a window for
-      Static or Passthrough would introduce water the shipped model deliberately
-      leaves out;
+    * the module has to model precipitation at all, which is
+      :func:`zone_module_models_weather`;
     * ``hourlycalculation`` has to be on. That one is blast radius rather than a
       technical limit: replaying moves the stored bucket on any install that maps
       precipitation, because rain that used to be booked at the window start
@@ -109,14 +126,13 @@ def replayed_balance_applies(store, zone) -> bool:
       booked when it fell. A better number, but still a change to what an install
       that opted into nothing sees.
 
-    Reads the STORED module rather than an instance: the estimate asks this every
-    minute per zone, and instantiating a module re-scans the calc-module
-    directory.
+    That second half is about the BALANCE FORM and nothing else. It does not say
+    which equation the zone's commit runs, so a gate that asks about the ET source
+    must not read it -- see :meth:`LiveEstimateMixin._daily_form_applies`.
     """
     if not hourly_calculation_enabled(store):
         return False
-    module = store.get_module(zone.get(const.ZONE_MODULE))
-    return bool(module) and module.get(const.MODULE_NAME) == "PyETO"
+    return zone_module_models_weather(store, zone)
 
 
 def trailing_temperature_amplitude(store, mapping_id):
