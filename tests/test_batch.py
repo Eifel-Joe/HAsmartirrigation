@@ -1242,3 +1242,75 @@ class TestAHoldIsNeverStrandedOnAZoneWithNoRun:
             c._fire_zone_problem.call_args.args[3]
             == const.PROBLEM_BATCH_RUN_NOT_RECORDED
         )
+
+
+class TestThePlanAndTheBooksNameTheSameDuration:
+    """A queue controller owns the closes, exactly like a self-closing valve.
+
+    Whatever duration the plan carries is the duration the hardware really runs,
+    so the plan entry and the bookkeeping must be the same number. They are not
+    the same number the moment a unit conversion sits between them.
+    """
+
+    @staticmethod
+    def _spy_on_the_books(c):
+        """Collect the ``seconds`` every ``_batch_record_run`` is handed.
+
+        Wrapped around the real method rather than replacing it, so the run
+        record it writes is the production one — the same trick the
+        stranded-hold tests above use.
+        """
+        booked = []
+        real = c._batch_record_run
+
+        async def _record(zone, watch_entity, seconds):
+            booked.append(seconds)
+            await real(zone, watch_entity, seconds)
+
+        c._batch_record_run = AsyncMock(side_effect=_record)
+        return booked
+
+    async def test_a_minute_zone_books_the_window_the_controller_runs(self, hass):
+        """The controller is told whole minutes and runs them. If the bookkeeping
+        keeps the priced seconds, every batch zone is booked short by up to 59 s."""
+        c = _coord(hass)
+        zones = _register(
+            c,
+            _zone(
+                1,
+                VALVE_A,
+                263.0,
+                **{const.ZONE_DURATION_UNIT: const.DURATION_UNIT_MINUTES},
+            ),
+        )
+        booked = self._spy_on_the_books(c)
+
+        await c.async_dispatch_batch_zones(zones, trigger="schedule")
+
+        plan = c._calls["run"][0].data[const.BATCH_FIELD_ZONES]
+        # 263 s of water rounds UP to 5 whole minutes, and the valve runs all 5.
+        assert [p["duration"] for p in plan] == [5]
+        # So the books take 300 s, not the 263 s that was priced.
+        assert booked == [300.0]
+        assert [r[const.RUN_PLANNED_SECONDS] for r in c._runs] == [300.0]
+        # Including the window observed-watering is told to keep its hands
+        # off, which a re-derivation from zone[ZONE_DURATION] would shorten.
+        c._note_si_valve.assert_called_once_with(1, 300.0)
+
+    async def test_the_same_holds_for_a_fractional_second_duration(self, hass):
+        """Seconds hardware converts too — a whole number just hides it.
+
+        263.6 s is told to the controller as 264, so 264 is what runs and 264 is
+        what the books must carry.
+        """
+        c = _coord(hass)
+        zones = _register(c, _zone(1, VALVE_A, 263.6))
+        booked = self._spy_on_the_books(c)
+
+        await c.async_dispatch_batch_zones(zones, trigger="schedule")
+
+        plan = c._calls["run"][0].data[const.BATCH_FIELD_ZONES]
+        assert [p["duration"] for p in plan] == [264]
+        assert booked == [264.0]
+        assert [r[const.RUN_PLANNED_SECONDS] for r in c._runs] == [264.0]
+        c._note_si_valve.assert_called_once_with(1, 264.0)

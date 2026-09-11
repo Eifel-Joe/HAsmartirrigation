@@ -44,6 +44,7 @@ from homeassistant.helpers.event import async_call_later, async_track_state_chan
 from homeassistant.util import dt as dt_util
 
 from . import const
+from .duration_math import hardware_window
 from .run_watch import (
     NO_INFO_STATES,
     RUNNING_STATES,
@@ -231,12 +232,27 @@ class BatchMixin:
                 )
                 continue
             unit = zone.get(const.ZONE_DURATION_UNIT, const.DURATION_UNIT_SECONDS)
-            prepared.append((zone, watch_entity, seconds))
+            # Wurzel: a minutes-unit zone is told a rounded-UP duration and the
+            # controller really runs it (263 s priced -> 5 min told -> 300 s of
+            # water), but the books kept the priced seconds: the credit, the run
+            # record, the watch deadline and the observed-watering suppression
+            # window were short by up to 59 s. Seconds hardware converts too, to
+            # the nearest whole second.
+            # Fix: ONE hardware_window call feeds both halves, so the plan entry
+            # and the books cannot name different durations.
+            # NOT-TO-DO: do not book hardware_value -- it is the hardware's own
+            # unit (5), and _batch_record_run treats its third argument as seconds
+            # throughout. And do not round to minutes locally instead: that is the
+            # third copy of the rule f8b82a20/b06231b4 just consolidated, and it
+            # misses the seconds branch.
+            # siehe test_batch.py::TestThePlanAndTheBooksNameTheSameDuration
+            hardware_value, planned = hardware_window(seconds, unit)
+            prepared.append((zone, watch_entity, planned))
             plan.append(
                 {
                     "zone_id": zone_id,
                     "zone_name": zone.get(const.ZONE_NAME),
-                    "duration": self._sc_convert(seconds, unit),
+                    "duration": hardware_value,
                 }
             )
 
