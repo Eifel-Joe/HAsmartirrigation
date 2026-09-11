@@ -39,19 +39,34 @@ Damit ist der Abschlusspfad der Ventil-Überwachung auf einer Minuten-Zone
 zuerst kommt. Der Vergleich `actual_s` gegen `planned_s`, der über `partial` gegen
 `completed` entscheidet, urteilt aus demselben Grund auf der falschen Zahl.
 
-## Schwester-Pfade
+## Wer betroffen ist — eine Bedingung, nicht drei Pfade
 
-Dasselbe Muster, drei Aufrufstellen:
+Maßgeblich ist eine Eigenschaft der Hardware, nicht der Codepfad:
 
-1. `self_closing.py:121` — `_sc_convert`, der Hauptpfad.
-2. `batch.py:239` — der Plan an den Queue-Controller trägt
-   `self._sc_convert(seconds, unit)`, `prepared` behält daneben die rohen `seconds`
-   für die Buchhaltung.
-3. `distributor.py:62-68` — `_dist_convert`, eine zeilengleiche Kopie von
-   `_sc_convert`, für das Einlassventil.
+> **Der Schluss gehört der Hardware, und diese Hardware nimmt nur ganze Minuten.**
 
-`_sc_convert` und `_dist_convert` sind logisch identisch; nur die Docstrings
-unterscheiden sich.
+Alles andere folgt daraus. Ob das Ventil eine eigene Zone bedient, als Einlass vor
+einem Verteiler sitzt oder von einem Queue-Controller bedient wird, ändert nichts an
+der Rundung und nichts an ihrer Folge. Ein Ventil, das Sekunden nimmt, ist nie
+betroffen; ein klassisch getaktetes Ventil, bei dem die Integration den Schluss
+besitzt, ebenfalls nicht.
+
+Geprüft, dass die Bedingung überall dieselbe ist:
+
+| Stelle | Bedingung im Code |
+| --- | --- |
+| `self_closing.py:121` | self-closing per Definition des Modus |
+| `distributor.py:74` | nur unter `watering_mode == WATERING_MODE_SERVICE`; der Docstring von `_dist_open_inlet` sagt selbst „service (self-closing): the hardware owns the close" |
+| `batch.py:239` | verlangt ein `confirm_entity` als Beobachtungspunkt und beruft sich im Kommentar auf denselben Mechanismus wie `async_run_self_closing`; der Controller besitzt den Schluss, die Einheit kommt aus der Zone |
+
+Die Umrechnung existiert dafür heute zweimal: `_sc_convert`
+(`self_closing.py:100-105`, von `batch.py` als Mixin-Methode mitbenutzt) und
+`_dist_convert` (`distributor.py:62-68`). Beide sind logisch identisch, nur die
+Docstrings unterscheiden sich.
+
+**Daraus folgt der Zuschnitt:** eine Bedingung, eine Rundungsregel, also eine
+Funktion. Die Zusammenlegung ist kein nebenher mitgenommener Umbau, sondern die
+Form, die zum Befund passt.
 
 ## Optionen
 
@@ -108,9 +123,10 @@ Braucht der Verteiler je eine Sonderbehandlung, ist die Zusammenlegung falsch.
 ## Nicht Teil dieser Änderung
 
 - Die Rundungsrichtung. Was die Hardware bekommt, ändert sich nicht um eine Sekunde.
-- Der OpenSprinkler-Pfad (`_sc_dispatch_open`, `max(1, math.ceil(seconds))`): rundet
-  ebenfalls auf, aber um unter eine Sekunde und ohne Einheiten-Umrechnung, weil
-  `run_station` ganze Sekunden nimmt.
+- Der OpenSprinkler-Pfad (`_sc_dispatch_open`, `max(1, math.ceil(seconds))`). Er
+  erfüllt die Bedingung nicht: `run_station` nimmt **ganze Sekunden**, es gibt dort
+  also keine Einheiten-Umrechnung. Das verbleibende Aufrunden beträgt unter eine
+  Sekunde. Nicht „zu klein, um sich zu lohnen", sondern eine andere Hardware-Klasse.
 - Die Dauer im Verlauf-Tab anzeigen — eigener Punkt, vom Betreiber angeregt.
 - Die Verzerrung von rund 4,1 s auf `actual_s` (5-s-Entprellung minus 0,9 s
   Confirm-Schwanz, gemessen im #88-Test). Andere Ursache, anderer Fix.
