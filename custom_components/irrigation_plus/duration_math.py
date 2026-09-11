@@ -18,6 +18,8 @@ these specific unit pairs (see ``helpers.convert_length`` /
 
 from __future__ import annotations
 
+import math
+
 from . import const
 
 
@@ -139,3 +141,46 @@ def calibrated_flow_seconds(zone, planned_seconds, metric):
     corrected = lead + watering * (configured / observed_lpm)
     ceiling = float(zone.get(const.ZONE_MAXIMUM_DURATION) or const.FLOW_SAFETY_TIMEOUT)
     return min(corrected, ceiling)
+
+
+def hardware_window(seconds, unit) -> tuple[int, float]:
+    """``(value_for_the_hardware, seconds_that_value_means)``.
+
+    A valve that owns its own close is told a duration in ITS unit. That
+    instruction is not always the duration that was priced, and everything that
+    books the run (the optimistic credit, the run record, the backstop, the
+    observed-watering suppression window) must use the second value, or the
+    zone silently receives more water than its bucket ever sees.
+
+    The first value is an ``int`` because it lands in a service-call duration
+    field, where ``5.0`` is not ``5`` for a Z2M/Tuya payload.
+
+    Minute-granularity hardware is rounded UP -- rather slightly too much water
+    than too little -- so the window the valve really runs is longer than the
+    duration priced. Seconds hardware is rounded to the NEAREST whole second,
+    in either direction, so 263.4 s is told 263; the second return value reports
+    whichever way it went. The seconds branch deliberately has no floor of one,
+    unlike the minutes branch: a request of 0.5 s or less commands nothing --
+    ``round(0.5)`` is 0 under banker's rounding, and the boundary flips at 0.51.
+    That is the behaviour of the helpers this replaces and is kept on purpose.
+
+    Non-positive input -- zero, ``None``, or a negative -- commands nothing and
+    is clamped here to ``(0, 0.0)``, so callers need no guard of their own.
+
+    The rounding is otherwise unchanged from the two helpers this replaces,
+    ``self_closing._sc_convert`` and ``distributor._dist_convert``; only the
+    second return value is new. The OpenSprinkler ``run_station`` path in
+    ``self_closing._sc_dispatch_open`` is deliberately NOT covered: it rounds by
+    a different rule (``max(1, math.ceil(seconds))``, floored at one), takes
+    whole seconds and nothing else, and its unit is a property of the user's own
+    run_service script rather than of the zone. Using ``hardware_window`` there
+    would turn 263.4 into 263 instead of 264 and drop that floor.
+    """
+    seconds = float(seconds or 0)
+    if seconds <= 0:
+        return 0, 0.0
+    if unit == const.DURATION_UNIT_MINUTES:
+        minutes = max(1, math.ceil(seconds / 60.0))
+        return minutes, float(minutes * 60)
+    whole = int(round(seconds))
+    return whole, float(whole)
