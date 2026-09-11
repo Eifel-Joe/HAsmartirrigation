@@ -46,6 +46,10 @@ export class SmartIrrigationViewSchedules extends SubscribeMixin(LitElement) {
   @state() private _schedules: Schedule[] = [];
   @state() private _zones: SmartIrrigationZone[] = [];
   @state() private _isLoading = true;
+  // No load has succeeded yet and the last one failed. Kept apart from an
+  // empty _schedules, which after a failure says nothing about the install.
+  @state() private _loadFailed = false;
+  private _loaded = false;
   @state() private _showDialog = false;
   @state() private _editingSchedule: Schedule = emptySchedule();
   @state() private _editingId: string | null = null;
@@ -68,9 +72,13 @@ export class SmartIrrigationViewSchedules extends SubscribeMixin(LitElement) {
       ]);
       this._schedules = schedules || [];
       this._zones = zones || [];
+      this._loaded = true;
+      this._loadFailed = false;
     } catch (e) {
       console.error("Failed to load schedules", e);
       showErrorToast(this, this.hass, "common.errors.load_failed", e);
+      // A refresh that fails after a good load keeps what is on screen.
+      if (!this._loaded) this._loadFailed = true;
     } finally {
       this._isLoading = false;
     }
@@ -198,6 +206,21 @@ export class SmartIrrigationViewSchedules extends SubscribeMixin(LitElement) {
         >
           <div class="card-content">
             ${localize("common.loading", this.hass.language)}...
+          </div>
+        </ha-card>
+      `;
+    }
+
+    // A failed first load leaves _schedules empty, so the page would otherwise
+    // say "no schedules" and offer Add with no zones to pick. The next
+    // config-updated message retries, and a success clears it.
+    if (this._loadFailed) {
+      return html`
+        <ha-card
+          header="${localize("panels.schedules.title", this.hass.language)}"
+        >
+          <div class="card-content">
+            ${localize("common.errors.load_failed", this.hass.language)}
           </div>
         </ha-card>
       `;

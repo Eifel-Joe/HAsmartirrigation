@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterEach,
+  vi,
+} from "vitest";
 
 beforeAll(() => {
   (globalThis as any).HTMLElement = class {};
@@ -147,5 +155,68 @@ describe("view-history", () => {
     const { text } = flatten(el.render());
     expect(text).toContain("No zones configured yet.");
     expect(text).not.toContain("<ip-zone-history");
+  });
+
+  describe("a failed load", () => {
+    const zones = [{ id: 1, name: "Front", run_log: [], water_used_total: 0 }];
+
+    // Drives the real _fetchData through a callWS that either answers or
+    // rejects, so the state under test is the one a failure actually leaves.
+    function fetchingView(answer: () => boolean) {
+      const el: any = new SmartIrrigationViewHistory();
+      el.dispatchEvent = vi.fn(); // the error toast
+      el.hass = {
+        language: "en",
+        callWS: async ({ type }: { type: string }) => {
+          if (!answer()) throw new Error("connection lost");
+          return type.endsWith("/zones") ? zones : { units: "metric" };
+        },
+      };
+      return el;
+    }
+
+    beforeEach(() => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("says it could not load, never that there are no zones", async () => {
+      // The first fetch failing leaves _zones at its empty default, which
+      // says nothing about the install - it has zones, we just could not
+      // read them.
+      const el = fetchingView(() => false);
+      await el._fetchData();
+      const { text } = flatten(el.render());
+      expect(text).toContain("Couldn't load data");
+      expect(text).not.toContain("No zones configured yet.");
+      expect(text).not.toContain("Loading...");
+      expect(el.dispatchEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it("recovers on the next successful load", async () => {
+      let up = false;
+      const el = fetchingView(() => up);
+      await el._fetchData();
+      up = true;
+      await el._fetchData();
+      const { text } = flatten(el.render());
+      expect(text).not.toContain("Couldn't load data");
+      expect(text).toContain("<ip-zone-history");
+    });
+
+    it("keeps the zones it has when a later refresh fails", async () => {
+      // Only the first load decides what the view says: a refresh that fails
+      // while someone is reading a history must not replace it.
+      let up = true;
+      const el = fetchingView(() => up);
+      await el._fetchData();
+      up = false;
+      await el._fetchData();
+      const { text } = flatten(el.render());
+      expect(text).not.toContain("Couldn't load data");
+      expect(text).toContain("<ip-zone-history");
+    });
   });
 });

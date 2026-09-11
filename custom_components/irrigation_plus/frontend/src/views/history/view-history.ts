@@ -25,6 +25,9 @@ export class SmartIrrigationViewHistory extends SubscribeMixin(LitElement) {
   @state() private _config?: SmartIrrigationConfig;
   @state() private _selectedZoneId?: number;
   @state() private _isLoading = true;
+  // The first load failed and none has succeeded since. Kept apart from an
+  // empty _zones, which after a failure says nothing about the install.
+  @state() private _loadFailed = false;
   private _initialLoadDone = false;
 
   // Same self-fetch pattern as view-zone-settings.ts (hassSubscribe ~line 249):
@@ -57,9 +60,11 @@ export class SmartIrrigationViewHistory extends SubscribeMixin(LitElement) {
       this._config = config;
       this._zones = zones;
       this._initialLoadDone = true;
+      this._loadFailed = false;
     } catch (error) {
       console.error("Error fetching data:", error);
       showErrorToast(this, this.hass, "common.errors.load_failed", error);
+      if (isInitial) this._loadFailed = true;
     } finally {
       // Only the FIRST load gates the view: a later refresh that fails must
       // not blank a history the user is reading, and must not turn into the
@@ -101,6 +106,21 @@ export class SmartIrrigationViewHistory extends SubscribeMixin(LitElement) {
           <div class="card-content">
             <div class="loading-indicator">
               ${localize("common.loading-messages.general", lang)}
+            </div>
+          </div>
+        </ha-card>
+      `;
+    }
+
+    // A failed first load leaves _zones empty, so without this the empty-state
+    // note below would claim "no zones" on an install that has them. The next
+    // config-updated message retries, and a success clears it.
+    if (this._loadFailed) {
+      return html`
+        <ha-card header="${localize("panels.history.title", lang)}">
+          <div class="card-content">
+            <div class="weather-note">
+              ${localize("common.errors.load_failed", lang)}
             </div>
           </div>
         </ha-card>

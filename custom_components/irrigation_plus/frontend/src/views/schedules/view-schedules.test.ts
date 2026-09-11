@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterEach,
+  vi,
+} from "vitest";
 
 // Same DOM-free shim as the other view tests: enough for the LitElement
 // subclass to be defined and instantiated without a real customElement
@@ -197,5 +205,67 @@ describe("view-schedules nominal demand preview", () => {
 
     expect(calls).toHaveLength(1);
     expect(el._editingSchedule.name).toBe("Front lawn");
+  });
+});
+
+describe("view-schedules after a failed load", () => {
+  const schedules = [{ id: "s1", name: "Evening", zones: "all" }];
+
+  // Drives the real _load through a callWS that either answers or rejects, so
+  // the state under test is the one a failure actually leaves behind.
+  function fetchingView(answer: () => boolean) {
+    const el: any = new View();
+    el.dispatchEvent = vi.fn(); // the error toast
+    el.hass = {
+      language: "en",
+      callWS: async ({ type }: { type: string }) => {
+        if (!answer()) throw new Error("connection lost");
+        return type.endsWith("/schedules")
+          ? schedules.map((s) => ({ ...emptySchedule(), ...s }))
+          : [{ id: 1, name: "Front lawn" }];
+      },
+    };
+    return el;
+  }
+
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("says it could not load, never that there are no schedules", async () => {
+    // Nor offers Add: with the zones unread too, the dialog would open with
+    // nothing to select.
+    const el = fetchingView(() => false);
+    await el._load();
+    const { text } = flatten(el.render());
+    expect(text).toContain("Couldn't load data");
+    expect(text).not.toContain("No schedules configured yet.");
+    expect(text).not.toContain("Add Schedule");
+    expect(el.dispatchEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("recovers on the next successful load", async () => {
+    let up = false;
+    const el = fetchingView(() => up);
+    await el._load();
+    up = true;
+    await el._load();
+    const { text } = flatten(el.render());
+    expect(text).not.toContain("Couldn't load data");
+    expect(text).toContain("Evening");
+  });
+
+  it("keeps the schedules it has when a later refresh fails", async () => {
+    let up = true;
+    const el = fetchingView(() => up);
+    await el._load();
+    up = false;
+    await el._load();
+    const { text } = flatten(el.render());
+    expect(text).not.toContain("Couldn't load data");
+    expect(text).toContain("Evening");
   });
 });
