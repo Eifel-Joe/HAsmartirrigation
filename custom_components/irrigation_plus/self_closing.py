@@ -101,9 +101,10 @@ class SelfClosingMixin:
     def _sc_convert(seconds: float, unit: str) -> int:
         """The value the hardware is told. See :func:`hardware_window`, which
         also returns what that value means in seconds — the number the books
-        need. Temporary: this exists only for the ``self._sc_convert`` call in
-        batch.py, which moves to hardware_window next. Add no new callers —
-        take both values from hardware_window directly."""
+        need. Temporary: two callers remain, ``batch.py`` (the batch plan's
+        per-zone duration) and ``_sc_dispatch_open`` below; both move to
+        hardware_window next. Add no new ones — take both values from
+        hardware_window directly."""
         value, _ = hardware_window(seconds, unit)
         return value
 
@@ -397,6 +398,20 @@ class SelfClosingMixin:
         # Resolution is deliberately at dispatch, not at config time, so a
         # controller that was offline when the zone was set up still works.
         is_opensprinkler = is_opensprinkler_zone(zone)
+
+        # What the books must use. On minute-granularity hardware the valve is
+        # told a rounded-UP duration and really runs that long, so pricing the
+        # run at the unrounded number credits less water than the zone got and
+        # arms the backstop to fire while the valve is still open. OpenSprinkler
+        # is excluded on purpose: run_station takes whole seconds, so there is
+        # no unit conversion to reconcile.
+        # siehe test_self_closing.py::test_minute_zone_books_the_window_the_valve_actually_runs
+        if not is_opensprinkler:
+            _, planned_seconds = hardware_window(
+                planned_seconds,
+                zone.get(const.ZONE_DURATION_UNIT, const.DURATION_UNIT_SECONDS),
+            )
+
         watch_entity = None
         if is_opensprinkler:
             station, watch_entity = self._os_resolve(zone)

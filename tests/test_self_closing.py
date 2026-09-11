@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, Mock
 
+import pytest
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
@@ -1135,3 +1136,142 @@ async def test_self_closing_advisory_after_repeated_off_rate():
     msg = create_calls[0].args[2]["message"]
     assert "flow" in msg and "throughput" in msg  # advisory names the flow/throughput
     assert "over" in msg  # +50% -> over-watering direction
+
+
+# --- the books must use the window the valve actually runs -------------------
+#
+# Measured live on HA-Prod (Kirschlorbeer): 263 s priced, 300 s told to the
+# minute-granularity valve, 302 s of actual open valve. The zone received 14%
+# more water than its bucket ever saw, and the backstop -- armed on 263 s --
+# settled the run 36-40 s BEFORE the valve closed, which makes the mid-run
+# watch path unreachable on such a zone.
+
+
+def _minute_zone(**kw):
+    """A minute-granularity service zone priced at a non-round 263 s.
+
+    Carries a real deficit: the optimistic credit is clamped at the run ceiling
+    (``_zone_target_bucket`` == 0.0 here), so a zone starting at bucket 0 writes
+    0.0 whatever it delivered and the credit would observe nothing.
+    """
+    z = _zone(
+        **{
+            const.ZONE_DURATION: 263.0,
+            const.ZONE_DURATION_UNIT: const.DURATION_UNIT_MINUTES,
+            const.ZONE_BUCKET: -10.0,
+            const.ZONE_THROUGHPUT: 3.1,  # L/min
+            const.ZONE_SIZE: 5.0,  # m2
+            const.ZONE_MULTIPLIER: 1.5,
+        }
+    )
+    z.update(kw)
+    return z
+
+
+def _persisted_runs(c):
+    """The in-flight runs as the store last saw them."""
+    cfg = c.store.async_update_config.await_args.args[0]
+    return cfg[const.CONF_ACTIVE_VALVE_RUNS]
+
+
+def _bucket_writes(c):
+    """Every bucket level written, in order."""
+    return [
+        ck.args[1][const.ZONE_BUCKET]
+        for ck in c.store.async_update_zone.await_args_list
+        if const.ZONE_BUCKET in ck.args[1]
+    ]
+
+
+async def test_minute_zone_books_the_window_the_valve_actually_runs():
+    """263 s priced on minute hardware means 300 s of water. The run record, the
+    credit and the backstop must all say 300 -- otherwise the zone quietly
+    receives 14% more than its bucket ever sees, and the backstop settles the run
+    while the valve is still open."""
+    c = _coord()
+    c.hass.config.units = METRIC_SYSTEM
+    zone = _minute_zone()
+
+    assert await c.async_run_self_closing(zone) is True
+
+    # the valve was told 5 minutes -- 263 s rounded UP
+    _domain, _service, data = c.hass.services.async_call.await_args.args
+    assert data["dauer"] == 5
+
+    # and the books say what those 5 minutes mean
+    runs = _persisted_runs(c)
+    assert len(runs) == 1
+    assert runs[0][const.RUN_PLANNED_SECONDS] == 300.0
+    c._sc_schedule_cleanup.assert_called_once_with(2, 300.0)
+
+    # including the water itself: 300 s x 3.1 L/min = 15.5 L, over 5 m2, divided
+    # by the 1.5 multiplier = 2.0667 mm, so -10.0 becomes -7.9333. The unrounded
+    # 263 s would credit 1.8118 mm and leave the zone 14% of a run short of the
+    # water it actually received. RUN_PLANNED_MM is the same depth recorded
+    # BEFORE the ceiling clamp, so it keeps biting even for a zone with no deficit.
+    assert _bucket_writes(c)[-1] == pytest.approx(-7.933333)
+    assert runs[0][const.RUN_PLANNED_MM] == pytest.approx(2.066667)
+
+
+async def test_seconds_zone_books_what_the_rounding_told_the_valve():
+    """The other half. Seconds hardware rounds to the NEAREST whole second, so a
+    263.6 s price is really a 264 s valve window and the books must say 264 there
+    too -- the correction is not minutes-only. A computed duration is practically
+    always fractional, so this is the common case rather than the corner; a whole
+    number would make the assertion true for free."""
+    c = _coord()
+    c.hass.config.units = METRIC_SYSTEM
+    zone = _minute_zone(
+        **{
+            const.ZONE_DURATION: 263.6,
+            const.ZONE_DURATION_UNIT: const.DURATION_UNIT_SECONDS,
+        }
+    )
+
+    assert await c.async_run_self_closing(zone) is True
+
+    _domain, _service, data = c.hass.services.async_call.await_args.args
+    assert data["dauer"] == 264
+    runs = _persisted_runs(c)
+    assert len(runs) == 1
+    assert runs[0][const.RUN_PLANNED_SECONDS] == 264.0
+    c._sc_schedule_cleanup.assert_called_once_with(2, 264.0)
+
+
+async def test_opensprinkler_still_books_its_raw_seconds():
+    """run_station takes whole seconds and has its own rounding rule; the
+    correction must not reach it.
+
+    The zone deliberately carries DURATION_UNIT_MINUTES so the pin bites: if the
+    ``not is_opensprinkler`` guard were dropped, this run would book 300 s and
+    hand the station watcher a deadline 37 s past the water.
+    """
+    c = _coord()
+    c.hass.config.units = METRIC_SYSTEM
+    c._os_resolve = Mock(
+        return_value=(
+            "switch.front_south_station_enabled",
+            "binary_sensor.front_south_station_running",
+        )
+    )
+    c._os_start_watch = AsyncMock()
+    zone = _minute_zone(
+        **{
+            const.ZONE_WATERING_MODE: const.WATERING_MODE_OPENSPRINKLER,
+            const.ZONE_LINKED_ENTITY: "switch.front_south_station_enabled",
+        }
+    )
+
+    assert await c.async_run_self_closing(zone) is True
+
+    # max(1, ceil(263.0)) -- whole seconds, its own rule
+    _domain, _service, data = c.hass.services.async_call.await_args.args
+    assert data[const.OPENSPRINKLER_FIELD_RUN_SECONDS] == 263
+    runs = _persisted_runs(c)
+    assert len(runs) == 1
+    assert runs[0][const.RUN_PLANNED_SECONDS] == 263.0
+    assert c._os_start_watch.await_args.args[2] == 263.0
+    # 263 s x 3.1 L/min = 13.59 L -> 1.8118 mm; -10.0 + 1.8118 = -8.1882
+    assert _bucket_writes(c)[-1] == pytest.approx(-8.188222)
+    # the station's own sensor drives this run; no clock backstop is armed
+    c._sc_schedule_cleanup.assert_not_called()
