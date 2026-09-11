@@ -203,6 +203,148 @@
           "description": "Zone pour laquelle générer le calendrier d'arrosage"
         }
       }
+    },
+    "set_rain_delay": {
+      "name": "Définir un report pour pluie",
+      "description": "Suspend tout arrosage automatique/planifié jusqu'à un moment choisi (report pour pluie / pause vacances). Les arrosages manuels restent possibles.",
+      "fields": {
+        "until": {
+          "name": "Jusqu'à",
+          "description": "Reprendre l'arrosage automatique à cette date/heure."
+        },
+        "hours": {
+          "name": "Heures",
+          "description": "Sinon, suspendre pendant ce nombre d'heures à partir de maintenant."
+        }
+      }
+    },
+    "clear_rain_delay": {
+      "name": "Annuler le report pour pluie",
+      "description": "Reprend l'arrosage automatique en annulant tout report pour pluie / pause actif."
+    },
+    "run_zone": {
+      "name": "Arroser une zone",
+      "description": "Arrose une zone donnée pendant une durée personnalisée (minutes), sans tenir compte du calcul ni d'un report pour pluie actif.",
+      "fields": {
+        "duration": {
+          "name": "Durée",
+          "description": "Durée d'arrosage, en minutes."
+        }
+      }
+    },
+    "stop_zone": {
+      "name": "Arrêter une zone",
+      "description": "Arrête l'arrosage en cours d'une zone donnée et ferme sa vanne."
+    },
+    "create_recurring_schedule": {
+      "name": "Créer une planification récurrente",
+      "description": "Crée une nouvelle planification d'arrosage récurrente.",
+      "fields": {
+        "name": {
+          "name": "Nom",
+          "description": "Nom de la planification"
+        },
+        "type": {
+          "name": "Type",
+          "description": "Type de planification (daily, weekly, monthly, interval)"
+        },
+        "enabled": {
+          "name": "Activée",
+          "description": "Activer la planification"
+        },
+        "time": {
+          "name": "Heure",
+          "description": "Heure d'exécution (format HH:MM)"
+        },
+        "days_of_week": {
+          "name": "Jours de la semaine",
+          "description": "Jours de la semaine pour les planifications hebdomadaires"
+        },
+        "day_of_month": {
+          "name": "Jour du mois",
+          "description": "Jour du mois pour les planifications mensuelles (1-31)"
+        },
+        "interval_hours": {
+          "name": "Intervalle (heures)",
+          "description": "Intervalle en heures pour les planifications par intervalle"
+        },
+        "zones": {
+          "name": "Zones",
+          "description": "ID des zones à inclure, ou 'all'"
+        }
+      }
+    },
+    "update_recurring_schedule": {
+      "name": "Mettre à jour une planification récurrente",
+      "description": "Met à jour une planification d'arrosage récurrente existante.",
+      "fields": {
+        "schedule_id": {
+          "name": "ID de la planification",
+          "description": "ID de la planification à mettre à jour"
+        },
+        "name": {
+          "name": "Nom",
+          "description": "Nom de la planification"
+        },
+        "enabled": {
+          "name": "Activée",
+          "description": "Activer/désactiver la planification"
+        }
+      }
+    },
+    "delete_recurring_schedule": {
+      "name": "Supprimer une planification récurrente",
+      "description": "Supprime une planification d'arrosage récurrente.",
+      "fields": {
+        "schedule_id": {
+          "name": "ID de la planification",
+          "description": "ID de la planification à supprimer"
+        }
+      }
+    },
+    "distributor_set_outlet": {
+      "name": "Distributeur — définir la sortie actuelle",
+      "description": "Resynchronise la position du distributeur sur la valeur affichée dans sa fenêtre physique. Marque la position comme synchronisée ; la mise en service reste à confirmer séparément.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID du distributeur",
+          "description": "L'ID du distributeur."
+        },
+        "outlet": {
+          "name": "Sortie",
+          "description": "Le numéro de sortie actuellement affiché dans la fenêtre de l'appareil."
+        }
+      }
+    },
+    "distributor_resync_home": {
+      "name": "Distributeur — resynchroniser sur la sortie 1",
+      "description": "Raccourci pour resynchroniser la position du distributeur sur la sortie 1 (après avoir avancé physiquement l'appareil jusqu'à 1).",
+      "fields": {
+        "distributor_id": {
+          "name": "ID du distributeur",
+          "description": "L'ID du distributeur."
+        }
+      }
+    },
+    "distributor_test_run": {
+      "name": "Distributeur — essai de mise en service",
+      "description": "Parcourt chaque sortie pendant une courte durée fixe pour que vous puissiez voir chaque zone arroser dans l'ordre et l'appareil avancer. Nécessite une position synchronisée ; aucun arrosage n'est crédité.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID du distributeur",
+          "description": "L'ID du distributeur."
+        }
+      }
+    },
+    "distributor_run_now": {
+      "name": "Distributeur — lancer un cycle maintenant",
+      "description": "Lance immédiatement un cycle complet du distributeur (manuel). Nécessite que le distributeur soit synchronisé et sa mise en service confirmée ; refusé si un cycle est déjà en cours.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID du distributeur",
+          "description": "L'ID du distributeur."
+        }
+      }
     }
   },
   "entity": {

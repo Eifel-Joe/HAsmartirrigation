@@ -203,6 +203,148 @@
           "description": "Zone, für die der Bewässerungskalender erstellt werden soll"
         }
       }
+    },
+    "set_rain_delay": {
+      "name": "Regenverzögerung setzen",
+      "description": "Pausiert alle automatischen/geplanten Bewässerungen bis zu einem gewählten Zeitpunkt (Regenverzögerung / Urlaubspause). Manuelle Läufe funktionieren weiterhin.",
+      "fields": {
+        "until": {
+          "name": "Bis",
+          "description": "Automatische Bewässerung zu diesem Datum/dieser Uhrzeit fortsetzen."
+        },
+        "hours": {
+          "name": "Stunden",
+          "description": "Alternativ für so viele Stunden ab jetzt pausieren."
+        }
+      }
+    },
+    "clear_rain_delay": {
+      "name": "Regenverzögerung aufheben",
+      "description": "Setzt die automatische Bewässerung fort, indem eine aktive Regenverzögerung / Pause aufgehoben wird."
+    },
+    "run_zone": {
+      "name": "Zone bewässern",
+      "description": "Bewässert eine bestimmte Zone für eine frei gewählte Dauer (Minuten), unabhängig von der Berechnung und einer aktiven Regenverzögerung.",
+      "fields": {
+        "duration": {
+          "name": "Dauer",
+          "description": "Wie lange bewässert werden soll, in Minuten."
+        }
+      }
+    },
+    "stop_zone": {
+      "name": "Zone stoppen",
+      "description": "Stoppt einen laufenden Bewässerungslauf einer bestimmten Zone und schließt ihr Ventil."
+    },
+    "create_recurring_schedule": {
+      "name": "Wiederkehrenden Zeitplan erstellen",
+      "description": "Erstellt einen neuen wiederkehrenden Bewässerungszeitplan.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Name des Zeitplans"
+        },
+        "type": {
+          "name": "Typ",
+          "description": "Art des Zeitplans (daily, weekly, monthly, interval)"
+        },
+        "enabled": {
+          "name": "Aktiviert",
+          "description": "Zeitplan aktivieren"
+        },
+        "time": {
+          "name": "Uhrzeit",
+          "description": "Ausführungszeit (Format HH:MM)"
+        },
+        "days_of_week": {
+          "name": "Wochentage",
+          "description": "Wochentage für wöchentliche Zeitpläne"
+        },
+        "day_of_month": {
+          "name": "Tag des Monats",
+          "description": "Tag des Monats für monatliche Zeitpläne (1-31)"
+        },
+        "interval_hours": {
+          "name": "Intervall (Stunden)",
+          "description": "Intervall in Stunden für Intervall-Zeitpläne"
+        },
+        "zones": {
+          "name": "Zonen",
+          "description": "IDs der einzubeziehenden Zonen oder 'all'"
+        }
+      }
+    },
+    "update_recurring_schedule": {
+      "name": "Wiederkehrenden Zeitplan aktualisieren",
+      "description": "Aktualisiert einen bestehenden wiederkehrenden Bewässerungszeitplan.",
+      "fields": {
+        "schedule_id": {
+          "name": "Zeitplan-ID",
+          "description": "ID des zu aktualisierenden Zeitplans"
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name des Zeitplans"
+        },
+        "enabled": {
+          "name": "Aktiviert",
+          "description": "Zeitplan aktivieren/deaktivieren"
+        }
+      }
+    },
+    "delete_recurring_schedule": {
+      "name": "Wiederkehrenden Zeitplan löschen",
+      "description": "Löscht einen wiederkehrenden Bewässerungszeitplan.",
+      "fields": {
+        "schedule_id": {
+          "name": "Zeitplan-ID",
+          "description": "ID des zu löschenden Zeitplans"
+        }
+      }
+    },
+    "distributor_set_outlet": {
+      "name": "Verteiler — aktuellen Abgang setzen",
+      "description": "Synchronisiert die Position des Verteilers auf den Wert, der in seinem Sichtfenster angezeigt wird. Markiert die Position als synchron; die Inbetriebnahme bestätigst du weiterhin separat.",
+      "fields": {
+        "distributor_id": {
+          "name": "Verteiler-ID",
+          "description": "Die ID des Verteilers."
+        },
+        "outlet": {
+          "name": "Abgang",
+          "description": "Die Abgangsnummer, die aktuell im Sichtfenster des Geräts angezeigt wird."
+        }
+      }
+    },
+    "distributor_resync_home": {
+      "name": "Verteiler — auf Abgang 1 synchronisieren",
+      "description": "Synchronisiert die Position des Verteilers bequem auf Abgang 1 (nachdem das Gerät von Hand auf 1 weitergeschaltet wurde).",
+      "fields": {
+        "distributor_id": {
+          "name": "Verteiler-ID",
+          "description": "Die ID des Verteilers."
+        }
+      }
+    },
+    "distributor_test_run": {
+      "name": "Verteiler — Inbetriebnahme-Testlauf",
+      "description": "Fährt jeden Abgang für ein kurzes, festes Zeitfenster an, damit du jede Zone der Reihe nach bewässern und das Gerät weiterschalten siehst. Erfordert eine synchrone Position; es wird keine Bewässerung gutgeschrieben.",
+      "fields": {
+        "distributor_id": {
+          "name": "Verteiler-ID",
+          "description": "Die ID des Verteilers."
+        }
+      }
+    },
+    "distributor_run_now": {
+      "name": "Verteiler — jetzt einen Zyklus ausführen",
+      "description": "Führt sofort einen vollständigen Verteilerzyklus aus (manuell). Erfordert, dass der Verteiler synchron und die Inbetriebnahme bestätigt ist; wird abgelehnt, wenn bereits ein Zyklus läuft.",
+      "fields": {
+        "distributor_id": {
+          "name": "Verteiler-ID",
+          "description": "Die ID des Verteilers."
+        }
+      }
     }
   },
   "entity": {

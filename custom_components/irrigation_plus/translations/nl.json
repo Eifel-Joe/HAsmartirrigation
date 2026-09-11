@@ -203,6 +203,148 @@
           "description": "Zone waarvoor de irrigatiekalender gegenereerd moet worden"
         }
       }
+    },
+    "set_rain_delay": {
+      "name": "Regenvertraging instellen",
+      "description": "Pauzeert alle automatische/geplande bewatering tot een gekozen moment (regenvertraging / vakantiepauze). Handmatige bewatering blijft werken.",
+      "fields": {
+        "until": {
+          "name": "Tot",
+          "description": "Automatische bewatering op deze datum/tijd hervatten."
+        },
+        "hours": {
+          "name": "Uren",
+          "description": "Of pauzeer in plaats daarvan dit aantal uren vanaf nu."
+        }
+      }
+    },
+    "clear_rain_delay": {
+      "name": "Regenvertraging opheffen",
+      "description": "Hervat de automatische bewatering door een actieve regenvertraging / pauze op te heffen."
+    },
+    "run_zone": {
+      "name": "Zone bewateren",
+      "description": "Bewatert een specifieke zone gedurende een zelfgekozen duur (minuten), los van de berekening en een eventuele actieve regenvertraging.",
+      "fields": {
+        "duration": {
+          "name": "Duur",
+          "description": "Hoe lang er bewaterd moet worden, in minuten."
+        }
+      }
+    },
+    "stop_zone": {
+      "name": "Zone stoppen",
+      "description": "Stopt een lopende bewatering van een specifieke zone en sluit de klep."
+    },
+    "create_recurring_schedule": {
+      "name": "Terugkerend schema maken",
+      "description": "Maakt een nieuw terugkerend bewateringsschema.",
+      "fields": {
+        "name": {
+          "name": "Naam",
+          "description": "Naam van het schema"
+        },
+        "type": {
+          "name": "Type",
+          "description": "Soort schema (daily, weekly, monthly, interval)"
+        },
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "Het schema inschakelen"
+        },
+        "time": {
+          "name": "Tijd",
+          "description": "Starttijd (formaat HH:MM)"
+        },
+        "days_of_week": {
+          "name": "Weekdagen",
+          "description": "Weekdagen voor wekelijkse schema's"
+        },
+        "day_of_month": {
+          "name": "Dag van de maand",
+          "description": "Dag van de maand voor maandelijkse schema's (1-31)"
+        },
+        "interval_hours": {
+          "name": "Interval (uren)",
+          "description": "Interval in uren voor intervalschema's"
+        },
+        "zones": {
+          "name": "Zones",
+          "description": "ID's van de zones die meedoen, of 'all'"
+        }
+      }
+    },
+    "update_recurring_schedule": {
+      "name": "Terugkerend schema bijwerken",
+      "description": "Werkt een bestaand terugkerend bewateringsschema bij.",
+      "fields": {
+        "schedule_id": {
+          "name": "Schema-ID",
+          "description": "ID van het schema dat bijgewerkt wordt"
+        },
+        "name": {
+          "name": "Naam",
+          "description": "Naam van het schema"
+        },
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "Het schema in- of uitschakelen"
+        }
+      }
+    },
+    "delete_recurring_schedule": {
+      "name": "Terugkerend schema verwijderen",
+      "description": "Verwijdert een terugkerend bewateringsschema.",
+      "fields": {
+        "schedule_id": {
+          "name": "Schema-ID",
+          "description": "ID van het schema dat verwijderd wordt"
+        }
+      }
+    },
+    "distributor_set_outlet": {
+      "name": "Verdeler — huidige uitgang instellen",
+      "description": "Synchroniseert de positie van de verdeler opnieuw met de waarde in het venster op het apparaat. Markeert de positie als gesynchroniseerd; de ingebruikname bevestig je nog steeds apart.",
+      "fields": {
+        "distributor_id": {
+          "name": "Verdeler-ID",
+          "description": "Het ID van de verdeler."
+        },
+        "outlet": {
+          "name": "Uitgang",
+          "description": "Het uitgangsnummer dat nu in het venster van het apparaat staat."
+        }
+      }
+    },
+    "distributor_resync_home": {
+      "name": "Verdeler — opnieuw synchroniseren naar uitgang 1",
+      "description": "Snelle manier om de positie van de verdeler opnieuw op uitgang 1 te zetten (nadat het apparaat met de hand naar 1 is doorgeschakeld).",
+      "fields": {
+        "distributor_id": {
+          "name": "Verdeler-ID",
+          "description": "Het ID van de verdeler."
+        }
+      }
+    },
+    "distributor_test_run": {
+      "name": "Verdeler — testrun voor ingebruikname",
+      "description": "Loopt elke uitgang af gedurende een kort, vast venster, zodat je elke zone op volgorde ziet bewateren en het apparaat ziet doorschakelen. Vereist een gesynchroniseerde positie; er wordt geen bewatering bijgeschreven.",
+      "fields": {
+        "distributor_id": {
+          "name": "Verdeler-ID",
+          "description": "Het ID van de verdeler."
+        }
+      }
+    },
+    "distributor_run_now": {
+      "name": "Verdeler — nu één cyclus uitvoeren",
+      "description": "Voert direct één volledige verdelercyclus uit (handmatig). Vereist dat de verdeler gesynchroniseerd is en de ingebruikname bevestigd; wordt geweigerd als er al een cyclus loopt.",
+      "fields": {
+        "distributor_id": {
+          "name": "Verdeler-ID",
+          "description": "Het ID van de verdeler."
+        }
+      }
     }
   },
   "entity": {

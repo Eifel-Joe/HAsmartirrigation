@@ -203,6 +203,148 @@
           "description": "Zone to generate watering calendar for"
         }
       }
+    },
+    "set_rain_delay": {
+      "name": "Set rain delay",
+      "description": "Pause all automatic/scheduled irrigation until a chosen moment (rain delay / vacation hold). Manual runs still work.",
+      "fields": {
+        "until": {
+          "name": "Until",
+          "description": "Resume automatic irrigation at this date/time."
+        },
+        "hours": {
+          "name": "Hours",
+          "description": "Alternatively, pause for this many hours from now."
+        }
+      }
+    },
+    "clear_rain_delay": {
+      "name": "Clear rain delay",
+      "description": "Resume automatic irrigation by clearing any active rain delay / hold."
+    },
+    "run_zone": {
+      "name": "Run zone",
+      "description": "Water a specific zone for a custom duration (minutes), bypassing the calculation and any active rain delay.",
+      "fields": {
+        "duration": {
+          "name": "Duration",
+          "description": "How long to water, in minutes."
+        }
+      }
+    },
+    "stop_zone": {
+      "name": "Stop zone",
+      "description": "Stop an in-progress run for a specific zone and turn its valve off."
+    },
+    "create_recurring_schedule": {
+      "name": "Create recurring schedule",
+      "description": "Create a new recurring irrigation schedule.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Name of the schedule"
+        },
+        "type": {
+          "name": "Type",
+          "description": "Schedule type (daily, weekly, monthly, interval)"
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Enable the schedule"
+        },
+        "time": {
+          "name": "Time",
+          "description": "Time to run (HH:MM format)"
+        },
+        "days_of_week": {
+          "name": "Days of week",
+          "description": "Days of week for weekly schedules"
+        },
+        "day_of_month": {
+          "name": "Day of month",
+          "description": "Day of month for monthly schedules (1-31)"
+        },
+        "interval_hours": {
+          "name": "Interval (hours)",
+          "description": "Interval in hours for interval schedules"
+        },
+        "zones": {
+          "name": "Zones",
+          "description": "Zone IDs to include or 'all'"
+        }
+      }
+    },
+    "update_recurring_schedule": {
+      "name": "Update recurring schedule",
+      "description": "Update an existing recurring irrigation schedule.",
+      "fields": {
+        "schedule_id": {
+          "name": "Schedule ID",
+          "description": "ID of the schedule to update"
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name of the schedule"
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Enable/disable the schedule"
+        }
+      }
+    },
+    "delete_recurring_schedule": {
+      "name": "Delete recurring schedule",
+      "description": "Delete a recurring irrigation schedule.",
+      "fields": {
+        "schedule_id": {
+          "name": "Schedule ID",
+          "description": "ID of the schedule to delete"
+        }
+      }
+    },
+    "distributor_set_outlet": {
+      "name": "Distributor — set current outlet",
+      "description": "Re-sync the distributor's outlet position to the value shown in its physical window. Marks the position as synced; you still confirm commissioning separately.",
+      "fields": {
+        "distributor_id": {
+          "name": "Distributor ID",
+          "description": "The distributor id."
+        },
+        "outlet": {
+          "name": "Outlet",
+          "description": "The outlet number currently shown in the device window."
+        }
+      }
+    },
+    "distributor_resync_home": {
+      "name": "Distributor — re-sync to outlet 1",
+      "description": "Convenience re-sync of the distributor position to outlet 1 (after physically advancing the device to 1).",
+      "fields": {
+        "distributor_id": {
+          "name": "Distributor ID",
+          "description": "The distributor id."
+        }
+      }
+    },
+    "distributor_test_run": {
+      "name": "Distributor — commissioning test-run",
+      "description": "Sweep every outlet for a fixed short window so you can watch each zone water in order and the device advance. Requires a synced position; no watering is credited.",
+      "fields": {
+        "distributor_id": {
+          "name": "Distributor ID",
+          "description": "The distributor id."
+        }
+      }
+    },
+    "distributor_run_now": {
+      "name": "Distributor — run one cycle now",
+      "description": "Run one full distributor cycle immediately (manual). Requires the distributor to be synced and commissioning-confirmed; rejected if a cycle is already in progress.",
+      "fields": {
+        "distributor_id": {
+          "name": "Distributor ID",
+          "description": "The distributor id."
+        }
+      }
     }
   },
   "entity": {

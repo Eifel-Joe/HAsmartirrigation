@@ -147,3 +147,33 @@ class TestServiceTranslations:
                 f"{path.name} still translates {sorted(translated - declared)}, "
                 "which services.yaml no longer declares"
             )
+
+    def test_every_declared_service_is_translated(self):
+        # The other direction. A service missing here is not an error to Home
+        # Assistant - it falls back to the English in services.yaml - so
+        # nothing else notices; eleven services sat untranslated that way.
+        root = (
+            Path(__file__).resolve().parents[1]
+            / "custom_components"
+            / "irrigation_plus"
+        )
+        import json
+
+        declared = yaml.safe_load((root / "services.yaml").read_text("utf-8"))
+        catalogues = sorted((root / "translations").glob("*.json"))
+        assert len(catalogues) == 8
+        gaps = []
+        for path in catalogues:
+            translated = json.loads(path.read_text(encoding="utf-8")).get(
+                "services", {}
+            )
+            for service, spec in declared.items():
+                entry = translated.get(service)
+                if not entry or not entry.get("name") or not entry.get("description"):
+                    gaps.append(f"{path.name}: {service}")
+                    continue
+                for field in (spec or {}).get("fields") or {}:
+                    strings = (entry.get("fields") or {}).get(field) or {}
+                    if not strings.get("name") or not strings.get("description"):
+                        gaps.append(f"{path.name}: {service}.{field}")
+        assert not gaps, f"untranslated service strings: {gaps}"

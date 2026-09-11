@@ -203,6 +203,148 @@
           "description": "Zona per cui generare il calendario di irrigazione"
         }
       }
+    },
+    "set_rain_delay": {
+      "name": "Imposta ritardo per pioggia",
+      "description": "Mette in pausa tutta l'irrigazione automatica/pianificata fino a un momento scelto (ritardo per pioggia / pausa vacanze). Le irrigazioni manuali continuano a funzionare.",
+      "fields": {
+        "until": {
+          "name": "Fino a",
+          "description": "Riprendi l'irrigazione automatica a questa data/ora."
+        },
+        "hours": {
+          "name": "Ore",
+          "description": "In alternativa, metti in pausa per questo numero di ore da adesso."
+        }
+      }
+    },
+    "clear_rain_delay": {
+      "name": "Annulla ritardo per pioggia",
+      "description": "Riprende l'irrigazione automatica annullando qualsiasi ritardo per pioggia / pausa attiva."
+    },
+    "run_zone": {
+      "name": "Irriga zona",
+      "description": "Irriga una zona specifica per una durata personalizzata (minuti), ignorando il calcolo e qualsiasi ritardo per pioggia attivo.",
+      "fields": {
+        "duration": {
+          "name": "Durata",
+          "description": "Per quanto tempo irrigare, in minuti."
+        }
+      }
+    },
+    "stop_zone": {
+      "name": "Ferma zona",
+      "description": "Ferma un'irrigazione in corso di una zona specifica e chiude la sua valvola."
+    },
+    "create_recurring_schedule": {
+      "name": "Crea pianificazione ricorrente",
+      "description": "Crea una nuova pianificazione di irrigazione ricorrente.",
+      "fields": {
+        "name": {
+          "name": "Nome",
+          "description": "Nome della pianificazione"
+        },
+        "type": {
+          "name": "Tipo",
+          "description": "Tipo di pianificazione (daily, weekly, monthly, interval)"
+        },
+        "enabled": {
+          "name": "Abilitata",
+          "description": "Abilita la pianificazione"
+        },
+        "time": {
+          "name": "Ora",
+          "description": "Ora di esecuzione (formato HH:MM)"
+        },
+        "days_of_week": {
+          "name": "Giorni della settimana",
+          "description": "Giorni della settimana per le pianificazioni settimanali"
+        },
+        "day_of_month": {
+          "name": "Giorno del mese",
+          "description": "Giorno del mese per le pianificazioni mensili (1-31)"
+        },
+        "interval_hours": {
+          "name": "Intervallo (ore)",
+          "description": "Intervallo in ore per le pianificazioni a intervallo"
+        },
+        "zones": {
+          "name": "Zone",
+          "description": "ID delle zone da includere oppure 'all'"
+        }
+      }
+    },
+    "update_recurring_schedule": {
+      "name": "Aggiorna pianificazione ricorrente",
+      "description": "Aggiorna una pianificazione di irrigazione ricorrente esistente.",
+      "fields": {
+        "schedule_id": {
+          "name": "ID pianificazione",
+          "description": "ID della pianificazione da aggiornare"
+        },
+        "name": {
+          "name": "Nome",
+          "description": "Nome della pianificazione"
+        },
+        "enabled": {
+          "name": "Abilitata",
+          "description": "Abilita/disabilita la pianificazione"
+        }
+      }
+    },
+    "delete_recurring_schedule": {
+      "name": "Elimina pianificazione ricorrente",
+      "description": "Elimina una pianificazione di irrigazione ricorrente.",
+      "fields": {
+        "schedule_id": {
+          "name": "ID pianificazione",
+          "description": "ID della pianificazione da eliminare"
+        }
+      }
+    },
+    "distributor_set_outlet": {
+      "name": "Distributore — imposta uscita corrente",
+      "description": "Risincronizza la posizione del distributore sul valore mostrato nella sua finestrella fisica. Contrassegna la posizione come sincronizzata; la messa in servizio va comunque confermata separatamente.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID distributore",
+          "description": "L'ID del distributore."
+        },
+        "outlet": {
+          "name": "Uscita",
+          "description": "Il numero di uscita attualmente mostrato nella finestrella del dispositivo."
+        }
+      }
+    },
+    "distributor_resync_home": {
+      "name": "Distributore — risincronizza sull'uscita 1",
+      "description": "Scorciatoia per risincronizzare la posizione del distributore sull'uscita 1 (dopo aver fatto avanzare fisicamente il dispositivo fino a 1).",
+      "fields": {
+        "distributor_id": {
+          "name": "ID distributore",
+          "description": "L'ID del distributore."
+        }
+      }
+    },
+    "distributor_test_run": {
+      "name": "Distributore — prova di messa in servizio",
+      "description": "Passa per ogni uscita per una breve finestra fissa, così puoi vedere ogni zona irrigare in ordine e il dispositivo avanzare. Richiede una posizione sincronizzata; nessuna irrigazione viene accreditata.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID distributore",
+          "description": "L'ID del distributore."
+        }
+      }
+    },
+    "distributor_run_now": {
+      "name": "Distributore — esegui un ciclo ora",
+      "description": "Esegue subito un ciclo completo del distributore (manuale). Richiede che il distributore sia sincronizzato e con la messa in servizio confermata; viene rifiutato se un ciclo è già in corso.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID distributore",
+          "description": "L'ID del distributore."
+        }
+      }
     }
   },
   "entity": {

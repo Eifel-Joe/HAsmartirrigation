@@ -203,6 +203,148 @@
           "description": "Zóna, pre ktorú sa má vygenerovať zavlažovací kalendár"
         }
       }
+    },
+    "set_rain_delay": {
+      "name": "Nastaviť oneskorenie pre dážď",
+      "description": "Pozastaví všetko automatické/plánované zavlažovanie do zvoleného okamihu (oneskorenie pre dážď / dovolenková pauza). Manuálne zavlažovanie funguje naďalej.",
+      "fields": {
+        "until": {
+          "name": "Do",
+          "description": "Obnoviť automatické zavlažovanie v tento dátum/čas."
+        },
+        "hours": {
+          "name": "Hodiny",
+          "description": "Alternatívne pozastaviť na tento počet hodín od teraz."
+        }
+      }
+    },
+    "clear_rain_delay": {
+      "name": "Zrušiť oneskorenie pre dážď",
+      "description": "Obnoví automatické zavlažovanie zrušením aktívneho oneskorenia pre dážď / pauzy."
+    },
+    "run_zone": {
+      "name": "Zavlažiť zónu",
+      "description": "Zavlaží konkrétnu zónu po zvolenú dobu (minúty) bez ohľadu na výpočet a na aktívne oneskorenie pre dážď.",
+      "fields": {
+        "duration": {
+          "name": "Trvanie",
+          "description": "Ako dlho zavlažovať, v minútach."
+        }
+      }
+    },
+    "stop_zone": {
+      "name": "Zastaviť zónu",
+      "description": "Zastaví prebiehajúce zavlažovanie konkrétnej zóny a zatvorí jej ventil."
+    },
+    "create_recurring_schedule": {
+      "name": "Vytvoriť opakovaný plán",
+      "description": "Vytvorí nový opakovaný plán zavlažovania.",
+      "fields": {
+        "name": {
+          "name": "Názov",
+          "description": "Názov plánu"
+        },
+        "type": {
+          "name": "Typ",
+          "description": "Typ plánu (daily, weekly, monthly, interval)"
+        },
+        "enabled": {
+          "name": "Povolené",
+          "description": "Povoliť plán"
+        },
+        "time": {
+          "name": "Čas",
+          "description": "Čas spustenia (formát HH:MM)"
+        },
+        "days_of_week": {
+          "name": "Dni v týždni",
+          "description": "Dni v týždni pre týždenné plány"
+        },
+        "day_of_month": {
+          "name": "Deň v mesiaci",
+          "description": "Deň v mesiaci pre mesačné plány (1-31)"
+        },
+        "interval_hours": {
+          "name": "Interval (hodiny)",
+          "description": "Interval v hodinách pre intervalové plány"
+        },
+        "zones": {
+          "name": "Zóny",
+          "description": "ID zón, ktoré sa majú zahrnúť, alebo 'all'"
+        }
+      }
+    },
+    "update_recurring_schedule": {
+      "name": "Aktualizovať opakovaný plán",
+      "description": "Aktualizuje existujúci opakovaný plán zavlažovania.",
+      "fields": {
+        "schedule_id": {
+          "name": "ID plánu",
+          "description": "ID plánu, ktorý sa má aktualizovať"
+        },
+        "name": {
+          "name": "Názov",
+          "description": "Názov plánu"
+        },
+        "enabled": {
+          "name": "Povolené",
+          "description": "Povoliť/zakázať plán"
+        }
+      }
+    },
+    "delete_recurring_schedule": {
+      "name": "Odstrániť opakovaný plán",
+      "description": "Odstráni opakovaný plán zavlažovania.",
+      "fields": {
+        "schedule_id": {
+          "name": "ID plánu",
+          "description": "ID plánu, ktorý sa má odstrániť"
+        }
+      }
+    },
+    "distributor_set_outlet": {
+      "name": "Rozvádzač — nastaviť aktuálny výstup",
+      "description": "Znovu zosynchronizuje polohu rozvádzača s hodnotou zobrazenou v jeho fyzickom okienku. Označí polohu ako synchronizovanú; uvedenie do prevádzky potvrdzujete naďalej samostatne.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID rozvádzača",
+          "description": "ID rozvádzača."
+        },
+        "outlet": {
+          "name": "Výstup",
+          "description": "Číslo výstupu, ktoré je práve zobrazené v okienku zariadenia."
+        }
+      }
+    },
+    "distributor_resync_home": {
+      "name": "Rozvádzač — znovu synchronizovať na výstup 1",
+      "description": "Rýchla resynchronizácia polohy rozvádzača na výstup 1 (po ručnom posunutí zariadenia na 1).",
+      "fields": {
+        "distributor_id": {
+          "name": "ID rozvádzača",
+          "description": "ID rozvádzača."
+        }
+      }
+    },
+    "distributor_test_run": {
+      "name": "Rozvádzač — skúšobný chod pri uvedení do prevádzky",
+      "description": "Prejde každým výstupom na krátky pevný čas, aby ste videli, ako sa jednotlivé zóny postupne zavlažujú a zariadenie sa posúva. Vyžaduje synchronizovanú polohu; žiadne zavlažovanie sa nezapočíta.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID rozvádzača",
+          "description": "ID rozvádzača."
+        }
+      }
+    },
+    "distributor_run_now": {
+      "name": "Rozvádzač — spustiť jeden cyklus teraz",
+      "description": "Okamžite spustí jeden úplný cyklus rozvádzača (manuálne). Vyžaduje, aby bol rozvádzač synchronizovaný a uvedenie do prevádzky potvrdené; odmietne sa, ak už cyklus prebieha.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID rozvádzača",
+          "description": "ID rozvádzača."
+        }
+      }
     }
   },
   "entity": {

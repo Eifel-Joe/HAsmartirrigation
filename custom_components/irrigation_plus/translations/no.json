@@ -203,6 +203,148 @@
           "description": "Sone som vanningskalenderen skal genereres for"
         }
       }
+    },
+    "set_rain_delay": {
+      "name": "Angi regnforsinkelse",
+      "description": "Setter all automatisk/planlagt vanning på pause til et valgt tidspunkt (regnforsinkelse / ferieopphold). Manuell vanning fungerer fortsatt.",
+      "fields": {
+        "until": {
+          "name": "Til",
+          "description": "Gjenoppta automatisk vanning på denne datoen/dette klokkeslettet."
+        },
+        "hours": {
+          "name": "Timer",
+          "description": "Alternativt: sett på pause i så mange timer fra nå."
+        }
+      }
+    },
+    "clear_rain_delay": {
+      "name": "Fjern regnforsinkelse",
+      "description": "Gjenopptar automatisk vanning ved å fjerne en aktiv regnforsinkelse / pause."
+    },
+    "run_zone": {
+      "name": "Vann sone",
+      "description": "Vanner en bestemt sone i en valgfri varighet (minutter), uavhengig av beregningen og en eventuell aktiv regnforsinkelse.",
+      "fields": {
+        "duration": {
+          "name": "Varighet",
+          "description": "Hvor lenge det skal vannes, i minutter."
+        }
+      }
+    },
+    "stop_zone": {
+      "name": "Stopp sone",
+      "description": "Stopper en pågående vanning for en bestemt sone og lukker ventilen."
+    },
+    "create_recurring_schedule": {
+      "name": "Opprett gjentakende tidsplan",
+      "description": "Oppretter en ny gjentakende tidsplan for vanning.",
+      "fields": {
+        "name": {
+          "name": "Navn",
+          "description": "Navnet på tidsplanen"
+        },
+        "type": {
+          "name": "Type",
+          "description": "Type tidsplan (daily, weekly, monthly, interval)"
+        },
+        "enabled": {
+          "name": "Aktivert",
+          "description": "Aktiver tidsplanen"
+        },
+        "time": {
+          "name": "Tid",
+          "description": "Klokkeslett for kjøring (format HH:MM)"
+        },
+        "days_of_week": {
+          "name": "Ukedager",
+          "description": "Ukedager for ukentlige tidsplaner"
+        },
+        "day_of_month": {
+          "name": "Dag i måneden",
+          "description": "Dag i måneden for månedlige tidsplaner (1-31)"
+        },
+        "interval_hours": {
+          "name": "Intervall (timer)",
+          "description": "Intervall i timer for intervalltidsplaner"
+        },
+        "zones": {
+          "name": "Soner",
+          "description": "ID-er for sonene som skal tas med, eller 'all'"
+        }
+      }
+    },
+    "update_recurring_schedule": {
+      "name": "Oppdater gjentakende tidsplan",
+      "description": "Oppdaterer en eksisterende gjentakende tidsplan for vanning.",
+      "fields": {
+        "schedule_id": {
+          "name": "Tidsplan-ID",
+          "description": "ID-en til tidsplanen som skal oppdateres"
+        },
+        "name": {
+          "name": "Navn",
+          "description": "Navnet på tidsplanen"
+        },
+        "enabled": {
+          "name": "Aktivert",
+          "description": "Aktiver/deaktiver tidsplanen"
+        }
+      }
+    },
+    "delete_recurring_schedule": {
+      "name": "Slett gjentakende tidsplan",
+      "description": "Sletter en gjentakende tidsplan for vanning.",
+      "fields": {
+        "schedule_id": {
+          "name": "Tidsplan-ID",
+          "description": "ID-en til tidsplanen som skal slettes"
+        }
+      }
+    },
+    "distributor_set_outlet": {
+      "name": "Fordeler — angi gjeldende uttak",
+      "description": "Synkroniserer fordelerens posisjon på nytt til verdien som vises i vinduet på enheten. Markerer posisjonen som synkronisert; idriftsettelsen bekrefter du fortsatt separat.",
+      "fields": {
+        "distributor_id": {
+          "name": "Fordeler-ID",
+          "description": "ID-en til fordeleren."
+        },
+        "outlet": {
+          "name": "Uttak",
+          "description": "Uttaksnummeret som vises i vinduet på enheten nå."
+        }
+      }
+    },
+    "distributor_resync_home": {
+      "name": "Fordeler — synkroniser til uttak 1",
+      "description": "Snarvei for å synkronisere fordelerens posisjon til uttak 1 (etter at enheten er flyttet fram til 1 for hånd).",
+      "fields": {
+        "distributor_id": {
+          "name": "Fordeler-ID",
+          "description": "ID-en til fordeleren."
+        }
+      }
+    },
+    "distributor_test_run": {
+      "name": "Fordeler — testkjøring for idriftsettelse",
+      "description": "Går gjennom hvert uttak i et kort, fast tidsrom, slik at du kan se hver sone bli vannet i rekkefølge og enheten gå videre. Krever synkronisert posisjon; ingen vanning blir godskrevet.",
+      "fields": {
+        "distributor_id": {
+          "name": "Fordeler-ID",
+          "description": "ID-en til fordeleren."
+        }
+      }
+    },
+    "distributor_run_now": {
+      "name": "Fordeler — kjør én syklus nå",
+      "description": "Kjører én full fordelersyklus med en gang (manuelt). Krever at fordeleren er synkronisert og idriftsettelsen bekreftet; avvises hvis en syklus allerede pågår.",
+      "fields": {
+        "distributor_id": {
+          "name": "Fordeler-ID",
+          "description": "ID-en til fordeleren."
+        }
+      }
     }
   },
   "entity": {

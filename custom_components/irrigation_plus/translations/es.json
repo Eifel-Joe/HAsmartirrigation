@@ -203,6 +203,148 @@
           "description": "Zona para la que generar el calendario de riego"
         }
       }
+    },
+    "set_rain_delay": {
+      "name": "Establecer retraso por lluvia",
+      "description": "Pausa todo el riego automático/programado hasta un momento elegido (retraso por lluvia / pausa de vacaciones). Los riegos manuales siguen funcionando.",
+      "fields": {
+        "until": {
+          "name": "Hasta",
+          "description": "Reanudar el riego automático en esta fecha/hora."
+        },
+        "hours": {
+          "name": "Horas",
+          "description": "Como alternativa, pausar durante este número de horas a partir de ahora."
+        }
+      }
+    },
+    "clear_rain_delay": {
+      "name": "Quitar retraso por lluvia",
+      "description": "Reanuda el riego automático quitando cualquier retraso por lluvia / pausa activa."
+    },
+    "run_zone": {
+      "name": "Regar zona",
+      "description": "Riega una zona concreta durante un tiempo personalizado (minutos), sin tener en cuenta el cálculo ni ningún retraso por lluvia activo.",
+      "fields": {
+        "duration": {
+          "name": "Duración",
+          "description": "Cuánto tiempo regar, en minutos."
+        }
+      }
+    },
+    "stop_zone": {
+      "name": "Detener zona",
+      "description": "Detiene un riego en curso de una zona concreta y cierra su válvula."
+    },
+    "create_recurring_schedule": {
+      "name": "Crear programa recurrente",
+      "description": "Crea un nuevo programa de riego recurrente.",
+      "fields": {
+        "name": {
+          "name": "Nombre",
+          "description": "Nombre del programa"
+        },
+        "type": {
+          "name": "Tipo",
+          "description": "Tipo de programa (daily, weekly, monthly, interval)"
+        },
+        "enabled": {
+          "name": "Activado",
+          "description": "Activar el programa"
+        },
+        "time": {
+          "name": "Hora",
+          "description": "Hora de ejecución (formato HH:MM)"
+        },
+        "days_of_week": {
+          "name": "Días de la semana",
+          "description": "Días de la semana para programas semanales"
+        },
+        "day_of_month": {
+          "name": "Día del mes",
+          "description": "Día del mes para programas mensuales (1-31)"
+        },
+        "interval_hours": {
+          "name": "Intervalo (horas)",
+          "description": "Intervalo en horas para programas por intervalo"
+        },
+        "zones": {
+          "name": "Zonas",
+          "description": "IDs de las zonas a incluir o 'all'"
+        }
+      }
+    },
+    "update_recurring_schedule": {
+      "name": "Actualizar programa recurrente",
+      "description": "Actualiza un programa de riego recurrente existente.",
+      "fields": {
+        "schedule_id": {
+          "name": "ID del programa",
+          "description": "ID del programa que se va a actualizar"
+        },
+        "name": {
+          "name": "Nombre",
+          "description": "Nombre del programa"
+        },
+        "enabled": {
+          "name": "Activado",
+          "description": "Activar/desactivar el programa"
+        }
+      }
+    },
+    "delete_recurring_schedule": {
+      "name": "Eliminar programa recurrente",
+      "description": "Elimina un programa de riego recurrente.",
+      "fields": {
+        "schedule_id": {
+          "name": "ID del programa",
+          "description": "ID del programa que se va a eliminar"
+        }
+      }
+    },
+    "distributor_set_outlet": {
+      "name": "Distribuidor — fijar salida actual",
+      "description": "Vuelve a sincronizar la posición del distribuidor con el valor que se ve en su ventana física. Marca la posición como sincronizada; la puesta en marcha se sigue confirmando por separado.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID del distribuidor",
+          "description": "El ID del distribuidor."
+        },
+        "outlet": {
+          "name": "Salida",
+          "description": "El número de salida que se ve ahora en la ventana del dispositivo."
+        }
+      }
+    },
+    "distributor_resync_home": {
+      "name": "Distribuidor — resincronizar a la salida 1",
+      "description": "Atajo para resincronizar la posición del distribuidor a la salida 1 (después de avanzar el dispositivo físicamente hasta la 1).",
+      "fields": {
+        "distributor_id": {
+          "name": "ID del distribuidor",
+          "description": "El ID del distribuidor."
+        }
+      }
+    },
+    "distributor_test_run": {
+      "name": "Distribuidor — prueba de puesta en marcha",
+      "description": "Recorre cada salida durante un intervalo corto y fijo para que puedas ver regar cada zona en orden y avanzar el dispositivo. Requiere una posición sincronizada; no se contabiliza ningún riego.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID del distribuidor",
+          "description": "El ID del distribuidor."
+        }
+      }
+    },
+    "distributor_run_now": {
+      "name": "Distribuidor — ejecutar un ciclo ahora",
+      "description": "Ejecuta de inmediato un ciclo completo del distribuidor (manual). Requiere que el distribuidor esté sincronizado y con la puesta en marcha confirmada; se rechaza si ya hay un ciclo en curso.",
+      "fields": {
+        "distributor_id": {
+          "name": "ID del distribuidor",
+          "description": "El ID del distribuidor."
+        }
+      }
     }
   },
   "entity": {
