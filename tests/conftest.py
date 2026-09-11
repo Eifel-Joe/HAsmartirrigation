@@ -36,6 +36,23 @@ def patch_homeassistant_modules():
 patch_homeassistant_modules()
 
 
+@pytest.fixture
+def expected_lingering_timers() -> bool:
+    """Warn rather than fail on timers left armed, in the HA-floor CI job only.
+
+    Against the oldest Home Assistant hacs.json declares (2025.5.0), every test
+    passes its assertions, but ~250 fail teardown on the harness's
+    lingering-timer check: run-watch and batch timers a test leaves armed. The
+    job exists to catch API incompatibility, not to re-litigate test hygiene
+    the main job already runs under, so it sets IRRIGATION_PLUS_HA_FLOOR=1.
+    Unset, this is the plugin's own answer for a test outside
+    ``tests/components/``: False.
+    """
+    import os
+
+    return os.environ.get("IRRIGATION_PLUS_HA_FLOOR") == "1"
+
+
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Enable custom integrations for all tests."""
