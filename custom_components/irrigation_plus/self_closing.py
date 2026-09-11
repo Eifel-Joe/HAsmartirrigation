@@ -17,6 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from . import const
 from .batch import is_batch_zone
+from .duration_math import hardware_window
 from .opensprinkler import is_opensprinkler_zone
 from .run_chain import ChainPolicy, register_chain_policy
 from .run_watch import (
@@ -98,11 +99,13 @@ class SelfClosingMixin:
 
     @staticmethod
     def _sc_convert(seconds: float, unit: str) -> int:
-        """Convert a run duration (seconds) to the hardware's unit, rounding up."""
-        seconds = float(seconds or 0)
-        if unit == const.DURATION_UNIT_MINUTES:
-            return max(1, math.ceil(seconds / 60.0)) if seconds > 0 else 0
-        return int(round(seconds))
+        """The value the hardware is told. See :func:`hardware_window`, which
+        also returns what that value means in seconds — the number the books
+        need. Temporary: this exists only for the ``self._sc_convert`` call in
+        batch.py, which moves to hardware_window next. Add no new callers —
+        take both values from hardware_window directly."""
+        value, _ = hardware_window(seconds, unit)
+        return value
 
     def _sc_split_service(self, dotted: str):
         """'domain.service' -> (domain, service)."""
