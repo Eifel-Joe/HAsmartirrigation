@@ -1,6 +1,8 @@
 """hardware_window: one duration, two answers — what the hardware is told,
 and what that instruction actually means in seconds."""
 
+import pathlib
+
 from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.duration_math import hardware_window
 
@@ -53,7 +55,43 @@ def test_hardware_value_is_an_int_the_meaning_is_a_float():
 
 def test_negative_seconds_command_nothing_in_either_unit():
     """The old seconds path passed a negative straight through. Nothing can
-    reach here with one -- both live sources clamp at zero -- and a negative
-    duration is not something to hand a valve."""
+    reach here with one -- all three live sources (self_closing, batch,
+    distributor) refuse a non-positive duration before they call -- and a
+    negative duration is not something to hand a valve."""
     assert hardware_window(-90.0, const.DURATION_UNIT_SECONDS) == (0, 0.0)
     assert hardware_window(-90.0, const.DURATION_UNIT_MINUTES) == (0, 0.0)
+
+
+def test_the_rounding_rule_exists_exactly_once():
+    """The bug this fixes was one rounding rule living in two files that had to
+    be changed together. Fail loudly if a third copy appears -- and just as
+    loudly if the canonical one disappears, because "nowhere at all" also
+    satisfies "nowhere outside duration_math", and a pin that counts copies
+    would call that success.
+
+    rglob, not glob: a copy under calcmodules/ or weathermodules/ is a copy.
+
+    A tripwire, not a proof: the rule is matched as a literal, so a copy spelled
+    ``math.ceil(secs / 60)`` walks straight past it. It catches the copy-paste
+    that actually caused this bug, not every possible re-derivation.
+    """
+    rule = "math.ceil(seconds / 60"
+    src = pathlib.Path(__file__).parent.parent / "custom_components" / "irrigation_plus"
+    canonical = src / "duration_math.py"
+    # Our Python never lives under the panel build, and everything below it is
+    # third-party (node_modules) -- state the boundary positively rather than
+    # deny-listing directory names as they appear.
+    frontend = src / "frontend"
+    offenders = [
+        str(p.relative_to(src))
+        for p in src.rglob("*.py")
+        if p != canonical and not p.is_relative_to(frontend)
+        # errors="ignore": an undecodable byte cannot be part of an ASCII rule,
+        # and this pin must report copies, never raise on a stray file.
+        and rule in p.read_text(encoding="utf-8", errors="ignore")
+    ]
+    assert offenders == [], f"unit conversion copied back into: {offenders}"
+    assert rule in canonical.read_text(encoding="utf-8"), (
+        f"the rounding rule is gone from {canonical.name}: this pin asserts the "
+        "absence of copies, so it must assert the presence of the original too"
+    )

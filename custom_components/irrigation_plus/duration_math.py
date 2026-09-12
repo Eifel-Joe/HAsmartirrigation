@@ -167,14 +167,17 @@ def hardware_window(seconds, unit) -> tuple[int, float]:
     Non-positive input -- zero, ``None``, or a negative -- commands nothing and
     is clamped here to ``(0, 0.0)``, so callers need no guard of their own.
 
-    The rounding is otherwise unchanged from the two helpers this replaces,
-    ``self_closing._sc_convert`` and ``distributor._dist_convert``; only the
-    second return value is new. The OpenSprinkler ``run_station`` path in
-    ``self_closing._sc_dispatch_open`` is deliberately NOT covered: it rounds by
-    a different rule (``max(1, math.ceil(seconds))``, floored at one), takes
-    whole seconds and nothing else, and its unit is a property of the user's own
-    run_service script rather than of the zone. Using ``hardware_window`` there
-    would turn 263.4 into 263 instead of 264 and drop that floor.
+    The rounding is otherwise unchanged from the two helpers this replaces:
+    ``self_closing._sc_convert``, still there as a thin delegation to this, and
+    ``distributor._dist_convert``, now deleted -- the distributor takes both
+    values from here. Only the second return value is new.
+
+    The OpenSprinkler ``run_station`` path is deliberately NOT covered here; it
+    has :func:`opensprinkler_window` beside this one instead. Its unit is a
+    property of the user's own run_service script rather than of the zone, and
+    its rule is a ceiling with a floor of one rather than a round-to-nearest, so
+    routing it through here would turn 263.4 into 263 instead of 264 and drop
+    that floor.
     """
     seconds = float(seconds or 0)
     if seconds <= 0:
