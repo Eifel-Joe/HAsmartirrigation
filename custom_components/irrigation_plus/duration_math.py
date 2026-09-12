@@ -184,3 +184,34 @@ def hardware_window(seconds, unit) -> tuple[int, float]:
         return minutes, float(minutes * 60)
     whole = int(round(seconds))
     return whole, float(whole)
+
+
+def opensprinkler_window(seconds) -> int:
+    """Whole seconds an OpenSprinkler station is told to run -- and really runs.
+
+    A station's instruction is already in seconds, so the value sent and the
+    seconds it means are one number; there is no second return value to give.
+
+    The rule is NOT the one in :func:`hardware_window` and cannot be folded
+    into it. ``run_station`` takes whole seconds and has no unit conversion at
+    all, so there is nothing to branch on, and the rounding is a ceiling with a
+    floor of one rather than a round-to-nearest: 263.4 s is told 264 here and
+    would be told 263 there.
+
+    Root: the rule was spelled out twice -- once where the station run is
+    dispatched, once where its window is booked -- so the duration a station
+    was given and the window the model reserved for it were two independent
+    copies of one decision, free to drift at the next edit. Naming it once is
+    what lets the finish anchor reserve exactly what the run books.
+
+    Non-positive input commands nothing and returns 0, matching the guard the
+    run path applies before it ever reaches a dispatch.
+
+    NOT-TO-DO: do not "unify" this with :func:`hardware_window` on the grounds
+    that both round a duration for hardware. They disagree by design at every
+    fractional second, and at the step from zero to one.
+    """
+    seconds = float(seconds or 0)
+    if seconds <= 0:
+        return 0
+    return max(1, math.ceil(seconds))
