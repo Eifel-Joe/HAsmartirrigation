@@ -31,6 +31,9 @@ from custom_components.irrigation_plus.run_window import (
     hardware_priced_seconds,
     nominal_zone_duration,
 )
+from tests.test_self_closing import _coord as _run_coord
+from tests.test_self_closing import _minute_zone as _run_zone
+from tests.test_self_closing import _persisted_runs
 
 SEQUENTIAL = const.CONF_ZONE_SEQUENCING_SEQUENTIAL
 PARALLEL = const.CONF_ZONE_SEQUENCING_PARALLEL
@@ -305,3 +308,109 @@ class TestNominalZoneDuration:
         zone[const.ZONE_FLOW_SENSOR] = "sensor.flow"
         zone[const.ZONE_FLOW_CAL_SAMPLES] = [5.0] * const.FLOW_CAL_MIN_SAMPLES
         assert nominal_zone_duration(zone, metric=True) == 540.0
+
+
+# --- The two carve-outs, held together -------------------------------------
+
+# Every watering mode the integration has, read off ``const`` rather than
+# listed here. A mode added later is carried into the pin by the next run
+# instead of being silently exempt from it -- which is the failure mode a
+# hand-written list has, and the one this whole pin exists to prevent.
+WATERING_MODES = sorted(
+    value
+    for name, value in vars(const).items()
+    if name.startswith("WATERING_MODE_") and isinstance(value, str)
+)
+
+
+async def _what_the_run_books(mode: str) -> float:
+    """The seconds the RUN really books for a ``mode`` zone -- by running it.
+
+    Not a restatement of the run path's rule: the number comes back out of
+    ``async_run_self_closing``'s own run record (``RUN_PLANNED_SECONDS``), the
+    field the credit, the backstop and the chain advance are all taken from.
+    Change the rule inside that function and this value moves with it, which is
+    precisely what makes comparing it to the anchor say something.
+
+    The one thing supplied from here is REACHABILITY, because it is the half the
+    run path expresses by absence rather than by a guard and no test can execute
+    an absence. ``async_run_self_closing`` never sees a zone its dispatchers
+    reject -- ``irrigation.async_run_zone`` branches into it on
+    ``_sc_is_self_closing`` and falls through to the classic runner otherwise,
+    and ``async_dispatch_due_zones`` splits the same way -- so a mode that
+    predicate rejects is timed by Irrigation Plus itself, which sleeps the
+    priced seconds and closes the valve. Nothing re-prices it. Note the trap
+    this covers: fed a classic zone directly, ``async_run_self_closing`` books
+    300 here too, since its only guard is the OpenSprinkler one. It is
+    unreachability, not that guard, that keeps a classic zone on its 263.
+    """
+    coord = _run_coord()
+    coord.hass.config.units = METRIC_SYSTEM
+    # A station resolves its running sensor before anything is actuated; without
+    # these the OpenSprinkler mode bails out before it reaches the carve-out.
+    coord._os_resolve = Mock(
+        return_value=("switch.station", "binary_sensor.station_running")
+    )
+    coord._os_start_watch = AsyncMock()
+    zone = _run_zone(
+        **{
+            const.ZONE_WATERING_MODE: mode,
+            # Minutes, and PRICED is the same 263 s the anchor is asked about
+            # just below, so both sides provably answer about one zone. A
+            # duration_unit that survives on modes which do not own their close
+            # is the point: it is what a guard keyed on the unit instead of the
+            # mode would trip over.
+            const.ZONE_DURATION: PRICED,
+            const.ZONE_DURATION_UNIT: const.DURATION_UNIT_MINUTES,
+            const.ZONE_LINKED_ENTITY: "switch.station",
+        }
+    )
+    if not coord._sc_is_self_closing(zone):
+        return PRICED
+    assert await coord.async_run_self_closing(zone) is True
+    runs = _persisted_runs(coord)
+    assert len(runs) == 1
+    return runs[0][const.RUN_PLANNED_SECONDS]
+
+
+class TestTheAnchorAndTheRunSelectTheSameZones:
+    """Which zones get converted is decided twice, and nothing else joins them.
+
+    ``run_window`` imports ``self_closing``, so the two sites cannot share a
+    predicate without a cycle, and they express the same selection differently:
+
+    * the RUN, ``self_closing.async_run_self_closing``, guards only on
+      ``if not is_opensprinkler`` -- its self-closing half is implicit, carried
+      by the fact that no dispatcher routes any other mode into it;
+    * the ANCHOR, ``run_window.hardware_priced_seconds``, has to say both out
+      loud: ``if is_opensprinkler_zone(zone) or not is_self_closing_zone(zone)``.
+
+    Two spellings of one decision, in modules that cannot be made to share it.
+    Every other test in this file pins the anchor against numbers a human
+    worked out; none of them would notice the two drifting apart, because both
+    sites would still be internally consistent. Alter the OpenSprinkler test on
+    one side, "simplify" either guard, or key one of them on ``duration_unit``,
+    and the model and the run would disagree about WHICH zones convert while
+    the suite stayed green -- the exact class of defect this branch exists to
+    remove, reintroduced by the branch's own asymmetry.
+    """
+
+    def test_the_mode_roster_is_not_empty(self):
+        # The parametrisation below reads its cases out of const, so a rename of
+        # those constants would quietly reduce it to nothing and pytest would
+        # report no failures. Guard the discovery itself, naming the two poles
+        # by constant: without a converting mode and a non-converting one in the
+        # roster, agreement between the two sites is free.
+        assert const.WATERING_MODE_SERVICE in WATERING_MODES
+        assert const.WATERING_MODE_OPENSPRINKLER in WATERING_MODES
+        assert const.WATERING_MODE_CLASSIC in WATERING_MODES
+
+    @pytest.mark.parametrize("mode", WATERING_MODES)
+    @pytest.mark.asyncio
+    async def test_the_anchor_reserves_what_the_run_books(self, mode):
+        # One zone description, 263 s on minute hardware, asked of both sites.
+        # The rounding is 37 s, so a site that converts when the other does not
+        # cannot hide behind a number that happens to match.
+        booked = await _what_the_run_books(mode)
+        zone = _zone(1, mode=mode, unit=const.DURATION_UNIT_MINUTES)
+        assert hardware_priced_seconds(zone, PRICED) == booked
