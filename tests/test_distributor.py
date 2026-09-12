@@ -56,6 +56,22 @@ def _host(**master_cfg):
     return c
 
 
+def _open_inlet_stub():
+    """A stub for ``_dist_open_inlet`` that keeps its contract.
+
+    The real one RETURNS the window as the inlet received it, and the cycle
+    times and credits the outlet against that return value. A bare
+    ``AsyncMock()`` returns a Mock, which ``_dist_measure_window`` then floats
+    to 1.0 -- every window assertion downstream silently reads one second, and
+    the first assertion anyone adds on a window is built on sand. Mirrors the
+    classic branch: the window asked for is the window run.
+
+    Not for a service-mode test: there the rounding IS the thing under test, so
+    use the real ``_dist_open_inlet``.
+    """
+    return AsyncMock(side_effect=lambda distributor, seconds: float(seconds or 0))
+
+
 def _dist(**kw):
     d = {
         "id": 0,
@@ -96,7 +112,9 @@ async def test_domain_turn_valve_uses_open_close():
 
 async def test_open_inlet_classic_opens_entity():
     c = _host()
-    await c._dist_open_inlet(_dist(), 30)
+    # The return value is the contract the cycle times and credits against; the
+    # classic branch owns the timed close, so it hands back what it was asked for.
+    assert await c._dist_open_inlet(_dist(), 30) == 30.0
     c.hass.services.async_call.assert_awaited_once_with(
         "homeassistant", "turn_on", {"entity_id": "switch.inlet"}
     )
@@ -109,11 +127,14 @@ async def test_open_inlet_service_fires_run_service_with_converted_duration():
         duration_field="dauer",
         duration_unit=const.DURATION_UNIT_MINUTES,
     )
-    await c._dist_open_inlet(d, 600)  # 600 s -> 10 min
+    window = await c._dist_open_inlet(d, 600)  # 600 s -> 10 min
     domain, service, data = c.hass.services.async_call.await_args.args
     assert (domain, service) == ("script", "dist_inlet")
     assert data["dauer"] == 10
     assert data["distributor_id"] == 0
+    # An exact multiple converts back to itself; the rounded-UP case, where the
+    # told value and the window diverge, is pinned in test_distributor_dispatch.
+    assert window == 600.0
 
 
 async def test_close_inlet_classic_closes_entity():
@@ -365,7 +386,7 @@ async def test_cycle_persists_phase_constants_not_raw_strings():
     )
     c._dist_persist_cycle = AsyncMock()
     c._dist_sleep = AsyncMock()
-    c._dist_open_inlet = AsyncMock()
+    c._dist_open_inlet = _open_inlet_stub()
     c._dist_close_inlet = AsyncMock()
     # G2: cycle end now defers the master shutdown to the shared overlap-safe
     # scheduler; stub it (bare-Mock hass has no real loop for async_call_later).

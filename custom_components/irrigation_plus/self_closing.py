@@ -101,10 +101,8 @@ class SelfClosingMixin:
     def _sc_convert(seconds: float, unit: str) -> int:
         """The value the hardware is told. See :func:`hardware_window`, which
         also returns what that value means in seconds — the number the books
-        need. Temporary: two callers remain, ``batch.py`` (the batch plan's
-        per-zone duration) and ``_sc_dispatch_open`` below; both move to
-        hardware_window next. Add no new ones — take both values from
-        hardware_window directly."""
+        need. Temporary: one caller left, ``_sc_dispatch_open`` below. Add no
+        new ones — take both values from hardware_window directly."""
         value, _ = hardware_window(seconds, unit)
         return value
 

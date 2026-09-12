@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import math
 
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
@@ -23,6 +22,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event
 
 from . import const
+from .duration_math import hardware_window
 from .flow_metering import FlowMeter, flow_learn_resolve
 from .localize import localize
 
@@ -59,28 +59,30 @@ class DistributorMixin:
         domain, _, service = (dotted or "").partition(".")
         return domain, service
 
-    @staticmethod
-    def _dist_convert(seconds: float, unit: str) -> int:
-        """Convert a window (seconds) to the inlet hardware's unit, rounding up."""
-        seconds = float(seconds or 0)
-        if unit == const.DURATION_UNIT_MINUTES:
-            return max(1, math.ceil(seconds / 60.0)) if seconds > 0 else 0
-        return int(round(seconds))
+    async def _dist_open_inlet(self, distributor: dict, seconds: float) -> float:
+        """Open the inlet for a window; return that window as the inlet got it.
 
-    async def _dist_open_inlet(self, distributor: dict, seconds: float) -> None:
-        """Open the inlet for a window. classic: domain-aware open (the loop owns
-        the timed close). service (self-closing): fire the run_service with the
-        converted duration; the hardware owns the close."""
+        classic: the loop owns the timed close, so the window comes back exactly
+        as it was asked for -- an early-stop outlet may then meter on past it, up
+        to `cap`, which is why this is not "the seconds it will really run".
+        service (self-closing): the hardware owns the close and, on
+        minute-granularity hardware, rounds the window UP -- the caller must
+        time the outlet against the returned value, not against its own.
+        siehe test_distributor_dispatch.py::test_service_inlet_window_matches_what_the_inlet_is_told
+        siehe test_distributor_dispatch.py::test_classic_inlet_returns_the_window_it_was_asked_for
+        """
         if distributor.get("watering_mode") == const.WATERING_MODE_SERVICE:
             domain, service = self._dist_split_service(distributor.get("run_service"))
             data = {}
             unit = distributor.get("duration_unit", const.DURATION_UNIT_SECONDS)
             field = distributor.get("duration_field") or "duration"
-            data[field] = self._dist_convert(seconds, unit)
+            told, window = hardware_window(seconds, unit)
+            data[field] = told
             data["distributor_id"] = distributor.get("id")
             await self.hass.services.async_call(domain, service, data)
-            return
+            return window
         await self._dist_domain_turn(distributor.get("inlet_entity"), True)
+        return float(seconds or 0)
 
     async def _dist_close_inlet(self, distributor: dict) -> None:
         """Close the inlet. classic: domain-aware close. service: fire stop_service
@@ -1303,10 +1305,12 @@ class DistributorMixin:
             # can only be stopped EARLY within its passed window (extension impossible),
             # and only when a stop_service is configured. The master note below uses
             # `cap` so the pump covers the (possibly extended) run; the terminal
-            # _dist_master_end collapses it to the real close. `cap == window` for every
-            # non-extend path, so the master note is byte-for-byte b23 there.
+            # _dist_master_end collapses it to the real close. `cap` is the PRICED window:
+            # on a service inlet the window `_dist_open_inlet` returns can be longer than this,
+            # so `cap == window` no longer holds there -- the metering bound and the master
+            # note deliberately still follow the priced number (scope decision, this commit).
             target = None
-            cap = window
+            cap = window  # priced; `window` is rebound to the effective window below
             if water:
                 mode = distributor.get("watering_mode")
                 can_stop = mode == const.WATERING_MODE_CLASSIC or (
@@ -1375,7 +1379,19 @@ class DistributorMixin:
             await self._dist_persist_cycle(
                 dist_id, current, const.DISTRIBUTOR_PHASE_WATERING
             )
-            await self._dist_open_inlet(distributor, window)
+            # Wurzel: a minute-granularity inlet is told a window ROUNDED UP
+            #   (263 s -> "5") and really runs 300 s, while the loop went on
+            #   timing and crediting the priced 263 s -- the member's books were
+            #   short by every rounded-up second (same defect as the self-closing
+            #   zone path, 402adb72).
+            # Fix: _dist_open_inlet returns the seconds the inlet will
+            #   really run; _dist_measure_window sleeps against THAT and the
+            #   credit's planned_seconds is THAT.
+            # NOT-TO-DO: do not convert the unit here instead -- the rounding rule
+            #   lives in duration_math.hardware_window and nowhere else; a second
+            #   copy is the bug this series removed (pinned by
+            #   test_duration_math_hardware_window::test_the_rounding_rule_exists_exactly_once).
+            window = await self._dist_open_inlet(distributor, window)
 
             if confirm_entity:
                 # Poll the shared inlet flow sensor across its grace window

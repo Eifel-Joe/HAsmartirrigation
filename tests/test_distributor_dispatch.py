@@ -4,7 +4,7 @@ import datetime
 from unittest.mock import AsyncMock, Mock
 
 from custom_components.irrigation_plus import const
-from tests.test_distributor import _dist, _host
+from tests.test_distributor import _dist, _host, _open_inlet_stub
 
 
 async def test_master_end_defers_to_pending_deadline_not_immediate_off():
@@ -309,7 +309,7 @@ async def test_cycle_notes_sweep_estimate_to_master_deadline():
 
 def _cycle_mocks(c):
     c._dist_persist_cycle = AsyncMock()
-    c._dist_open_inlet = AsyncMock()
+    c._dist_open_inlet = _open_inlet_stub()
     c._dist_close_inlet = AsyncMock()
     c._dist_credit_zone = AsyncMock()
     c._dist_advance = AsyncMock(side_effect=lambda did, cur, n: (cur % n) + 1)
@@ -748,7 +748,7 @@ async def test_cycle_only_zone_ids_waters_only_targeted_members():
     c = _host()
     c._dist_uses_master = Mock(return_value=False)  # bypass master entirely
     c._dist_persist_cycle = AsyncMock()
-    c._dist_open_inlet = AsyncMock()
+    c._dist_open_inlet = _open_inlet_stub()
     c._dist_close_inlet = AsyncMock()
     c._dist_credit_zone = AsyncMock()
     c._dist_advance = AsyncMock(side_effect=lambda did, cur, n: (cur % n) + 1)
@@ -814,12 +814,12 @@ def _soil_cycle_host():
     c._dist_uses_master = Mock(return_value=False)  # bypass master entirely
     for m in (
         "_dist_persist_cycle",
-        "_dist_open_inlet",
         "_dist_close_inlet",
         "_dist_credit_zone",
         "_dist_clear_cycle",
     ):
         setattr(c, m, AsyncMock())
+    c._dist_open_inlet = _open_inlet_stub()
     c._dist_advance = AsyncMock(side_effect=lambda did, cur, n: (cur % n) + 1)
     c._dist_sleep = AsyncMock()
     return c
@@ -986,12 +986,12 @@ async def test_cycle_duration_override_sets_target_window():
     c._dist_uses_master = Mock(return_value=False)
     for m in (
         "_dist_persist_cycle",
-        "_dist_open_inlet",
         "_dist_close_inlet",
         "_dist_credit_zone",
         "_dist_clear_cycle",
     ):
         setattr(c, m, AsyncMock())
+    c._dist_open_inlet = _open_inlet_stub()
     c._dist_advance = AsyncMock(side_effect=lambda did, cur, n: (cur % n) + 1)
     windows = []
     c._dist_sleep = AsyncMock(side_effect=lambda s: windows.append(s))
@@ -1233,12 +1233,12 @@ async def test_manual_run_waters_non_due_member():
     c._dist_uses_master = Mock(return_value=False)
     for m in (
         "_dist_persist_cycle",
-        "_dist_open_inlet",
         "_dist_close_inlet",
         "_dist_credit_zone",
         "_dist_clear_cycle",
     ):
         setattr(c, m, AsyncMock())
+    c._dist_open_inlet = _open_inlet_stub()
     c._dist_advance = AsyncMock(side_effect=lambda did, cur, n: (cur % n) + 1)
     c._dist_sleep = AsyncMock()
     c._dist_needs_water = Mock(return_value=False)  # NOT due
@@ -1710,11 +1710,11 @@ async def _sweep_ceiling(*, duration_override, target=None):
     c._dist_uses_master = Mock(return_value=False)
     for m in (
         "_dist_persist_cycle",
-        "_dist_open_inlet",
         "_dist_close_inlet",
         "_dist_clear_cycle",
     ):
         setattr(c, m, AsyncMock())
+    c._dist_open_inlet = _open_inlet_stub()
     c._dist_advance = AsyncMock(side_effect=lambda did, cur, n: (cur % n) + 1)
     c._dist_sleep = AsyncMock()
     c._dist_needs_water = Mock(return_value=True)
@@ -1754,3 +1754,99 @@ async def test_a_scheduled_sweep_honours_a_forecast_weighted_target():
 async def test_a_custom_duration_sweep_lets_the_member_keep_its_water():
     """``None`` means maximum_bucket: a user-set window is not a priced one."""
     assert await _sweep_ceiling(duration_override=60.0) is None
+
+
+async def test_service_inlet_window_matches_what_the_inlet_is_told():
+    """A service-mode inlet owns its own close. Told 5 minutes, it runs 300 s,
+    so the cycle must time the outlet against 300 and not against 263."""
+    c = _host()
+    d = _dist(
+        watering_mode=const.WATERING_MODE_SERVICE,
+        duration_unit=const.DURATION_UNIT_MINUTES,
+    )
+    window = await c._dist_open_inlet(d, 263.0)
+    data = c.hass.services.async_call.await_args.args[2]
+    assert data["duration"] == 5  # what the hardware was told
+    assert window == 300.0  # what that instruction means in seconds
+
+
+async def test_service_inlet_seconds_window_is_the_whole_second_it_was_told():
+    """The seconds counterpart, on a fraction — a whole number would make the
+    conversion a no-op and the assertion true for free. 263.6 s is told 264."""
+    c = _host()
+    d = _dist(
+        watering_mode=const.WATERING_MODE_SERVICE,
+        duration_unit=const.DURATION_UNIT_SECONDS,
+    )
+    window = await c._dist_open_inlet(d, 263.6)
+    data = c.hass.services.async_call.await_args.args[2]
+    assert data["duration"] == 264
+    assert window == 264.0
+
+
+async def test_classic_inlet_returns_the_window_it_was_asked_for():
+    """The loop owns the timed close here, so nothing is rounded — but the
+    caller now times against the RETURN value, so this branch must hand back a
+    real number and not None."""
+    c = _host()
+    assert await c._dist_open_inlet(_dist(), 263.6) == 263.6
+
+
+async def test_the_cycle_books_the_window_the_inlet_runs_not_the_priced_one():
+    """The CALL SITE, not the helper. A minutes-unit service inlet priced at
+    263 s is told "5" and really runs 300 s, so _dist_measure_window must sleep
+    300 and the credit must book 300. Drop the assignment at the call site
+    (`await self._dist_open_inlet(...)` without taking the return) and both fall
+    back to 263 -- which is the bug, and which the isolated _dist_open_inlet
+    tests above cannot see.
+
+    _dist_open_inlet is the REAL one here: _open_inlet_stub hands back the
+    window it was given (the classic contract), so stubbing it would test the
+    stub instead of the conversion.
+    """
+    c = _host()
+    c._dist_uses_master = Mock(return_value=False)
+    for m in ("_dist_persist_cycle", "_dist_close_inlet", "_dist_clear_cycle"):
+        setattr(c, m, AsyncMock())
+    c._dist_advance = AsyncMock(side_effect=lambda did, cur, n: (cur % n) + 1)
+    timed = []
+    c._dist_sleep = AsyncMock(side_effect=lambda s: timed.append(s))
+    c._dist_needs_water = Mock(return_value=True)
+    c._apply_soil_moisture_veto = AsyncMock(side_effect=lambda z: z)
+    credited = {}
+    c._dist_credit_zone = AsyncMock(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+            seconds=s, planned=planned_seconds
+        )
+    )
+    c.store.async_get_zones = AsyncMock(
+        return_value=[
+            {
+                "id": 7,
+                "distributor_id": 0,
+                "outlet_number": 1,
+                "duration": 263,  # the priced window
+                "bucket": -3,
+                "bucket_threshold": 0,
+                "state": "automatic",
+            }
+        ]
+    )
+    await c.async_run_distributor_cycle(
+        _dist(
+            id=0,
+            current_outlet=1,
+            watering_mode=const.WATERING_MODE_SERVICE,
+            duration_unit=const.DURATION_UNIT_MINUTES,
+        )
+    )
+    told = [
+        ck.args
+        for ck in c.hass.services.async_call.await_args_list
+        if len(ck.args) >= 2 and ck.args[:2] == ("script", "dist_inlet")
+    ]
+    assert told and told[0][2]["duration"] == 5  # the inlet was told 5 minutes
+    # One member, so one sweep and no inter-outlet pause: this is the outlet's
+    # own window, and nothing else slept.
+    assert timed == [300.0]
+    assert credited == {"seconds": 300.0, "planned": 300.0}  # 300 booked, not 263
