@@ -31,6 +31,9 @@ from custom_components.irrigation_plus.run_window import (
     hardware_priced_seconds,
     nominal_zone_duration,
 )
+from tests.test_batch import _coord as _batch_coord
+from tests.test_batch import _register as _batch_register
+from tests.test_batch import _zone as _batch_zone
 from tests.test_self_closing import _coord as _run_coord
 from tests.test_self_closing import _minute_zone as _run_zone
 from tests.test_self_closing import _persisted_runs
@@ -45,6 +48,13 @@ ROTATING = const.CONF_ZONE_SEQUENCING_ROTATING
 # numbers and cannot both pass.
 PRICED = 263.0
 WINDOW = 300.0
+
+# The same 263 s on SECONDS hardware, made fractional. A whole number makes the
+# seconds branch a no-op (263 -> 263) and an assertion over it passes whether
+# the conversion ran or not, so the batch pin below prices its seconds-unit case
+# at .6: told 264, runs 264, and a site that skipped the rounding is 0.6 s out.
+FRACTIONAL = 263.6
+FRACTIONAL_WINDOW = 264.0
 
 
 def _zone(zone_id, *, mode, unit=const.DURATION_UNIT_MINUTES, duration=PRICED):
@@ -414,3 +424,134 @@ class TestTheAnchorAndTheRunSelectTheSameZones:
         booked = await _what_the_run_books(mode)
         zone = _zone(1, mode=mode, unit=const.DURATION_UNIT_MINUTES)
         assert hardware_priced_seconds(zone, PRICED) == booked
+
+
+# --- The third site, and the one the roster above cannot reach ---------------
+
+
+async def _what_the_batch_queue_books(hass, *, unit: str, priced: float) -> float:
+    """The seconds the BATCH dispatch really books for one zone -- by dispatching it.
+
+    Same principle as :func:`_what_the_run_books`, and deliberately the same
+    observation point: ``RUN_PLANNED_SECONDS``, read off the run record
+    production itself wrote. ``_batch_record_run``'s ``seconds`` argument is the
+    other candidate and is the worse one. It is an internal argument rather than
+    an outcome, reading it needs a wrapper around a production method, and it
+    answers wrongly in both directions: move the conversion INTO
+    ``_batch_record_run`` -- a refactor that changes no behaviour -- and the
+    wrapper goes red; leave the dispatch site converting but write some other
+    number into the record, and it stays green while every consumer of that
+    field is wrong. The record is where the credit ceiling, the watch deadline,
+    the observed-watering suppression window and the finish settlement all read
+    their duration, so it is the number that has to agree with the anchor. It is
+    also the field :func:`_what_the_run_books` reads, so the two pins compare
+    like with like.
+
+    REACHABILITY is what is supplied from here, for the same reason it is for
+    the run: it is the half ``batch.py`` expresses by absence, and no test can
+    execute an absence. ``async_dispatch_due_zones`` filters on
+    ``is_batch_zone`` and splits those zones off to
+    ``async_dispatch_batch_zones``, so no other mode ever arrives there -- and
+    handing this dispatcher a non-batch zone to see what it does would be
+    exercising a path production does not take, which is the very defect this
+    pin exists to close. The subject is therefore batch-mode zones and no other.
+
+    The zone keeps the ``confirm_entity`` ``_batch_zone`` gives it by default.
+    Batch mode promotes that field from optional confirmation to required -- the
+    valve switch IS how the run is observed -- and a zone without one is refused
+    rather than dispatched, which would leave no run record to read back at all.
+    """
+    coord = _batch_coord(hass)
+    zones = _batch_register(
+        coord,
+        _batch_zone(1, duration=priced, **{const.ZONE_DURATION_UNIT: unit}),
+    )
+    await coord.async_dispatch_batch_zones(zones, trigger="schedule")
+    runs = coord._runs
+    assert len(runs) == 1, "the zone was refused, so nothing was booked to compare"
+    return runs[0][const.RUN_PLANNED_SECONDS]
+
+
+class TestTheAnchorAndTheBatchQueueBookTheSameSeconds:
+    """The third site that converts, and the second to decide WHICH by absence.
+
+    ``batch.py``'s dispatch converts UNCONDITIONALLY: one
+    ``hardware_window(seconds, unit)`` per queue entry, with no mode guard at
+    all. Its "which zones" half is carried entirely by REACHABILITY, exactly as
+    ``async_run_self_closing``'s is -- ``async_dispatch_due_zones`` filters on
+    ``is_batch_zone`` and hands that set to ``async_dispatch_batch_zones``, so
+    nothing else can arrive. The ANCHOR has to name the same selection out loud:
+    ``hardware_priced_seconds``'s ``is_opensprinkler_zone(zone) or not
+    is_self_closing_zone(zone)``, which lets a batch zone through only because
+    ``is_self_closing_zone`` happens to list ``WATERING_MODE_BATCH``. Two
+    spellings of one decision again, and again in modules that cannot be made to
+    share it: ``run_window`` imports ``is_batch_zone`` from ``batch``, so
+    ``batch`` importing back would be a cycle.
+
+    ``TestTheAnchorAndTheRunSelectTheSameZones`` above HAS a ``batch`` row, and
+    it does not cover this. That row asks ``async_run_self_closing`` what it
+    books for a batch zone -- a path production never sends one down, because
+    the dispatcher splits it away first. The row is green on a path batch does
+    not take, and green because the two functions happen to agree on the number;
+    nothing in it observes ``async_dispatch_batch_zones`` at all.
+
+    Nor did anything else. ``test_batch.py::
+    TestThePlanAndTheBooksNameTheSameDuration`` compares batch's plan entry
+    against batch's own run record: internally consistent by construction, and
+    blind to the anchor. ``hardware_priced_seconds`` appears in no test file but
+    this one. So the batch track could be anchored at 263 s for a queue the
+    controller really runs 300 s of -- a finish-governed night started 37 s per
+    zone too late -- with every test in both files green.
+    """
+
+    def test_both_durations_are_ones_the_conversion_actually_moves(self):
+        """Guard the CASES, the way the roster test above guards its discovery.
+
+        Both assertions below compare two numbers; neither says the conversion
+        happened. Pick a duration the rounding leaves alone -- 300 s on minutes,
+        or a whole number on seconds -- and both sites return the input, the
+        comparison holds, and the pin is worth nothing. Named here so a later
+        edit to the constants cannot quietly empty it out.
+        """
+        minutes = _zone(
+            1, mode=const.WATERING_MODE_BATCH, unit=const.DURATION_UNIT_MINUTES
+        )
+        seconds = _zone(
+            1, mode=const.WATERING_MODE_BATCH, unit=const.DURATION_UNIT_SECONDS
+        )
+        assert hardware_priced_seconds(minutes, PRICED) == WINDOW
+        assert WINDOW != PRICED
+        assert hardware_priced_seconds(seconds, FRACTIONAL) == FRACTIONAL_WINDOW
+        assert FRACTIONAL_WINDOW != FRACTIONAL
+
+    async def test_a_minutes_unit_batch_zone_is_anchored_at_what_the_queue_books(
+        self, hass
+    ):
+        # One zone description -- batch mode, minutes hardware, 263 priced
+        # seconds -- put to both sites, so they provably answer about the same
+        # valve. The rounding is 37 s, far too large for a site that skipped it
+        # to hide behind a number that happens to match.
+        booked = await _what_the_batch_queue_books(
+            hass, unit=const.DURATION_UNIT_MINUTES, priced=PRICED
+        )
+        zone = _zone(
+            1, mode=const.WATERING_MODE_BATCH, unit=const.DURATION_UNIT_MINUTES
+        )
+        assert hardware_priced_seconds(zone, PRICED) == booked
+
+    async def test_a_fractional_seconds_batch_zone_is_anchored_at_what_it_books(
+        self, hass
+    ):
+        # The seconds branch, which the minutes case cannot speak for: it rounds
+        # to the NEAREST whole second rather than up, and a site keyed on
+        # ``duration_unit == minutes`` instead of on the mode would skip it
+        # entirely while staying green above. 0.6 s is a small disagreement and
+        # a real one -- it is the same one rounding per zone, on hardware where
+        # the anchor otherwise looks exact.
+        booked = await _what_the_batch_queue_books(
+            hass, unit=const.DURATION_UNIT_SECONDS, priced=FRACTIONAL
+        )
+        zone = _zone(
+            1, mode=const.WATERING_MODE_BATCH, unit=const.DURATION_UNIT_SECONDS
+        )
+        assert hardware_priced_seconds(zone, FRACTIONAL) == booked
