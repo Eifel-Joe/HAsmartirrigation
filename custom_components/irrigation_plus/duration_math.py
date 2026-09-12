@@ -1,7 +1,19 @@
 """Deficit-to-duration pricing, shared by the calculation and the wall-clock model.
 
-Pure arithmetic — no Home Assistant import — so :mod:`run_window` (also HA-free)
-can price a zone's duration without pulling in the coordinator's import graph.
+Pure arithmetic — no Home Assistant import — so a caller can price a zone's
+duration without pulling in the coordinator's import graph. :mod:`run_window`
+is the caller that was written for, and it is NOT itself HA-free, whatever this
+sentence used to claim: ``run_window`` imports ``is_self_closing_zone`` from
+``self_closing.py``, which imports ``homeassistant.helpers.event`` and
+``homeassistant.util.dt``. Pre-existing and deliberate — a mode predicate lives
+with its mode — but worth stating, because "run_window is HA-free" is exactly
+the assumption under which someone plans a change to this file.
+
+The constraint it was protecting still holds HERE, which is the half that
+matters: this module's only imports are ``math`` and ``const``, and ``const``
+imports nothing at all, so ``duration_math`` stays importable without Home
+Assistant and its arithmetic stays testable on its own.
+
 ``calculation.py`` imports these two names for its existing callers (the
 runner's live-estimate gate, the finish-anchor estimate); this module is the
 one place the deficit math lives, not a second copy of it.
