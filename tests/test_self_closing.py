@@ -1135,3 +1135,129 @@ async def test_self_closing_advisory_after_repeated_off_rate():
     msg = create_calls[0].args[2]["message"]
     assert "flow" in msg and "throughput" in msg  # advisory names the flow/throughput
     assert "over" in msg  # +50% -> over-watering direction
+
+
+# --- The hardware window vs the planned window (#88, Eifel-Joe) ----------------
+#
+# A minute-unit controller cannot be told a partial minute, so _sc_convert rounds
+# UP. Everything downstream of the dispatch used to price the UN-rounded plan, so
+# a 263 s run opened the valve for 300 s while the record, the credit, the flow
+# sample and the backstop all said 263. Measured against the recorder on real
+# hardware: 502 -> 540, 265 -> 300, 263 -> 300.
+#
+# Every pre-existing test in this file missed it because the fixture's duration is
+# 600.0 s — a whole multiple of 60, the one case where the ceil does not bite.
+
+
+def test_effective_seconds_prices_the_rounded_up_window():
+    c = _coord()
+    # seconds hardware: what we ask for is what it runs
+    assert c._sc_effective_seconds(263.0, const.DURATION_UNIT_SECONDS) == 263.0
+    # minute hardware: 263 s is sent as 5 min, so the valve is open 300 s
+    assert c._sc_convert(263.0, const.DURATION_UNIT_MINUTES) == 5
+    assert c._sc_effective_seconds(263.0, const.DURATION_UNIT_MINUTES) == 300.0
+    # the three windows Eifel-Joe measured against the recorder
+    assert c._sc_effective_seconds(502.0, const.DURATION_UNIT_MINUTES) == 540.0
+    assert c._sc_effective_seconds(265.0, const.DURATION_UNIT_MINUTES) == 300.0
+    # a whole multiple of 60 is untouched — this is why the defect stayed hidden
+    assert c._sc_effective_seconds(600.0, const.DURATION_UNIT_MINUTES) == 600.0
+
+
+async def test_a_rounded_up_minute_run_is_recorded_and_backstopped_at_the_real_window():
+    """The run must be booked for the 300 s the valve is open, not the 263 s planned.
+
+    The backstop half is what made _watch_finish unreachable on Eifel-Joe's Beet
+    zone: armed on the short window, it settled the run 36-40 s BEFORE the valve
+    actually closed, so no partial could ever be observed there.
+    """
+    c = _coord()
+    c._confirm_valve_running = AsyncMock(return_value=True)
+    c._timed_volume_l = Mock(return_value=20.0)
+    c._credited_depth_native = Mock(return_value=4.0)
+    zone = _zone(
+        **{
+            const.ZONE_DURATION: 263.0,
+            const.ZONE_BUCKET: -5.0,
+            const.ZONE_MAXIMUM_BUCKET: 50.0,
+        }
+    )
+
+    ok = await c.async_run_self_closing(zone, trigger="schedule")
+    assert ok is True
+
+    # the controller was told 5 minutes
+    _d, _s, data = c.hass.services.async_call.await_args.args
+    assert data["dauer"] == 5
+
+    # and the run is priced at the 300 s that buys, not the 263 s asked for
+    c._sc_schedule_cleanup.assert_called_once_with(2, 300.0)
+    cfg = c.store.async_update_config.await_args.args[0]
+    run = cfg[const.CONF_ACTIVE_VALVE_RUNS][0]
+    assert run[const.RUN_PLANNED_SECONDS] == 300.0
+    # the volume credited is the volume that window actually delivers
+    assert c._timed_volume_l.call_args.args[1] == 300.0
+
+
+async def test_a_seconds_unit_zone_is_untouched():
+    """Regression guard: the fix must move nothing on second-unit hardware."""
+    c = _coord()
+    c._confirm_valve_running = AsyncMock(return_value=True)
+    c._timed_volume_l = Mock(return_value=20.0)
+    c._credited_depth_native = Mock(return_value=4.0)
+    zone = _zone(
+        **{
+            const.ZONE_DURATION_UNIT: const.DURATION_UNIT_SECONDS,
+            const.ZONE_DURATION: 263.0,
+            const.ZONE_BUCKET: -5.0,
+            const.ZONE_MAXIMUM_BUCKET: 50.0,
+        }
+    )
+
+    assert await c.async_run_self_closing(zone, trigger="schedule") is True
+    _d, _s, data = c.hass.services.async_call.await_args.args
+    assert data["dauer"] == 263
+    c._sc_schedule_cleanup.assert_called_once_with(2, 263.0)
+
+
+async def test_the_flow_sample_divides_by_the_window_the_meter_actually_saw():
+    """#133's false-advisory path: the self-closing caller has NO duration gate, so
+    a short minute-unit run fed the advisory a rate inflated by the rounding.
+
+    70 s is sent as 2 min. Metering 6 L over that 120 s open is 3.0 L/min; dividing
+    the same 6 L by the un-rounded 70 s reads 5.14 L/min, +71% on a zone whose
+    throughput is exactly right.
+    """
+    c = _coord()
+    c._confirm_valve_running = AsyncMock(return_value=True)
+    c._timed_volume_l = Mock(return_value=6.0)
+    c._credited_depth_native = Mock(return_value=1.0)
+    zone = _zone(
+        **{
+            const.ZONE_DURATION: 70.0,
+            const.ZONE_BUCKET: -5.0,
+            const.ZONE_MAXIMUM_BUCKET: 50.0,
+        }
+    )
+    await c.async_run_self_closing(zone, trigger="schedule")
+    cfg = c.store.async_update_config.await_args.args[0]
+    planned = cfg[const.CONF_ACTIVE_VALVE_RUNS][0][const.RUN_PLANNED_SECONDS]
+    assert planned == 120.0
+
+    # _sc_finish_run hands the advisory the run record's planned window
+    c.store.async_get_config = AsyncMock(
+        return_value={
+            const.CONF_ACTIVE_VALVE_RUNS: [
+                {const.RUN_ZONE_ID: 2, const.RUN_PLANNED_SECONDS: planned}
+            ]
+        }
+    )
+    c.store.get_zone = Mock(return_value=zone)
+    c._sc_finish_flow = Mock(return_value=(6.0, {}))
+    c._flow_calibration_check = AsyncMock()
+
+    await c._sc_finish_run(2)
+
+    c._flow_calibration_check.assert_awaited_once()
+    _zone_arg, measured, seconds = c._flow_calibration_check.await_args.args
+    assert (measured, seconds) == (6.0, 120.0)
+    assert measured / (seconds / 60.0) == 3.0  # not the 5.14 the old window read

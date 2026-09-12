@@ -104,6 +104,50 @@ class SelfClosingMixin:
             return max(1, math.ceil(seconds / 60.0)) if seconds > 0 else 0
         return int(round(seconds))
 
+    @staticmethod
+    def _sc_effective_seconds(seconds: float, unit: str) -> float:
+        """How long the valve is really open, given the duration _sc_convert sends.
+
+        A minute-unit controller cannot be told a partial minute, so _sc_convert
+        rounds UP: a 263 s plan opens the valve for 300 s. Everything downstream of
+        the dispatch — the run record, the bucket credit, the flow-calibration
+        sample and the finish backstop — has to price THAT window and not the
+        un-rounded plan, or it books a run the hardware never made.
+
+        Measured on real valves by Eifel-Joe (#88), against the recorder: 502 -> 540,
+        265 -> 300, 263 -> 300 seconds of open valve, i.e. 7.6-14.1% more water than
+        the run log recorded, on every run. Two consequences beyond the miscount:
+        the finish backstop was armed on the SHORT window and so settled the run
+        36-40 s before the valve actually closed, which is why _watch_finish was
+        unreachable on that zone; and the flow-calibration advisory divides the
+        metered litres by the SHORT window, inflating the observed rate by the same
+        ratio (a 70 s plan becomes a 120 s open, reading +71% on a correctly
+        configured zone — enough to fire a false advisory, since the self-closing
+        caller has no duration gate of its own; see #133).
+
+        Derived from _sc_convert rather than restating the rounding, so the window
+        priced here cannot drift from the duration actually dispatched.
+        """
+        duration = SelfClosingMixin._sc_convert(seconds, unit)
+        if unit == const.DURATION_UNIT_MINUTES:
+            return float(duration) * 60.0
+        return float(duration)
+
+    def _sc_planned_window(self, zone: dict) -> float:
+        """The seconds the hardware will hold this zone's valve open for its run.
+
+        The single source for the run's planned window: the dispatch derives the
+        duration it sends from the same two helpers, so the two cannot disagree.
+        """
+        seconds = float(zone.get(const.ZONE_DURATION) or 0)
+        if seconds <= 0:
+            return 0.0
+        if is_opensprinkler_zone(zone):
+            # run_station takes whole seconds and nothing else (see _sc_dispatch_open).
+            return float(max(1, math.ceil(seconds)))
+        unit = zone.get(const.ZONE_DURATION_UNIT, const.DURATION_UNIT_SECONDS)
+        return self._sc_effective_seconds(seconds, unit)
+
     def _sc_split_service(self, dotted: str):
         """'domain.service' -> (domain, service)."""
         domain, _, service = (dotted or "").partition(".")
@@ -115,7 +159,7 @@ class SelfClosingMixin:
         if is_opensprinkler_zone(zone):
             # run_station takes whole seconds and nothing else; the duration unit
             # is a property of a user's own run_service script, not of this API.
-            await self._os_dispatch_open(zone, max(1, math.ceil(seconds)))
+            await self._os_dispatch_open(zone, int(self._sc_planned_window(zone)))
             return
         unit = zone.get(const.ZONE_DURATION_UNIT, const.DURATION_UNIT_SECONDS)
         duration = self._sc_convert(seconds, unit)
@@ -383,7 +427,11 @@ class SelfClosingMixin:
     ) -> bool:
         """Fire a self-closing run for one zone. Returns True if started."""
         zone_id = zone.get(const.ZONE_ID)
-        planned_seconds = float(zone.get(const.ZONE_DURATION) or 0)
+        # The window the HARDWARE will run, not the un-rounded plan: a minute-unit
+        # controller rounds a 263 s plan up to 300 s, and the record, the credit,
+        # the flow sample and the backstop all have to price what the valve does.
+        # See _sc_effective_seconds (#88).
+        planned_seconds = self._sc_planned_window(zone)
         if planned_seconds <= 0:
             return False
 

@@ -231,7 +231,15 @@ class BatchMixin:
                 )
                 continue
             unit = zone.get(const.ZONE_DURATION_UNIT, const.DURATION_UNIT_SECONDS)
-            prepared.append((zone, watch_entity, seconds))
+            # Record the window the CONTROLLER was given, not the un-rounded plan.
+            # A minute-unit zone's 263 s becomes 300 s in the queue entry below, and
+            # _batch_record_run credits, marks the SI window and sizes the run record
+            # from this value — so handing it the raw seconds books a run the
+            # controller never made. Same defect as async_run_self_closing's; see
+            # SelfClosingMixin._sc_effective_seconds (#88).
+            prepared.append(
+                (zone, watch_entity, self._sc_effective_seconds(seconds, unit))
+            )
             plan.append(
                 {
                     "zone_id": zone_id,

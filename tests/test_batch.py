@@ -260,6 +260,34 @@ class TestDispatch:
         # direction, and the shared converter already makes that choice.
         assert [p["duration"] for p in plan] == [600, 11]
 
+    async def test_a_rounded_up_zone_is_recorded_for_the_window_it_was_given(
+        self, hass
+    ):
+        """#88: the queue entry and the run record must agree.
+
+        11 minutes is 660 s of open valve, so booking the run at the un-rounded
+        630 s under-records the water by 30 s on every run. Same defect as
+        async_run_self_closing's; see SelfClosingMixin._sc_effective_seconds.
+        """
+        c = _coord(hass)
+        zones = _register(
+            c,
+            _zone(1, VALVE_A, 600),
+            _zone(
+                2,
+                VALVE_B,
+                630,
+                **{const.ZONE_DURATION_UNIT: const.DURATION_UNIT_MINUTES},
+            ),
+        )
+        await c.async_dispatch_batch_zones(zones, trigger="schedule")
+
+        by_zone = {r[const.RUN_ZONE_ID]: r for r in c._runs}
+        # the seconds-unit zone is untouched
+        assert by_zone[1][const.RUN_PLANNED_SECONDS] == 600.0
+        # the minute-unit zone is booked for the 660 s the controller was given
+        assert by_zone[2][const.RUN_PLANNED_SECONDS] == 660.0
+
     async def test_every_dispatched_zone_gets_a_persisted_run_record(self, hass):
         c = _coord(hass)
         zones = _register(c, _zone(1, VALVE_A, 600), _zone(2, VALVE_B, 900))
