@@ -206,3 +206,44 @@ Maßgeblich ist die CI. Die lokale Suite ist unter Windows nicht verlässlich
 **Vor** dem fluss-verifizierten Öffnen für self-closing (Feature-Backlog Punkt 4).
 Jene Regel urteilt auf der Messbasis, die hier repariert wird; auf einer Minuten-Zone
 wird `_sc_finish_flow` heute bis zu 59 s vor dem echten Schluss gerufen.
+
+---
+
+## Nachtrag 2026-09-12 — Upstream kam parallel zum selben Fix
+
+**Was passiert ist.** JustChr hat am 2026-09-12 um 08:41 (+0200) `e9f2da51`
+committet, „fix(self-closing,batch): price a run at the window the hardware
+actually runs (#88)". Unser PR wurde erst um 14:46 (+0200) eröffnet, er kann ihn
+also nicht gesehen haben. Gearbeitet hat er aus unserem Messbericht auf Issue
+#88, den er wörtlich zitiert; den Code hat er selbst geschrieben. Zwei
+unabhängige Herleitungen desselben Befunds, was den Befund selbst bestätigt.
+
+**Was dadurch entfällt.** Seine Fassung deckt `self_closing.py` und `batch.py` —
+also unsere Tasks 2 bis 4. Anders faktoriert: `_sc_effective_seconds` leitet aus
+`_sc_convert` ab, `_sc_planned_window` ist die eine Quelle für Versand und
+Buchung. Fachlich gleichwertig.
+
+**Was offen blieb und den PR jetzt ausmacht.** Der Verteiler-Einlass, der
+Finish-Anker und die Doppelung der Rundungsregel. `_dist_convert` stand
+unverändert als zweite, bytegleiche Kopie in `distributor.py`, und die
+OpenSprinkler-Decke war innerhalb von `self_closing.py` zweimal ausgeschrieben.
+
+**Entscheidung revidiert: OpenSprinkler wird umgerechnet.** Unsere Spec hatte
+Stationen ganz ausgeschlossen und das mit einem Pin festgenagelt. Das war
+falsch. `run_station` rundet sehr wohl — auf ganze Sekunden, mit Decke und
+Untergrenze eins — also läuft eine Station für einen 263,4-s-Plan wirklich 264 s,
+und die Bücher müssen das sagen. `_sc_planned_window` macht es richtig. Der
+Anker folgt jetzt, über `opensprinkler_window`, damit beide Seiten dieselbe
+Decke anwenden.
+
+**Lehre, die über diesen Fall hinausgeht.** Die alten OpenSprinkler-Pins blieben
+grün, als das Verhalten umgedreht wurde — weil sie bei 263,0 s prüften, wo die
+Decke nichts tut. Dieselbe Falle wie in der ersten Runde, nur an anderer Stelle:
+**ein Pin, der auf einer ganzen Zahl steht, prüft den Zweig nicht, den er
+zu prüfen vorgibt.** Neu formuliert bei 263,4 s, wo Decke (264) und
+Kaufmannsrundung (263) auseinandergehen.
+
+**Zweite Lehre.** Bei einem Upstream-PR ist der eigene Branch kein Besitzstand.
+Es war richtig, neun Commits wegzuwerfen und auf seinem Stand neu aufzusetzen,
+statt Konflikte durchzuschleifen — der Rest-PR erzählt jetzt eine Geschichte
+statt einer Kollision.
