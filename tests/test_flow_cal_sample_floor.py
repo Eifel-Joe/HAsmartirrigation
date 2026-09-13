@@ -106,9 +106,12 @@ async def test_duration_alone_never_rejects_a_sample():
     what bounds the error, and 30 s of a 20 L/min zone says more than 300 s of a
     trickle. The old gate rejected it, and only on the observed path.
 
-    This fails if any caller regains a duration gate of its own, which is the
-    shape the fix exists to remove -- one rule restated in three places, two of
-    which never had it.
+    This pins the SHARED HELPER: it fails if a duration gate returns to
+    ``_flow_calibration_check``. A gate added at a call site walks past it,
+    because this drives the helper directly. The self-closing caller is held by
+    test_self_closing.py::test_the_flow_sample_divides_by_the_window_the_meter_actually_saw,
+    whose run is 70 s; the distributor caller is not pinned against a private
+    gate. (The observed path's 300 s rule is deliberate provenance, not this.)
     """
     c = _host()
     z = _zone()

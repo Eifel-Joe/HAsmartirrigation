@@ -96,9 +96,10 @@ class DistributorMixin:
         window the inlet was given", not "the seconds it will really flow".
 
         Wurzel: this arithmetic used to be reachable only by ACTUATING -- it sat
-          inside :meth:`_dist_open_inlet` and came back as its return value, so
-          the sweep could not know the real window until after it had bound
-          `cap` and written the master-off note against the priced one.
+          inside :meth:`_dist_open_inlet`, which sent the rounded value to the
+          hardware and kept it to itself, so the sweep bound `cap`, the
+          master-off note, the sleep and the credit to the priced window while
+          the inlet ran the rounded-up one.
         Fix: the pure half is split out, so the sweep can ask before it opens
           anything and both are bound while the valve is still shut.
         NOT-TO-DO: do not key the conversion on ``duration_unit`` alone. A
@@ -118,15 +119,14 @@ class DistributorMixin:
         The classic branch ignores ``seconds`` entirely -- the sweep owns that
         close; only the service branch turns it into an instruction.
 
-        Wurzel: this used to RETURN the effective window and the sweep read it
-          from here -- below the point where `cap` and the master-off note are
-          bound, so both kept following the PRICED number while the inlet ran the
-          rounded-up one (the gap c413f937 left open on purpose).
+        Wurzel: the rounded-up value used to be computed here and nowhere else,
+          so the sweep never saw the window the inlet really ran, and `cap` and
+          the master-off note followed the PRICED number.
         Fix: the sweep takes the window from _dist_inlet_instruction before it
-          binds either, so there is nothing here left to read too late.
-        NOT-TO-DO: do not hand the window back from here again "for symmetry" --
-          a second source for the same number is what let the two drift apart,
-          and no production caller would read it.
+          binds either; this method only actuates.
+        NOT-TO-DO: do not make this return the window "for symmetry" -- a
+          second source for the same number is what lets the two drift apart,
+          and a window learned here would arrive after `cap` is already bound.
         siehe test_distributor_dispatch.py::test_classic_inlet_actuates_and_hands_nothing_back
         siehe test_distributor.py::test_open_inlet_classic_opens_entity
         """
@@ -1371,9 +1371,9 @@ class DistributorMixin:
                     window = float(duration_override)
 
             # Wurzel: a minute-granularity service inlet is told a window ROUNDED
-            #   UP (263 s -> "5") and really flows 300 s, but the sweep learned
-            #   that only from _dist_open_inlet's return -- AFTER `cap` and the
-            #   master-off note were bound to the priced number. Two live defects:
+            #   UP (263 s -> "5") and really flows 300 s, but the sweep never saw
+            #   that number: the conversion lived inside _dist_open_inlet, so `cap`
+            #   and the master-off note were bound to the priced one. Two live defects:
             #   a flow-metered outlet was metered to `cap` = 263 s while the inlet
             #   ran 300 (the ring advanced ~37 s early and actual_seconds came back
             #   short against planned_seconds in the same credit call), and the note
@@ -1479,9 +1479,9 @@ class DistributorMixin:
             # really flow (converted above) and _dist_open_inlet returns nothing.
             # It is handed `priced` -- the same input that conversion saw -- so the
             # value the hardware is told comes from one rule applied to one number.
-            # NOT-TO-DO: do not give this call a return value to read again; taking
-            # the window from here is what left `cap` and the master note on the
-            # priced number until this commit.
+            # NOT-TO-DO: do not give this call a return value to read the window
+            # from; a window learned here arrives after `cap` and the master note
+            # are already bound.
             await self._dist_open_inlet(distributor, priced)
 
             if confirm_entity:
