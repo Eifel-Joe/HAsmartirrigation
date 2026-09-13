@@ -234,7 +234,44 @@ def _make_set_zone_coordinator():
     coord.hass.states.get.return_value = state
     coord.store.get_zone.return_value = {const.ZONE_STATE: const.ZONE_STATE_MANUAL}
     coord.store.async_update_zone = AsyncMock()
+    coord._book_asserted_bucket = AsyncMock()
     return coord
+
+
+async def test_handle_set_zone_hands_a_bucket_to_the_assertion_hook(monkeypatch):
+    """set_bucket is served by handle_set_zone, which writes the store itself.
+
+    It must pass the pre-write snapshot, the stored entry and the changes to
+    ``_book_asserted_bucket``, or a level set through the service keeps the old
+    weather window (#138 follow-up). The hook's own behaviour, including its
+    early return when no bucket is in the changes, is covered in
+    test_manual_bucket_assertion.py.
+    """
+    coord = _make_set_zone_coordinator()
+    monkeypatch.setattr(
+        "custom_components.irrigation_plus.services.async_dispatcher_send",
+        MagicMock(),
+    )
+    # A bucket value is checked against maximum_bucket before anything is written.
+    snapshot = {
+        const.ZONE_STATE: const.ZONE_STATE_MANUAL,
+        const.ZONE_MAXIMUM_BUCKET: 50.0,
+    }
+    coord.store.get_zone.return_value = snapshot
+    call = MagicMock()
+    call.data = {
+        const.SERVICE_ENTITY_ID: "sensor.irrigation_plus_lawn",
+        const.ATTR_NEW_BUCKET_VALUE: -2.0,
+    }
+
+    await ServiceHandlersMixin.handle_set_zone(coord, call)
+
+    coord._book_asserted_bucket.assert_awaited_once_with(
+        1,
+        snapshot,
+        coord.store.async_update_zone.return_value,
+        {const.ZONE_BUCKET: -2.0},
+    )
 
 
 async def test_handle_set_zone_accepts_valid_state(monkeypatch):

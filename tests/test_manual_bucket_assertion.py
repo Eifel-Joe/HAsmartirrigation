@@ -7,9 +7,10 @@ writer which moves the bucket part-way through a window books a
 ``pending_bucket_events`` entry carrying its own timestamp -- see
 ``async_write_watered_bucket`` and test_mid_window_bucket_credit.py.
 
-The manual paths book nothing. ``set_bucket`` / ``reset_bucket`` and the panel's
-zone save both land on the generic branch of ``async_update_zone_config``, which
-writes the field straight through ``store.async_update_zone``. With no ledger
+The manual paths book nothing. ``reset_bucket`` and the panel's zone save land on
+the generic branch of ``async_update_zone_config``, and ``set_bucket`` is served
+by ``handle_set_zone``; both write the field straight through
+``store.async_update_zone``. With no ledger
 entry the asserted level is taken for the window-OPENING level, and the whole
 unconsumed window is applied on top of it -- including rain that fell before the
 user made the statement.
@@ -128,9 +129,28 @@ async def _assert_level_by_hand(c, store, zone):
     return store.get_zone(zone[const.ZONE_ID])
 
 
-async def _bucket_after_a_full_day(c, store, *, rain_mm):
+async def _assert_level_by_service(c, store, zone):
+    """Set the bucket through ``irrigation_plus.set_bucket``.
+
+    That service is registered to ``handle_set_zone``, which writes the store
+    itself instead of going through ``async_update_zone_config``, so it reaches
+    the assertion by its own route and needs its own test.
+    """
+    entity_id = f"sensor.irrigation_plus_front_{zone[const.ZONE_ID]}"
+    c.hass.states.async_set(entity_id, "0", {const.ZONE_ID: zone[const.ZONE_ID]})
+    call = Mock()
+    call.data = {
+        const.SERVICE_ENTITY_ID: [entity_id],
+        const.ATTR_NEW_BUCKET_VALUE: ASSERTED_LEVEL,
+    }
+    with freeze_time(T0 + timedelta(hours=ASSERTED_AT_HOUR)):
+        await c.handle_set_zone(call)
+    return store.get_zone(zone[const.ZONE_ID])
+
+
+async def _bucket_after_a_full_day(c, store, *, rain_mm, assert_level=None):
     zone = await _zone(c, store, rain_mm=rain_mm)
-    zone = await _assert_level_by_hand(c, store, zone)
+    zone = await (assert_level or _assert_level_by_hand)(c, store, zone)
     now = T0 + timedelta(hours=24)
     weatherdata, _ = await c._aggregate_for_zone(zone, now=now)
     data = await c.calculate_module(zone, weatherdata, None, now=now)
@@ -226,3 +246,25 @@ async def test_a_save_that_leaves_the_bucket_alone_moves_nothing(coordinator):
     after = store.get_zone(zone[const.ZONE_ID])
     assert after.get(const.ZONE_LAST_CONSUMED) == before
     assert after.get(const.ZONE_THROUGHPUT) == 12.0
+
+
+async def test_the_set_bucket_service_supersedes_earlier_rain_too(coordinator):
+    """The same equivalence, through the service whose name IS the assertion.
+
+    ``set_bucket`` does not reach the generic branch the tests above drive: it
+    is registered to ``handle_set_zone``, which writes the store directly. Before
+    that handler called the hook, the bucket was set and the watermark stayed at
+    T0, so the rain was applied on top exactly as before the fix.
+    """
+    c, store = coordinator
+    with_rain = await _bucket_after_a_full_day(
+        c, store, rain_mm=RAIN_MM, assert_level=_assert_level_by_service
+    )
+    without_rain = await _bucket_after_a_full_day(
+        c, store, rain_mm=0.0, assert_level=_assert_level_by_service
+    )
+    assert with_rain == pytest.approx(without_rain, abs=1e-6), (
+        f"set_bucket to {ASSERTED_LEVEL} at hour {ASSERTED_AT_HOUR} still had "
+        f"{RAIN_MM} mm of earlier rain applied: {with_rain:.2f} against "
+        f"{without_rain:.2f}"
+    )

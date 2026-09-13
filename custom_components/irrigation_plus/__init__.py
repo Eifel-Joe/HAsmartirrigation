@@ -1979,9 +1979,12 @@ class SmartIrrigationCoordinator(
           every bucket write passes through. A unit-system flip rewrites the
           bucket by 25.4 without any water moving or any ground being looked at,
           and it writes through the store directly -- as do the credit paths and
-          the calculation's own result. Only the two assertion paths, the
-          set_bucket / reset_bucket services and the panel's zone save, reach
-          this branch. ``async_write_watered_bucket`` carries the same warning.
+          the calculation's own result. Only the assertion paths call this: the
+          generic branch of ``async_update_zone_config`` (the panel's zone save,
+          reset_bucket, set_all_buckets / reset_all_buckets, and the
+          soil-moisture veto's re-anchor), and ``handle_set_zone``, which serves
+          set_bucket and set_zone and writes the store itself, so it calls this
+          directly. ``async_write_watered_bucket`` carries the same warning.
         siehe tests/test_manual_bucket_assertion.py
         """
         if const.ZONE_BUCKET not in data and const.ATTR_NEW_BUCKET_VALUE not in data:

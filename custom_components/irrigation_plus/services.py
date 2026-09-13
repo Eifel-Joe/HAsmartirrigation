@@ -212,7 +212,14 @@ class ServiceHandlersMixin:
                 raise SmartIrrigationError("No valid parameter provided")
 
             if count > 0:
-                await self.store.async_update_zone(zone_id, zone_data)
+                entry = await self.store.async_update_zone(zone_id, zone_data)
+                # set_bucket is registered to THIS handler, which writes the store
+                # itself and never reaches async_update_zone_config's generic branch,
+                # so it has to hand a bucket assertion to the hook on its own. `zone`
+                # is the pre-write snapshot (get_zone returns a copy); the hook
+                # returns early when zone_data carries no bucket.
+                # siehe test_manual_bucket_assertion.py::test_the_set_bucket_service_supersedes_earlier_rain_too
+                await self._book_asserted_bucket(zone_id, zone, entry, zone_data)
                 async_dispatcher_send(
                     self.hass,
                     const.DOMAIN + "_config_updated",
