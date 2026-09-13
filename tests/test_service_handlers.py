@@ -274,6 +274,56 @@ async def test_handle_set_zone_hands_a_bucket_to_the_assertion_hook(monkeypatch)
     )
 
 
+async def test_handle_set_zone_sets_a_bucket_on_a_zone_without_maximum_bucket(
+    monkeypatch,
+):
+    """maximum_bucket may be None: the panel's zone POST schema allows it.
+
+    The ceiling check compared the new value with it directly and raised
+    TypeError, so set_bucket failed on such a zone. With no ceiling there is
+    nothing to exceed, and the value is written.
+    """
+    coord = _make_set_zone_coordinator()
+    monkeypatch.setattr(
+        "custom_components.irrigation_plus.services.async_dispatcher_send",
+        MagicMock(),
+    )
+    coord.store.get_zone.return_value = {
+        const.ZONE_STATE: const.ZONE_STATE_MANUAL,
+        const.ZONE_MAXIMUM_BUCKET: None,
+    }
+    call = MagicMock()
+    call.data = {
+        const.SERVICE_ENTITY_ID: "sensor.irrigation_plus_lawn",
+        const.ATTR_NEW_BUCKET_VALUE: -2.0,
+    }
+
+    await ServiceHandlersMixin.handle_set_zone(coord, call)
+
+    coord.store.async_update_zone.assert_awaited_once()
+    assert coord.store.async_update_zone.await_args.args[1] == {const.ZONE_BUCKET: -2.0}
+
+
+async def test_handle_set_zone_still_rejects_a_bucket_above_its_maximum():
+    """The None case above must not have switched the ceiling off everywhere."""
+    from custom_components.irrigation_plus.services import SmartIrrigationError
+
+    coord = _make_set_zone_coordinator()
+    coord.store.get_zone.return_value = {
+        const.ZONE_STATE: const.ZONE_STATE_MANUAL,
+        const.ZONE_MAXIMUM_BUCKET: 5.0,
+    }
+    call = MagicMock()
+    call.data = {
+        const.SERVICE_ENTITY_ID: "sensor.irrigation_plus_lawn",
+        const.ATTR_NEW_BUCKET_VALUE: 10.0,
+    }
+
+    with pytest.raises(SmartIrrigationError):
+        await ServiceHandlersMixin.handle_set_zone(coord, call)
+    coord.store.async_update_zone.assert_not_awaited()
+
+
 async def test_handle_set_zone_accepts_valid_state(monkeypatch):
     """A valid zone state (automatic) is persisted, not rejected (review finding I)."""
     coord = _make_set_zone_coordinator()

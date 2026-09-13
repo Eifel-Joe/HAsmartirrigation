@@ -189,8 +189,15 @@ class ServiceHandlersMixin:
                     raise SmartIrrigationError(
                         "Can only set duration if zone state is set to manual."
                     )
-                if v == const.ATTR_NEW_BUCKET_VALUE and data[v] > zone.get(
-                    const.ZONE_MAXIMUM_BUCKET
+                # A zone saved from the panel may carry maximum_bucket = None (the
+                # zone POST schema allows it). There is no ceiling to check then, and
+                # comparing the value with None raised TypeError, so set_bucket
+                # failed outright on such a zone.
+                maximum_bucket = zone.get(const.ZONE_MAXIMUM_BUCKET)
+                if (
+                    v == const.ATTR_NEW_BUCKET_VALUE
+                    and maximum_bucket is not None
+                    and data[v] > maximum_bucket
                 ):
                     raise SmartIrrigationError(
                         "Bucket size is above maximmum bucket allowed value."
