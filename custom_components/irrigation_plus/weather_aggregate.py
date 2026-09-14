@@ -223,6 +223,13 @@ def weather_day(window_start, window_end):
     the start alone, so callers measuring from the same start get the same
     day however far the window has run.
 
+    A window that starts after noon and closes before midnight — after a
+    manual bucket update or a weather-data reset moves the watermark into the
+    afternoon, for instance — is priced as the following day although all of
+    its readings fall on the start date. That offset of at most one day is
+    accepted: it is what keeps a commit and an estimate measured from the same
+    start agreeing with each other.
+
     Without a known start, the date of the window end is used. The date is
     taken in whatever timezone the datetimes carry; buffer stamps are naive
     local times. Reads no clock: the caller's ``now`` arrives as
