@@ -26,10 +26,17 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
-from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
+from custom_components.irrigation_plus import (
+    SmartIrrigationCoordinator,
+    const,
+    run_window,
+)
 from custom_components.irrigation_plus.run_window import (
+    ZoneRun,
+    bound_wall_clock,
     hardware_priced_seconds,
     nominal_zone_duration,
+    track_for_zone,
 )
 from tests.test_batch import _coord as _batch_coord
 from tests.test_batch import _register as _batch_register
@@ -414,8 +421,9 @@ class TestTheAnchorAndTheRunSelectTheSameZones:
     * the RUN, ``self_closing.async_run_self_closing``, guards only on
       ``if not is_opensprinkler`` -- its self-closing half is implicit, carried
       by the fact that no dispatcher routes any other mode into it;
-    * the ANCHOR, ``run_window.hardware_priced_seconds``, has to say both out
-      loud, and then say which of the two rounding rules each half gets.
+    * the ANCHOR, ``run_window.hardware_priced_for_track`` (reached from a zone
+      through ``hardware_priced_seconds``), has to say both out loud, and then
+      say which of the two rounding rules each half gets.
 
     Two spellings of one decision, in modules that cannot be made to share it.
     Every other test in this file pins the anchor against numbers a human
@@ -503,12 +511,12 @@ class TestTheAnchorAndTheBatchQueueBookTheSameSeconds:
     ``async_run_self_closing``'s is -- ``async_dispatch_due_zones`` filters on
     ``is_batch_zone`` and hands that set to ``async_dispatch_batch_zones``, so
     nothing else can arrive. The ANCHOR has to name the same selection out loud:
-    ``hardware_priced_seconds``'s ``not is_self_closing_zone(zone)``, which lets
-    a batch zone through only because ``is_self_closing_zone`` happens to list
-    ``WATERING_MODE_BATCH``. Two
-    spellings of one decision again, and again in modules that cannot be made to
-    share it: ``run_window`` imports ``is_batch_zone`` from ``batch``, so
-    ``batch`` importing back would be a cycle.
+    ``run_window.track_for_zone`` puts a batch zone on ``TRACK_BATCH``, and
+    ``hardware_priced_for_track`` converts that track through
+    ``hardware_window``. Two spellings of one decision again, and again in
+    modules that cannot be made to share it: ``run_window`` imports
+    ``is_batch_zone`` from ``batch``, so ``batch`` importing back would be a
+    cycle.
 
     ``TestTheAnchorAndTheRunSelectTheSameZones`` above HAS a ``batch`` row, and
     it does not cover this. That row asks ``async_run_self_closing`` what it
@@ -577,3 +585,91 @@ class TestTheAnchorAndTheBatchQueueBookTheSameSeconds:
             1, mode=const.WATERING_MODE_BATCH, unit=const.DURATION_UNIT_SECONDS
         )
         assert hardware_priced_seconds(zone, FRACTIONAL) == booked
+
+
+class TestZoneRunsCarryTheUnit:
+    """Both constructors of ZoneRun carry the zone's duration unit.
+
+    ``bound_wall_clock`` is fed by ``async_plan_zone_runs`` and needs the unit
+    to tell 263 s of minute hardware from 263 s of seconds hardware.
+    ``nominal_demand_seconds`` prices its durations through the hardware window
+    before building its runs, so nothing reads the field there; it is pinned so
+    the two constructors cannot drift apart.
+    """
+
+    @pytest.mark.asyncio
+    async def test_the_plan_carries_the_unit(self):
+        zones = [
+            _zone(1, mode=const.WATERING_MODE_SERVICE),
+            _zone(
+                2, mode=const.WATERING_MODE_SERVICE, unit=const.DURATION_UNIT_SECONDS
+            ),
+        ]
+        planned = await _coord(zones).async_plan_zone_runs()
+        assert {p.zone_id: p.duration_unit for p in planned} == {
+            1: const.DURATION_UNIT_MINUTES,
+            2: const.DURATION_UNIT_SECONDS,
+        }
+
+    def test_the_nominal_projection_carries_the_unit(self, monkeypatch):
+        captured = []
+
+        def capture(runs, **_kwargs):
+            captured.extend(runs)
+            return 0.0
+
+        monkeypatch.setattr(run_window, "concurrent_wall_clock", capture)
+        run_window.nominal_demand_seconds(
+            [
+                _nominal_zone(1, mode=const.WATERING_MODE_SERVICE),
+                _nominal_zone(
+                    2,
+                    mode=const.WATERING_MODE_SERVICE,
+                    unit=const.DURATION_UNIT_SECONDS,
+                ),
+            ],
+            sequencing=SEQUENTIAL,
+            max_slot_seconds=300,
+            min_absorption_seconds=0,
+            metric=True,
+        )
+        assert {r.zone_id: r.duration_unit for r in captured} == {
+            1: const.DURATION_UNIT_MINUTES,
+            2: const.DURATION_UNIT_SECONDS,
+        }
+
+
+class TestTheBoundAndThePlanPriceTheSameWindow:
+    """The arm's bound and the plan price one zone through one decision.
+
+    ``bound_wall_clock`` reads a ZoneRun, ``hardware_priced_seconds`` a zone
+    dict; both reach ``hardware_priced_for_track``. Bypass it on the bound's
+    side, or key it on the unit instead of the track, and one mode below
+    disagrees. The modes are read from ``const``, so a mode added later is held
+    to the same answer without a hand-written number.
+    """
+
+    # Fractional, so the station row's ceil is not a no-op: a bound that skips
+    # the rounding is 263.6 against 264 there, not 263 against 263.
+    CAP = 263.6
+
+    @pytest.mark.parametrize("mode", WATERING_MODES)
+    def test_a_single_zone_is_bounded_at_the_window_its_run_is_priced_at(self, mode):
+        zone = _zone(1, mode=mode, unit=const.DURATION_UNIT_MINUTES)
+        # confirm_seconds stays 0: the wall-clock reduction adds it on top of
+        # the ceiling, and it is not what this pin compares.
+        run = ZoneRun(
+            zone_id=1,
+            duration=0.0,
+            depletion_ratio=1.0,
+            maximum_duration=self.CAP,
+            track=track_for_zone(zone),
+            duration_unit=zone.get(const.ZONE_DURATION_UNIT),
+        )
+        bound = bound_wall_clock(
+            [run],
+            sequencing=SEQUENTIAL,
+            max_slot_seconds=300,
+            min_absorption_seconds=0,
+        )
+        assert bound == hardware_priced_seconds(zone, self.CAP)
