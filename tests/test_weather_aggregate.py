@@ -2,10 +2,13 @@
 
 import datetime
 
+import pytest
+
 from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.weather_aggregate import (
     aggregate_window,
     select_window,
+    weather_day,
 )
 
 T0 = datetime.datetime(2026, 6, 8, 6, 0, 0)
@@ -306,3 +309,57 @@ class TestContinuousUpdateRows:
             readings, None, config, now=T0 + datetime.timedelta(hours=1)
         )
         assert out[const.MAPPING_PRECIPITATION] == 1.0  # 1 mm/h over 1 h
+
+
+class TestWeatherDay:
+    """The calendar day a window's readings are priced as."""
+
+    @pytest.mark.parametrize(
+        ("start", "end", "expected"),
+        [
+            pytest.param(
+                datetime.datetime(2026, 5, 21, 23, 0),
+                datetime.datetime(2026, 5, 22, 23, 0),
+                datetime.date(2026, 5, 22),
+                id="starts-at-23-lands-on-the-next-day",
+            ),
+            pytest.param(
+                datetime.datetime(2026, 5, 21, 23, 0),
+                datetime.datetime(2026, 5, 21, 23, 30),
+                datetime.date(2026, 5, 22),
+                id="still-open-half-an-hour-after-a-late-start",
+            ),
+            pytest.param(
+                datetime.datetime(2026, 5, 22, 6, 0),
+                datetime.datetime(2026, 5, 23, 6, 0),
+                datetime.date(2026, 5, 22),
+                id="starts-at-06-keeps-its-day",
+            ),
+            pytest.param(
+                datetime.datetime(2026, 5, 22, 2, 0),
+                datetime.datetime(2026, 5, 23, 2, 0),
+                datetime.date(2026, 5, 22),
+                id="starts-at-02-keeps-its-day",
+            ),
+            pytest.param(
+                datetime.datetime(2026, 5, 22, 11, 59),
+                datetime.datetime(2026, 5, 23, 11, 59),
+                datetime.date(2026, 5, 22),
+                id="starts-just-before-noon-keeps-its-day",
+            ),
+            pytest.param(
+                datetime.datetime(2026, 5, 22, 12, 0),
+                datetime.datetime(2026, 5, 23, 12, 0),
+                datetime.date(2026, 5, 23),
+                id="starts-at-noon-goes-to-the-next-day",
+            ),
+        ],
+    )
+    def test_a_window_belongs_to_the_day_twelve_hours_after_its_start(
+        self, start, end, expected
+    ):
+        assert weather_day(start, end) == expected
+
+    def test_a_window_without_a_start_belongs_to_the_day_it_ends(self):
+        end = datetime.datetime(2026, 5, 23, 2, 0)
+        assert weather_day(None, end) == datetime.date(2026, 5, 23)

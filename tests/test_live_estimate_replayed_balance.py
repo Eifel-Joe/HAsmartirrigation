@@ -55,12 +55,18 @@ from custom_components.irrigation_plus.calcmodules.pyeto import (
     PyETO,
     SOLRAD_behavior,
 )
-from custom_components.irrigation_plus.et_estimate import live_balance
+from custom_components.irrigation_plus.et_estimate import (
+    SiteGeometry,
+    estimate_daily_et0_hargreaves,
+    live_balance,
+)
+from custom_components.irrigation_plus.helpers import as_datetime
 from custom_components.irrigation_plus.sensor import (
     SmartIrrigationZoneLiveDeficitSensor,
     SmartIrrigationZoneNextIrrigationSensor,
 )
 from custom_components.irrigation_plus.store import SmartIrrigationStorage
+from custom_components.irrigation_plus.weather_aggregate import weather_day
 
 T0 = datetime.datetime(2026, 5, 22, 0, 0, 0)
 NOW = T0 + timedelta(hours=24)
@@ -1284,10 +1290,16 @@ def _estimating_inputs(instance, module, now=WINDOW_END, forecast=None):
 
 
 async def _committed_daily_et(c, zone, now=WINDOW_END):
-    """The whole-window evapotranspiration the commit books, in mm."""
+    """The whole-window evapotranspiration the commit books, in mm.
+
+    Priced for the day ``calculate_module`` prices it for: ``weather_day`` of
+    the zone's consume watermark (parsed with ``as_datetime``, as
+    ``calculate_module`` does) and ``now``.
+    """
     weatherdata, _ = await c._aggregate_for_zone(zone, now=now)
     instance = await c.getModuleInstanceByID(zone[const.ZONE_MODULE])
-    delta = instance.calculate(weather_data=weatherdata, forecast_data=None)
+    day = weather_day(as_datetime(zone.get(const.ZONE_LAST_CONSUMED)), now)
+    delta = instance.calculate(weather_data=weatherdata, forecast_data=None, day=day)
     return -delta * (weatherdata.get(const.MAPPING_DATA_MULTIPLIER) or 1.0)
 
 
@@ -1434,6 +1446,54 @@ class TestEstimatedRadiationZonesRunTheirOwnCommitsEquation:
         assert zone[const.ZONE_PENDING_BUCKET_EVENTS] == events
 
 
+class TestTheCommitPricesTheDayItsWindowCovers:
+    """The daily equation's solar geometry is read off the window, not the clock.
+
+    The same window books the same delta under any wall clock, and the module
+    is handed the day the window's readings belong to together with the first
+    forecast day, the day after the commit.
+    """
+
+    async def test_the_same_window_books_the_same_delta_whatever_the_clock_says(
+        self, coordinator
+    ):
+        c, store = coordinator
+        zone, _, _ = await _estimating_zone(c, store, 2.0)
+
+        deltas = []
+        for clock in ("2026-05-23 02:00:00", "2026-12-21 12:00:00"):
+            with freeze_time(clock):
+                data = await _committed(c, zone, now=WINDOW_END)
+            deltas.append(data[const.ZONE_DELTA])
+
+        # Not vacuous: the window loses real water, and at this latitude late May
+        # and midwinter differ almost threefold in extraterrestrial radiation.
+        assert deltas[0] < -0.5
+        assert deltas[1] == deltas[0]
+
+    async def test_the_module_is_handed_the_windows_day_and_the_forecasts_first_day(
+        self, coordinator
+    ):
+        """An early-morning commit: the window opened the previous morning, so its
+        daylight belongs to the date before the commit's own, while the forecast
+        still starts on the day after the commit."""
+        c, store = coordinator
+        zone, _, instance = await _estimating_zone(c, store, 2.0)
+        watermark = datetime.datetime(2026, 5, 21, 6, 0)
+        now = datetime.datetime(2026, 5, 22, 6, 0)
+        zone[const.ZONE_LAST_CONSUMED] = watermark
+        zone[const.ZONE_LAST_CALCULATED] = watermark
+        instance.calculate = Mock(wraps=instance.calculate)
+
+        data = await _committed(c, zone, now=now)
+
+        kwargs = instance.calculate.call_args.kwargs
+        assert kwargs.get("day") == datetime.date(2026, 5, 21)
+        assert kwargs.get("forecast_first_day") == datetime.date(2026, 5, 23)
+        # The wrapped module still priced the window, so the booked delta is real.
+        assert data[const.ZONE_DELTA] < -0.5
+
+
 class TestTheGapNarrowsAsTheWindowCloses:
     """Convergence is the property that makes a projection honest.
 
@@ -1491,6 +1551,64 @@ class TestTheGapNarrowsAsTheWindowCloses:
         booked = await _committed_daily_et(c, zone)
 
         assert est["et_since"] == pytest.approx(booked, abs=1e-4)
+
+
+class TestTheEstimatePricesTheDayOfItsWindow:
+    """The daily equation's solar geometry depends on the day of the year, and
+    the day an estimate prices is the one its window's readings belong to. The
+    wall clock at refresh time plays no part, so one window gives one figure
+    whenever it is computed."""
+
+    async def test_the_same_window_gives_the_same_figure_in_any_season(
+        self, coordinator
+    ):
+        c, store = coordinator
+        zone, module, instance = await _estimating_zone(c, store, 2.0)
+        midday = ANCHOR + timedelta(hours=10)
+
+        figures = []
+        for wall_clock in ("2026-05-22 12:00:00", "2026-12-21 12:00:00"):
+            with freeze_time(wall_clock):
+                implied, _est = _implied_daily(
+                    c, store, zone, module, instance, midday, _hourly_forecast()
+                )
+            figures.append(implied)
+
+        assert figures[0] > 0.5
+        assert figures[1] == figures[0]
+
+    async def test_the_hargreaves_stand_in_prices_the_windows_day(self, coordinator):
+        """A window anchored at 02:00 closes at 02:00 the next morning.
+        Its readings belong to the anchor's day, so the stand-in is priced for
+        that day and not for the date ``now`` has already reached."""
+        c, store = coordinator
+        zone, _module, _instance = await _estimating_zone(c, store, 2.0)
+        now = WINDOW_END
+        low, high = 12.0, 26.0
+        geometry = SiteGeometry(LAT, 0.0, ELEV, 0.0, datetime.timezone.utc)
+
+        # No forecast is supplied and the window is already closed at this
+        # ``now``, so the composition has no remaining hours to fill in and the
+        # extremes pass through as given -- this test is only about which day
+        # they get priced for.
+        total, _tier = c._composed_day_et(
+            zone,
+            {const.MAPPING_MIN_TEMP: low, const.MAPPING_MAX_TEMP: high},
+            {},
+            anchor=ANCHOR,
+            now=now,
+            geometry=geometry,
+            modinst=None,
+        )
+
+        windows_day = estimate_daily_et0_hargreaves(
+            low, high, LAT, datetime.date(2026, 5, 22).timetuple().tm_yday
+        )
+        nows_day = estimate_daily_et0_hargreaves(
+            low, high, LAT, datetime.date(2026, 5, 23).timetuple().tm_yday
+        )
+        assert windows_day != nows_day
+        assert total == windows_day
 
 
 class TestThePostMidnightTail:

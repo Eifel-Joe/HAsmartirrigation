@@ -153,12 +153,25 @@ class PyETO(SmartIrrigationCalculationModule):
                 item["description"] = desc
         return items
 
-    def calculate(self, weather_data, forecast_data, *, warn_on_clamp=True) -> float:
+    def calculate(
+        self,
+        weather_data,
+        forecast_data,
+        *,
+        day=None,
+        forecast_first_day=None,
+        warn_on_clamp=True,
+    ) -> float:
         """Calculate the average evapotranspiration delta for the given weather and forecast data.
 
         Args:
-            weather_data: Dictionary containing current weather data.
+            weather_data: Dictionary containing the weather data for ``day``.
             forecast_data: List of dictionaries containing forecasted weather data for upcoming days.
+            day: calendar day ``weather_data`` belongs to, as a ``datetime.date``.
+                See :meth:`calculate_et_for_day`.
+            forecast_first_day: calendar day of ``forecast_data[0]``; entry ``x``
+                is priced ``x`` days later. Defaults to the day after ``day``,
+                or to tomorrow when no ``day`` is given.
             warn_on_clamp: whether a solar-radiation clamp may warn the user.
                 See :meth:`calculate_et_for_day`.
 
@@ -170,9 +183,17 @@ class PyETO(SmartIrrigationCalculationModule):
         deltas = []
         if forecast_data is None:
             forecast_data = []
+        # Resolve the day once, so weather and forecast share one "today" even
+        # if this call straddles midnight.
+        if day is None:
+            day = datetime.date.today()
+        if forecast_first_day is None:
+            forecast_first_day = day + datetime.timedelta(days=1)
         if weather_data:
             deltas.append(
-                self.calculate_et_for_day(weather_data, warn_on_clamp=warn_on_clamp)
+                self.calculate_et_for_day(
+                    weather_data, day=day, warn_on_clamp=warn_on_clamp
+                )
             )
             # loop over the forecast days
             for x in range(self.forecast_days):
@@ -183,7 +204,9 @@ class PyETO(SmartIrrigationCalculationModule):
                 if len(forecast_data) - 1 >= x:
                     deltas.append(
                         self.calculate_et_for_day(
-                            forecast_data[x], warn_on_clamp=warn_on_clamp
+                            forecast_data[x],
+                            day=forecast_first_day + datetime.timedelta(days=x),
+                            warn_on_clamp=warn_on_clamp,
                         )
                     )
         # return average of the collected deltas
@@ -193,11 +216,15 @@ class PyETO(SmartIrrigationCalculationModule):
             _LOGGER.debug("[pyETO: calculate]: mean of deltas returned: %s", delta)
         return delta
 
-    def calculate_et_for_day(self, weather_data, *, warn_on_clamp=True):
+    def calculate_et_for_day(self, weather_data, *, day=None, warn_on_clamp=True):
         """Calculate the evapotranspiration delta for a single day's weather data.
 
         Args:
             weather_data: Dictionary containing weather data for the day..
+            day: calendar day the weather belongs to, as a ``datetime.date``.
+                Its day of the year sets the solar declination and with it the
+                extraterrestrial and clear-sky radiation. Without a day the
+                current date is used.
             warn_on_clamp: whether a solar-radiation clamp may warn the user.
                 The clamp itself always applies; only the warning is suppressed.
                 Off for the read-only live estimate, which runs this equation
@@ -227,7 +254,9 @@ class PyETO(SmartIrrigationCalculationModule):
                 and wind_m_s is not None
                 and atmos_pres is not None
             ):
-                day_of_year = datetime.datetime.now().timetuple().tm_yday
+                if day is None:
+                    day = datetime.date.today()
+                day_of_year = day.timetuple().tm_yday
 
                 sha = sunset_hour_angle(deg2rad(self._latitude), sol_dec(day_of_year))
                 daylight_hoursvar = daylight_hours(sha)
