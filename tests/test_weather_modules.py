@@ -433,6 +433,69 @@ class TestOpenMeteoClientGetForecastData:
 
         assert data[0][MAPPING_PRECIPITATION] == 3.0
 
+    @pytest.mark.parametrize(
+        ("offset", "day_start", "day_end"),
+        [
+            # 10:00 UTC is 12:00 on 06-01 at UTC+2, so tomorrow (06-02) starts
+            # at 22:00 UTC the evening before.
+            (
+                7200,
+                datetime.datetime(2024, 6, 1, 22, tzinfo=datetime.timezone.utc),
+                datetime.datetime(2024, 6, 2, 22, tzinfo=datetime.timezone.utc),
+            ),
+            # 10:00 UTC is 05:00 on 06-01 at UTC-5, so tomorrow (06-02) starts
+            # at 05:00 UTC that morning.
+            (
+                -18000,
+                datetime.datetime(2024, 6, 2, 5, tzinfo=datetime.timezone.utc),
+                datetime.datetime(2024, 6, 3, 5, tzinfo=datetime.timezone.utc),
+            ),
+        ],
+    )
+    def test_entries_carry_their_local_day(self, offset, day_start, day_end):
+        # Open-Meteo reports daily values per LOCAL date (timezone=auto), so an
+        # entry's day starts at local midnight, whose UTC instant depends on the
+        # site's offset.
+        client = OpenMeteoClient(latitude=52.52, longitude=13.41)
+        doc = _openmeteo_doc(datetime.date(2024, 6, 1), offset)
+        with (
+            freeze_time("2024-06-01 10:00:00"),
+            patch(_OPENMETEO_PATCH, return_value=_make_response(200, doc)),
+        ):
+            data = client.get_forecast_data()
+
+        assert data[0][FORECAST_DAY_START] == day_start
+        assert data[0][FORECAST_DAY_END] == day_end
+        assert data[1][FORECAST_DAY_START] == data[0][FORECAST_DAY_END]
+        # UTC itself, not merely the same instant in the site's zone
+        assert data[0][FORECAST_DAY_START].utcoffset() == datetime.timedelta(0)
+
+    def test_a_skipped_day_does_not_shift_the_next_span(self):
+        # A day without wind is dropped. The entry after the gap still covers its
+        # own date, so its span comes from that date, not from how many entries
+        # were kept before it.
+        client = OpenMeteoClient(latitude=52.52, longitude=13.41)
+        doc = _openmeteo_doc(datetime.date(2024, 6, 1), 7200)
+        # daily.time starts at 05-31, so index 3 is 06-03.
+        doc["daily"]["wind_speed_10m_max"][3] = None
+        with (
+            freeze_time("2024-06-01 10:00:00"),
+            patch(_OPENMETEO_PATCH, return_value=_make_response(200, doc)),
+        ):
+            data = client.get_forecast_data()
+
+        # The markers are days of the month: 06-03 is gone.
+        markers = [d[MAPPING_PRECIPITATION] for d in data]
+        assert markers == [2.0, 4.0, 5.0, 6.0, 7.0]
+        after_gap = data[markers.index(4.0)]
+        # 06-04 starts at local midnight, 22:00 UTC the evening before at UTC+2.
+        assert after_gap[FORECAST_DAY_START] == datetime.datetime(
+            2024, 6, 3, 22, tzinfo=datetime.timezone.utc
+        )
+        assert after_gap[FORECAST_DAY_END] == datetime.datetime(
+            2024, 6, 4, 22, tzinfo=datetime.timezone.utc
+        )
+
 
 class TestOpenMeteoClientGetData:
     """Current conditions come from the current hour at the site.

@@ -8,6 +8,8 @@ import math
 import requests
 
 from ..const import (
+    FORECAST_DAY_END,
+    FORECAST_DAY_START,
     MAPPING_CURRENT_PRECIPITATION,
     MAPPING_DEWPOINT,
     MAPPING_HUMIDITY,
@@ -221,9 +223,10 @@ class OpenMeteoClient:
             result = []
             for i, day_str in enumerate(daily.get("time", [])):
                 try:
-                    if datetime.date.fromisoformat(day_str) <= site_today:
-                        continue
+                    day_date = datetime.date.fromisoformat(day_str)
                 except (TypeError, ValueError):
+                    continue
+                if day_date <= site_today:
                     continue
                 max_temp = (
                     (daily.get("temperature_2m_max") or [])[i]
@@ -254,12 +257,27 @@ class OpenMeteoClient:
                 if None in (max_temp, min_temp, wind):
                     continue
 
+                # Local midnight of this date, expressed in UTC. One offset for
+                # the whole document, so when a DST change falls inside the
+                # forecast, every boundary from the change on is an hour off.
+                day_start = (
+                    datetime.datetime(
+                        day_date.year,
+                        day_date.month,
+                        day_date.day,
+                        tzinfo=datetime.timezone.utc,
+                    )
+                    - offset
+                )
+
                 day = {
                     MAPPING_TEMPERATURE: (max_temp + min_temp) / 2.0,
                     MAPPING_MAX_TEMP: max_temp,
                     MAPPING_MIN_TEMP: min_temp,
                     MAPPING_PRECIPITATION: precip or 0.0,
                     MAPPING_WINDSPEED: self._wind_2m(wind),
+                    FORECAST_DAY_START: day_start,
+                    FORECAST_DAY_END: day_start + datetime.timedelta(days=1),
                 }
                 if radiation_sum is not None:
                     day[MAPPING_SOLRAD] = radiation_sum
