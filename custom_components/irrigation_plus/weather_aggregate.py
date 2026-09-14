@@ -214,6 +214,25 @@ def _window_bounds(effective, watermark, now):
     return start, end
 
 
+def weather_day(window_start, window_end):
+    """Calendar day a weather window's readings belong to.
+
+    The date of ``window_start`` plus 12 h. For a 24 h window that is its
+    midpoint, on the calendar day holding at least half of its hours; a
+    longer window gets the midpoint of its first 24 h. The day depends on
+    the start alone, so callers measuring from the same start get the same
+    day however far the window has run.
+
+    Without a known start, the date of the window end is used. The date is
+    taken in whatever timezone the datetimes carry; buffer stamps are naive
+    local times. Reads no clock: the caller's ``now`` arrives as
+    ``window_end``.
+    """
+    if window_start is not None:
+        return (window_start + datetime.timedelta(hours=12)).date()
+    return window_end.date()
+
+
 def _time_weighted_mean(times, values, start, end):
     """Carry-forward integral over ``[start, end]`` divided by the window length.
 
