@@ -1,5 +1,6 @@
 """Tests for the Irrigation Plus 12-month watering calendar feature."""
 
+from datetime import date
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -328,3 +329,48 @@ class TestWateringCalendar:
         mock_pyeto_module.calculate_et_for_day.assert_called_once()
         # Check that function was called (argument structure may have changed)
         assert mock_pyeto_module.calculate_et_for_day.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_generate_watering_calendar_prices_each_month_at_its_15th(
+        self, coordinator, mock_pyeto_module
+    ):
+        """Each month's equation runs for the 15th of that month, in order."""
+        with patch.object(
+            coordinator,
+            "getModuleInstanceByID",
+            new=AsyncMock(return_value=mock_pyeto_module),
+        ):
+            await coordinator.async_generate_watering_calendar(zone_id=1)
+
+        priced_days = [
+            call.kwargs.get("day")
+            for call in mock_pyeto_module.calculate_et_for_day.call_args_list
+        ]
+        assert priced_days == [date(2024, month, 15) for month in range(1, 13)]
+
+    @pytest.mark.asyncio
+    async def test_identical_weather_prices_july_above_january(self, hass, coordinator):
+        """With the same weather, July's longer days give more ET than January's.
+
+        Both months have 31 days, so any difference comes from the day of year
+        the equation is priced at.
+        """
+        from custom_components.irrigation_plus.calcmodules.pyeto import PyETO
+
+        hass.config.latitude = 32.87336  # northern hemisphere: July has the longer days
+        modinst = PyETO(hass, description="", config={})
+        month_data = {
+            "avg_temp": 20.0,
+            "min_temp": 15.0,
+            "max_temp": 25.0,
+            "precipitation": 50.0,
+            "humidity": 65.0,
+            "wind_speed": 3.0,
+            "pressure": 1013.25,
+            "dewpoint": 12.0,
+        }
+
+        january = coordinator._calculate_monthly_et_pyeto(month_data, modinst, 1)
+        july = coordinator._calculate_monthly_et_pyeto(month_data, modinst, 7)
+
+        assert july > january
