@@ -2565,6 +2565,7 @@ class IrrigationRunnerMixin:
                     flow=bool(zone.get(const.ZONE_FLOW_SENSOR)),
                     confirm_seconds=zone_confirm_seconds(zone),
                     station=station_facts(self.hass, zone),
+                    duration_unit=zone.get(const.ZONE_DURATION_UNIT),
                 )
             )
         self._log_station_grouping(planned)

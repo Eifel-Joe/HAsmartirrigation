@@ -17,6 +17,7 @@ from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.duration_math import duration_from_deficit
 from custom_components.irrigation_plus.run_window import (
     PARALLEL_STATION_GROUP,
+    TRACK_BATCH,
     TRACK_CLASSIC,
     TRACK_SELF_CLOSING,
     TRACK_STATION,
@@ -24,6 +25,7 @@ from custom_components.irrigation_plus.run_window import (
     ZoneRun,
     bound_wall_clock,
     concurrent_wall_clock,
+    hardware_priced_for_track,
     nominal_demand_seconds,
     nominal_zone_duration,
     rank,
@@ -48,6 +50,7 @@ def _run(
     ceiling=None,
     flow=False,
     station=None,
+    unit=None,
 ):
     return ZoneRun(
         zone_id=zone_id,
@@ -60,6 +63,7 @@ def _run(
         ceiling=ceiling,
         flow=flow,
         station=station,
+        duration_unit=unit,
     )
 
 
@@ -760,6 +764,42 @@ class TestSelectAcrossTracks:
         assert [r.zone_id for r in self._select(runs, 1800)] == [0, 1]
 
 
+class TestHardwarePricedForTrack:
+    """The one place a track and a unit decide the window a valve really runs.
+
+    ``hardware_priced_seconds`` asks it from a zone dict, ``bound_wall_clock``
+    from a ZoneRun; ``test_finish_anchor_hardware_window`` holds the two to the
+    same answer for every watering mode.
+    """
+
+    def test_a_classic_track_is_never_converted(self):
+        minutes = const.DURATION_UNIT_MINUTES
+        assert hardware_priced_for_track(TRACK_CLASSIC, minutes, 263.0) == 263.0
+
+    def test_a_minute_unit_self_closing_track_runs_whole_minutes(self):
+        minutes = const.DURATION_UNIT_MINUTES
+        assert hardware_priced_for_track(TRACK_SELF_CLOSING, minutes, 263.0) == 300.0
+
+    def test_a_batch_track_rounds_seconds_to_the_nearest_whole_second(self):
+        seconds = const.DURATION_UNIT_SECONDS
+        assert hardware_priced_for_track(TRACK_BATCH, seconds, 263.4) == 263.0
+
+    def test_a_station_is_ceiled_to_the_whole_second(self):
+        # run_station takes whole seconds with a ceiling; the unit is ignored.
+        minutes = const.DURATION_UNIT_MINUTES
+        assert hardware_priced_for_track(TRACK_STATION, minutes, 263.4) == 264.0
+
+    def test_a_missing_unit_is_seconds(self):
+        assert hardware_priced_for_track(TRACK_SELF_CLOSING, None, 263.6) == 264.0
+
+    def test_an_unbounded_value_stays_unbounded(self):
+        # rounding inf raises, and a zone with no fixed point must keep none.
+        minutes = const.DURATION_UNIT_MINUTES
+        assert hardware_priced_for_track(TRACK_SELF_CLOSING, minutes, math.inf) == (
+            math.inf
+        )
+
+
 class TestBoundWallClock:
     """The duration-independent ceiling that fixes the decision point."""
 
@@ -834,6 +874,65 @@ class TestBoundWallClock:
             min_absorption_seconds=600,
         )
         assert bound == 4800 + 15 * 600
+
+    def _bound(self, runs, sequencing=SEQUENTIAL):
+        return bound_wall_clock(
+            runs,
+            sequencing=sequencing,
+            max_slot_seconds=300,
+            min_absorption_seconds=0,
+        )
+
+    def test_a_minute_unit_self_closing_zone_is_bounded_at_its_window(self):
+        # Told 5 whole minutes for a 263 s cap, the valve really runs 300.
+        runs = [
+            _run(
+                0,
+                100,
+                maximum=263,
+                track=TRACK_SELF_CLOSING,
+                unit=const.DURATION_UNIT_MINUTES,
+            )
+        ]
+        assert self._bound(runs) == 300
+
+    def test_the_lead_time_is_rounded_together_with_the_cap(self):
+        # The run sends cap + lead to the valve, so 2700 + 10 = 2710 s is told
+        # 46 minutes and runs 2760 -- not 2700 rounded (2700) plus 10.
+        runs = [
+            _run(
+                0,
+                100,
+                maximum=2700,
+                lead_time=10,
+                track=TRACK_SELF_CLOSING,
+                unit=const.DURATION_UNIT_MINUTES,
+            )
+        ]
+        assert self._bound(runs) == 2760
+
+    def test_a_classic_zone_carrying_a_minute_unit_is_not_rounded(self):
+        # Irrigation Plus times a classic valve itself; the unit is left over
+        # configuration and must not stretch the bound.
+        runs = [_run(0, 100, maximum=263, unit=const.DURATION_UNIT_MINUTES)]
+        assert self._bound(runs) == 263
+
+    def test_a_station_is_bounded_at_the_whole_second(self):
+        runs = [_run(0, 100, maximum=263.4, track=TRACK_STATION)]
+        assert self._bound(runs) == 264
+
+    @pytest.mark.parametrize("sequencing", [SEQUENTIAL, PARALLEL, ROTATING])
+    def test_an_unbounded_minute_zone_stays_unbounded(self, sequencing):
+        runs = [
+            _run(
+                0,
+                100,
+                maximum=None,
+                track=TRACK_SELF_CLOSING,
+                unit=const.DURATION_UNIT_MINUTES,
+            )
+        ]
+        assert self._bound(runs, sequencing) == math.inf
 
 
 class TestSelectLeaderIsTieBroken:
