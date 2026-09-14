@@ -32,6 +32,7 @@ from .weather_aggregate import (
     build_substeps,
     merge_latest_per_field,
     select_window,
+    weather_day,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -875,7 +876,17 @@ class CalculationMixin:
             if hourly is None:
                 # pyeto expects pressure in hpa, solar radiation in mj/m2/day and wind speed in m/s
                 delta = modinst.calculate(
-                    weather_data=weatherdata, forecast_data=forecastdata
+                    weather_data=weatherdata,
+                    forecast_data=forecastdata,
+                    # The solar geometry of the day the window's readings belong
+                    # to, not of the day this runs on: a window that opened
+                    # yesterday morning and closes at dawn is yesterday's weather.
+                    day=weather_day(
+                        _as_datetime(zone.get(const.ZONE_LAST_CONSUMED)), now
+                    ),
+                    # Forecast rows are the days after the commit, whichever day
+                    # the window itself was.
+                    forecast_first_day=now.date() + timedelta(days=1),
                 )
             # only PyETO uses precipitation
             precip = weatherdata.get(const.MAPPING_PRECIPITATION, 0)
