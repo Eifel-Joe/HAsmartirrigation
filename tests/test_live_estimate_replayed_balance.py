@@ -1449,9 +1449,9 @@ class TestEstimatedRadiationZonesRunTheirOwnCommitsEquation:
 class TestTheCommitPricesTheDayItsWindowCovers:
     """The daily equation's solar geometry is read off the window, not the clock.
 
-    ``now`` is handed to the commit explicitly in every case here, so the window
-    is identical from run to run and the wall clock is the only thing left that
-    could move the booked number.
+    The same window books the same delta under any wall clock, and the module
+    is handed the day the window's readings belong to together with the first
+    forecast day, the day after the commit.
     """
 
     async def test_the_same_window_books_the_same_delta_whatever_the_clock_says(
