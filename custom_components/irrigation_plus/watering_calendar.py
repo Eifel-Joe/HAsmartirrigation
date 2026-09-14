@@ -9,7 +9,7 @@ elevation). Named watering_calendar (not calendar) to avoid shadowing the stdlib
 
 import logging
 import math
-from datetime import datetime
+from datetime import date, datetime
 
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
@@ -280,8 +280,12 @@ class WateringCalendarMixin:
             const.MAPPING_DEWPOINT: month_data["dewpoint"],
         }
 
-        # Calculate daily ET and scale to monthly
-        daily_et_delta = modinst.calculate_et_for_day(weather_data)
+        # Calculate daily ET and scale to monthly. The equation is priced at the
+        # month's 15th, so its solar geometry (daylight, extraterrestrial
+        # radiation) belongs to the month being estimated.
+        daily_et_delta = modinst.calculate_et_for_day(
+            weather_data, day=date(2024, month, 15)
+        )
 
         # Get days in month
         import calendar

@@ -79,7 +79,7 @@ from .et_estimate import (
     rigorous_et_since,
 )
 from .helpers import convert_between
-from .weather_aggregate import aggregate_window, build_substeps
+from .weather_aggregate import aggregate_window, build_substeps, weather_day
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -675,10 +675,16 @@ class LiveEstimateMixin:
         )
         if low is None:
             return None
+        # Both equations below read solar geometry off the day of the year. The
+        # day priced is the one the window's readings belong to, the same day the
+        # commit prices this window for, so the figure does not move with the
+        # wall clock and an estimate refreshed after midnight still prices the
+        # day it is estimating.
+        window_day = weather_day(anchor, now)
         if modinst is None:
             return (
                 estimate_daily_et0_hargreaves(
-                    low, high, geometry.latitude, now.timetuple().tm_yday
+                    low, high, geometry.latitude, window_day.timetuple().tm_yday
                 ),
                 tier,
             )
@@ -694,7 +700,10 @@ class LiveEstimateMixin:
         # instance, would consume the once-only flag the commit's own warning
         # depends on.
         delta = modinst.calculate(
-            weather_data=projected, forecast_data=None, warn_on_clamp=False
+            weather_data=projected,
+            forecast_data=None,
+            day=window_day,
+            warn_on_clamp=False,
         )
         if delta is None:
             return None

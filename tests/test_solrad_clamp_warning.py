@@ -16,6 +16,7 @@ tripped the flag would silence the calculation's warning permanently -- turning 
 noisy bug into a silent one.
 """
 
+import datetime
 import logging
 
 from custom_components.irrigation_plus.calcmodules.pyeto import (
@@ -110,6 +111,7 @@ class TestTheCalculationPath:
         weather["Solar Radiation"] = 20.0
 
         with caplog.at_level(logging.WARNING):
-            modinst.calculate(weather, None)
+            # A mid-summer day, so 20 MJ/day/m2 stays below the clear-sky maximum.
+            modinst.calculate(weather, None, day=datetime.date(2026, 6, 21))
 
         assert _clamp_warnings(caplog.records) == []
