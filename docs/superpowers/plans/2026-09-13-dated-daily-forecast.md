@@ -10,6 +10,13 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-13-rain-guard-run-date-design.md` (Branch `archive/design-history`).
 
+> **Änderung 2026-09-14 (nach JustChrs Antwort auf #137, issuecomment-5667633763):**
+> - Der **Datumsfilter aus Task 3** ist als eigener PR vorgezogen: [PR #144](https://github.com/JustChr/HAsmartirrigation/pull/144), Commit `d0e7cb6c`, Design-Eintrag `reconstructed/2026-09-14-open-meteo-local-time-document.md`. #144 bringt die Testklasse `TestOpenMeteoClientGetForecastData` samt Helfer `_openmeteo_doc` mit.
+> - In PR 1 bleibt von Task 3 nur die **Open-Meteo-Tagesspanne**, über dem Filter von #144, getestet bei UTC+2 und UTC−5 (ein Vorzeichenfehler im Offset fällt so auf).
+> - **Basis (User-Entscheidung):** PR 1 wird erstellt, ohne auf den Merge von #144 zu warten, und ist deshalb **auf #144 gestapelt**: Branch `fix/dated-daily-forecast` von `fix/open-meteo-forecast-starts-tomorrow` @ `d0e7cb6c` statt von `upstream/master` (Task 0 Step 1). Bis zum Merge von #144 zeigt der PR dessen Commit mit. Nach dem Squash-Merge von #144 wird master hineingemergt (kein Rebase).
+> - Die Basis der Suite ist auf `d0e7cb6c` gemessen: 7 failed / 2890 passed / 9 skipped / 320 errors.
+> - Die übrigen Tasks laufen wie geplant. Wo die Snippets vom realen Code abweichen, gilt der Endstand im PR (siehe Fallen im SESSION-STAND vom 14.09.).
+
 ---
 
 ## Rahmen, den jeder Task kennen muss
@@ -33,7 +40,7 @@
 | `custom_components/irrigation_plus/const.py` | zwei Konstanten nach `OBSERVATION_TIME` |
 | `custom_components/irrigation_plus/weathermodules/OWMClient.py` | Tages-Spanne je Eintrag (UTC-Tag) |
 | `custom_components/irrigation_plus/weathermodules/MetOfficeClient.py` | Tages-Spanne je Eintrag (UTC-Tag) |
-| `custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py` | Datumsfilter statt Index 0; Tages-Spanne (Ortstag) |
+| `custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py` | ~~Datumsfilter statt Index 0~~ (→ PR #144); Tages-Spanne (Ortstag) |
 | `custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py` | Tages-Spanne aus `time` |
 | `custom_components/irrigation_plus/websockets.py` | Panel-Datum aus Eintrag |
 | `tests/test_weather_modules.py` | Tests OWM, Met Office, Open-Meteo |
@@ -264,6 +271,8 @@ EOF
 ---
 
 ### Task 3: Open-Meteo beginnt wieder morgen und trägt den Ortstag
+
+> **2026-09-14 aufgeteilt:** Der Datumsfilter (Steps 1–5, Test `test_starts_tomorrow_despite_past_days`, Mutation 1) steckt in PR #144 (`d0e7cb6c`), dort mit eigener Testklasse und Cache-Test über Mitternacht. Er wird hier **nicht** neu gebaut. In PR 1 bleibt nur die Tagesspanne: Test in der #144-Klasse, parametriert mit UTC+2 (Beginn 22:00 UTC am Vortag) und UTC−5 (Beginn 05:00 UTC), Mutationen „`- offset` weg", „`- offset` → `+ offset`", „Ende ohne +1 Tag" und als Gegenprobe „Filter `<=` → `<`" (muss ein #144-Test fangen). Commit: `feat(forecast): Open-Meteo daily entries carry the local day they cover`. Der Text darunter ist der ursprüngliche Plan.
 
 **Files:**
 - Modify: `custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py` (`get_forecast_data`)
