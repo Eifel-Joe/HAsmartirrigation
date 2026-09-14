@@ -655,6 +655,51 @@ class TestMetOfficeClientGetForecastData:
         assert day[MAPPING_DEWPOINT] < day[MAPPING_TEMPERATURE]
         assert MAPPING_PRESSURE in day
 
+    @freeze_time("2024-06-01 12:30:00")
+    def test_entries_carry_their_utc_day(self):
+        # Met Office groups its three-hourly steps by UTC date, like OWM.
+        client = MetOfficeClient(api_key="k", latitude=52.0, longitude=5.0, elevation=0)
+        with patch(_MET_PATCH, return_value=_make_response(200, self._THREE_HOURLY)):
+            fc = client.get_forecast_data()
+
+        utc = datetime.timezone.utc
+        assert fc[0][FORECAST_DAY_START] == datetime.datetime(2024, 6, 2, tzinfo=utc)
+        assert fc[0][FORECAST_DAY_END] == datetime.datetime(2024, 6, 3, tzinfo=utc)
+
+    @freeze_time("2024-06-01 12:30:00")
+    def test_a_skipped_day_does_not_shift_the_next_entry(self):
+        # A day without wind is skipped, so 06-04 becomes the second entry. A
+        # span counted from the entry's position would give it 06-03; only the
+        # grouped date gives 06-04.
+        def step(time, **fields):
+            base = {
+                "time": time,
+                "maxScreenAirTemp": 21.0,
+                "minScreenAirTemp": 13.0,
+                "windSpeed10m": 4.0,
+                "totalPrecipAmount": 0.5,
+            }
+            base.update(fields)
+            return {k: v for k, v in base.items() if v is not None}
+
+        doc = _met_doc(
+            [
+                step("2024-06-02T12:00Z"),
+                step("2024-06-03T12:00Z", windSpeed10m=None),
+                step("2024-06-04T12:00Z"),
+            ]
+        )
+        client = MetOfficeClient(api_key="k", latitude=52.0, longitude=5.0, elevation=0)
+        with patch(_MET_PATCH, return_value=_make_response(200, doc)):
+            fc = client.get_forecast_data()
+
+        utc = datetime.timezone.utc
+        assert len(fc) == 2
+        assert fc[1][FORECAST_DAY_START] == datetime.datetime(2024, 6, 4, tzinfo=utc)
+        assert fc[1][FORECAST_DAY_END] == datetime.datetime(2024, 6, 5, tzinfo=utc)
+        # UTC itself, not merely the same instant in another zone
+        assert fc[1][FORECAST_DAY_START].utcoffset() == datetime.timedelta(0)
+
     def test_empty_features_returns_none(self):
         client = MetOfficeClient(api_key="k", latitude=52.0, longitude=5.0)
         with patch(_MET_PATCH, return_value=_make_response(200, {"features": []})):
