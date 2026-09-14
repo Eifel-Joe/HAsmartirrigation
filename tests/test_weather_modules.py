@@ -8,6 +8,8 @@ import pytest
 from freezegun import freeze_time
 
 from custom_components.irrigation_plus.const import (
+    FORECAST_DAY_END,
+    FORECAST_DAY_START,
     MAPPING_CURRENT_PRECIPITATION,
     MAPPING_DEWPOINT,
     MAPPING_HUMIDITY,
@@ -235,6 +237,28 @@ class TestOWMClientGetForecastData:
         assert data is not None
         assert len(data) == 1
         assert data[0][MAPPING_TEMPERATURE] == pytest.approx(18.0)
+
+    @freeze_time("2024-06-01 06:00:00")
+    def test_entries_carry_their_utc_day(self):
+        # OWM buckets its three-hourly slots by UTC calendar date, so each entry
+        # covers UTC midnight to the next UTC midnight. The slots skip 06-03: a
+        # span counted from the entry's position would give the second entry
+        # 06-03, only the bucket's own date gives 06-04.
+        utc = datetime.timezone.utc
+        body = self._forecast_body()
+        body["list"][1]["dt"] = int(
+            datetime.datetime(2024, 6, 4, 12, tzinfo=utc).timestamp()
+        )
+        client = OWMClient(api_key="k", latitude=52.0, longitude=5.0, elevation=0)
+        with patch(_OWM_PATCH, return_value=_make_response(200, body)):
+            data = client.get_forecast_data()
+
+        assert data[0][FORECAST_DAY_START] == datetime.datetime(2024, 6, 2, tzinfo=utc)
+        assert data[0][FORECAST_DAY_END] == datetime.datetime(2024, 6, 3, tzinfo=utc)
+        assert data[1][FORECAST_DAY_START] == datetime.datetime(2024, 6, 4, tzinfo=utc)
+        assert data[1][FORECAST_DAY_END] == datetime.datetime(2024, 6, 5, tzinfo=utc)
+        # UTC itself, not merely the same instant in another zone
+        assert data[0][FORECAST_DAY_START].utcoffset() == datetime.timedelta(0)
 
     def test_empty_list_returns_none(self):
         body = {"cod": "200", "list": []}

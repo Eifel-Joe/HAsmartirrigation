@@ -701,6 +701,13 @@ MAPPING_CONF_AGGREGATE_OPTIONS_DEFAULT_PRECIPITATION = MAPPING_CONF_AGGREGATE_DE
 RETRIEVED_AT = "retrieved"  # when HA fetched the data (datetime.now())
 OBSERVATION_TIME = "observed"  # when the weather station measured it (API dt)
 
+# The span a daily forecast entry covers, as aware UTC datetimes. The clients
+# bucket days differently -- OWM and Met Office by UTC date, Open-Meteo and
+# Pirate Weather by the site's local date -- so a bare date would not say which
+# day an entry means. Not a sensor mapping: never offered as a mappable field.
+FORECAST_DAY_START = "day_start"
+FORECAST_DAY_END = "day_end"
+
 EVENT_IRRIGATE_START = "start_irrigation_all_zones"
 
 UNIT_M2 = "m<sup>2</sup>"
