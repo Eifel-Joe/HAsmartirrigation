@@ -98,11 +98,20 @@ weiter aus. Die Gewichtung bleibt in diesem Change unverändert.
 - **OWM, Met Office:** UTC-Mitternacht bis zur nächsten UTC-Mitternacht.
 - **Open-Meteo:** Ortsdatum abzüglich `utc_offset_seconds`; gefiltert wird „Tagesbeginn nach
   heute" statt Index 0. Beginnt damit wieder morgen.
+  *(2026-09-14: Der Filter wurde als eigener PR #144 vorgezogen; PR 1 setzt darauf auf und
+  ergänzt nur die Spanne.)*
 - **Pirate Weather:** `time` ist ein absoluter Zeitpunkt; Ende = Beginn des nächsten Eintrags,
   beim letzten 24 Stunden später. **Annahme, ungemessen** (kein API-Schlüssel, keine Testdaten).
-- **Panel:** zeigt das Ortsdatum des Tagesbeginns statt `heute + i + 1`.
-- Verhalten ändert sich nur für Open-Meteo-Nutzer: Frost-Wächter, Gewichtung, PyETO-Vorhersage
-  und Regen-Wächter lesen wieder den vorgesehenen Tag.
+  *(Gebaut: Die Schleife lässt den letzten Block ohnehin aus, ein nächster Eintrag existiert
+  also immer; ein „24 Stunden später“ wird nie gebraucht. Umstellungstage ergeben 23 oder 25 h.)*
+- **Panel:** ~~zeigt das Ortsdatum des Tagesbeginns statt `heute + i + 1`.~~
+  *(Gebaut 2026-09-14:)* zeigt das Ortsdatum der **Tagesmitte**, sofern Beginn und Ende gesetzt
+  sind, sonst `heute + i + 1`. Das Ortsdatum des Beginns beschriftet UTC-Tage (OWM, Met Office)
+  westlich von UTC einen Tag zu früh, das Ortsdatum des Endes östlich von UTC einen Tag zu spät.
+  Begründung und Tests: Plan `2026-09-13-dated-daily-forecast.md`, Task 5.
+- Verhalten ändert sich ~~nur für Open-Meteo-Nutzer~~ *(nach #144)* nur im Panel: OWM und
+  Met Office werden richtig beschriftet, wenn HA-Ortsdatum und UTC-Datum auseinanderliegen.
+  Frost-Wächter, Gewichtung, PyETO-Vorhersage und Regen-Wächter lesen weiter nach Position.
 
 ### PR 2: Regen-Wächter am Datum des Laufs
 

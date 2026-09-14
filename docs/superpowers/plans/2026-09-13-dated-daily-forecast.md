@@ -600,6 +600,15 @@ EOF
 
 ### Task 5: Panel beschriftet Tage mit dem mitgelieferten Datum
 
+> **Abweichung 2026-09-14 — gebaut ist nicht `as_local(start).date()`, sondern das Ortsdatum der Tagesmitte:** `dt_util.as_local(start + (end - start) / 2).date()`, und zwar nur, wenn Beginn UND Ende gesetzt sind; sonst gilt die Positionsbeschriftung.
+> - **Warum nicht der Beginn:** OWM und Met Office liefern UTC-Tage. Westlich von UTC beginnt ein UTC-Tag am Vorabend, das Panel zeigte ihn also einen Tag zu früh. Gefunden hat das die Qualitätsprüfung in Los Angeles; die neue Beschriftung für Open-Meteo und Pirate Weather wäre ohne Befund geblieben.
+> - **Warum nicht das Ende:** östlich von UTC (Berlin) endet ein UTC-Tag am nächsten Ortsdatum, er wäre einen Tag zu spät beschriftet.
+> - **Die Mitte** liegt im Ortstag, der den Großteil der Spanne enthält. Bei genau UTC±12 fällt sie auf Ortsmitternacht, dann gewinnt das spätere Datum.
+> - **Nur mit Beginn allein:** zurück zur Position. Ein Beginn allein brächte den Fehler „ein Tag zu früh“ zurück.
+> - Tests: je ein UTC-Tag westlich und östlich von UTC, ein Ortstag bei UTC+14, der UTC+12-Gleichstand, halbe Spanne → Position, und keine datetime-Werte im Websocket-Ergebnis.
+> - **Die Positionsbeschriftung lag auch vorher für OWM und Met Office falsch**, sobald HA-Ortsdatum und UTC-Datum auseinanderlagen (US-Abende, europäische Nächte kurz nach Mitternacht). Die Commit-Nachricht nennt das.
+> - **Für PR 2:** Die Frage „welcher Ortstag ist dieser Eintrag“ ist jetzt im Panel-Handler beantwortet. Der Regen-Wächter darf keine eigene Antwort herleiten, sondern die Regel teilt sich einen Helfer.
+
 **Files:**
 - Modify: `custom_components/irrigation_plus/websockets.py` (`websocket_get_weather_forecast`)
 - Test: `tests/test_websocket_get_weather_forecast.py` (neu)
