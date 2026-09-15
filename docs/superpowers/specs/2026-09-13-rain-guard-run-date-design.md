@@ -177,6 +177,60 @@ Zusicherung per Mutation als beißend nachgewiesen.
   Begründung (seit 2024-06-16, `6908d436`).
 - Millimeterzahl im Verlaufseintrag (eigenes Feld nötig, JustChr: später).
 
+## Nachtrag 2026-09-15: Planprüfung vor dem Bau von PR 2
+
+Vor der Ausführung wurde der Plan gegen den Stand nach #144/#145 geprüft: sechs Leser, jeder schwere
+Befund von einem zweiten Agenten gegengeprüft, keiner widerlegt. Was sich am Design ändert:
+
+- **Lücken in der Stundenreihe.** Open-Meteo und Pirate Weather lassen Zeilen ohne Wert weg. Ein
+  Messwert gilt höchstens für einen Takt der Reihe (kleinster Abstand), längere Abstände sind Löcher
+  und zählen als nicht abgedeckt. Ohne diese Grenze wurden aus 2 mm nachgerechnet 11 bis 14 mm.
+- **Tageseinträge nur hinter der Reihe.** Ein Eintrag füllt nur auf, wenn seine Spanne erst NACH dem
+  letzten Zeitstempel der Reihe beginnt. Gleichheit reicht nicht: bei einem Abruf zwischen 00Z und
+  03Z ist OWMs letzter Slot 00Z gestempelt und landet im neuen Tag, sein Regen fiel aber in den drei
+  Stunden davor (Probelauf 2026-09-15). OWM baut Tage aus derselben Dreistundenliste; der letzte
+  Tag enthält nur die Werte bis zum Ende der Reihe, beansprucht aber den ganzen Tag, was doppelt zählte
+  und „vollständig“ meldete. Das Unterzählen danach geht Richtung gießen. Die Spanne im Client bleibt
+  der ganze Tag (das Panel beschriftet nach ihrer Mitte).
+- **Gescheiterter Abruf.** Alle Clients liefern dann keine Tagesliste, die Stundenreihe liest aber
+  weiter das letzte gute Dokument. Ohne Tagesliste entscheidet der Wächter nicht (wie bisher).
+- **Vergangenes Laufdatum** (Vorschau eines schon begonnenen Laufs) gilt als nicht abgedeckt.
+- **Met Office** zog das stündliche Dokument vor, das nur `get_data` auffrischt; der Wächter läuft
+  vor `get_data`. Beide Stunden-Accessoren nehmen jetzt das Dreistundendokument, wenn es mehr als eine
+  Cache-Lebensdauer später abgerufen wurde (User: eigener Commit in PR 2; heilt `live_estimate` mit).
+- **Geteilter Spannen-Leser `day_span`** für Panel und Wächter. Die Regeln bleiben verschieden: Panel
+  = Ortsdatum der Tagesmitte, Wächter = Überlappung (von JustChr freigegeben). Das offene „geteilter
+  Helfer“ aus der Sitzung vom 14.09. ist damit beantwortet.
+- **Abendläufe** (User: bauen, offenlegen). Mit Fenster 1 sieht ein Lauf um 21:00 nur die restlichen
+  drei Stunden seines Datums. Folgt wörtlich der Form „Datum des Laufs“, per Test festgenagelt, im
+  PR und auf #137 benannt, im Hilfetext erwähnt.
+- **Hilfetext je Modus** (User). „Weniger bewässern“ nutzt dieselbe Einstellung, zählt aber weiter ab
+  dem Tag nach der Berechnung. `lookahead_help` wird `{skip, water_less}` in acht Sprachen, das Panel
+  wählt nach Modus; `docs/configuration-when-to-water.md` ebenso.
+- **Log.** Ist das Laufdatum beim Dispatch nicht abgedeckt, schreibt der Wächter INFO statt DEBUG.
+  Den Dispatch erkennt er daran, dass kein Laufbeginn genannt ist; Ausblick und Projektion nennen
+  deshalb immer einen Zeitpunkt, auch ohne geplanten Lauf (sonst INFO bei jedem Dashboard-Refresh).
+- **Tests.** Die Testumgebung setzt über das autouse-Fixture US/Pacific; die Wächter-Tests stellen den
+  Live-Fall in Europe/Berlin nach und prüfen mit Regen in der ersten Ortsstunde, dass HAs Zone
+  entscheidet. `tests/test_init.py::TestPrecipitationLookAhead` hielt „1 = morgen“ fest und wird auf
+  das Laufdatum umgeschrieben.
+
+- **Zeitzone HA-Prod** per MCP geprüft (2026-09-15): `Europe/Berlin`. Die Wächter-Tests stellen den
+  Fall in dieser Zone nach.
+- **Reichweite Met Office** (Korrektur zu Befund 6 oben): die Stundenreihe reicht 48 h ab dem letzten
+  `get_data`, nicht ab jetzt. Mit PR 2 greift das Dreistundendokument, wenn das stündliche mehr als
+  eine Cache-Lebensdauer älter ist.
+- **Chip gegen Panel:** Die Millimeterzahl des Wächters ist nicht die Summe der Panel-Zeilen (Stundenreihe
+  zuerst, Ortstage, vergangene Stunden abgeschnitten). Steht in `docs/configuration-weather-location.md`
+  und im PR-Text, nicht im Hilfetext.
+- **Sprachdateien und Browser-Cache:** Nicht-englische Kataloge werden nur über `VERSION` neu geladen.
+  Für einen Live-Blick auf den deutschen Text vor einem Release: Refresh-Drill oder Versionssprung.
+
+Weitere bekannte Unschärfen, im Modul-Docstring benannt: `day_projection.forecast_rain_mm` behandelt
+den ersten Messwert strenger (lehnt ab, wenn die Reihe nach der Spanne beginnt); Open-Meteos einzelner
+Offset gilt auch für die Stundenreihe. Ungeprüft: wo die Reihen von OWM und Met Office relativ zur
+Abrufzeit beginnen. Beginnt eine zu spät, entscheidet der Wächter nicht, und es wird gegossen.
+
 ## Außerhalb des Codes
 
 - Eigenes Issue zum Backstop ohne Zuschlag samt +4,11-s-Versatz (von JustChr erbeten).
