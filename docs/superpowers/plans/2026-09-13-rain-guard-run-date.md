@@ -7,6 +7,8 @@
 > 2. **Probelauf dieses Plans in Wegwerf-Worktrees:** Tasks 1–7 und 9 wurden ausgeführt, jede Rot/Grün- und Mutationsaussage wurde nachgemessen. Gefunden wurden ruff B905 (`zip` ohne `strict=`), eine prettier-Zeile, die `npm run build` bricht, und die OWM-Doppelzählung an der Gleichheitsgrenze. Alles hier eingearbeitet.
 >
 > **User-Entscheidungen 2026-09-15:** Abendläufe wie entschieden bauen und offenlegen; Hilfetext je Modus getrennt; Met-Office-Dokumentwahl als eigener Commit in diesem PR. Zeitzone HA-Prod per MCP geprüft: `Europe/Berlin`. Nachtrag im Spec.
+>
+> **Ausgeführt 2026-09-15** auf `fix/rain-guard-run-date` (Tasks 0–7, 9, 10; Task 8 entfiel). Review-Fixes wurden per Fixup in die Task-Commits gefaltet. Abweichungen (Rundung, Ausblick überspringt laufende Läufe, Met-Office-Deckel 3 h, 48-h-Grenze, „reaches or exceeds“, zusätzliche Pins) und die Schlussprüfung stehen im Spec-Nachtrag „Umsetzung und Schlussprüfung“. Die Erwartung „+49 passed“ ist dadurch überholt: gemessen +70.
 
 **Goal:** Der Niederschlags-Übersprung wertet den Regen am **Datum des Laufs** (HA-Ortszeit) plus die N-1 folgenden Tage aus, statt ab dem Tag nach dem Lauf — so wird der Regentag selbst geprüft (#137).
 

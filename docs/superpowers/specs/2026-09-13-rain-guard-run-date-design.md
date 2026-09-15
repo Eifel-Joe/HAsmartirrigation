@@ -231,6 +231,44 @@ den ersten Messwert strenger (lehnt ab, wenn die Reihe nach der Spanne beginnt);
 Offset gilt auch für die Stundenreihe. Ungeprüft: wo die Reihen von OWM und Met Office relativ zur
 Abrufzeit beginnen. Beginnt eine zu spät, entscheidet der Wächter nicht, und es wird gegossen.
 
+## Nachtrag 2026-09-15: Umsetzung und Schlussprüfung
+
+Umgesetzt auf `fix/rain-guard-run-date`, acht Commits auf #145. Jeder Task lief mit Spec- und
+Qualitätsprüfung, danach eine Schlussprüfung über den ganzen Branch (sechs Blickwinkel, jeder Befund
+von zwei Gegenprüfern). Abweichungen vom Plan:
+
+- **Entscheidung auf dem gerundeten Wert.** `observed = round(mm, 2)`, `would_skip = observed >= threshold`.
+  Die sekundenweise Integration ergab für 10 h × 0,2 mm 1,9999999999999998: Chip „2,0 von 2,0 mm“, trotzdem
+  bewässert. Kein Epsilon (Größe wäre geraten, Chip könnte weiter widersprechen).
+- **Ausblick überspringt laufende Läufe.** `async_get_upcoming_runs` hält einen am Ende verankerten Lauf,
+  der noch bewässert, auf seinem vergangenen Start. Nach Mitternacht fiele damit das ganze Laufdatum als
+  vergangen weg, der Chip zeigte „nicht verfügbar“. `_next_irrigate_run_utc(…, not_before=now)` nur im
+  Ausblick; die Tage-zwischen-Projektion bleibt unverändert.
+- **Met-Office-Toleranz auf drei Stunden gedeckelt** (User): `min(Cache-Lebensdauer, 3 h)`. Bei Tages- oder
+  Zweitages-Update gewann sonst ein bis 24/48 h älteres Stundendokument, dessen 48-h-Reihe vor dem
+  Laufdatum endet, obwohl das frische Dreistundendokument den Tag abdeckt. Drei Stunden = Takt des
+  gröberen Produkts; beim stündlichen Update ändert sich nichts.
+- **48-h-Reichweite nur benannt** (User): Pirate Weather ohne `extend=hourly` und das Met-Office-
+  Stundendokument. Der Tageseintrag des Tages, in dem die Reihe endet, beginnt vor ihrem Ende und fällt
+  weg. Am Laufdatum geprüft verliert ein Fenster ab drei Tagen den Großteil von Tag 3, eine Vorschau am
+  Vorabend ein paar Stunden von Tag 2. Richtung gießen. `extend=hourly` als möglicher Folge-PR.
+- **„reaches or exceeds“** in `docs/configuration-when-to-water.md` und `general_precipitation_threshold`
+  (acht Sprachen, Pytest-Pin): verglichen wurde schon immer mit `>=`, die Rundung macht Gleichheit
+  erreichbar. Der Schlüssel wird im Panel derzeit nicht gerendert.
+- **Pirate-Weather-Tages-`time`** im Client und im Modul-Docstring als „aus der API-Doku, nicht gemessen“
+  (Bitte von JustChr auf #137, war in #145 nur im PR-Text).
+- **Zusätzliche Pins** über den Plan hinaus: negative Rate und NaN getrennt, leere Intervallliste,
+  Ein-Messwert-Takt, Teilfenster entscheidet, DEBUG in Vorschauen, Dispatch nennt keinen Start, exakte
+  Jetzt-Zeitpunkte, Met-Office-Grenzen (Deckel, `>`, `cache_seconds`, fehlende Zeitstempel).
+- **Geprüft statt „ungeprüft“** (siehe oben): OWM ist am Dispatch mit frischem Cache abgedeckt (der erste
+  Messwert reicht einen Takt zurück); Met Office mit stündlichem Update ebenso; nach einem Neustart füllt
+  `get_forecast_data` bei allen vier Clients das Dokument, das der Stunden-Accessor liest.
+- **In der Schlussprüfung verworfen:** gerundeter Wert gegen ungerundete Zoll-Schwelle (≤ 0,005 mm),
+  überlappende Tageseinträge (kein Client erzeugt sie; im Docstring benannt), ein Stempel neben dem Raster
+  (freigegebene Regel, Richtung gießen), 1-s-Toleranz in der letzten Sekunde des Tages (0 mm).
+- **Belege am Endstand:** Suite 7 failed / 2906 → 2976 passed / 320 errors, FAILED-Namen identisch
+  (+70 Items); vitest 614 → 616; `npm run build` reproduziert dist; black/ruff grün.
+
 ## Außerhalb des Codes
 
 - Eigenes Issue zum Backstop ohne Zuschlag samt +4,11-s-Versatz (von JustChr erbeten).
