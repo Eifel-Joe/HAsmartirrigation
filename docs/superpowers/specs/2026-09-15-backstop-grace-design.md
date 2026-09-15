@@ -4,7 +4,15 @@ Datum: 2026-09-15 · Upstream-Issue [#139](https://github.com/JustChr/HAsmartirr
 · Basis `upstream/master` = `4e53caf4` · Arbeitsbranch `fix/backstop-grace`
 · Form entschieden von JustChr ([issuecomment-5667625952](https://github.com/JustChr/HAsmartirrigation/issues/139#issuecomment-5667625952)), wir bauen.
 
-Alle Zeilenangaben gelten für `4e53caf4`. Karte des Codes: Workflow `wf_6e62f6f5-88b`
+Alle Zeilenangaben gelten für `4e53caf4`. **Nachtrag 2026-09-15 abends:** upstream hat #144/#145
+gemergt und v2026.09.16 veröffentlicht (`0b418644`); die Arbeitsbasis ist jetzt `0b418644`. Betroffen
+sind nur Zeilenangaben in `const.py` hinter ~Zeile 701 (neuer `FORECAST_DAY_*`-Block) und die
+Versionsdateien; keine der hier genannten Funktionen hat sich geändert. JustChr hat mit
+[#147](https://github.com/JustChr/HAsmartirrigation/issues/147) bis zum nächsten stabilen Release auf
+„nur Fixes und Tests“ umgestellt; #139 läuft als Fix weiter, mit der Bitte, die Marge auf das zu
+beschränken, was der Fix braucht. Die vier abtrennbaren Zusätze (Zeitfenster-Preis, Observed-Sperre,
+Backstop mit gespeicherter Aus-Meldung, Stopp-Anker) werden deshalb vor dem PR auf #139 zur Wahl
+gestellt (User-Entscheidung) und bleiben im Plan je ein eigener Commit. Karte des Codes: Workflow `wf_6e62f6f5-88b`
 (7 Code-Leser, 5 Gegenprüfer, Vollständigkeitsprüfung, Recorder-Leser auf HA-Prod, nur lesend).
 
 ## Herkunft
@@ -92,6 +100,13 @@ schreibt `completed` mit `actual_s = planned_s` (`self_closing.py:385`).
 - **E3 Wartezeit zieht alles mit:** In-flight-Fenster, Zeitfenster-Preis und Observed-Sperre.
 - **E4 Neustart ohne gespeicherte Aus-Meldung:** Fenster = min(jetzt − Ventil-Ein, geplant).
 - **E5 Abweichungen von der Vorgabe** im PR-Text erklären.
+- **E6 Aus-Meldung nur direkt nach „an“** (nach dem Probelauf der Planung): siehe Abschnitt 1,
+  `RUN_VALVE_OFF`.
+- **E7 Neutrale Namen in neuen Test-Fixtures** (keine echten Zonennamen der Anlage in neu
+  hinzugefügten Tests; vorhandene upstream-Namen wie „Beet“ bleiben).
+- **Wortlaut** der 16 Panel-Texte und des Docs-Punkts freigegeben (Plan, Task 12).
+- **HA-Test-Aufspielweg:** Fork-Pre-Release über HACS, nur `production` + #139; #144–#146 bekommen
+  ein eigenes Pre-Release (Plan, Task 15).
 
 „Wartezeit“ heißt im Folgenden `SERVICE_WATCH_SETTLE_SECONDS` (5) + Marge, bei Default 9 s.
 
@@ -120,8 +135,14 @@ segmentierte Behandlung (`run_watch.py:81-84`, `irrigation.py:386-400`).
   Zustandstext gleich bleibt (`homeassistant/core.py:2328-2330`); ein reines Attribut-Update
   eines schon „aus“-Ventils löst zwar `state_changed` aus und startet die Entprellung neu
   (`run_watch.py:784-785`), verschiebt den gespeicherten Wert aber nicht. Gesetzt nur aus einem
-  Ereignis der Subscription, NIE aus der ersten Auswertung beim Neuaufnehmen nach einem Neustart
-  (dort ist `last_changed` die Wiederkehr der Entität, `core.py:2321-2326`; auf HA-Prod belegt).
+  Ereignis der Subscription, dessen VORHERIGER Zustand laufend war (`on`/`open`/`opening`) —
+  wörtlich „erste Aus-Meldung seit dem letzten an“ (E6). Also NIE aus der ersten Auswertung beim
+  Neuaufnehmen nach einem Neustart und NIE aus `unavailable`/`unknown`/fehlend → `off`: nach einem
+  Neustart melden die Z2M-Ventile zuerst `unavailable`, und `last_changed` des folgenden
+  `off`-Ereignisses ist die Wiederkehr der Entität, nicht der Schluss (`core.py:2321-2326`; auf
+  HA-Prod belegt). Bewusst in Kauf genommen: `on → unavailable → off` mitten im Lauf speichert
+  nichts, der Lauf wird dann nach E4 von der Uhr begrenzt (10 Tage Recorder: keine solche Episode
+  während eines Laufs). Gefunden im Probelauf der Planung (Plan-Kritik, Befund „major“).
   Gelöscht, wenn der Watcher für den Lauf wieder einen laufenden Zustand sieht. Nicht vor
   `RUN_VALVE_ON`: ein Fenster < 0 wird 0.
 
@@ -255,19 +276,24 @@ Jeder Test mutationsgeprüft.
    „aus“-Ventils verschiebt `RUN_VALVE_OFF` nicht.
 6. `RUN_VALVE_ON`: vorher offenes Ventil → `t_dispatch`; späte Meldung → `last_changed`.
 7. Latenz über der Marge: Backstop mit gespeicherter Aus-Meldung rechnet nach dem Fenster ab.
-8. Neustart: alle vier Zeilen aus Abschnitt 5, dazu Backstop-Argument `planned + 9 − elapsed`.
+8. Neustart: alle vier Zeilen aus Abschnitt 5, dazu Backstop-Argument `planned + 9 − elapsed`;
+   Ventil beim Neuaufnehmen `unavailable`, danach `off` → keine Aus-Meldung gespeichert, Abschluss
+   nach E4. Dazu der Pin für `on → unavailable → off` mitten im Lauf (E6).
 9. Batch-Wiederaufnahme plant unverändert `remaining`; OpenSprinkler-Pins
    (`test_opensprinkler.py:1116-1117`, `:469-484`) unverändert.
 10. In-flight während der Wartezeit wahr, nach dem Abschluss falsch.
 11. `zone_confirm_seconds` = 30 + 5 + Marge mit `confirm_entity`, 0 ohne.
-12. Observed-Sperre `planned + 9 + 30`.
+12. Observed-Sperre `planned + 9 + 30`: geprüft wird das Argument `planned + 9` an
+    `_note_si_valve`; die `+ 30` sind `SI_VALVE_SUPPRESS_MARGIN` in `_note_si_valve`
+    (`irrigation.py:68`, `:129`) und bleiben unverändert (609 → 639 s).
 13. Manueller Stopp in der Wartezeit mit gespeicherter Aus-Meldung nutzt das Fenster; manueller
     Stopp mitten im Lauf misst ab `RUN_VALVE_ON`.
 14. Zonenfeld übersteht Neuladen; Zonen-Schema zwingt `int`; i18n vollständig; vitest Sichtbarkeit.
 
 Geänderte Pins: `test_service_watch.py:216` `(2, 600)` → `(2, 609)` für bestätigte Läufe;
 `test_service_watch.py:183` (`actual_s == planned_s == 600`) nach der neuen Messung;
-`tests/test_confirm_reserve.py` (193, 219, 264, 278).
+`tests/test_confirm_reserve.py` Zeile 219 (30 → 39). Korrektur nach dem Probelauf: 193, 264 und
+278 prüfen klassische Zonen und bleiben unverändert.
 
 Suite am selben Tag gegen die Basis messen; black, ruff; `npm run build` reproduziert dist;
 `npm test`.
