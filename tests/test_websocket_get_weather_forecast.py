@@ -174,3 +174,25 @@ async def test_an_entry_without_a_span_keeps_the_positional_label():
         (today + datetime.timedelta(days=1)).isoformat(),
         (today + datetime.timedelta(days=2)).isoformat(),
     ]
+
+
+@pytest.mark.parametrize("broken", ["reversed", "naive"])
+async def test_an_entry_whose_span_cannot_be_placed_keeps_the_positional_label(
+    broken,
+):
+    # The panel and the skip guard read the span through the same helper, so an
+    # entry the guard refuses is refused here too. A naive start used to reach
+    # the subtraction below and raise, taking the whole forecast card down.
+    today = dt_util.now().date()
+    entry = _utc_day_entry(today + datetime.timedelta(days=3))
+    if broken == "reversed":
+        entry[const.FORECAST_DAY_START], entry[const.FORECAST_DAY_END] = (
+            entry[const.FORECAST_DAY_END],
+            entry[const.FORECAST_DAY_START],
+        )
+    else:
+        entry[const.FORECAST_DAY_START] = entry[const.FORECAST_DAY_START].replace(
+            tzinfo=None
+        )
+
+    assert await _labels([entry]) == [(today + datetime.timedelta(days=1)).isoformat()]
