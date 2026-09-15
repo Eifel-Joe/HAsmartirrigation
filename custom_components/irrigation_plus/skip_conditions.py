@@ -57,7 +57,7 @@ class SkipConditionsMixin:
 
     # --- structured (no-side-effect) evaluation for the dashboard outlook ----
 
-    async def async_evaluate_skip_conditions(self) -> dict:
+    async def async_evaluate_skip_conditions(self, run_start=None) -> dict:
         """Evaluate every skip guard and return structured results.
 
         Unlike the boolean ``_check_*`` helpers this does not log skip decisions;
@@ -65,10 +65,15 @@ class SkipConditionsMixin:
         ``id``, ``enabled``, ``would_skip``, ``available`` (could it be
         evaluated), ``observed`` and ``threshold``. Precipitation/temperature/
         wind reuse the in-memory weather-client cache, so this is normally cheap.
+
+        ``run_start`` is the run being asked about. The precipitation guard's
+        window starts at its local date. Only dispatch leaves it out, meaning now;
+        every preview names a moment, because the guard logs an uncovered run
+        date at INFO when none is named.
         """
         config = await self.store.async_get_config()
         checks = [
-            await self._eval_precipitation(config),
+            await self._eval_precipitation(config, run_start),
             await self._eval_days_between(config),
             await self._eval_temp(config),
             await self._eval_wind(config),
@@ -81,14 +86,32 @@ class SkipConditionsMixin:
     async def async_get_irrigation_outlook(self) -> dict:
         """Assemble the dashboard outlook: next runs + skip preview + last run.
 
-        ``skip_preview`` is evaluated live (as of now — forecasts may change
-        before the run). ``last_skip_evaluation`` is the persisted result of the
-        most recent real scheduled-irrigate decision (None until one has run, or
-        after a restart).
+        ``skip_preview`` is evaluated live against the current forecast, for the
+        next scheduled irrigate run (forecasts may still change before it).
+        ``last_skip_evaluation`` is the persisted result of the most recent real
+        scheduled-irrigate decision (None until one has run, or after a restart).
         """
         config = await self.store.async_get_config()
-        skip_preview = await self.async_evaluate_skip_conditions()
         upcoming = await self.recurring_schedule_manager.async_get_upcoming_runs()
+        # The precipitation guard's window starts at the run's date, so ask about
+        # the next run rather than about now: opened in the evening, "now" would
+        # examine today for a run that waters tomorrow. With no run scheduled it
+        # still names a moment, because only dispatch names none.
+        # Wurzel: the upcoming list keeps a finish-anchored run that is still
+        #   watering at its start, which already lies in the past. Named as the
+        #   run start after local midnight, the window drops that whole date as
+        #   past and the chip reads unavailable until the run finishes.
+        # Fix-Logik: pass over irrigate entries that start before now; with none
+        #   left, name now.
+        # NOT-TO-DO: do not advance past fired occurrences in
+        #   async_get_upcoming_runs -- the list feeds other consumers. Do not
+        #   apply not_before to _project_days_between_to_next_run either.
+        # siehe test_skip_run_start_threading.py::
+        #   test_the_outlook_passes_over_a_run_that_is_already_watering
+        now = dt_util.utcnow()
+        skip_preview = await self.async_evaluate_skip_conditions(
+            run_start=self._next_irrigate_run_utc(upcoming, not_before=now) or now
+        )
         # The days-between guard is a day counter bumped at local midnight, so a
         # live "as of now" evaluation is pessimistic right after a run (counter
         # 0). Project it to the next scheduled irrigate run so the preview shows
@@ -284,6 +307,24 @@ class SkipConditionsMixin:
         }
 
     @staticmethod
+    def _next_irrigate_run_utc(upcoming: list, *, not_before=None):
+        """The start of the next scheduled irrigate run, or None.
+
+        ``upcoming`` is sorted by ``next_run_utc``; the first irrigate entry with a
+        start is the next one. Shared by every preview that projects a run-time
+        decision, so they cannot pick different runs. With ``not_before`` an
+        entry whose start lies before that moment is passed over.
+        """
+        for r in upcoming:
+            if r.get("action") != "irrigate" or not r.get("next_run_utc"):
+                continue
+            start = dt_util.parse_datetime(r["next_run_utc"])
+            if not_before is not None and start is not None and start < not_before:
+                continue
+            return start
+        return None
+
+    @staticmethod
     def _project_days_between_to_next_run(skip_preview: dict, upcoming: list) -> None:
         """Advance the days-between preview to the next irrigate run's date.
 
@@ -301,17 +342,7 @@ class SkipConditionsMixin:
         )
         if check is None or not check["enabled"]:
             return
-        next_run = next(
-            (
-                r["next_run_utc"]
-                for r in upcoming
-                if r.get("action") == "irrigate" and r.get("next_run_utc")
-            ),
-            None,
-        )
-        if not next_run:
-            return
-        run_dt = dt_util.parse_datetime(next_run)
+        run_dt = SkipConditionsMixin._next_irrigate_run_utc(upcoming)
         if run_dt is None:
             return
         offset = (dt_util.as_local(run_dt).date() - dt_util.now().date()).days
