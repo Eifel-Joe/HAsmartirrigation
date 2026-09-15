@@ -105,8 +105,9 @@ schreibt `completed` mit `actual_s = planned_s` (`self_closing.py:385`).
 - **E7 Neutrale Namen in neuen Test-Fixtures** (keine echten Zonennamen der Anlage in neu
   hinzugefügten Tests; vorhandene upstream-Namen wie „Beet“ bleiben).
 - **Wortlaut** der 16 Panel-Texte und des Docs-Punkts freigegeben (Plan, Task 12).
-- **HA-Test-Aufspielweg:** Fork-Pre-Release über HACS, nur `production` + #139; #144–#146 bekommen
-  ein eigenes Pre-Release (Plan, Task 15).
+- **HA-Test-Aufspielweg:** Fork-Pre-Release über HACS = `production` + `fix/backstop-grace`. Da die
+  Basis `0b418644` #144/#145 (upstream gemergt) enthält, kommen diese mit (User-Entscheidung nach der
+  Revision); #146 bekommt ein eigenes Pre-Release (Plan, Task 15).
 
 „Wartezeit“ heißt im Folgenden `SERVICE_WATCH_SETTLE_SECONDS` (5) + Marge, bei Default 9 s.
 
