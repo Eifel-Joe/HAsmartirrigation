@@ -209,8 +209,8 @@ class OpenMeteoClient:
             # The request asks for past_days=1 so the intra-day estimate can
             # reach back to the previous evening's calculation, which puts
             # yesterday at index 0 and today at index 1. Skipping index 0 served
-            # today as the first forecast day, although the forecast list starts
-            # at tomorrow for every client (see CONF_PRECIPITATION_FORECAST_DAYS).
+            # today as the first forecast day, although get_forecast_data starts
+            # at tomorrow for every client.
             # Filter on the date instead, against today at the site from the
             # document's own offset: skipping two positions breaks as soon as a
             # document is read from the cache after the site's midnight or

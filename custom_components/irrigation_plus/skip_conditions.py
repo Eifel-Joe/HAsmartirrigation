@@ -12,6 +12,7 @@ import logging
 import homeassistant.util.dt as dt_util
 
 from . import const
+from .forecast_window import expected_rain
 from .helpers import normalize_zone_selection
 from .run_window import concurrent_wall_clock
 
@@ -128,8 +129,31 @@ class SkipConditionsMixin:
             "rain_delay_until": config.get(const.CONF_RAIN_DELAY_UNTIL),
         }
 
-    async def _eval_precipitation(self, config) -> dict:
-        """Structured precipitation-forecast guard (today+tomorrow vs threshold)."""
+    async def _eval_precipitation(self, config, run_start=None) -> dict:
+        """Structured precipitation-forecast guard over the run's own calendar days.
+
+        Wurzel: this summed whole days out of ``get_forecast_data``, which by
+          contract starts TOMORROW, while the guard runs at dispatch on the morning
+          of the run. The window therefore began the day after the run: a dry day
+          was skipped for the next day's rain, and the rain day itself watered
+          (#137).
+        Fix-Logik: the window starts at ``run_start``'s local date in Home
+          Assistant's zone and spans ``precipitation_forecast_days`` calendar days;
+          without ``run_start`` it starts now, which is dispatch -- every preview
+          names a start. The hourly precipitation series every client serves
+          forecasts the run's date; dated daily entries starting after it fill in
+          the days it does not reach. Hours before the evaluation are not forecast
+          and do not count, so an evening run with a one-day window sees only the
+          rest of its day. Without a daily forecast nothing is decided: a refresh
+          that failed returns none, while the hourly accessor still serves the
+          document of the last success, however old.
+        NOT-TO-DO: do not make ``get_forecast_data`` include today to get at the
+          run's date. The ET averages and the freeze guard's "coming night" both
+          depend on it excluding today. Do not derive the date from a client's own
+          clock (OWM uses ``utcnow().date()``): Home Assistant's zone decides. And
+          do not decide on the hourly series when the daily forecast is missing.
+        siehe tests/test_precipitation_guard.py, tests/test_forecast_window.py
+        """
         threshold = config.get(
             const.CONF_PRECIPITATION_THRESHOLD_MM,
             const.CONF_DEFAULT_PRECIPITATION_THRESHOLD_MM,
@@ -152,14 +176,21 @@ class SkipConditionsMixin:
         use_weather_service = config.get(
             const.CONF_USE_WEATHER_SERVICE, const.CONF_DEFAULT_USE_WEATHER_SERVICE
         )
-        if not use_weather_service or self._WeatherServiceClient is None:
+        client = self._WeatherServiceClient
+        if not use_weather_service or client is None:
             return result
         try:
-            forecast_data = await self.hass.async_add_executor_job(
-                self._WeatherServiceClient.get_forecast_data
-            )
-            if not forecast_data:
+            # Daily first, and nothing without it: a failed refresh returns no
+            # daily list, while the hourly accessor would still serve the last
+            # good document.
+            daily = await self.hass.async_add_executor_job(client.get_forecast_data)
+            if not daily:
                 return result
+            hourly = None
+            if hasattr(client, "get_hourly_precipitation_forecast"):
+                hourly = await self.hass.async_add_executor_job(
+                    client.get_hourly_precipitation_forecast
+                )
             days = max(
                 1,
                 config.get(
@@ -167,13 +198,44 @@ class SkipConditionsMixin:
                     const.CONF_DEFAULT_PRECIPITATION_FORECAST_DAYS,
                 ),
             )
-            total = 0.0
-            for day_data in forecast_data[:days]:
-                if const.MAPPING_PRECIPITATION in day_data:
-                    total += day_data[const.MAPPING_PRECIPITATION]
+            now = dt_util.utcnow()
+            start = dt_util.as_utc(run_start) if run_start is not None else now
+            rain = expected_rain(
+                run_start=start,
+                evaluated_at=now,
+                days=days,
+                tz=dt_util.DEFAULT_TIME_ZONE,
+                hourly=hourly,
+                daily=daily,
+            )
+            if not rain.run_date_covered:
+                # At dispatch this sits the run out of the guard, and nothing in
+                # the dashboard says so. Only dispatch names no start; previews
+                # name one and repeat on every refresh, so they log at debug.
+                log = _LOGGER.info if run_start is None else _LOGGER.debug
+                log(
+                    "Precipitation skip: the forecast does not cover the run's "
+                    "date, so rain is not deciding this run"
+                )
+                return result
+            if not rain.complete:
+                _LOGGER.debug(
+                    "Precipitation skip: the forecast covers only part of the "
+                    "%s-day window",
+                    days,
+                )
+            # Wurzel: the window integrates rates per second, and that loses the
+            #   last bit -- ten hours of 0.2 mm come to 1.9999999999999998, shown
+            #   as 2.0 of 2.0 mm while the run watered.
+            # Fix-Logik: decide on the rounded value the dashboard shows.
+            # NOT-TO-DO: no epsilon under the threshold; its size would be a guess,
+            #   and the chip could still contradict the decision.
+            # siehe tests/test_precipitation_guard.py::
+            #   test_rain_adding_up_to_the_threshold_skips_as_the_dashboard_shows_it
+            observed = round(rain.mm, 2)
             result["available"] = True
-            result["observed"] = round(total, 2)
-            result["would_skip"] = total >= threshold
+            result["observed"] = observed
+            result["would_skip"] = observed >= threshold
         except Exception as e:  # noqa: BLE001 — preview must never raise
             _LOGGER.debug("Skip preview: precipitation eval failed: %s", e)
         return result
