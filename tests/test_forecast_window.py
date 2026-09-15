@@ -6,6 +6,7 @@ explicitly; nothing here reads Home Assistant's.
 """
 
 import datetime
+import math
 import zoneinfo
 
 import pytest
@@ -136,3 +137,79 @@ def test_a_day_with_the_clocks_going_forward_has_23_hours():
     )
     assert rain.mm == pytest.approx(23.0)
     assert rain.complete is True
+
+
+def test_a_gap_in_the_series_is_a_hole_not_a_stretch_of_the_next_rate():
+    # Open-Meteo and Pirate Weather drop an hour without a value. The rows ending
+    # 07:00..12:00 are missing; the 13:00 row forecasts 2 mm/h for 12:00-13:00.
+    # Stretched back over the gap it would read as 14 mm, and the gap as forecast.
+    at = _utc(2026, 9, 13, 0, 0)
+    stamps = [at + datetime.timedelta(hours=h) for h in range(1, 25)]
+    series = [
+        (s, 2.0 if s.hour == 13 else 0.0) for s in stamps if not 7 <= s.hour <= 12
+    ]
+    rain = expected_rain(
+        run_start=at, evaluated_at=at, days=1, tz=UTC, hourly=series, daily=[]
+    )
+    assert rain.mm == pytest.approx(2.0)
+    assert rain.run_date_covered is False
+    assert rain.complete is False
+
+
+@pytest.mark.parametrize(
+    "rates", [(4.0, 0.0), (0.0, 4.0)], ids=["high-first", "low-first"]
+)
+def test_a_duplicated_stamp_keeps_its_highest_rate(rates):
+    # Whichever of the two rows a client lists last must not decide.
+    at = _utc(2026, 9, 13, 0, 0)
+    series = _hourly(at, 24, 0.0)
+    stamp = series[5][0]
+    series[5:6] = [(stamp, rates[0]), (stamp, rates[1])]
+    rain = expected_rain(
+        run_start=at, evaluated_at=at, days=1, tz=UTC, hourly=series, daily=[]
+    )
+    assert rain.mm == pytest.approx(4.0)
+    assert rain.complete is True
+
+
+def test_a_negative_rate_counts_as_a_dry_covered_hour():
+    # A negative rate is a model artifact, not a missing hour: it must neither
+    # subtract water nor leave a hole that stops the guard deciding.
+    at = _utc(2026, 9, 13, 0, 0)
+    series = _hourly(at, 24, 1.0)
+    series[2] = (series[2][0], -5.0)  # 02:00-03:00 dry
+    rain = expected_rain(
+        run_start=at, evaluated_at=at, days=1, tz=UTC, hourly=series, daily=[]
+    )
+    assert rain.mm == pytest.approx(23.0)
+    assert rain.run_date_covered is True
+    assert rain.complete is True
+
+
+def test_a_non_number_rate_counts_as_no_forecast():
+    at = _utc(2026, 9, 13, 0, 0)
+    series = _hourly(at, 24, 1.0)
+    series[10] = (series[10][0], math.nan)  # 10:00-11:00 unknown
+    rain = expected_rain(
+        run_start=at, evaluated_at=at, days=1, tz=UTC, hourly=series, daily=[]
+    )
+    assert rain.mm == pytest.approx(23.0)
+    assert rain.run_date_covered is False
+    assert rain.complete is False
+
+
+@pytest.mark.parametrize(("late", "covered"), [(0.5, True), (2.0, False)])
+def test_a_series_starting_just_after_the_evaluation(late, covered):
+    # The first sample reaches back one step. What is left before it counts as
+    # covered within a second of the evaluation, and not beyond.
+    at = _utc(2026, 9, 13, 0, 0)
+    first = at + datetime.timedelta(seconds=late)
+    rain = expected_rain(
+        run_start=at,
+        evaluated_at=at,
+        days=1,
+        tz=UTC,
+        hourly=_hourly(first, 25, 0.0),
+        daily=[],
+    )
+    assert rain.run_date_covered is covered

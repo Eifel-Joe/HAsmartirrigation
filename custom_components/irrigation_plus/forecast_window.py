@@ -31,6 +31,7 @@ Known imprecisions, each bounded:
 from __future__ import annotations
 
 import datetime
+import math
 from typing import NamedTuple
 
 _UTC = datetime.timezone.utc
@@ -82,28 +83,42 @@ def _overlap_seconds(a_start, a_end, b_start, b_end) -> float:
 def _hourly_segments(series):
     """``[(start, end, mm_per_hour)]`` in UTC from a client's ``[(stamp, rate)]``.
 
-    Each rate covers the interval ENDING at its stamp, the convention every client
-    hands back. Its length is the gap to the previous stamp; the first sample takes
-    the gap to the next one, or one hour when it stands alone. A duplicated stamp
-    has no length and is dropped.
+    Wurzel: a sample's length used to be the gap to the previous stamp. Open-Meteo
+      and Pirate Weather drop a row without a value, so a missing hour stretched
+      the next rate back across the gap: its water multiplied and the gap counted
+      as forecast.
+    Fix-Logik: each rate covers the interval ENDING at its stamp, the convention
+      every client hands back, but never more than one step of the series, its
+      smallest spacing. The first sample reaches back one step. A longer spacing
+      is a hole the caller sees as uncovered. A duplicated stamp keeps its highest
+      rate; a rate that is not a finite number is dropped, a negative one is dry.
+    NOT-TO-DO: do not cap at a fixed length such as three hours: an hourly series
+      with a two-hour hole would still stretch. Met Office already spreads its
+      amounts over its own gaps, so capping under-counts there -- the direction
+      that waters rather than skips. And check ``math.isfinite`` before any
+      ``max``: ``max(0.0, nan)`` is ``0.0`` and would turn a hole into a dry hour.
+    siehe tests/test_forecast_window.py
     """
-    points = sorted(
-        (stamp.astimezone(_UTC), float(rate))
-        for stamp, rate in (series or [])
-        if stamp is not None and rate is not None
-    )
-    segments = []
-    for i, (stamp, rate) in enumerate(points):
-        if i > 0:
-            span = stamp - points[i - 1][0]
-        elif len(points) > 1:
-            span = points[1][0] - stamp
-        else:
-            span = datetime.timedelta(hours=1)
-        if span.total_seconds() <= 0:
+    rates = {}
+    for stamp, rate in series or []:
+        if stamp is None or rate is None:
             continue
-        segments.append((stamp - span, stamp, rate))
-    return segments
+        try:
+            value = float(rate)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(value):
+            continue
+        key = stamp.astimezone(_UTC)
+        rates[key] = max(rates.get(key, 0.0), value, 0.0)
+    stamps = sorted(rates)
+    if not stamps:
+        return []
+    spacings = [
+        later - earlier for earlier, later in zip(stamps, stamps[1:], strict=False)
+    ]
+    step = min(spacings) if spacings else datetime.timedelta(hours=1)
+    return [(stamp - step, stamp, rates[stamp]) for stamp in stamps]
 
 
 def expected_rain(*, run_start, evaluated_at, days, tz, hourly, daily) -> ExpectedRain:
