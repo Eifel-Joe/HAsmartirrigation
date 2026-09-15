@@ -16,7 +16,7 @@ from custom_components.irrigation_plus.const import (
     FORECAST_DAY_START,
     MAPPING_PRECIPITATION,
 )
-from custom_components.irrigation_plus.forecast_window import expected_rain
+from custom_components.irrigation_plus.forecast_window import day_span, expected_rain
 
 UTC = datetime.timezone.utc
 PLUS2 = datetime.timezone(datetime.timedelta(hours=2))
@@ -213,3 +213,210 @@ def test_a_series_starting_just_after_the_evaluation(late, covered):
         daily=[],
     )
     assert rain.run_date_covered is covered
+
+
+def test_daily_entries_fill_in_only_behind_the_hourly_series():
+    # OWM builds its days from the same three-hourly list as its series, and its
+    # last day holds only the slots up to the series' end while claiming the whole
+    # day. An entry that overlaps the series is therefore left out whole; the rest
+    # of that day is reported uncovered rather than guessed.
+    at = _utc(2026, 9, 13, 0, 0)
+    rain = expected_rain(
+        run_start=at,
+        evaluated_at=at,
+        days=3,
+        tz=UTC,
+        # 36 hours of 1 mm/h: the whole 13th and the first half of the 14th
+        hourly=_hourly(at, 36, 1.0),
+        daily=[_day(_utc(2026, 9, 14), 12.0), _day(_utc(2026, 9, 15), 10.0)],
+    )
+    # 24 (13th) + 12 (14th, hourly only) + 10 (15th)
+    assert rain.mm == pytest.approx(46.0)
+    assert rain.run_date_covered is True
+    assert rain.complete is False
+
+
+def test_owm_s_last_day_starting_at_the_series_end_is_not_counted_again():
+    # OWM files each three-hourly slot under the UTC date of its stamp and gives
+    # the bucket the whole day. Fetched between 00Z and 03Z, the list's last slot
+    # is stamped 00Z: its rain fell in the three hours BEFORE, which the series
+    # already counts, yet its bucket's span starts exactly at the series' end.
+    first = _utc(2026, 9, 13, 3, 0)
+    stamps = [first + datetime.timedelta(hours=3 * k) for k in range(40)]
+    assert stamps[-1] == _utc(2026, 9, 18, 0, 0)
+    hourly = [(s, 1.0 if s == stamps[-1] else 0.0) for s in stamps]
+    at = _utc(2026, 9, 17, 0, 0)
+    rain = expected_rain(
+        run_start=at,
+        evaluated_at=at,
+        days=2,
+        tz=UTC,
+        hourly=hourly,
+        # The bucket for the 18th holds that one slot: 3 mm.
+        daily=[_day(_utc(2026, 9, 18), 3.0)],
+    )
+    assert rain.mm == pytest.approx(3.0)
+    assert rain.run_date_covered is True
+    assert rain.complete is False
+
+
+def test_without_an_hourly_series_the_run_date_is_reported_uncovered():
+    # At dispatch get_forecast_data holds no entry for today, so without an hourly
+    # series nothing forecasts the run's own date.
+    at = _utc(2026, 9, 13, 6, 0)
+    rain = expected_rain(
+        run_start=at,
+        evaluated_at=at,
+        days=2,
+        tz=UTC,
+        hourly=[],
+        daily=[_day(_utc(2026, 9, 14), 5.0)],
+    )
+    assert rain.mm == pytest.approx(5.0)
+    assert rain.run_date_covered is False
+    assert rain.complete is False
+
+
+def test_a_utc_day_entry_counts_against_a_local_date_by_overlap():
+    # Local 13th (+02) is 12th 22:00Z .. 13th 22:00Z; the UTC-day entry for the
+    # 13th overlaps it for 22 of its 24 hours. Counting the whole entry for the
+    # local date holding its middle -- the panel's label rule -- would say 24.
+    at = _utc(2026, 9, 12, 22, 0)
+    rain = expected_rain(
+        run_start=at,
+        evaluated_at=at,
+        days=1,
+        tz=PLUS2,
+        hourly=[],
+        daily=[_day(_utc(2026, 9, 13), 24.0)],
+    )
+    assert rain.mm == pytest.approx(22.0)
+    assert rain.run_date_covered is False
+
+
+def test_an_entry_for_a_day_already_past_contributes_nothing():
+    # A daily list parsed before midnight and served from cache afterwards still
+    # holds yesterday's entry. Its span no longer meets the window, so it cannot
+    # be mistaken for today by its position.
+    at = _utc(2026, 9, 13, 6, 0)
+    rain = expected_rain(
+        run_start=at,
+        evaluated_at=at,
+        days=1,
+        tz=UTC,
+        hourly=[],
+        daily=[_day(_utc(2026, 9, 12), 50.0)],
+    )
+    assert rain.mm == pytest.approx(0.0)
+    assert rain.run_date_covered is False
+
+
+def test_a_run_date_already_past_is_not_covered():
+    # A projection may name a run that started before midnight. Nothing forecasts
+    # its date any more, whatever the days after it hold.
+    rain = expected_rain(
+        run_start=_utc(2026, 9, 12, 21, 50),
+        evaluated_at=_utc(2026, 9, 13, 6, 0),
+        days=2,
+        tz=UTC,
+        hourly=_hourly(_utc(2026, 9, 13, 0, 0), 48, 1.0),
+        daily=[],
+    )
+    assert rain.run_date_covered is False
+    assert rain.complete is False
+
+
+def test_a_one_day_window_on_a_run_date_already_past_is_empty():
+    # With a one-day window nothing of the run's date is left at the evaluation,
+    # so the window holds no day at all. The rain forecast for the day after must
+    # not stand in for it, and an empty window must not break the evaluation.
+    rain = expected_rain(
+        run_start=_utc(2026, 9, 12, 21, 50),
+        evaluated_at=_utc(2026, 9, 13, 6, 0),
+        days=1,
+        tz=UTC,
+        hourly=_hourly(_utc(2026, 9, 13, 0, 0), 48, 1.0),
+        daily=[],
+    )
+    assert rain == (0.0, False, False)
+
+
+def test_a_daily_total_that_is_not_a_number_or_negative_adds_nothing():
+    at = _utc(2026, 9, 13, 0, 0)
+    rain = expected_rain(
+        run_start=at,
+        evaluated_at=at,
+        days=3,
+        tz=UTC,
+        hourly=[],
+        daily=[
+            _day(_utc(2026, 9, 13), -10.0),
+            _day(_utc(2026, 9, 14), math.nan),
+            _day(_utc(2026, 9, 15), 4.0),
+        ],
+    )
+    assert rain.mm == pytest.approx(4.0)
+    assert rain.run_date_covered is True
+    assert rain.complete is False
+
+
+def test_day_span_reads_an_aware_span_in_utc():
+    start = datetime.datetime(2026, 9, 13, tzinfo=BERLIN)
+    entry = {
+        FORECAST_DAY_START: start,
+        FORECAST_DAY_END: start + datetime.timedelta(days=1),
+    }
+    span = day_span(entry)
+    assert span == (_utc(2026, 9, 12, 22, 0), _utc(2026, 9, 13, 22, 0))
+    assert span[0].utcoffset() == datetime.timedelta(0)
+    assert span[1].utcoffset() == datetime.timedelta(0)
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        pytest.param({FORECAST_DAY_END: _utc(2026, 9, 14)}, id="no-start"),
+        pytest.param({FORECAST_DAY_START: _utc(2026, 9, 13)}, id="no-end"),
+        pytest.param(
+            {
+                FORECAST_DAY_START: datetime.datetime(2026, 9, 13),
+                FORECAST_DAY_END: _utc(2026, 9, 14),
+            },
+            id="naive",
+        ),
+        pytest.param(
+            {
+                FORECAST_DAY_START: _utc(2026, 9, 14),
+                FORECAST_DAY_END: _utc(2026, 9, 13),
+            },
+            id="reversed",
+        ),
+        pytest.param(
+            {
+                FORECAST_DAY_START: _utc(2026, 9, 13),
+                FORECAST_DAY_END: _utc(2026, 9, 13),
+            },
+            id="empty",
+        ),
+    ],
+)
+def test_day_span_refuses_a_span_it_cannot_place(entry):
+    assert day_span(entry) is None
+
+
+def test_a_single_sample_covers_one_hour():
+    # With one stamp there is no spacing to take the step from, so the sample
+    # reaches back one hour: 2 mm/h for 11:00-12:00. A longer default step would
+    # multiply the water and claim hours nothing forecast.
+    at = _utc(2026, 9, 13, 0, 0)
+    rain = expected_rain(
+        run_start=at,
+        evaluated_at=at,
+        days=1,
+        tz=UTC,
+        hourly=[(_utc(2026, 9, 13, 12, 0), 2.0)],
+        daily=[],
+    )
+    assert rain.mm == pytest.approx(2.0)
+    assert rain.run_date_covered is False
+    assert rain.complete is False

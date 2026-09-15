@@ -235,10 +235,10 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                     ):
                         data = doc[PirateWeather_daily_weather_key_name]["data"][x]
                         # Each block is stamped with the start of its local day;
-                        # the next block's stamp ends it. That stamp is the true
-                        # local-day boundary, so a DST day comes out as 23 or 25
-                        # hours, which start + 1 day would not. The loop stops one
-                        # short of the last block, so x + 1 always exists.
+                        # the next block's stamp ends it. That stamp is the local-day
+                        # boundary as the API documents it, so a DST day comes out as
+                        # 23 or 25 hours, which start + 1 day would not. The loop
+                        # stops one short of the last block, so x + 1 always exists.
                         next_data = doc[PirateWeather_daily_weather_key_name]["data"][
                             x + 1
                         ]
@@ -273,6 +273,10 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                         parsed_data[MAPPING_PRECIPITATION] = (
                             data[PirateWeather_precip_key_name] * 10.0
                         )
+                        # A daily block's "time" is read as local midnight at the
+                        # start of that day, as the Pirate Weather API
+                        # documentation describes it: taken from the API, not
+                        # measured against a live response.
                         parsed_data[FORECAST_DAY_START] = (
                             datetime.datetime.fromtimestamp(
                                 data["time"], datetime.timezone.utc
