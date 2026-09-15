@@ -33,6 +33,8 @@ import math
 import requests
 
 from ..const import (
+    FORECAST_DAY_END,
+    FORECAST_DAY_START,
     MAPPING_CURRENT_PRECIPITATION,
     MAPPING_DEWPOINT,
     MAPPING_HUMIDITY,
@@ -375,12 +377,22 @@ class MetOfficeClient:  # pylint: disable=invalid-name
                 mean_wind = sum(winds) / len(winds)
                 precip = sum(s.get("totalPrecipAmount") or 0.0 for s in day_steps)
 
+                # day is the UTC calendar date the steps were grouped by. When the
+                # product ends mid-day the last entry still spans the whole date,
+                # but its precipitation holds only the steps that exist, so that
+                # day's total is short.
+                day_start = datetime.datetime(
+                    day.year, day.month, day.day, tzinfo=datetime.timezone.utc
+                )
+
                 day_data = {
                     MAPPING_TEMPERATURE: mean_temp,
                     MAPPING_MAX_TEMP: max_temp,
                     MAPPING_MIN_TEMP: min_temp,
                     MAPPING_WINDSPEED: self._wind_2m(mean_wind),
                     MAPPING_PRECIPITATION: precip,
+                    FORECAST_DAY_START: day_start,
+                    FORECAST_DAY_END: day_start + datetime.timedelta(days=1),
                 }
                 if humidities:
                     mean_humidity = sum(humidities) / len(humidities)

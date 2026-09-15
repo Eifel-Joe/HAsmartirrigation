@@ -8,6 +8,8 @@ import pytest
 from freezegun import freeze_time
 
 from custom_components.irrigation_plus.const import (
+    FORECAST_DAY_END,
+    FORECAST_DAY_START,
     MAPPING_CURRENT_PRECIPITATION,
     MAPPING_DEWPOINT,
     MAPPING_HUMIDITY,
@@ -236,6 +238,28 @@ class TestOWMClientGetForecastData:
         assert len(data) == 1
         assert data[0][MAPPING_TEMPERATURE] == pytest.approx(18.0)
 
+    @freeze_time("2024-06-01 06:00:00")
+    def test_entries_carry_their_utc_day(self):
+        # OWM buckets its three-hourly slots by UTC calendar date, so each entry
+        # covers UTC midnight to the next UTC midnight. The slots skip 06-03: a
+        # span counted from the entry's position would give the second entry
+        # 06-03, only the bucket's own date gives 06-04.
+        utc = datetime.timezone.utc
+        body = self._forecast_body()
+        body["list"][1]["dt"] = int(
+            datetime.datetime(2024, 6, 4, 12, tzinfo=utc).timestamp()
+        )
+        client = OWMClient(api_key="k", latitude=52.0, longitude=5.0, elevation=0)
+        with patch(_OWM_PATCH, return_value=_make_response(200, body)):
+            data = client.get_forecast_data()
+
+        assert data[0][FORECAST_DAY_START] == datetime.datetime(2024, 6, 2, tzinfo=utc)
+        assert data[0][FORECAST_DAY_END] == datetime.datetime(2024, 6, 3, tzinfo=utc)
+        assert data[1][FORECAST_DAY_START] == datetime.datetime(2024, 6, 4, tzinfo=utc)
+        assert data[1][FORECAST_DAY_END] == datetime.datetime(2024, 6, 5, tzinfo=utc)
+        # UTC itself, not merely the same instant in another zone
+        assert data[0][FORECAST_DAY_START].utcoffset() == datetime.timedelta(0)
+
     def test_empty_list_returns_none(self):
         body = {"cod": "200", "list": []}
         client = OWMClient(api_key="k", latitude=52.0, longitude=5.0, elevation=0)
@@ -408,6 +432,69 @@ class TestOpenMeteoClientGetForecastData:
             data = client.get_forecast_data()
 
         assert data[0][MAPPING_PRECIPITATION] == 3.0
+
+    @pytest.mark.parametrize(
+        ("offset", "day_start", "day_end"),
+        [
+            # 10:00 UTC is 12:00 on 06-01 at UTC+2, so tomorrow (06-02) starts
+            # at 22:00 UTC the evening before.
+            (
+                7200,
+                datetime.datetime(2024, 6, 1, 22, tzinfo=datetime.timezone.utc),
+                datetime.datetime(2024, 6, 2, 22, tzinfo=datetime.timezone.utc),
+            ),
+            # 10:00 UTC is 05:00 on 06-01 at UTC-5, so tomorrow (06-02) starts
+            # at 05:00 UTC that morning.
+            (
+                -18000,
+                datetime.datetime(2024, 6, 2, 5, tzinfo=datetime.timezone.utc),
+                datetime.datetime(2024, 6, 3, 5, tzinfo=datetime.timezone.utc),
+            ),
+        ],
+    )
+    def test_entries_carry_their_local_day(self, offset, day_start, day_end):
+        # Open-Meteo reports daily values per LOCAL date (timezone=auto), so an
+        # entry's day starts at local midnight, whose UTC instant depends on the
+        # site's offset.
+        client = OpenMeteoClient(latitude=52.52, longitude=13.41)
+        doc = _openmeteo_doc(datetime.date(2024, 6, 1), offset)
+        with (
+            freeze_time("2024-06-01 10:00:00"),
+            patch(_OPENMETEO_PATCH, return_value=_make_response(200, doc)),
+        ):
+            data = client.get_forecast_data()
+
+        assert data[0][FORECAST_DAY_START] == day_start
+        assert data[0][FORECAST_DAY_END] == day_end
+        assert data[1][FORECAST_DAY_START] == data[0][FORECAST_DAY_END]
+        # UTC itself, not merely the same instant in the site's zone
+        assert data[0][FORECAST_DAY_START].utcoffset() == datetime.timedelta(0)
+
+    def test_a_skipped_day_does_not_shift_the_next_span(self):
+        # A day without wind is dropped. The entry after the gap still covers its
+        # own date, so its span comes from that date, not from how many entries
+        # were kept before it.
+        client = OpenMeteoClient(latitude=52.52, longitude=13.41)
+        doc = _openmeteo_doc(datetime.date(2024, 6, 1), 7200)
+        # daily.time starts at 05-31, so index 3 is 06-03.
+        doc["daily"]["wind_speed_10m_max"][3] = None
+        with (
+            freeze_time("2024-06-01 10:00:00"),
+            patch(_OPENMETEO_PATCH, return_value=_make_response(200, doc)),
+        ):
+            data = client.get_forecast_data()
+
+        # The markers are days of the month: 06-03 is gone.
+        markers = [d[MAPPING_PRECIPITATION] for d in data]
+        assert markers == [2.0, 4.0, 5.0, 6.0, 7.0]
+        after_gap = data[markers.index(4.0)]
+        # 06-04 starts at local midnight, 22:00 UTC the evening before at UTC+2.
+        assert after_gap[FORECAST_DAY_START] == datetime.datetime(
+            2024, 6, 3, 22, tzinfo=datetime.timezone.utc
+        )
+        assert after_gap[FORECAST_DAY_END] == datetime.datetime(
+            2024, 6, 4, 22, tzinfo=datetime.timezone.utc
+        )
 
 
 class TestOpenMeteoClientGetData:
@@ -630,6 +717,51 @@ class TestMetOfficeClientGetForecastData:
         assert MAPPING_DEWPOINT in day
         assert day[MAPPING_DEWPOINT] < day[MAPPING_TEMPERATURE]
         assert MAPPING_PRESSURE in day
+
+    @freeze_time("2024-06-01 12:30:00")
+    def test_entries_carry_their_utc_day(self):
+        # Met Office groups its three-hourly steps by UTC date, like OWM.
+        client = MetOfficeClient(api_key="k", latitude=52.0, longitude=5.0, elevation=0)
+        with patch(_MET_PATCH, return_value=_make_response(200, self._THREE_HOURLY)):
+            fc = client.get_forecast_data()
+
+        utc = datetime.timezone.utc
+        assert fc[0][FORECAST_DAY_START] == datetime.datetime(2024, 6, 2, tzinfo=utc)
+        assert fc[0][FORECAST_DAY_END] == datetime.datetime(2024, 6, 3, tzinfo=utc)
+
+    @freeze_time("2024-06-01 12:30:00")
+    def test_a_skipped_day_does_not_shift_the_next_entry(self):
+        # A day without wind is skipped, so 06-04 becomes the second entry. A
+        # span counted from the entry's position would give it 06-03; only the
+        # grouped date gives 06-04.
+        def step(time, **fields):
+            base = {
+                "time": time,
+                "maxScreenAirTemp": 21.0,
+                "minScreenAirTemp": 13.0,
+                "windSpeed10m": 4.0,
+                "totalPrecipAmount": 0.5,
+            }
+            base.update(fields)
+            return {k: v for k, v in base.items() if v is not None}
+
+        doc = _met_doc(
+            [
+                step("2024-06-02T12:00Z"),
+                step("2024-06-03T12:00Z", windSpeed10m=None),
+                step("2024-06-04T12:00Z"),
+            ]
+        )
+        client = MetOfficeClient(api_key="k", latitude=52.0, longitude=5.0, elevation=0)
+        with patch(_MET_PATCH, return_value=_make_response(200, doc)):
+            fc = client.get_forecast_data()
+
+        utc = datetime.timezone.utc
+        assert len(fc) == 2
+        assert fc[1][FORECAST_DAY_START] == datetime.datetime(2024, 6, 4, tzinfo=utc)
+        assert fc[1][FORECAST_DAY_END] == datetime.datetime(2024, 6, 5, tzinfo=utc)
+        # UTC itself, not merely the same instant in another zone
+        assert fc[1][FORECAST_DAY_START].utcoffset() == datetime.timedelta(0)
 
     def test_empty_features_returns_none(self):
         client = MetOfficeClient(api_key="k", latitude=52.0, longitude=5.0)

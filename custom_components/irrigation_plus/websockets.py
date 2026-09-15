@@ -1066,8 +1066,9 @@ async def websocket_get_weather_forecast(hass: HomeAssistant, connection, msg):
     """Return the weather service's daily forecast (one entry per upcoming day).
 
     Reuses the coordinator's weather client (the same forecast already used for
-    the precip look-ahead skip). The clients return a normalized list of per-day
-    dicts starting tomorrow, with no date field, so we attach the date here.
+    the precip look-ahead skip). Each entry carries the span of the day it
+    covers (FORECAST_DAY_START/END), and the local date of its middle is the
+    label.
     Values are metric (the frontend labels units; value conversion is the
     separate H7-units follow-up).
     """
@@ -1094,10 +1095,26 @@ async def websocket_get_weather_forecast(hass: HomeAssistant, connection, msg):
     today = dt_util.now().date()
     days = []
     for i, day in enumerate(raw):
+        start = day.get(const.FORECAST_DAY_START)
+        end = day.get(const.FORECAST_DAY_END)
+        if start is not None and end is not None:
+            # The day the client says this entry covers, in local time. Reading
+            # it off the entry rather than off its position is what keeps a
+            # client whose list does not start at tomorrow from being mislabelled.
+            # The label is the local date of the span's middle, i.e. the local
+            # day holding most of it. Not the local date of the start: a UTC day
+            # (OWM, Met Office) starts the evening before west of UTC, which
+            # would label it a day early. At exactly UTC+12 or UTC-12 a UTC day's
+            # middle is local midnight, and the later of the two dates wins.
+            label = dt_util.as_local(start + (end - start) / 2).date()
+        else:
+            # No span, or only half of one: assume the list starts at tomorrow.
+            # A start alone labelled by its local date would bring back the
+            # day-early label above.
+            label = today + datetime.timedelta(days=i + 1)
         days.append(
             {
-                # All clients skip "today" and start at tomorrow.
-                "date": (today + datetime.timedelta(days=i + 1)).isoformat(),
+                "date": label.isoformat(),
                 "temp_min": day.get(const.MAPPING_MIN_TEMP),
                 "temp_max": day.get(const.MAPPING_MAX_TEMP),
                 "precipitation": day.get(const.MAPPING_PRECIPITATION),
