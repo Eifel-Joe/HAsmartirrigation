@@ -1,8 +1,8 @@
 """Expected precipitation over a run's rolling 24-hour blocks.
 
-Pure arithmetic -- no Home Assistant import, and no time zone at all -- so the
-window can be checked against hand-computed numbers. The precipitation skip
-guard hands it the configured client's hourly precipitation series and its
+Pure arithmetic -- no Home Assistant import and no Home Assistant time zone --
+so the window can be checked against hand-computed numbers. The precipitation
+skip guard hands it the configured client's hourly precipitation series and its
 dated daily entries.
 
 The window starts at the run itself and spans ``days`` blocks of 24 absolute
@@ -19,10 +19,12 @@ nothing about hours already past.
 Known imprecisions, each bounded:
 
 * Pirate Weather's hourly points are read as ending at their stamp, which its
-  client marks as assumed -- taken from the documentation, not measured; if they
-  begin there, a block's total is off by one hour of rain at each end. Measured
-  against a live response, its first stamp falls on the hour the fetch began in,
-  and its daily spans run from one block's time to the next at local midnight.
+  client marks as assumed: that reading is taken from the documentation, not
+  measured, and if they begin there a block's total is off by one hour of rain
+  at each end. Measured against a live response on 2026-09-16, the first stamp
+  falls on the hour the fetch began in -- evidence for the documented
+  "beginning" convention rather than a resolution of it -- and the daily spans
+  run from one block's time to the next at local midnight.
 * Open-Meteo converts its local stamps with the document's single
   ``utc_offset_seconds``, so hours after a daylight-saving change inside the
   document sit an hour off.
@@ -33,13 +35,17 @@ Known imprecisions, each bounded:
   the total is short while the day reports as complete. It under-counts, which
   errs towards watering, and only a window reaching that date sees it.
 * Pirate Weather's hourly block, fetched without ``extend=hourly``, and Met
-  Office's hourly document reach 48 hours from the fetch. The daily entry for
-  the day such a series ends in starts before that end and is left out, so
-  whatever the series does not reach stays uncovered. Evaluated at the run, that
-  is exactly the first two blocks: a look-ahead of three or more loses its third
-  block whole, and a preview some hours before the run loses those hours from
-  the end of its second. It under-counts, which errs towards watering. OWM (five
-  days, three-hourly) and Open-Meteo (seven days) are not affected.
+  Office's hourly document reach 48 hours from the FETCH, not from the
+  evaluation, and both accessors read a document fetched earlier -- Met Office's
+  up to one cache lifetime, at most three hours, old. The daily entry for the
+  day such a series ends in starts before that end and is left out, so whatever
+  the series does not reach stays uncovered. Evaluated at the run, the series
+  covers at most the first two blocks, and the document's age eats into that
+  from the far end: even at the run itself the tail of the second block can be
+  missing, and a look-ahead of three or more loses its third block whole. A
+  preview some hours before the run loses those hours as well. It under-counts,
+  which errs towards watering. OWM (five days, three-hourly) and Open-Meteo
+  (seven days) are not affected.
 * ``day_projection.forecast_rain_mm`` integrates the same series for the
   next-run projection but declines when the series starts after the span. Here
   the first sample reaches back one step, which is what lets a three-hourly
@@ -57,8 +63,12 @@ from .const import FORECAST_DAY_END, FORECAST_DAY_START, MAPPING_PRECIPITATION
 
 _UTC = datetime.timezone.utc
 _SECONDS_PER_HOUR = 3600.0
-_DAY = datetime.timedelta(hours=24)
+_BLOCK = datetime.timedelta(hours=24)
 # A covered span within this many seconds of the requested one counts as whole.
+# The same number decides that a block with less than that left at the
+# evaluation is dropped, and the two MUST stay one value: a block shorter than
+# the slack could never report a shortfall, so it would count as covered
+# whatever the forecast holds for it.
 _COVERAGE_TOLERANCE_SECONDS = 1.0
 
 
@@ -117,15 +127,16 @@ def window_intervals(run_start, days, evaluated_at):
       window shifted by one. And do not flatten the result to plain ``(start, end)``
       pairs: ``index`` is what tells a shrunken first block from a missing one, and
       with a look-ahead of 2 or more nothing else does.
-    siehe tests/test_forecast_window.py::test_a_first_block_entirely_in_the_past_is_not_covered
+    siehe tests/test_forecast_window.py::test_a_daylight_saving_night_is_still_twenty_four_real_hours
+      und ::test_a_first_block_entirely_in_the_past_is_not_covered
     """
     start_utc = run_start.astimezone(_UTC)
     evaluated = evaluated_at.astimezone(_UTC)
     out = []
     for index in range(max(1, int(days))):
-        block_start = start_utc + index * _DAY
+        block_start = start_utc + index * _BLOCK
         start = max(block_start, evaluated)
-        end = block_start + _DAY
+        end = block_start + _BLOCK
         if (end - start).total_seconds() > _COVERAGE_TOLERANCE_SECONDS:
             out.append((index, start, end))
     return out
@@ -235,7 +246,7 @@ def expected_rain(*, run_start, evaluated_at, days, hourly, daily) -> ExpectedRa
         for start, end, mm in _entries_behind(daily, series_end)
     ]
     total = 0.0
-    first_24h_covered = bool(intervals) and intervals[0][0] == 0
+    first_24h_covered = any(index == 0 for index, _, _ in intervals)
     complete = first_24h_covered
     for index, start, end in intervals:
         covered = 0.0

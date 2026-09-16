@@ -89,21 +89,28 @@ def test_a_three_hourly_slot_across_a_block_edge_is_split():
 
 
 @pytest.mark.parametrize(
-    ("label", "run_start"),
+    "run_start",
     [
-        ("clocks back", _utc(2026, 10, 24, 22, 0)),  # 25-hour local day in Berlin
-        ("clocks forward", _utc(2027, 3, 27, 23, 0)),  # 23-hour local day in Berlin
+        pytest.param(datetime.datetime(2026, 10, 25, tzinfo=BERLIN), id="clocks-back"),
+        pytest.param(
+            datetime.datetime(2027, 3, 28, tzinfo=BERLIN), id="clocks-forward"
+        ),
     ],
 )
-def test_a_daylight_saving_night_is_still_twenty_four_real_hours(label, run_start):
-    # The blocks are absolute 24 hours; local time draws no boundary any more.
-    # Under calendar days the same series read 25.0 and 23.0 mm.
-    hourly = _hourly(run_start, 48, 1.0)
+def test_a_daylight_saving_night_is_still_twenty_four_real_hours(run_start):
+    # Local midnight before a night the clocks move: one local day is 25 real
+    # hours in October and 23 in March, and under calendar days these series read
+    # 25.0 and 23.0 mm. The blocks are absolute 24 hours instead, so the zone
+    # draws no boundary. The run start has to carry the zone, because that is
+    # what the normalisation to UTC is for -- without it a block runs an hour too
+    # long (October) or too short (March) and still REPORTS 24 hours, since
+    # subtracting two datetimes that share one ZoneInfo is wall-clock arithmetic.
+    # Only rain in that hour gives it away, so the series has to overshoot.
     rain = expected_rain(
         run_start=run_start,
         evaluated_at=run_start,
         days=1,
-        hourly=hourly,
+        hourly=_hourly(run_start.astimezone(UTC), 30, 1.0),
         daily=[],
     )
     assert rain.mm == pytest.approx(24.0)
@@ -221,7 +228,7 @@ def test_owm_s_last_day_starting_at_the_series_end_is_not_counted_again():
     assert rain.complete is False
 
 
-def test_without_an_hourly_series_the_run_date_is_reported_uncovered():
+def test_without_an_hourly_series_the_first_block_is_reported_uncovered():
     # At dispatch get_forecast_data holds no entry for today, so without an hourly
     # series nothing forecasts the run's own first 24 hours.
     at = _utc(2026, 9, 13, 6, 0)
@@ -308,6 +315,31 @@ def test_a_first_block_entirely_in_the_past_is_not_covered(run_start):
     assert rain.complete is False
 
 
+def test_a_block_after_the_first_is_also_cut_at_the_evaluation():
+    # Block 0 (12th 05:00Z..13th 05:00Z) is wholly past and dropped. Block 1
+    # runs 13th 05:00Z..14th 05:00Z, but the hour before the evaluation is no
+    # forecast either: 23 of its hours are weighed, not 24.
+    rain = expected_rain(
+        run_start=_utc(2026, 9, 12, 5, 0),
+        evaluated_at=_utc(2026, 9, 13, 6, 0),
+        days=2,
+        hourly=_hourly(_utc(2026, 9, 13, 0, 0), 48, 1.0),
+        daily=[],
+    )
+    assert rain.mm == pytest.approx(23.0)
+
+
+def test_a_multi_block_window_the_series_covers_whole_is_complete():
+    # Nothing else asserts that a window of more than one block can report
+    # itself complete, so nothing else would notice it losing the ability.
+    at = _utc(2026, 9, 13, 0, 0)
+    rain = expected_rain(
+        run_start=at, evaluated_at=at, days=3, hourly=_hourly(at, 72, 1.0), daily=[]
+    )
+    assert rain.mm == pytest.approx(72.0)
+    assert rain.complete is True
+
+
 def test_a_one_day_window_whose_only_block_is_past_is_empty():
     # With a one-day window nothing is left at the evaluation, so the window holds
     # no block at all. The rain forecast for the hours after it must not stand in
@@ -320,25 +352,6 @@ def test_a_one_day_window_whose_only_block_is_past_is_empty():
         daily=[],
     )
     assert rain == (0.0, False, False)
-
-
-def test_a_zone_aware_run_start_is_measured_in_real_hours():
-    # Berlin, the night the clocks go back: run_start plus one day is 25 real
-    # hours there. Without the normalisation to UTC the block would run an hour
-    # too long and swallow a 25th millimetre -- and it would still REPORT 24
-    # hours, because subtracting two datetimes that share one ZoneInfo is
-    # wall-clock arithmetic, so only the rain in that hour gives it away. Hence
-    # the series has to reach past the block's end.
-    run_start = datetime.datetime(2026, 10, 25, 0, 0, tzinfo=BERLIN)
-    rain = expected_rain(
-        run_start=run_start,
-        evaluated_at=run_start,
-        days=1,
-        hourly=_hourly(run_start.astimezone(UTC), 30, 1.0),
-        daily=[],
-    )
-    assert rain.mm == pytest.approx(24.0)
-    assert rain.first_24h_covered is True
 
 
 def test_a_daily_total_that_is_not_a_number_or_negative_adds_nothing():
