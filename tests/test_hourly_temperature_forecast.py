@@ -175,10 +175,17 @@ class TestPirateWeather:
     def test_the_request_asks_for_the_hourly_block(self):
         """It was excluded outright, so there was nothing to read. A daily high
         and low cannot supply a window's remaining hours -- measured, that
-        construction does not converge."""
+        construction does not converge.
+
+        Read the ``exclude`` value itself, up to the next parameter. This used to
+        read the whole tail after ``exclude=``, which held only while that was
+        the last parameter in the URL: appending ``extend=hourly`` for the long
+        hourly block put "hourly" back into what the assertion looked at.
+        """
         c = self._client(None)
 
-        assert "hourly" not in c.url.split("exclude=")[1]
+        excluded = c.url.split("exclude=")[1].split("&")[0]
+        assert "hourly" not in excluded
 
     def test_nothing_fetched_yet_is_not_an_error(self):
         assert self._client(None).get_hourly_temperature_forecast() is None
