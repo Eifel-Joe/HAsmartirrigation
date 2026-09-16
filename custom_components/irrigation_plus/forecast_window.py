@@ -117,7 +117,7 @@ def window_intervals(run_start, days, evaluated_at):
       it. That made the setting mean different things at different hours: with a
       look-ahead of 1 an evening run saw only the last hours of its own date, so
       every install watering in the evening would have gone from seeing tomorrow to
-      seeing almost nothing, silently, on upgrade (JustChr on the pull request).
+      seeing almost nothing, silently, on upgrade.
     Fix-Logik: block ``index`` is ``[run_start + index*24h, run_start + (index+1)*24h)``
       in absolute UTC hours. A daylight-saving night is 24 real hours again and Home
       Assistant's zone draws no boundary. The part before ``evaluated_at`` is cut
