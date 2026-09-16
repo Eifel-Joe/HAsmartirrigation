@@ -1,25 +1,28 @@
-"""Expected precipitation over a run's calendar days.
+"""Expected precipitation over a run's rolling 24-hour blocks.
 
-Pure arithmetic -- no Home Assistant import -- so the window can be checked
-against hand-computed numbers. The precipitation skip guard hands it the
-configured client's hourly precipitation series and its dated daily entries,
-and Home Assistant's own time zone decides which calendar days a run covers.
+Pure arithmetic -- no Home Assistant import, and no time zone at all -- so the
+window can be checked against hand-computed numbers. The precipitation skip
+guard hands it the configured client's hourly precipitation series and its
+dated daily entries.
 
-The window starts at the run's own local DATE and spans ``days`` calendar days
-from there. The guard used to sum whole days out of ``get_forecast_data``,
+The window starts at the run itself and spans ``days`` blocks of 24 absolute
+hours from there. The guard used to sum whole days out of ``get_forecast_data``,
 which by contract starts tomorrow; evaluated at dispatch on the morning of a
 run, that put the first day of the window one day AFTER the run, so the day it
-rained was never examined (#137). Hours before the evaluation are cut off, so a
-run that starts in the evening with a one-day window sees only the rest of its
-own day.
+rained was never examined (#137). Measuring instead in local calendar dates
+fixed that but tied the look-ahead to the hour of the run: with a look-ahead of
+1 an evening run saw only the rest of its own date, which on upgrade would have
+turned "tomorrow" into "almost nothing" for every install that waters in the
+evening. Hours before the evaluation are still cut off, because a forecast says
+nothing about hours already past.
 
 Known imprecisions, each bounded:
 
 * Pirate Weather's hourly points are read as ending at their stamp, which its
-  client marks as assumed; if they begin there, the run date's total is off by
-  one hour of rain at each end. Its daily spans run from one block's time to
-  the next, read as local midnight as the API documentation describes it --
-  taken from the documentation, not measured against a live response.
+  client marks as assumed -- taken from the documentation, not measured; if they
+  begin there, a block's total is off by one hour of rain at each end. Measured
+  against a live response, its first stamp falls on the hour the fetch began in,
+  and its daily spans run from one block's time to the next at local midnight.
 * Open-Meteo converts its local stamps with the document's single
   ``utc_offset_seconds``, so hours after a daylight-saving change inside the
   document sit an hour off.
@@ -30,13 +33,13 @@ Known imprecisions, each bounded:
   the total is short while the day reports as complete. It under-counts, which
   errs towards watering, and only a window reaching that date sees it.
 * Pirate Weather's hourly block, fetched without ``extend=hourly``, and Met
-  Office's hourly document reach 48 hours. The daily entry for the day such a
-  series ends in starts before that end and is left out, so the rest of that
-  day is uncovered. Checked on the run's date, a window of three or more days
-  loses most of its third day while the first two are complete; a preview the
-  evening before loses a few hours of the second. It under-counts, which errs
-  towards watering. OWM (five days, three-hourly) and Open-Meteo (seven days)
-  are not affected.
+  Office's hourly document reach 48 hours from the fetch. The daily entry for
+  the day such a series ends in starts before that end and is left out, so
+  whatever the series does not reach stays uncovered. Evaluated at the run, that
+  is exactly the first two blocks: a look-ahead of three or more loses its third
+  block whole, and a preview some hours before the run loses those hours from
+  the end of its second. It under-counts, which errs towards watering. OWM (five
+  days, three-hourly) and Open-Meteo (seven days) are not affected.
 * ``day_projection.forecast_rain_mm`` integrates the same series for the
   next-run projection but declines when the series starts after the span. Here
   the first sample reaches back one step, which is what lets a three-hourly
@@ -54,6 +57,7 @@ from .const import FORECAST_DAY_END, FORECAST_DAY_START, MAPPING_PRECIPITATION
 
 _UTC = datetime.timezone.utc
 _SECONDS_PER_HOUR = 3600.0
+_DAY = datetime.timedelta(hours=24)
 # A covered span within this many seconds of the requested one counts as whole.
 _COVERAGE_TOLERANCE_SECONDS = 1.0
 
@@ -62,9 +66,10 @@ class ExpectedRain(NamedTuple):
     """Forecast rain over a run's window, and how much of the window was covered."""
 
     mm: float
-    # The run's own date was fully covered by the hourly series or daily entries.
-    run_date_covered: bool
-    # Every day of the window was fully covered.
+    # The first 24 hours from the run's start were fully covered (what is left of
+    # them after the evaluation moment, that is).
+    first_24h_covered: bool
+    # Every 24-hour block of the window was fully covered.
     complete: bool
 
 
@@ -92,28 +97,36 @@ def day_span(entry):
     return start, end
 
 
-def _local_midnight_utc(day: datetime.date, tz) -> datetime.datetime:
-    # Built in the zone, then converted: subtracting two datetimes that share one
-    # ZoneInfo is wall-clock arithmetic and would give a 25-hour day 24 hours.
-    return datetime.datetime(day.year, day.month, day.day, tzinfo=tz).astimezone(_UTC)
+def window_intervals(run_start, days, evaluated_at):
+    """``[(index, start, end)]`` in UTC: rolling 24-hour blocks from the run's start.
 
-
-def window_intervals(run_start, days, tz, evaluated_at):
-    """``[(index, start, end)]`` in UTC for the run's local date and the days after it.
-
-    Each day runs from local midnight to the next, so a daylight-saving change
-    gives it 23 or 25 hours. The part before ``evaluated_at`` is cut off, because
-    a forecast says nothing about hours that have already passed; a day that is
-    entirely past is left out. ``index`` 0 is the run's own date.
+    Wurzel: the window used to be the run's LOCAL calendar date and the dates after
+      it. That made the setting mean different things at different hours: with a
+      look-ahead of 1 an evening run saw only the last hours of its own date, so
+      every install watering in the evening would have gone from seeing tomorrow to
+      seeing almost nothing, silently, on upgrade (JustChr on the pull request).
+    Fix-Logik: block ``index`` is ``[run_start + index*24h, run_start + (index+1)*24h)``
+      in absolute UTC hours. A daylight-saving night is 24 real hours again and Home
+      Assistant's zone draws no boundary. The part before ``evaluated_at`` is cut
+      off, because a forecast says nothing about hours already past; a block with
+      less than the coverage tolerance left is dropped, so a first block wholly in
+      the past disappears and ``index`` 0 is then missing from the list.
+    NOT-TO-DO: do not add the offset to a zone-aware ``run_start`` without
+      converting to UTC first -- adding a day to a ``ZoneInfo`` datetime is
+      wall-clock arithmetic and a 25-hour night would come out as 24 hours of
+      window shifted by one. And do not flatten the result to plain ``(start, end)``
+      pairs: ``index`` is what tells a shrunken first block from a missing one, and
+      with a look-ahead of 2 or more nothing else does.
+    siehe tests/test_forecast_window.py::test_a_first_block_entirely_in_the_past_is_not_covered
     """
-    run_date = run_start.astimezone(tz).date()
+    start_utc = run_start.astimezone(_UTC)
     evaluated = evaluated_at.astimezone(_UTC)
     out = []
     for index in range(max(1, int(days))):
-        day = run_date + datetime.timedelta(days=index)
-        start = max(_local_midnight_utc(day, tz), evaluated)
-        end = _local_midnight_utc(day + datetime.timedelta(days=1), tz)
-        if start < end:
+        block_start = start_utc + index * _DAY
+        start = max(block_start, evaluated)
+        end = block_start + _DAY
+        if (end - start).total_seconds() > _COVERAGE_TOLERANCE_SECONDS:
             out.append((index, start, end))
     return out
 
@@ -203,17 +216,17 @@ def _entries_behind(daily, series_end):
     return out
 
 
-def expected_rain(*, run_start, evaluated_at, days, tz, hourly, daily) -> ExpectedRain:
-    """Forecast precipitation on the run's local date and the ``days - 1`` after it.
+def expected_rain(*, run_start, evaluated_at, days, hourly, daily) -> ExpectedRain:
+    """Forecast precipitation over ``days`` 24-hour blocks from the run's start.
 
     The hourly series is integrated wherever it reaches. Dated daily entries that
     start after it fill in, each counted by the share of its own span that falls
-    inside the window -- a UTC-day entry thus contributes to a local date in
-    proportion to their overlap. Coverage is reported per day so the caller can
-    refuse to decide on a run date nothing forecast; a run date already past at
-    the evaluation counts as uncovered.
+    inside the window -- a UTC-day entry thus contributes to a block in proportion
+    to their overlap. Coverage is reported per block so the caller can refuse to
+    decide on a first 24 hours nothing forecast; a first block already past at the
+    evaluation counts as uncovered.
     """
-    intervals = window_intervals(run_start, days, tz, evaluated_at)
+    intervals = window_intervals(run_start, days, evaluated_at)
     segments = _hourly_segments(hourly)
     series_end = segments[-1][1] if segments else None
     pieces = [(start, end, rate / _SECONDS_PER_HOUR) for start, end, rate in segments]
@@ -222,8 +235,8 @@ def expected_rain(*, run_start, evaluated_at, days, tz, hourly, daily) -> Expect
         for start, end, mm in _entries_behind(daily, series_end)
     ]
     total = 0.0
-    run_date_covered = bool(intervals) and intervals[0][0] == 0
-    complete = run_date_covered
+    first_24h_covered = bool(intervals) and intervals[0][0] == 0
+    complete = first_24h_covered
     for index, start, end in intervals:
         covered = 0.0
         for piece_start, piece_end, per_second in pieces:
@@ -233,5 +246,5 @@ def expected_rain(*, run_start, evaluated_at, days, tz, hourly, daily) -> Expect
         if covered < (end - start).total_seconds() - _COVERAGE_TOLERANCE_SECONDS:
             complete = False
             if index == 0:
-                run_date_covered = False
-    return ExpectedRain(total, run_date_covered, complete)
+                first_24h_covered = False
+    return ExpectedRain(total, first_24h_covered, complete)
