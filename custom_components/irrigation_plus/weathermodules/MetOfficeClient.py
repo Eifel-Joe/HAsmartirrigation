@@ -280,6 +280,20 @@ class MetOfficeClient:  # pylint: disable=invalid-name
           asked of it, while resolution is worth keeping everywhere else. Where
           neither reaches the target, or both do, that swap buys no coverage and
           the fetch times decide alone.
+          The price of that rule, recorded so it can be overruled: the guard's
+          target is the WHOLE window, the run's start plus the look-ahead times
+          24 h, while only the FIRST of those 24-hour blocks gates its decision.
+          The hourly product runs 48 h from its own fetch and is read up to one
+          cache lifetime later, so from a look-ahead of 2 it essentially never
+          attains that target while the three-hourly one does -- the coarser
+          document then serves the decisive first block as well, all but always.
+          Its three-hour buckets place rain only to within a step, and a bucket
+          straddling the run's start or the window's end is counted by overlap,
+          so up to one step's rain can move across either edge. Kept because the
+          threshold compares a TOTAL over the whole window, not a first block:
+          covering the later blocks is what makes that total right, and a target
+          of only the first block would buy the finer placing back at the cost
+          of a total summed over hours no series reached.
         NOT-TO-DO: do not fetch here; the accessors read already-fetched documents
           only. And do not simply take the later fetch: the calculation's forecast
           fetch follows the update cycle by minutes and would swap the finer

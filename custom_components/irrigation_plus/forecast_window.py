@@ -16,7 +16,8 @@ turned "tomorrow" into "almost nothing" for every install that waters in the
 evening. Hours before the evaluation are still cut off, because a forecast says
 nothing about hours already past.
 
-Known imprecisions, each bounded:
+Known imprecisions, each bounded. All but the last under-count, which errs
+towards watering; the last one is the exception and is marked as such:
 
 * Pirate Weather's hourly points are read as ending at their stamp, which its
   client marks as assumed: that reading is taken from the documentation, not
@@ -54,6 +55,33 @@ Known imprecisions, each bounded:
   the first sample reaches back one step, which is what lets a three-hourly
   series cover the hours just after a fetch. The two can disagree on whether a
   span is covered; the difference is deliberate, do not fix one side only.
+* THE EXCEPTION, and the only one here that errs towards SKIPPING rather than
+  watering: a daily entry admitted by ``_entries_behind`` is charged to a block
+  in PROPORTION to its overlap with it, so an entry whose span only pokes into
+  the window contributes a share of its total although the forecast places that
+  rain across hours the window does not cover. A skip can therefore be built out
+  of rain forecast for hours outside the window. Bounded by the total of an
+  entry straddling an end of the window times the share of its span that lies
+  inside -- one entry per end at most, since no client's daily entries overlap
+  each other, and in practice only the far end: an entry meeting the near one
+  would have to start behind a series that already ended before the window. Only
+  Pirate Weather and Met Office can produce it, because an entry reaches the
+  fill-in path only where its span starts strictly AFTER the hourly series ends,
+  and OWM and Open-Meteo build their daily list out of the same document their
+  hourly series comes from, so no entry of theirs lies behind it. Measured
+  2026-09-16 through Pirate Weather itself: 48 hourly entries at 0.0 mm/h
+  ending 2026-09-14 03:00Z, dispatch 06:19 local on 2026-09-12 (04:19Z),
+  look-ahead 3, and one daily entry for the local 15th carrying 12 mm whose
+  span begins after the series ends and overlaps the window by 6 h 19 min of
+  its 24 h -- observed 3.16 mm against a 2 mm threshold, the run skipped
+  although no hour the forecast covers holds any rain at all. ``complete`` is False in such a case, but that is
+  debug-logged only and does not hold the decision back. The pro-rating itself
+  is not the fault: it is the same arithmetic that lets a partly covered block
+  count at all, the integration model working as designed on an input whose
+  resolution is a whole day. Counting an entry only where its span lies wholly
+  inside the window would trade this for dropping real rain at every window
+  edge, and a share of the total is the expected value when a day's total is
+  all the forecast gives.
 """
 
 from __future__ import annotations

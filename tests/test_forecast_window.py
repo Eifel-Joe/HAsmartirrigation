@@ -133,6 +133,27 @@ def test_a_gap_in_the_series_is_a_hole_not_a_stretch_of_the_next_rate():
     assert rain.complete is False
 
 
+def test_a_gap_at_the_START_of_the_series_is_a_hole_too():
+    # The hole case above puts its gap between two later samples, where each
+    # neighbour is capped against the other by the series' smallest spacing. The
+    # FIRST sample has no earlier stamp to be capped against, so its reach is the
+    # one place the step alone decides -- taken from the gap to its neighbour
+    # instead, it would reach back over that gap and claim hours nothing
+    # forecast. Here both distances are the same six hours: the series' first
+    # stamp is 06:00Z, its second 12:00Z, and the window starts 00:00Z. One step
+    # back, the sample covers 05:00-06:00Z and its 6 mm/h is 6 mm; reaching back
+    # to the window's start it would read 36 mm, six times the water, out of
+    # five hours no sample covers -- and report them as forecast.
+    at = _utc(2026, 9, 13, 0, 0)
+    series = [(_utc(2026, 9, 13, 6, 0), 6.0), (_utc(2026, 9, 13, 12, 0), 0.0)]
+    series += _hourly(_utc(2026, 9, 13, 12, 0), 12, 0.0)  # 13:00Z..24:00Z
+    rain = expected_rain(run_start=at, evaluated_at=at, days=1, hourly=series, daily=[])
+    # Covered: 05:00-06:00Z, 11:00-12:00Z and 12:00-24:00Z = 14 of 24 hours.
+    assert rain.mm == pytest.approx(6.0)
+    assert rain.first_24h_covered is False
+    assert rain.complete is False
+
+
 @pytest.mark.parametrize(
     "rates", [(4.0, 0.0), (0.0, 4.0)], ids=["high-first", "low-first"]
 )
@@ -273,7 +294,9 @@ def test_a_daily_entry_is_priced_over_its_own_span(hours):
     # block stamps, so only its span can be 23 or 25 h on a daylight-saving date
     # (it buckets by local midnight). Pricing at a fixed 86400 s instead of the
     # entry's own span over-counts the long day and under-counts the short one --
-    # neither direction is the safe one, unlike this module's other imprecisions.
+    # neither direction is the safe one, unlike the under-counting imprecisions
+    # the module's docstring lists (the pro-rated daily entry there is the other
+    # one that can go the unsafe way).
     at = _utc(2026, 9, 13, 0, 0)
     entry = {
         FORECAST_DAY_START: at,

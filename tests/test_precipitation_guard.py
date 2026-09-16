@@ -65,6 +65,10 @@ THE_EVENING_AFTER = _local(2026, 9, 13, 22, 0)
 # Every boundary test below evaluates here, the evening before the run, so the
 # evaluation never clips the window and the rain moment is the only variable.
 THE_EVENING_BEFORE = _local(2026, 9, 12, 20, 0)
+# Rain in the hour ending 08:00 local on the 13th (05:00-06:00Z): after the RUN
+# begins at 04:20Z, so inside its first 24 hours, but already past by the time
+# the preview below asks at 10:00 local (08:00Z).
+ALREADY_PAST_AT_THE_PREVIEW = _local(2026, 9, 13, 8, 0)
 
 
 def _forecast_days(rain_on):
@@ -179,6 +183,27 @@ async def test_the_window_is_anchored_at_the_run_not_at_the_evaluation(berlin):
         )
     assert result["observed"] == 2.15
     assert result["would_skip"] is True
+
+
+async def test_a_preview_after_the_run_started_leaves_out_the_rain_already_past(berlin):
+    # What clips a block's start is the EVALUATION moment, and only a preview
+    # asked after the run began tells that moment from the run's start: at
+    # dispatch the two are one instant, and every other preview here is asked
+    # before its run, where the clip falls outside the window and changes
+    # nothing. Block 0 runs 13th 04:20Z..14th 04:20Z; asked at 10:00 local
+    # (08:00Z) it is clipped to 08:00Z..14th 04:20Z, and the 2.15 mm forecast for
+    # 05:00-06:00Z falls inside the 3 h 40 min the clip takes off. Those hours
+    # are past: the rain has fallen or it has not, and a forecast for them
+    # decides nothing. Measured from the run's start without the clip, the same
+    # series reads 2.15 and the run is skipped for rain already gone by.
+    with freeze_time(_local(2026, 9, 13, 10, 0)):
+        result = await _coordinator(
+            _client(ALREADY_PAST_AT_THE_PREVIEW)
+        )._eval_precipitation(_config(), RUN)
+    # The series covers the whole clipped block, so the guard really decides
+    # rather than sitting the run out with observed None.
+    assert result["available"] is True
+    assert (result["observed"], result["would_skip"]) == (0.0, False)
 
 
 async def test_rain_before_the_run_starts_does_not_count(berlin):
