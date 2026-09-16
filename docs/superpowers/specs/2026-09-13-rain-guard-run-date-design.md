@@ -453,3 +453,49 @@ dieser Suite keinen Präzedenzfall.
 - **`day_projection.forecast_rain_mm`** liest dieselben Dokumente mit einer zweiten,
   strengeren Reichweitenregel. Deren Spanne ist „jetzt bis zum nächsten
   Entscheidungspunkt", der Umbau hebt ihre Anforderung also nicht an.
+
+## Nachtrag 2026-09-16: Umsetzung des Umbaus und Schlussprüfung
+
+Umgesetzt auf `fix/rain-guard-run-date`, 15 Commits nach dem Merge von master, subagent-getrieben
+mit Spec- und Qualitätsprüfung je Task, danach eine Schlussprüfung über den ganzen Branch (sechs
+Blickwinkel, jeder Befund oberhalb „minor" von zwei Gegenprüfern bearbeitet). Gepusht und auf #146
+beantwortet am 2026-09-16.
+
+**Abweichungen vom Plan:**
+
+- **Abdeckungsziel erst in Task 6, nicht in Task 2.** Die Test-Doubles im Wächtertest sind
+  argumentlose Lambdas; ein `covering_until=` vor der Client-Änderung wäre ein `TypeError`, den
+  `_eval_precipitation` still als „entscheidet nicht" schluckt. Clients, Aufrufer und Doubles kamen
+  deshalb in einem Commit.
+- **DST-Test mit zonenbehafteten Zeitpunkten.** Die Planvorlage nutzte UTC-Literale; nach dem Wegfall
+  der Zone waren beide Fälle identisch und trivial (Mutation „keine UTC-Normalisierung" ließ ihn grün).
+  Die Subtraktion zweier Zeitpunkte mit derselben `ZoneInfo` ignoriert die Zone — ein 25-h-Block
+  meldet sich als 24 h, nur Regen in der 25. Stunde verrät ihn; die Reihe muss überschießen.
+- **Zusätzliche Pins aus den Prüfungen:** Schnitt am Auswertungszeitpunkt auch für Blöcke ab Index 1;
+  `complete` für Mehrblockfenster; angebrochene Stunde am Fensterstart (1,43 mm, neu mit dem
+  Run-Anker); Fenster am Lauf statt an der Auswertung (eigener Test statt Parameter); Reichweite des
+  letzten Dreistundenschritts (ohne Pin 120 h unterschätzt); Messung ab jetzt statt ab Laufstart;
+  Lücke am ANFANG der Reihe.
+- **`bool(intervals) and intervals[0][0] == 0` → `any(index == 0 …)`**: keine unausgesprochene
+  Präfix-Annahme mehr; über 73 205 Kombinationen differenzgetestet, keine Abweichung.
+- **Mutanten-Zahlen für den Tagespreis-Pin im Plan waren falsch** (22,92/21,08). Richtig: 25-h-Spanne
+  22,08 korrekt / 23,00 Mutant, 23-h-Spanne 23,00 / 22,04.
+- **Schwester-Test gebrochen und repariert:** `test_hourly_temperature_forecast.py` prüfte den ganzen
+  URL-Schwanz nach `exclude=`; das angehängte `extend=hourly` las sich als Ausschluss. Der Task hatte nur
+  zwei Testdateien laufen lassen — ab da gehörte die volle Suite in jeden Auftrag.
+- **Code-Kommentar ohne Personennamen**, „Reproduziert mit präpariertem Dokument" statt „gemessen".
+
+**Schlussprüfung — was überlebte:** Met-Office-Ziel = ganzes Fenster (ab Fenster 2 dient fast immer das
+Dreistundendokument, Abwägung im Docstring und PR benannt, JustChr entscheidet); zwei Testlücken
+(geschlossen); die anteilige Tageseintrags-Überlappung als EINZIGE Unschärfe Richtung Überspringen
+(Docstring-Liste korrigiert, Rechnung bewusst belassen). Widerlegt: „`covering_until` macht ein
+optionales Argument zur Pflicht" (beide Gegenprüfer). Teils: Wochenpläne zeigen die Vorschau als nicht
+verfügbar, bis der Lauf in Reichweite kommt (als Grenze benannt).
+
+**Mutationssatz am Endstand** (`a205ce96`, skriptgesteuert im Hauptbaum, weil im Worktree
+`custom_components` aus `pytest_homeassistant_custom_component/testing_config` gewinnt): 44 von 45
+beißen; der Überlebende war schlecht gestellt (Ziel hinter beiden Reichweiten), die schärfere Fassung
+beißt. „Ortskalendertage zurück" lässt 25 Tests fallen.
+
+**Belege:** Suite 7 failed / 2906 (master) → 3006 passed / 320 errors, Namen identisch; vitest 616;
+black/ruff grün; dist byte-identisch reproduziert. 100 neue Testfälle gegenüber master.
