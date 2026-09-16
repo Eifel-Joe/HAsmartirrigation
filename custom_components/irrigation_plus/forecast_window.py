@@ -34,18 +34,21 @@ Known imprecisions, each bounded:
   series, that entry lies behind it and counts as covering its whole day, so
   the total is short while the day reports as complete. It under-counts, which
   errs towards watering, and only a window reaching that date sees it.
-* Pirate Weather's hourly block, fetched without ``extend=hourly``, and Met
-  Office's hourly document reach 48 hours from the FETCH, not from the
-  evaluation, and both accessors read a document fetched earlier -- Met Office's
-  up to one cache lifetime, at most three hours, old. The daily entry for the
-  day such a series ends in starts before that end and is left out, so whatever
-  the series does not reach stays uncovered. Evaluated at the run, the series
+* Met Office's hourly document reaches 48 hours from the FETCH, not from the
+  evaluation, and the accessor reads a document fetched earlier -- up to one
+  cache lifetime, at most three hours, old. The daily entry for the day such a
+  series ends in starts before that end and is left out, so whatever the
+  series does not reach stays uncovered. Evaluated at the run, the series
   covers at most the first two blocks, and the document's age eats into that
   from the far end: even at the run itself the tail of the second block can be
   missing, and a look-ahead of three or more loses its third block whole. A
   preview some hours before the run loses those hours as well. It under-counts,
-  which errs towards watering. OWM (five days, three-hourly) and Open-Meteo
-  (seven days) are not affected.
+  which errs towards watering. Pirate Weather used to share this shortfall --
+  its default hourly block is also 48 entries from the fetch -- but its client
+  now always asks for the long block (``extend=hourly``, measured 2026-09-16
+  at 168 entries reaching floor(fetch) + 167 h), so it is affected only past a
+  look-ahead of about six days or a document that many days stale. OWM (five
+  days, three-hourly) and Open-Meteo (seven days) are not affected either.
 * ``day_projection.forecast_rain_mm`` integrates the same series for the
   next-run projection but declines when the series starts after the span. Here
   the first sample reaches back one step, which is what lets a three-hourly

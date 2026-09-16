@@ -1,0 +1,939 @@
+{
+  "currently": {
+    "time": 1789537500,
+    "windSpeed": 2.54,
+    "pressure": 1010.05,
+    "humidity": 0.84,
+    "temperature": 17.38,
+    "dewPoint": 14.6,
+    "precipIntensity": 0.0
+  },
+  "hourly": {
+    "data": [
+      {
+        "time": 1789534800,
+        "temperature": 17.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789538400,
+        "temperature": 17.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789542000,
+        "temperature": 18.0,
+        "precipIntensity": 0.3
+      },
+      {
+        "time": 1789545600,
+        "temperature": 18.4,
+        "precipIntensity": 0.3
+      },
+      {
+        "time": 1789549200,
+        "temperature": 18.6,
+        "precipIntensity": 0.2
+      },
+      {
+        "time": 1789552800,
+        "temperature": 18.9,
+        "precipIntensity": 0.3
+      },
+      {
+        "time": 1789556400,
+        "temperature": 19.0,
+        "precipIntensity": 0.4
+      },
+      {
+        "time": 1789560000,
+        "temperature": 19.2,
+        "precipIntensity": 0.3
+      },
+      {
+        "time": 1789563600,
+        "temperature": 19.3,
+        "precipIntensity": 0.2
+      },
+      {
+        "time": 1789567200,
+        "temperature": 19.5,
+        "precipIntensity": 0.2
+      },
+      {
+        "time": 1789570800,
+        "temperature": 19.4,
+        "precipIntensity": 0.3
+      },
+      {
+        "time": 1789574400,
+        "temperature": 18.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789578000,
+        "temperature": 17.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789581600,
+        "temperature": 16.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789585200,
+        "temperature": 15.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789588800,
+        "temperature": 14.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789592400,
+        "temperature": 14.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789596000,
+        "temperature": 13.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789599600,
+        "temperature": 13.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789603200,
+        "temperature": 13.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789606800,
+        "temperature": 13.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789610400,
+        "temperature": 12.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789614000,
+        "temperature": 12.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789617600,
+        "temperature": 12.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789621200,
+        "temperature": 12.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789624800,
+        "temperature": 12.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789628400,
+        "temperature": 13.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789632000,
+        "temperature": 14.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789635600,
+        "temperature": 15.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789639200,
+        "temperature": 17.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789642800,
+        "temperature": 18.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789646400,
+        "temperature": 18.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789650000,
+        "temperature": 19.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789653600,
+        "temperature": 19.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789657200,
+        "temperature": 19.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789660800,
+        "temperature": 18.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789664400,
+        "temperature": 17.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789668000,
+        "temperature": 16.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789671600,
+        "temperature": 16.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789675200,
+        "temperature": 15.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789678800,
+        "temperature": 14.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789682400,
+        "temperature": 14.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789686000,
+        "temperature": 14.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789689600,
+        "temperature": 13.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789693200,
+        "temperature": 13.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789696800,
+        "temperature": 13.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789700400,
+        "temperature": 13.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789704000,
+        "temperature": 12.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789707600,
+        "temperature": 13.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789711200,
+        "temperature": 13.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789714800,
+        "temperature": 14.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789718400,
+        "temperature": 15.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789722000,
+        "temperature": 16.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789725600,
+        "temperature": 17.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789729200,
+        "temperature": 17.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789732800,
+        "temperature": 18.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789736400,
+        "temperature": 18.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789740000,
+        "temperature": 18.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789743600,
+        "temperature": 18.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789747200,
+        "temperature": 18.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789750800,
+        "temperature": 17.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789754400,
+        "temperature": 15.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789758000,
+        "temperature": 14.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789761600,
+        "temperature": 14.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789765200,
+        "temperature": 13.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789768800,
+        "temperature": 13.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789772400,
+        "temperature": 12.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789776000,
+        "temperature": 12.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789779600,
+        "temperature": 12.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789783200,
+        "temperature": 11.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789786800,
+        "temperature": 11.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789790400,
+        "temperature": 11.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789794000,
+        "temperature": 12.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789797600,
+        "temperature": 12.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789801200,
+        "temperature": 14.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789804800,
+        "temperature": 15.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789808400,
+        "temperature": 17.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789812000,
+        "temperature": 18.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789815600,
+        "temperature": 19.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789819200,
+        "temperature": 20.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789822800,
+        "temperature": 21.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789826400,
+        "temperature": 21.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789830000,
+        "temperature": 20.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789833600,
+        "temperature": 20.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789837200,
+        "temperature": 19.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789840800,
+        "temperature": 18.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789844400,
+        "temperature": 17.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789848000,
+        "temperature": 17.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789851600,
+        "temperature": 16.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789855200,
+        "temperature": 16.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789858800,
+        "temperature": 16.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789862400,
+        "temperature": 15.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789866000,
+        "temperature": 15.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789869600,
+        "temperature": 15.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789873200,
+        "temperature": 15.0,
+        "precipIntensity": 0.5
+      },
+      {
+        "time": 1789876800,
+        "temperature": 14.8,
+        "precipIntensity": 0.4
+      },
+      {
+        "time": 1789880400,
+        "temperature": 14.8,
+        "precipIntensity": 0.5
+      },
+      {
+        "time": 1789884000,
+        "temperature": 15.1,
+        "precipIntensity": 0.4
+      },
+      {
+        "time": 1789887600,
+        "temperature": 15.6,
+        "precipIntensity": 0.3
+      },
+      {
+        "time": 1789891200,
+        "temperature": 16.4,
+        "precipIntensity": 0.4
+      },
+      {
+        "time": 1789894800,
+        "temperature": 17.3,
+        "precipIntensity": 0.5
+      },
+      {
+        "time": 1789898400,
+        "temperature": 17.8,
+        "precipIntensity": 0.4
+      },
+      {
+        "time": 1789902000,
+        "temperature": 18.2,
+        "precipIntensity": 0.5
+      },
+      {
+        "time": 1789905600,
+        "temperature": 18.5,
+        "precipIntensity": 0.7
+      },
+      {
+        "time": 1789909200,
+        "temperature": 18.5,
+        "precipIntensity": 0.6
+      },
+      {
+        "time": 1789912800,
+        "temperature": 18.6,
+        "precipIntensity": 0.7
+      },
+      {
+        "time": 1789916400,
+        "temperature": 18.3,
+        "precipIntensity": 0.5
+      },
+      {
+        "time": 1789920000,
+        "temperature": 17.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789923600,
+        "temperature": 16.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789927200,
+        "temperature": 15.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789930800,
+        "temperature": 14.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789934400,
+        "temperature": 14.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789938000,
+        "temperature": 13.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789941600,
+        "temperature": 13.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789945200,
+        "temperature": 12.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789948800,
+        "temperature": 12.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789952400,
+        "temperature": 12.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789956000,
+        "temperature": 12.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789959600,
+        "temperature": 11.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789963200,
+        "temperature": 11.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789966800,
+        "temperature": 11.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789970400,
+        "temperature": 12.1,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789974000,
+        "temperature": 13.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789977600,
+        "temperature": 13.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789981200,
+        "temperature": 14.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789984800,
+        "temperature": 15.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789988400,
+        "temperature": 16.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789992000,
+        "temperature": 17.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789995600,
+        "temperature": 17.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1789999200,
+        "temperature": 17.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790002800,
+        "temperature": 17.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790006400,
+        "temperature": 16.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790010000,
+        "temperature": 15.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790013600,
+        "temperature": 14.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790017200,
+        "temperature": 14.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790020800,
+        "temperature": 13.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790024400,
+        "temperature": 13.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790028000,
+        "temperature": 12.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790031600,
+        "temperature": 12.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790035200,
+        "temperature": 11.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790038800,
+        "temperature": 11.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790042400,
+        "temperature": 11.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790046000,
+        "temperature": 11.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790049600,
+        "temperature": 10.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790053200,
+        "temperature": 10.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790056800,
+        "temperature": 11.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790060400,
+        "temperature": 12.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790064000,
+        "temperature": 14.0,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790067600,
+        "temperature": 15.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790071200,
+        "temperature": 16.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790074800,
+        "temperature": 17.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790078400,
+        "temperature": 18.3,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790082000,
+        "temperature": 18.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790085600,
+        "temperature": 18.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790089200,
+        "temperature": 18.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790092800,
+        "temperature": 17.8,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790096400,
+        "temperature": 16.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790100000,
+        "temperature": 15.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790103600,
+        "temperature": 14.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790107200,
+        "temperature": 13.7,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790110800,
+        "temperature": 13.2,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790114400,
+        "temperature": 12.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790118000,
+        "temperature": 12.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790121600,
+        "temperature": 12.4,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790125200,
+        "temperature": 11.9,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790128800,
+        "temperature": 11.6,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790132400,
+        "temperature": 11.5,
+        "precipIntensity": 0.0
+      },
+      {
+        "time": 1790136000,
+        "temperature": 11.5,
+        "precipIntensity": 0.0
+      }
+    ]
+  },
+  "daily": {
+    "data": [
+      {
+        "time": 1789509600,
+        "windSpeed": 3.13,
+        "pressure": 1011.41,
+        "humidity": 0.79,
+        "temperatureMax": 19.5,
+        "temperatureMin": 14.2,
+        "dewPoint": 14.13,
+        "precipAccumulation": 0.25
+      },
+      {
+        "time": 1789596000,
+        "windSpeed": 3.45,
+        "pressure": 1013.25,
+        "humidity": 0.75,
+        "temperatureMax": 19.2,
+        "temperatureMin": 12.2,
+        "dewPoint": 10.67,
+        "precipAccumulation": 0.0
+      },
+      {
+        "time": 1789682400,
+        "windSpeed": 3.41,
+        "pressure": 1012.0,
+        "humidity": 0.72,
+        "temperatureMax": 18.6,
+        "temperatureMin": 12.9,
+        "dewPoint": 10.17,
+        "precipAccumulation": 0.0
+      },
+      {
+        "time": 1789768800,
+        "windSpeed": 3.56,
+        "pressure": 1017.24,
+        "humidity": 0.7,
+        "temperatureMax": 21.1,
+        "temperatureMin": 11.8,
+        "dewPoint": 10.34,
+        "precipAccumulation": 0.0
+      },
+      {
+        "time": 1789855200,
+        "windSpeed": 4.63,
+        "pressure": 1018.8,
+        "humidity": 0.75,
+        "temperatureMax": 18.6,
+        "temperatureMin": 13.8,
+        "dewPoint": 11.85,
+        "precipAccumulation": 0.64
+      },
+      {
+        "time": 1789941600,
+        "windSpeed": 5.21,
+        "pressure": 1023.89,
+        "humidity": 0.74,
+        "temperatureMax": 17.6,
+        "temperatureMin": 11.6,
+        "dewPoint": 9.43,
+        "precipAccumulation": 0.0
+      },
+      {
+        "time": 1790028000,
+        "windSpeed": 3.8,
+        "pressure": 1026.64,
+        "humidity": 0.72,
+        "temperatureMax": 18.8,
+        "temperatureMin": 10.7,
+        "dewPoint": 9.15,
+        "precipAccumulation": 0.0
+      },
+      {
+        "time": 1790114400,
+        "windSpeed": 3.13,
+        "pressure": 1026.32,
+        "humidity": 0.77,
+        "temperatureMax": 18.3,
+        "temperatureMin": 11.5,
+        "dewPoint": 10.51,
+        "precipAccumulation": 0.0
+      }
+    ]
+  }
+}
