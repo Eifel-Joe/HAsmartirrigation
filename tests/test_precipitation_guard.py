@@ -139,10 +139,17 @@ async def test_the_rain_day_itself_is_skipped(berlin):
     assert result["would_skip"] is True
 
 
-async def test_the_evening_outlook_for_tomorrow_looks_at_tomorrow(berlin):
+@pytest.mark.parametrize("rain_at", [AFTERNOON, _local(2026, 9, 13, 22, 0)])
+async def test_the_evening_outlook_for_tomorrow_looks_at_tomorrow(berlin, rain_at):
+    # The second moment is the one that pins the ANCHOR. A rolling window from the
+    # evaluation (12th 18:00Z-13th 18:00Z) already reaches the reported afternoon
+    # rain, so that case alone no longer tells the run's start from "now" the way
+    # it did while the window was a calendar date. Rain in the hour ending 22:00
+    # local on the 13th (19:00-20:00Z) lies inside the 24 hours from the RUN
+    # (04:20Z-04:20Z) and outside the 24 hours from the evaluation.
     with freeze_time(_local(2026, 9, 12, 20, 0)):
-        result = await _coordinator(_client())._eval_precipitation(
-            _config(), _local(2026, 9, 13, 6, 20)
+        result = await _coordinator(_client(rain_at))._eval_precipitation(
+            _config(), RUN
         )
     assert result["observed"] == 2.15
     assert result["would_skip"] is True
