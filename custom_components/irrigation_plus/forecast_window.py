@@ -241,6 +241,13 @@ def expected_rain(*, run_start, evaluated_at, days, hourly, daily) -> ExpectedRa
     segments = _hourly_segments(hourly)
     series_end = segments[-1][1] if segments else None
     pieces = [(start, end, rate / _SECONDS_PER_HOUR) for start, end, rate in segments]
+    # NOT-TO-DO: do not price a daily entry over a fixed 86400 s. Three of the four
+    #   clients build their span as a UTC date plus one day, which is always 24 h,
+    #   so the constant passes every test built on them -- but Pirate Weather takes
+    #   both ends from its own block stamps, and a daylight-saving day is 23 or 25
+    #   hours there. day_span converts both ends to UTC before returning them, so
+    #   (end - start) is real elapsed time and is the divisor that matches the mm.
+    # siehe tests/test_forecast_window.py::test_a_daily_entry_is_priced_over_its_own_span
     pieces += [
         (start, end, mm / (end - start).total_seconds())
         for start, end, mm in _entries_behind(daily, series_end)

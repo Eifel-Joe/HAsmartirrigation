@@ -260,6 +260,32 @@ def test_a_daily_entry_counts_against_a_block_by_overlap():
     assert rain.first_24h_covered is False
 
 
+@pytest.mark.parametrize(
+    "hours",
+    [
+        pytest.param(25.0, id="25h-day"),
+        pytest.param(23.0, id="23h-day"),
+    ],
+)
+def test_a_daily_entry_is_priced_over_its_own_span(hours):
+    # Three of the four clients build FORECAST_DAY_END as their UTC date plus one
+    # day, always exactly 24 h; only Pirate Weather takes both ends from its own
+    # block stamps, so only its span can be 23 or 25 h on a daylight-saving date
+    # (it buckets by local midnight). Pricing at a fixed 86400 s instead of the
+    # entry's own span over-counts the long day and under-counts the short one --
+    # neither direction is the safe one, unlike this module's other imprecisions.
+    at = _utc(2026, 9, 13, 0, 0)
+    entry = {
+        FORECAST_DAY_START: at,
+        FORECAST_DAY_END: at + datetime.timedelta(hours=hours),
+        MAPPING_PRECIPITATION: 23.0,
+    }
+    rain = expected_rain(
+        run_start=at, evaluated_at=at, days=1, hourly=[], daily=[entry]
+    )
+    assert rain.mm == pytest.approx(23.0 * min(24, hours) / hours)
+
+
 def test_an_entry_for_a_day_already_past_contributes_nothing():
     # A daily list parsed before midnight and served from cache afterwards still
     # holds yesterday's entry. Its span no longer meets the window, so it cannot
