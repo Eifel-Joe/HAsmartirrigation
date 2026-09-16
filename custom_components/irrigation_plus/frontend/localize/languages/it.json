@@ -1014,7 +1014,7 @@
     "threshold_description": "Precipitazione totale minima prevista (in mm) sulla finestra di previsione per saltare l'irrigazione.",
     "lookahead_label": "Finestra di previsione (giorni)",
     "lookahead_help": {
-      "skip": "Quanti giorni di previsione sommare nel controllo della pioggia, a partire dal giorno dell'irrigazione: 1 = il giorno dell'irrigazione, 2 = quel giorno e il successivo, e così via. Le ore già trascorse non sono previste e non vengono contate, quindi un'irrigazione che parte la sera ha bisogno di 2 per vedere la mattina seguente.",
+      "skip": "Quante fasce di 24 ore di previsione sommare nel controllo della pioggia, contate dal momento in cui inizia l'irrigazione: 1 = le 24 ore dall'inizio dell'irrigazione, 2 = le 48 ore successive, e così via.",
       "water_less": "Quanti giorni di previsione sommare per accorciare l'irrigazione, a partire dal giorno successivo al calcolo: 1 = quel giorno, 2 = quel giorno e il successivo, e così via."
     },
     "temp_section_title": "Salta per bassa temperatura",

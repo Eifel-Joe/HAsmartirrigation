@@ -1023,7 +1023,7 @@
     "threshold_description": "Minimum total precipitation (in mm) forecast across the look-ahead window to skip irrigation.",
     "lookahead_label": "Forecast look-ahead (days)",
     "lookahead_help": {
-      "skip": "How many days of forecast to add up when checking for rain, starting with the day the run takes place: 1 = the day of the run, 2 = that day and the next, and so on. Hours that have already passed are not forecast and do not count, so a run that starts in the evening needs 2 to see the next morning.",
+      "skip": "How many 24-hour steps of forecast to add up when checking for rain, counted from the moment the run starts: 1 = the 24 hours from the start of the run, 2 = the next 48 hours, and so on.",
       "water_less": "How many forecast days to add up when shortening the run, starting with the day after the calculation: 1 = that day, 2 = that day and the next, and so on."
     },
     "temp_section_title": "Skip on low temperature",

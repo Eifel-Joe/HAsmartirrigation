@@ -1014,7 +1014,7 @@
     "threshold_description": "Minimum total forventet nedbør (i mm) over varslingsvinduet for å hoppe over vanning.",
     "lookahead_label": "Varslingsvindu (dager)",
     "lookahead_help": {
-      "skip": "Hvor mange varseldøgn som summeres ved regnsjekken, fra og med dagen vanningen skjer: 1 = vanningsdagen, 2 = den dagen og neste, og så videre. Timer som allerede er passert, varsles ikke og telles ikke med, så en vanning som starter om kvelden trenger 2 for å se neste morgen.",
+      "skip": "Hvor mange varseldøgn som summeres ved regnsjekken, regnet fra tidspunktet vanningen starter: 1 = de 24 timene fra vanningen starter, 2 = de neste 48 timene, og så videre.",
       "water_less": "Hvor mange varseldøgn som summeres når vanningen forkortes, fra og med dagen etter beregningen: 1 = den dagen, 2 = den dagen og neste, og så videre."
     },
     "temp_section_title": "Hopp over ved lav temperatur",

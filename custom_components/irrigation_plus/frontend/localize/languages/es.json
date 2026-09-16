@@ -1014,7 +1014,7 @@
     "threshold_description": "Precipitación total mínima prevista (en mm) en la ventana de previsión para omitir el riego.",
     "lookahead_label": "Ventana de previsión (días)",
     "lookahead_help": {
-      "skip": "Cuántos días de previsión se suman al comprobar la lluvia, empezando por el día en que se realiza el riego: 1 = el día del riego, 2 = ese día y el siguiente, etc. Las horas ya pasadas no se prevén y no cuentan, así que un riego que empieza por la noche necesita 2 para ver la mañana siguiente.",
+      "skip": "Cuántos tramos de 24 horas de previsión se suman al comprobar la lluvia, contados desde el momento en que empieza el riego: 1 = las 24 horas desde el inicio del riego, 2 = las siguientes 48 horas, etc.",
       "water_less": "Cuántos días de previsión se suman al acortar el riego, empezando por el día siguiente al cálculo: 1 = ese día, 2 = ese día y el siguiente, etc."
     },
     "temp_section_title": "Omitir por temperatura baja",

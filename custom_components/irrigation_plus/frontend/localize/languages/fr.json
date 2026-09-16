@@ -1014,7 +1014,7 @@
     "threshold_description": "Précipitations totales minimales prévues (en mm) sur la fenêtre de prévision pour ignorer l'irrigation.",
     "lookahead_label": "Fenêtre de prévision (jours)",
     "lookahead_help": {
-      "skip": "Nombre de jours de prévision additionnés lors de la vérification de la pluie, en commençant par le jour de l'arrosage : 1 = le jour de l'arrosage, 2 = ce jour et le suivant, etc. Les heures déjà écoulées ne sont pas prévues et ne comptent pas ; un arrosage qui démarre le soir a donc besoin de 2 pour voir le lendemain matin.",
+      "skip": "Nombre de tranches de 24 heures de prévision additionnées lors de la vérification de la pluie, décompté à partir du moment où l'arrosage démarre : 1 = les 24 heures depuis le début de l'arrosage, 2 = les 48 heures suivantes, etc.",
       "water_less": "Nombre de jours de prévision additionnés pour raccourcir l'arrosage, en commençant par le jour qui suit le calcul : 1 = ce jour, 2 = ce jour et le suivant, etc."
     },
     "temp_section_title": "Ignorer par basse température",

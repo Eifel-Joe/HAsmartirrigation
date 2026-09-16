@@ -1014,7 +1014,7 @@
     "threshold_description": "Minimale totale verwachte neerslag (in mm) over het vooruitblik-venster om irrigatie over te slaan.",
     "lookahead_label": "Vooruitblik (dagen)",
     "lookahead_help": {
-      "skip": "Hoeveel verwachtingsdagen worden opgeteld bij de regencontrole, te beginnen met de dag waarop wordt beregend: 1 = de dag van de beregening, 2 = die dag en de volgende, enzovoort. Voor uren die al voorbij zijn, is er geen verwachting en ze tellen niet mee; een beregening die 's avonds start, heeft daarom 2 nodig om de volgende ochtend te zien.",
+      "skip": "Hoeveel blokken van 24 uur aan verwachting worden opgeteld bij de regencontrole, geteld vanaf het moment waarop de beregening start: 1 = de 24 uur vanaf het begin van de beregening, 2 = de volgende 48 uur, enzovoort.",
       "water_less": "Hoeveel verwachtingsdagen worden opgeteld om de beregening in te korten, te beginnen met de dag na de berekening: 1 = die dag, 2 = die dag en de volgende, enzovoort."
     },
     "temp_section_title": "Overslaan bij lage temperatuur",

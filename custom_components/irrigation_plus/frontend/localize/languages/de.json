@@ -1014,7 +1014,7 @@
     "threshold_description": "Mindestmenge an prognostiziertem Gesamtniederschlag (in mm) über das Vorhersagefenster, um die Bewässerung zu überspringen.",
     "lookahead_label": "Vorhersage-Fenster (Tage)",
     "lookahead_help": {
-      "skip": "Wie viele Vorhersagetage beim Regen-Check zusammengezählt werden, beginnend mit dem Tag, an dem der Lauf stattfindet: 1 = der Tag des Laufs, 2 = dieser Tag und der nächste usw. Bereits vergangene Stunden werden nicht vorhergesagt und zählen nicht mit; ein Lauf am Abend braucht deshalb 2, um den nächsten Morgen zu sehen.",
+      "skip": "Wie viele 24-Stunden-Schritte der Vorhersage beim Regen-Check zusammengezählt werden, gerechnet ab dem Beginn des Laufs: 1 = die 24 Stunden ab Laufbeginn, 2 = die nächsten 48 Stunden usw.",
       "water_less": "Wie viele Vorhersagetage beim Kürzen des Laufs zusammengezählt werden, beginnend mit dem Tag nach der Berechnung: 1 = dieser Tag, 2 = dieser Tag und der nächste usw."
     },
     "temp_section_title": "Bei niedriger Temperatur überspringen",

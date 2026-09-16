@@ -1014,7 +1014,7 @@
     "threshold_description": "Minimálne celkové predpokladané zrážky (v mm) v okne predpovede na preskočenie závlahy.",
     "lookahead_label": "Okno predpovede (dni)",
     "lookahead_help": {
-      "skip": "Koľko dní predpovede sa spočíta pri kontrole dažďa, počnúc dňom zavlažovania: 1 = deň zavlažovania, 2 = tento deň a nasledujúci atď. Hodiny, ktoré už uplynuli, sa nepredpovedajú a nezapočítavajú sa, preto zavlažovanie, ktoré začína večer, potrebuje 2, aby videlo nasledujúce ráno.",
+      "skip": "Koľko 24-hodinových úsekov predpovede sa spočíta pri kontrole dažďa, počítané od okamihu, keď zavlažovanie začína: 1 = 24 hodín od začiatku zavlažovania, 2 = nasledujúcich 48 hodín atď.",
       "water_less": "Koľko dní predpovede sa spočíta pri skracovaní zavlažovania, počnúc dňom po výpočte: 1 = tento deň, 2 = tento deň a nasledujúci atď."
     },
     "temp_section_title": "Preskočiť pri nízkej teplote",

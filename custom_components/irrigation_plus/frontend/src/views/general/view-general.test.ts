@@ -130,9 +130,10 @@ describe("view-general: a failed zones fetch does not take the page down", () =>
 });
 
 describe("view-general: the look-ahead help follows the rain mode", () => {
-  // The same setting serves two modes that count from different days: the skip
-  // guard from the run's own date, forecast weighting from the day after the
-  // calculation. One help text was wrong for one of them.
+  // The same setting serves two modes that count differently: the skip guard
+  // in rolling 24-hour steps from the moment the run starts, forecast
+  // weighting from the day after the calculation. One help text was wrong
+  // for one of them.
   function weatherView(config: any) {
     const el: any = new View();
     el.hass = { language: "en" };
@@ -142,13 +143,13 @@ describe("view-general: the look-ahead help follows the rain mode", () => {
     return el;
   }
 
-  it("counts from the run's own date when the run is skipped on rain", () => {
+  it("counts from the moment the run starts when the run is skipped on rain", () => {
     const text = flatten(
       weatherView({
         skip_irrigation_on_precipitation: true,
       })._renderWeatherSkipCard(),
     );
-    expect(text).toContain("starting with the day the run takes place");
+    expect(text).toContain("counted from the moment the run starts");
     expect(text).not.toContain("starting with the day after the calculation");
   });
 
@@ -160,6 +161,6 @@ describe("view-general: the look-ahead help follows the rain mode", () => {
       })._renderWeatherSkipCard(),
     );
     expect(text).toContain("starting with the day after the calculation");
-    expect(text).not.toContain("starting with the day the run takes place");
+    expect(text).not.toContain("counted from the moment the run starts");
   });
 });
