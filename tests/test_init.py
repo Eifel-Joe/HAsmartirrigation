@@ -595,7 +595,7 @@ class TestPrecipitationLookAhead:
         mock_config_entry: ConfigEntry,
         mock_session: AsyncMock,
     ) -> None:
-        """1-day window sees only the run's own date; 2-day window adds the next day."""
+        """1-day window sees the first 24 hours from the run; 2 adds the next 24."""
         cfg = {
             const.CONF_SKIP_IRRIGATION_ON_PRECIPITATION: True,
             const.CONF_PRECIPITATION_THRESHOLD_MM: 2.0,
@@ -623,22 +623,22 @@ class TestPrecipitationLookAhead:
         hour = datetime.timedelta(hours=1)
         frozen = datetime.datetime(2026, 9, 13, 18, 0, tzinfo=datetime.timezone.utc)
         with freeze_time(frozen):
-            # Built in Home Assistant's zone, whatever the fixtures set: the run's
-            # date is dry, and 5 mm fall in the hour ending 10:00 the next day.
-            today = dt_util.now().date()
-            midnight = dt_util.as_utc(dt_util.start_of_local_day(today))
-            rain_at = (
-                dt_util.as_utc(
-                    dt_util.start_of_local_day(today + datetime.timedelta(days=1))
-                )
-                + 10 * hour
-            )
+            # The window is 24-hour blocks from the run's start, so build the
+            # series from the run rather than from a local midnight: 5 mm in the
+            # hour ending 30 hours out lie in the SECOND block whatever zone the
+            # fixtures set, and the first block stays dry. The series reaches one
+            # step back from its first stamp, so it covers the first block whole.
+            rain_at = frozen + 30 * hour
             hourly = [
-                (midnight + h * hour, 5.0 if midnight + h * hour == rain_at else 0.0)
-                for h in range(1, 49)
+                (frozen + h * hour, 5.0 if frozen + h * hour == rain_at else 0.0)
+                for h in range(32)
             ]
+            # A dated daily entry only so the guard has a forecast at all; it
+            # starts after the series and carries no rain.
             day_after = dt_util.as_utc(
-                dt_util.start_of_local_day(today + datetime.timedelta(days=2))
+                dt_util.start_of_local_day(
+                    dt_util.now().date() + datetime.timedelta(days=2)
+                )
             )
             coordinator._WeatherServiceClient = _FakeForecastClient(
                 [
@@ -651,7 +651,7 @@ class TestPrecipitationLookAhead:
                 hourly,
             )
 
-            # 1-day window: only the run's dry date counts -> no skip
+            # 1-day window: only the dry first 24 hours count -> no skip
             res = await coordinator._eval_precipitation(cfg)
             assert res["observed"] == 0.0
             assert res["would_skip"] is False

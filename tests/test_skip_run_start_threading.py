@@ -1,10 +1,10 @@
 """The run's start reaches the precipitation guard from every place that asks.
 
-The guard's window starts at the run's local date, so each caller has to say
-which run it is asking about: dispatch (now, by naming none), the schedule
-projection (its planned start) and the dashboard outlook (the next scheduled
-irrigate run). A preview always names a moment, because the guard reads a
-missing start as dispatch and logs at INFO there.
+The guard's window starts at the run itself and runs 24-hour blocks from there,
+so each caller has to say which run it is asking about: dispatch (now, by naming
+none), the schedule projection (its planned start) and the dashboard outlook (the
+next scheduled irrigate run). A preview always names a moment, because the guard
+reads a missing start as dispatch and logs at INFO there.
 """
 
 import datetime

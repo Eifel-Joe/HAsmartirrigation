@@ -38,9 +38,10 @@ CONF_SKIP_IRRIGATION_ON_PRECIPITATION = "skip_irrigation_on_precipitation"
 CONF_DEFAULT_SKIP_IRRIGATION_ON_PRECIPITATION = False
 CONF_PRECIPITATION_THRESHOLD_MM = "precipitation_threshold_mm"
 CONF_DEFAULT_PRECIPITATION_THRESHOLD_MM = 2.0  # 2mm threshold
-# How many forecast days to sum for forecast rain. The skip guard counts from the
-# run's own local date (1 = the day of the run); forecast weighting sums
-# get_forecast_data, which starts at the day after the calculation (1 = that day).
+# How many forecast days to sum for forecast rain. The skip guard counts 24-hour
+# steps from the run's start (1 = the 24 hours after it begins); forecast weighting
+# sums get_forecast_data, which starts at the day after the calculation (1 = that
+# day).
 CONF_PRECIPITATION_FORECAST_DAYS = "precipitation_forecast_days"
 CONF_DEFAULT_PRECIPITATION_FORECAST_DAYS = 1
 

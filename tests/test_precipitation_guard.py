@@ -1,9 +1,12 @@
-"""The precipitation skip guard examines the run's own date.
+"""The precipitation skip guard examines the 24 hours from the run's start.
 
 Rebuilt from the case reported in #137, in Europe/Berlin. Forecast: 2.15 mm on
 the 13th, window 1 day, threshold 2 mm. The guard used to read the day AFTER the
 run: it skipped the dry 12th for the 13th's rain and let the 13th water, because
 by then it was looking at the 14th.
+
+Europe/Berlin is UTC+2 in September, so a local stamp is two hours earlier in
+UTC; every expectation below is derived from the UTC block bounds.
 
 The zone is set by the ``berlin`` fixture, which each test requests by name. The
 repo's autouse fixtures hand every test a ``hass`` that sets US/Pacific, and a
@@ -45,16 +48,20 @@ def _local(*args):
 
 # The reported forecast's rain on the 13th, in the hour ending 14:00 local.
 AFTERNOON = _local(2026, 9, 13, 14, 0)
-# Rain in the first hour of the 13th: 00:00-01:00 local is 22:00-23:00 UTC on the
-# 12th, so only Home Assistant's zone puts it on the run's date.
-FIRST_LOCAL_HOUR = _local(2026, 9, 13, 1, 0)
+# The run the guard is asked about below: 06:20 local on the 13th = 04:20Z.
+RUN = _local(2026, 9, 13, 6, 20)
+# The hour ending 06:00 local on the 13th (03:00-04:00Z) falls 20 minutes short
+# of that run; the hour ending 02:00 local on the 14th (13th 23:00-14th 00:00Z)
+# falls inside its first 24 hours although the local date has turned over.
+BEFORE_THE_RUN = _local(2026, 9, 13, 6, 0)
+THE_NIGHT_AFTER = _local(2026, 9, 14, 2, 0)
 
 
 def _forecast_days(rain_on):
     """UTC-day entries after today's UTC date, as OWM builds them."""
     today = dt_util.utcnow().date()
     out = []
-    for d in (12, 13, 14, 15):
+    for d in (12, 13, 14, 15, 16, 17):
         start = datetime.datetime(2026, 9, d, tzinfo=UTC)
         if start.date() <= today:
             continue
@@ -69,10 +76,14 @@ def _forecast_days(rain_on):
 
 
 def _hourly(rain_ending_at):
-    """Hourly stamps from the local 12th to the local 15th, with one rainy hour."""
+    """Hourly stamps from the local 12th to the local 17th, with one rainy hour.
+
+    Five days, so a two-block window from an evening run on the 13th still ends
+    inside the series and the rain a window of 1 must NOT reach has a stamp.
+    """
     first = _local(2026, 9, 12, 0, 0)
     out = []
-    for h in range(1, 73):
+    for h in range(1, 121):
         stamp = first + datetime.timedelta(hours=h)
         out.append((stamp, 2.15 if stamp == rain_ending_at else 0.0))
     return out
@@ -137,35 +148,49 @@ async def test_the_evening_outlook_for_tomorrow_looks_at_tomorrow(berlin):
     assert result["would_skip"] is True
 
 
-async def test_rain_in_the_first_local_hour_is_not_on_the_day_before(berlin):
-    with freeze_time(_local(2026, 9, 12, 6, 19)):
-        result = await _coordinator(_client(FIRST_LOCAL_HOUR))._eval_precipitation(
-            _config()
+async def test_rain_before_the_run_starts_does_not_count(berlin):
+    # The boundary is the run, not a date: this rain falls on the run's own local
+    # date -- and the calendar-date window counted it -- but the hour it falls in
+    # ends at 04:00Z, 20 minutes before the run begins.
+    with freeze_time(_local(2026, 9, 12, 20, 0)):
+        result = await _coordinator(_client(BEFORE_THE_RUN))._eval_precipitation(
+            _config(), RUN
         )
     assert (result["observed"], result["would_skip"]) == (0.0, False)
 
 
-async def test_rain_in_the_first_local_hour_counts_for_the_run_date(berlin):
-    with freeze_time(_local(2026, 9, 12, 20, 0)):
-        result = await _coordinator(_client(FIRST_LOCAL_HOUR))._eval_precipitation(
-            _config(), _local(2026, 9, 13, 6, 20)
+async def test_rain_in_the_night_after_the_run_starts_counts(berlin):
+    # The other side of the same boundary: past local midnight, so the
+    # calendar-date window put this rain on the day AFTER the run and missed it,
+    # while the block 04:20Z-04:20Z reaches it with 4h20m to spare.
+    with freeze_time(RUN):
+        result = await _coordinator(_client(THE_NIGHT_AFTER))._eval_precipitation(
+            _config()
         )
     assert (result["observed"], result["would_skip"]) == (2.15, True)
 
 
 @pytest.mark.parametrize(
-    ("days", "observed", "would_skip"), [(1, 0.0, False), (2, 2.15, True)]
+    ("days", "rain_at", "observed", "would_skip"),
+    [
+        (1, _local(2026, 9, 14, 6, 0), 2.15, True),
+        (1, _local(2026, 9, 15, 6, 0), 0.0, False),
+        (2, _local(2026, 9, 15, 6, 0), 2.15, True),
+    ],
 )
-async def test_an_evening_run_with_a_one_day_window_sees_only_the_rest_of_its_day(
-    berlin, days, observed, would_skip
+async def test_an_evening_run_with_a_one_day_window_sees_the_next_morning(
+    berlin, days, rain_at, observed, would_skip
 ):
-    # Chosen on #137: the window is the run's own date. A run starting at 21:00
-    # sees three hours with one day and the next morning's rain only with two.
-    # Pinned so that a change to it is deliberate.
+    # Asked for on the pull request: a 21:00 run with a look-ahead of 1 skips for
+    # rain at 06:00 the next day. The calendar-date window saw only the three
+    # hours left of the 13th and needed a look-ahead of 2 for that rain, which on
+    # upgrade would silently have turned "tomorrow" into "almost nothing" for
+    # every install that waters in the evening. The second case pins what a
+    # look-ahead of 1 still does NOT reach: rain 32 hours out is the next block.
     with freeze_time(_local(2026, 9, 13, 21, 0)):
-        result = await _coordinator(
-            _client(_local(2026, 9, 14, 6, 0))
-        )._eval_precipitation(_config(days=days))
+        result = await _coordinator(_client(rain_at))._eval_precipitation(
+            _config(days=days)
+        )
     assert (result["observed"], result["would_skip"]) == (observed, would_skip)
 
 
@@ -235,35 +260,33 @@ async def test_a_real_client_whose_refresh_fails_leaves_the_guard_undecided(berl
     assert result["would_skip"] is False
 
 
-async def test_at_dispatch_an_uncovered_run_date_is_logged_at_info(berlin, caplog):
+async def test_at_dispatch_uncovered_first_24_hours_are_logged_at_info(berlin, caplog):
     # The guard then sits the run out, and nothing in the dashboard shows it.
     caplog.set_level(
         logging.DEBUG, logger="custom_components.irrigation_plus.skip_conditions"
     )
-    with freeze_time(_local(2026, 9, 13, 6, 20)):
+    with freeze_time(RUN):
         await _coordinator(_daily_only_client())._eval_precipitation(_config())
     levels = [
         r.levelno
         for r in caplog.records
-        if "does not cover the run's date" in r.getMessage()
+        if "does not cover the first 24 hours" in r.getMessage()
     ]
     assert levels == [logging.INFO]
 
 
-async def test_a_preview_logs_an_uncovered_run_date_at_debug(berlin, caplog):
+async def test_a_preview_logs_uncovered_first_24_hours_at_debug(berlin, caplog):
     # A preview names its run and repeats on every refresh, so the same gap would
     # fill the log at info.
     caplog.set_level(
         logging.DEBUG, logger="custom_components.irrigation_plus.skip_conditions"
     )
-    with freeze_time(_local(2026, 9, 13, 6, 20)):
-        await _coordinator(_daily_only_client())._eval_precipitation(
-            _config(), _local(2026, 9, 13, 6, 20)
-        )
+    with freeze_time(RUN):
+        await _coordinator(_daily_only_client())._eval_precipitation(_config(), RUN)
     levels = [
         r.levelno
         for r in caplog.records
-        if "does not cover the run's date" in r.getMessage()
+        if "does not cover the first 24 hours" in r.getMessage()
     ]
     assert levels == [logging.DEBUG]
 
@@ -271,7 +294,7 @@ async def test_a_preview_logs_an_uncovered_run_date_at_debug(berlin, caplog):
 async def test_a_window_whose_later_days_are_partly_covered_still_decides(
     berlin, caplog
 ):
-    # Only an uncovered run date stops the decision. A window reaching past the
+    # Only uncovered first 24 hours stop the decision. A window reaching past the
     # forecast decides on the rain it has and says so at debug.
     caplog.set_level(
         logging.DEBUG, logger="custom_components.irrigation_plus.skip_conditions"
@@ -298,12 +321,14 @@ async def test_a_window_whose_later_days_are_partly_covered_still_decides(
     )
     with freeze_time(_local(2026, 9, 13, 6, 20)):
         result = await _coordinator(client)._eval_precipitation(_config(days=3))
-    # The UTC 15th spans 15th 00:00Z-16th 00:00Z, the local 15th 14th 22:00Z-15th
-    # 22:00Z. They share 22 of the entry's 24 hours: 5 mm * 22 / 24 = 4.5833 mm,
-    # shown as 4.58. The local 14th ends at 14th 22:00Z and gets none of it.
+    # Blocks of 24 hours from 04:20Z on the 13th: the 2nd ends 15th 04:20Z and the
+    # 3rd runs to 16th 04:20Z, so the UTC 15th (15th 00:00Z-16th 00:00Z) lies
+    # wholly inside the window -- 4h20m of it in the 2nd block, the other 19h40m
+    # in the 3rd. All 5 mm count. Under calendar dates the same entry was clipped
+    # to a 22/24 overlap with the local days; 24-hour blocks from 04:20Z hold it.
     assert result["available"] is True
     assert result["would_skip"] is True
-    assert result["observed"] == 4.58
+    assert result["observed"] == 5.0
     levels = [
         r.levelno for r in caplog.records if "covers only part of the" in r.getMessage()
     ]

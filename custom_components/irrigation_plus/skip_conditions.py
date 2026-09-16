@@ -67,9 +67,9 @@ class SkipConditionsMixin:
         wind reuse the in-memory weather-client cache, so this is normally cheap.
 
         ``run_start`` is the run being asked about. The precipitation guard's
-        window starts at its local date. Only dispatch leaves it out, meaning now;
-        every preview names a moment, because the guard logs an uncovered run
-        date at INFO when none is named.
+        window starts at the moment it names. Only dispatch leaves it out, meaning
+        now; every preview names a moment, because the guard logs an uncovered
+        first 24 hours at INFO when none is named.
         """
         config = await self.store.async_get_config()
         checks = [
@@ -93,14 +93,16 @@ class SkipConditionsMixin:
         """
         config = await self.store.async_get_config()
         upcoming = await self.recurring_schedule_manager.async_get_upcoming_runs()
-        # The precipitation guard's window starts at the run's date, so ask about
+        # The precipitation guard's window starts at the run itself, so ask about
         # the next run rather than about now: opened in the evening, "now" would
-        # examine today for a run that waters tomorrow. With no run scheduled it
-        # still names a moment, because only dispatch names none.
+        # examine the 24 hours from this moment instead of the 24 hours the run
+        # will face. With no run scheduled it still names a moment, because only
+        # dispatch names none.
         # Wurzel: the upcoming list keeps a finish-anchored run that is still
         #   watering at its start, which already lies in the past. Named as the
-        #   run start after local midnight, the window drops that whole date as
-        #   past and the chip reads unavailable until the run finishes.
+        #   run start, the window's first block is cut back to whatever is left of
+        #   it: the guard decides on a few hours while the chip claims the whole
+        #   look-ahead, and nothing signals the difference.
         # Fix-Logik: pass over irrigate entries that start before now; with none
         #   left, name now.
         # NOT-TO-DO: do not advance past fired occurrences in
@@ -153,23 +155,26 @@ class SkipConditionsMixin:
         }
 
     async def _eval_precipitation(self, config, run_start=None) -> dict:
-        """Structured precipitation-forecast guard over the run's own calendar days.
+        """Structured precipitation-forecast guard over the run's own 24-hour blocks.
 
         Wurzel: this summed whole days out of ``get_forecast_data``, which by
           contract starts TOMORROW, while the guard runs at dispatch on the morning
           of the run. The window therefore began the day after the run: a dry day
           was skipped for the next day's rain, and the rain day itself watered
-          (#137).
-        Fix-Logik: the window starts at ``run_start``'s local date in Home
-          Assistant's zone and spans ``precipitation_forecast_days`` calendar days;
-          without ``run_start`` it starts now, which is dispatch -- every preview
-          names a start. The hourly precipitation series every client serves
-          forecasts the run's date; dated daily entries starting after it fill in
-          the days it does not reach. Hours before the evaluation are not forecast
-          and do not count, so an evening run with a one-day window sees only the
-          rest of its day. Without a daily forecast nothing is decided: a refresh
-          that failed returns none, while the hourly accessor still serves the
-          document of the last success, however old.
+          (#137). Counting the run's LOCAL calendar dates closed that gap but was
+          only an intermediate step: it made the setting mean different things at
+          different hours of the day.
+        Fix-Logik: the window starts at ``run_start`` itself and spans
+          ``precipitation_forecast_days`` blocks of 24 absolute hours; without
+          ``run_start`` it starts now, which is dispatch -- every preview names a
+          start. The hourly precipitation series every client serves forecasts the
+          first block; dated daily entries starting after it fill in the blocks it
+          does not reach. Hours before the evaluation are not forecast and do not
+          count, but a block keeps the end it was cut to, so a run starting in the
+          evening sees the night and the next morning with a look-ahead of one.
+          Without a daily forecast nothing is decided: a refresh that failed
+          returns none, while the hourly accessor still serves the document of the
+          last success, however old.
         NOT-TO-DO: do not make ``get_forecast_data`` include today to get at the
           run's date. The ET averages and the freeze guard's "coming night" both
           depend on it excluding today. Do not derive the date from a client's own
@@ -227,24 +232,24 @@ class SkipConditionsMixin:
                 run_start=start,
                 evaluated_at=now,
                 days=days,
-                tz=dt_util.DEFAULT_TIME_ZONE,
                 hourly=hourly,
                 daily=daily,
             )
-            if not rain.run_date_covered:
+            if not rain.first_24h_covered:
                 # At dispatch this sits the run out of the guard, and nothing in
                 # the dashboard says so. Only dispatch names no start; previews
                 # name one and repeat on every refresh, so they log at debug.
                 log = _LOGGER.info if run_start is None else _LOGGER.debug
                 log(
-                    "Precipitation skip: the forecast does not cover the run's "
-                    "date, so rain is not deciding this run"
+                    "Precipitation skip: the forecast does not cover the first "
+                    "24 hours from the run's start, so rain is not deciding "
+                    "this run"
                 )
                 return result
             if not rain.complete:
                 _LOGGER.debug(
                     "Precipitation skip: the forecast covers only part of the "
-                    "%s-day window",
+                    "%s x 24-hour window",
                     days,
                 )
             # Wurzel: the window integrates rates per second, and that loses the
