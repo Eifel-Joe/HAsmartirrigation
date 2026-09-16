@@ -68,14 +68,14 @@ towards watering; the last one is the exception and is marked as such:
   Pirate Weather and Met Office can produce it, because an entry reaches the
   fill-in path only where its span starts strictly AFTER the hourly series ends,
   and OWM and Open-Meteo build their daily list out of the same document their
-  hourly series comes from, so no entry of theirs lies behind it. Measured
-  2026-09-16 through Pirate Weather itself: 48 hourly entries at 0.0 mm/h
-  ending 2026-09-14 03:00Z, dispatch 06:19 local on 2026-09-12 (04:19Z),
-  look-ahead 3, and one daily entry for the local 15th carrying 12 mm whose
-  span begins after the series ends and overlaps the window by 6 h 19 min of
-  its 24 h -- observed 3.16 mm against a 2 mm threshold, the run skipped
-  although no hour the forecast covers holds any rain at all. ``complete`` is False in such a case, but that is
-  debug-logged only and does not hold the decision back. The pro-rating itself
+  hourly series comes from, so no entry of theirs lies behind it; Pirate Weather
+  only where its hourly block is the short one. Reproduced through the Pirate
+  Weather client with a constructed document, not observed on an install: a dry
+  48-entry hourly block, look-ahead 3, and a 12 mm daily entry reaching 6 h
+  19 min into the window gave 3.16 mm against a 2 mm threshold, and the run
+  skipped although no hour the series covers holds any rain. ``complete`` is
+  False in such a case, but that is debug-logged only and does not hold the
+  decision back. The pro-rating itself
   is not the fault: it is the same arithmetic that lets a partly covered block
   count at all, the integration model working as designed on an input whose
   resolution is a whole day. Counting an entry only where its span lies wholly
