@@ -181,6 +181,20 @@ def test_a_target_past_the_hourly_reach_is_served_from_the_three_hourly_document
     assert series[-1][0] >= target
 
 
+def test_a_target_inside_the_last_step_is_still_within_that_document_s_reach():
+    # A document reaches its last step's time plus that step's span, and the last
+    # step has nothing after it to measure against, so it takes the spacing the
+    # series has been using -- exactly how the accessor stamps it. The
+    # three-hourly document's last step is stamped FIRST_STEP + 165 h and runs to
+    # + 168 h, so a target at + 167 h sits inside it. Reading that step as an hour
+    # would put the reach at + 166 h and hand the window back to the hourly
+    # document, which stops at + 48 h, 120 hours short.
+    target = FIRST_STEP + 167 * HOUR
+    series = _reach_client().get_hourly_precipitation_forecast(covering_until=target)
+    assert _step_of(series) == 3 * HOUR
+    assert series[-1][0] == FIRST_STEP + 168 * HOUR
+
+
 def test_a_target_the_hourly_document_reaches_keeps_the_finer_product():
     # Resolution is given up only where it buys coverage. Proven by the spacing:
     # a three-hourly series would step three hours here.
