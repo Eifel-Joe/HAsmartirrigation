@@ -626,12 +626,13 @@ class TestPrecipitationLookAhead:
             # The window is 24-hour blocks from the run's start, so build the
             # series from the run rather than from a local midnight: 5 mm in the
             # hour ending 30 hours out lie in the SECOND block whatever zone the
-            # fixtures set, and the first block stays dry. The series reaches one
-            # step back from its first stamp, so it covers the first block whole.
+            # fixtures set, and the first block stays dry. The first stamp is one
+            # hour after the run and its sample reaches one step back, to the run
+            # itself, so the series covers the whole first block.
             rain_at = frozen + 30 * hour
             hourly = [
                 (frozen + h * hour, 5.0 if frozen + h * hour == rain_at else 0.0)
-                for h in range(32)
+                for h in range(1, 32)
             ]
             # A dated daily entry only so the guard has a forecast at all; it
             # starts after the series and carries no rain.

@@ -1351,7 +1351,7 @@ class RecurringScheduleManager:
         ``_check_skip_conditions`` makes before every scheduled dispatch, minus
         its logging and its persistence - so a guard that early-returns for the
         runner early-returns identically here. It names this run's start, because
-        the precipitation guard's window starts at the run's date; without a
+        the precipitation guard's window starts at the run's start; without a
         start it names now, since only dispatch names none. The days-between
         counter is advanced to the run's own date first, exactly as the dashboard
         preview does, because it is a day counter and reading it as of now would

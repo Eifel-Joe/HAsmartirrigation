@@ -72,7 +72,7 @@ CONF_DEFAULT_FREEZE_THRESHOLD = 1.0  # °C — frost forms near 0 °C
 # folding the look-ahead precipitation into the deficit used for the duration
 # while leaving the true deficit in the bucket for the real rain to fill. Shares
 # the look-ahead setting (CONF_PRECIPITATION_FORECAST_DAYS) with the skip guard
-# but counts it from the day after the calculation, not from the run's date.
+# but counts it from the day after the calculation, not from the run's start.
 CONF_FORECAST_WEIGHTING_ENABLED = "forecast_weighting_enabled"
 CONF_DEFAULT_FORECAST_WEIGHTING_ENABLED = False
 # Observed watering: credit the bucket whenever a zone's linked valve runs,

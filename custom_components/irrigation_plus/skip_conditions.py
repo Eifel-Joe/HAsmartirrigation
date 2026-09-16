@@ -104,7 +104,10 @@ class SkipConditionsMixin:
         #   it: the guard decides on a few hours while the chip claims the whole
         #   look-ahead, and nothing signals the difference.
         # Fix-Logik: pass over irrigate entries that start before now; with none
-        #   left, name now.
+        #   left, name now. Consequence, unchanged by this and worth knowing: while
+        #   a run is watering the preview describes the run AFTER it, while
+        #   upcoming_runs still hands the dashboard the watering one at the top, so
+        #   the chip and the "next run" line name different runs until it finishes.
         # NOT-TO-DO: do not advance past fired occurrences in
         #   async_get_upcoming_runs -- the list feeds other consumers. Do not
         #   apply not_before to _project_days_between_to_next_run either.
@@ -170,16 +173,19 @@ class SkipConditionsMixin:
           start. The hourly precipitation series every client serves forecasts the
           first block; dated daily entries starting after it fill in the blocks it
           does not reach. Hours before the evaluation are not forecast and do not
-          count, but a block keeps the end it was cut to, so a run starting in the
-          evening sees the night and the next morning with a look-ahead of one.
+          count, but the cut moves only a block's START -- its end stays 24 hours
+          after the run, so an evening run sees the night and the next morning
+          with a look-ahead of one.
           Without a daily forecast nothing is decided: a refresh that failed
           returns none, while the hourly accessor still serves the document of the
           last success, however old.
         NOT-TO-DO: do not make ``get_forecast_data`` include today to get at the
           run's date. The ET averages and the freeze guard's "coming night" both
-          depend on it excluding today. Do not derive the date from a client's own
-          clock (OWM uses ``utcnow().date()``): Home Assistant's zone decides. And
-          do not decide on the hourly series when the daily forecast is missing.
+          depend on it excluding today. Do not derive the window from a client's
+          own clock (OWM uses ``utcnow().date()``): the run's start decides, and
+          nothing else -- no client's date and no time zone, Home Assistant's
+          included. And do not decide on the hourly series when the daily forecast
+          is missing.
         siehe tests/test_precipitation_guard.py, tests/test_forecast_window.py
         """
         threshold = config.get(

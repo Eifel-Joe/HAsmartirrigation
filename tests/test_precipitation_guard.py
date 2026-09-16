@@ -50,15 +50,32 @@ def _local(*args):
 AFTERNOON = _local(2026, 9, 13, 14, 0)
 # The run the guard is asked about below: 06:20 local on the 13th = 04:20Z.
 RUN = _local(2026, 9, 13, 6, 20)
-# The hour ending 06:00 local on the 13th (03:00-04:00Z) falls 20 minutes short
-# of that run; the hour ending 02:00 local on the 14th (13th 23:00-14th 00:00Z)
-# falls inside its first 24 hours although the local date has turned over.
+# Three rain moments around that run's start, the only thing the three boundary
+# tests below vary. The hour ending 06:00 local on the 13th (03:00-04:00Z) falls
+# 20 minutes short of it; the hour ending 07:00 local (04:00-05:00Z) straddles
+# it; the hour ending 02:00 local on the 14th (13th 23:00-14th 00:00Z) falls
+# inside its first 24 hours although the local date has turned over.
 BEFORE_THE_RUN = _local(2026, 9, 13, 6, 0)
+ACROSS_THE_RUN = _local(2026, 9, 13, 7, 0)
 THE_NIGHT_AFTER = _local(2026, 9, 14, 2, 0)
+# Rain the evening after a morning run: inside the 24 hours from the RUN
+# (13th 04:20Z-14th 04:20Z), outside the 24 hours from an evaluation at 20:00
+# local on the 12th (12th 18:00Z-13th 18:00Z).
+THE_EVENING_AFTER = _local(2026, 9, 13, 22, 0)
+# Every boundary test below evaluates here, the evening before the run, so the
+# evaluation never clips the window and the rain moment is the only variable.
+THE_EVENING_BEFORE = _local(2026, 9, 12, 20, 0)
 
 
 def _forecast_days(rain_on):
-    """UTC-day entries after today's UTC date, as OWM builds them."""
+    """UTC-day entries after today's UTC date, as OWM builds them.
+
+    The list runs past the end of ``_hourly``'s series (16th 22:00Z) so that one
+    entry -- the UTC 17th, starting two hours after it -- still lies behind the
+    series and reaches the fill-in path in ``_entries_behind``. Stopping at the
+    15th, as this did while the series was three days long, would leave that
+    function returning nothing in every test using ``_client``.
+    """
     today = dt_util.utcnow().date()
     out = []
     for d in (12, 13, 14, 15, 16, 17):
@@ -139,16 +156,23 @@ async def test_the_rain_day_itself_is_skipped(berlin):
     assert result["would_skip"] is True
 
 
-@pytest.mark.parametrize("rain_at", [AFTERNOON, _local(2026, 9, 13, 22, 0)])
-async def test_the_evening_outlook_for_tomorrow_looks_at_tomorrow(berlin, rain_at):
-    # The second moment is the one that pins the ANCHOR. A rolling window from the
+async def test_the_evening_outlook_for_tomorrow_looks_at_tomorrow(berlin):
+    # The #137 case as a preview: asked the evening before about tomorrow's run.
+    with freeze_time(THE_EVENING_BEFORE):
+        result = await _coordinator(_client())._eval_precipitation(_config(), RUN)
+    assert result["observed"] == 2.15
+    assert result["would_skip"] is True
+
+
+async def test_the_window_is_anchored_at_the_run_not_at_the_evaluation(berlin):
+    # The test above no longer tells the two apart: a rolling window from the
     # evaluation (12th 18:00Z-13th 18:00Z) already reaches the reported afternoon
-    # rain, so that case alone no longer tells the run's start from "now" the way
-    # it did while the window was a calendar date. Rain in the hour ending 22:00
-    # local on the 13th (19:00-20:00Z) lies inside the 24 hours from the RUN
-    # (04:20Z-04:20Z) and outside the 24 hours from the evaluation.
-    with freeze_time(_local(2026, 9, 12, 20, 0)):
-        result = await _coordinator(_client(rain_at))._eval_precipitation(
+    # rain, which under a calendar-date window was a whole date away. This rain
+    # sits in the 10h20m tail the two windows do not share, so only a window
+    # anchored at the run's start sees it. Do not fold this back into the case
+    # above as a parameter -- it exists to fail when the anchor slips.
+    with freeze_time(THE_EVENING_BEFORE):
+        result = await _coordinator(_client(THE_EVENING_AFTER))._eval_precipitation(
             _config(), RUN
         )
     assert result["observed"] == 2.15
@@ -159,20 +183,34 @@ async def test_rain_before_the_run_starts_does_not_count(berlin):
     # The boundary is the run, not a date: this rain falls on the run's own local
     # date -- and the calendar-date window counted it -- but the hour it falls in
     # ends at 04:00Z, 20 minutes before the run begins.
-    with freeze_time(_local(2026, 9, 12, 20, 0)):
+    with freeze_time(THE_EVENING_BEFORE):
         result = await _coordinator(_client(BEFORE_THE_RUN))._eval_precipitation(
             _config(), RUN
         )
     assert (result["observed"], result["would_skip"]) == (0.0, False)
 
 
+async def test_rain_in_the_hour_the_run_starts_in_counts_from_the_start(berlin):
+    # The boundary itself, and a case NEW with the run anchor: while the window
+    # began at local midnight a partial hour at its start could not occur, because
+    # every client's hours begin on the hour. The run starts at 04:20Z inside the
+    # hour 04:00-05:00Z, so 40 of that hour's 60 minutes lie in the window and
+    # 2.15 mm/h contributes 2.15 * 40/60 = 1.4333 mm, shown as 1.43. Below the
+    # 2 mm threshold: this user sees 1.43 on the chip and waters.
+    with freeze_time(THE_EVENING_BEFORE):
+        result = await _coordinator(_client(ACROSS_THE_RUN))._eval_precipitation(
+            _config(), RUN
+        )
+    assert (result["observed"], result["would_skip"]) == (1.43, False)
+
+
 async def test_rain_in_the_night_after_the_run_starts_counts(berlin):
-    # The other side of the same boundary: past local midnight, so the
-    # calendar-date window put this rain on the day AFTER the run and missed it,
-    # while the block 04:20Z-04:20Z reaches it with 4h20m to spare.
-    with freeze_time(RUN):
+    # The far side of the same boundary: past local midnight, so the calendar-date
+    # window put this rain on the day AFTER the run and missed it, while the block
+    # 04:20Z-04:20Z reaches it with 4h20m to spare.
+    with freeze_time(THE_EVENING_BEFORE):
         result = await _coordinator(_client(THE_NIGHT_AFTER))._eval_precipitation(
-            _config()
+            _config(), RUN
         )
     assert (result["observed"], result["would_skip"]) == (2.15, True)
 
@@ -222,7 +260,9 @@ async def test_rain_adding_up_to_the_threshold_skips_as_the_dashboard_shows_it(
     assert (result["observed"], result["would_skip"]) == (threshold, True)
 
 
-async def test_a_client_without_an_hourly_series_cannot_decide_the_run_date(berlin):
+async def test_a_client_without_an_hourly_series_cannot_decide_the_first_24_hours(
+    berlin,
+):
     with freeze_time(_local(2026, 9, 13, 6, 20)):
         result = await _coordinator(_daily_only_client())._eval_precipitation(_config())
     assert result["available"] is False
