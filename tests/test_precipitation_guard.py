@@ -110,7 +110,9 @@ def _client(rain_ending_at=AFTERNOON):
     rain_on = (rain_ending_at - datetime.timedelta(hours=1)).date()
     return SimpleNamespace(
         get_forecast_data=lambda: _forecast_days(rain_on),
-        get_hourly_precipitation_forecast=lambda: _hourly(rain_ending_at),
+        get_hourly_precipitation_forecast=lambda covering_until=None: _hourly(
+            rain_ending_at
+        ),
     )
 
 
@@ -252,7 +254,7 @@ async def test_rain_adding_up_to_the_threshold_skips_as_the_dashboard_shows_it(
     series = [(stamp, rate if stamp in rainy else 0.0) for stamp, _ in _hourly(None)]
     client = SimpleNamespace(
         get_forecast_data=lambda: _forecast_days(None),
-        get_hourly_precipitation_forecast=lambda: series,
+        get_hourly_precipitation_forecast=lambda covering_until=None: series,
     )
     config = _config() | {const.CONF_PRECIPITATION_THRESHOLD_MM: threshold}
     with freeze_time(_local(2026, 9, 13, 6, 20)):
@@ -275,7 +277,9 @@ async def test_a_failed_refresh_does_not_decide_on_the_last_documents_series(ber
     # Deciding on it would skip on a forecast of any age.
     client = SimpleNamespace(
         get_forecast_data=lambda: None,
-        get_hourly_precipitation_forecast=lambda: _hourly(AFTERNOON),
+        get_hourly_precipitation_forecast=lambda covering_until=None: _hourly(
+            AFTERNOON
+        ),
     )
     with freeze_time(_local(2026, 9, 13, 6, 20)):
         result = await _coordinator(client)._eval_precipitation(_config())
@@ -364,7 +368,7 @@ async def test_a_window_whose_later_days_are_partly_covered_still_decides(
     # the series ends at 10:00Z, and is left out; the 15th starts after it.
     client = SimpleNamespace(
         get_forecast_data=lambda: [utc_day(14, 0.0), utc_day(15, 5.0)],
-        get_hourly_precipitation_forecast=lambda: series,
+        get_hourly_precipitation_forecast=lambda covering_until=None: series,
     )
     with freeze_time(_local(2026, 9, 13, 6, 20)):
         result = await _coordinator(client)._eval_precipitation(_config(days=3))
@@ -380,6 +384,30 @@ async def test_a_window_whose_later_days_are_partly_covered_still_decides(
         r.levelno for r in caplog.records if "covers only part of the" in r.getMessage()
     ]
     assert levels == [logging.DEBUG]
+
+
+async def test_the_guard_tells_the_client_how_far_it_needs_coverage(berlin):
+    # Met Office serves two products and picks between them by this target; a
+    # client that drops the argument silently would raise TypeError, which this
+    # guard swallows into an undecided run. The target is the END of the window,
+    # so it is anchored at the RUN like the window itself -- 48 hours from the
+    # run's 04:20Z start (15th 04:20Z), not from the evaluation the evening
+    # before (14th 18:00Z).
+    seen = {}
+
+    def record(covering_until=None):
+        seen["covering_until"] = covering_until
+        return _hourly(AFTERNOON)
+
+    client = SimpleNamespace(
+        get_forecast_data=lambda: _forecast_days(AFTERNOON.date()),
+        get_hourly_precipitation_forecast=record,
+    )
+    with freeze_time(THE_EVENING_BEFORE):
+        result = await _coordinator(client)._eval_precipitation(_config(days=2), RUN)
+    assert seen["covering_until"] == RUN + datetime.timedelta(hours=48)
+    # The series the double handed back was used, so the call really went through.
+    assert result["available"] is True
 
 
 async def test_disabled_is_a_noop():

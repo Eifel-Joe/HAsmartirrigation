@@ -7,6 +7,8 @@ sensor, the days-between-irrigation counter, and the total-duration query used
 by the scheduler and websockets.
 """
 
+import datetime
+import functools
 import logging
 
 import homeassistant.util.dt as dt_util
@@ -172,10 +174,12 @@ class SkipConditionsMixin:
           ``run_start`` it starts now, which is dispatch -- every preview names a
           start. The hourly precipitation series every client serves forecasts the
           first block; dated daily entries starting after it fill in the blocks it
-          does not reach. Hours before the evaluation are not forecast and do not
-          count, but the cut moves only a block's START -- its end stays 24 hours
-          after the run, so an evening run sees the night and the next morning
-          with a look-ahead of one.
+          does not reach. The client is told where the window ends, so one holding
+          several products can serve the one reaching that far -- Met Office is
+          the only one with the choice. Hours before the evaluation are not
+          forecast and do not count, but the cut moves only a block's START -- its
+          end stays 24 hours after the run, so an evening run sees the night and
+          the next morning with a look-ahead of one.
           Without a daily forecast nothing is decided: a refresh that failed
           returns none, while the hourly accessor still serves the document of the
           last success, however old.
@@ -220,11 +224,6 @@ class SkipConditionsMixin:
             daily = await self.hass.async_add_executor_job(client.get_forecast_data)
             if not daily:
                 return result
-            hourly = None
-            if hasattr(client, "get_hourly_precipitation_forecast"):
-                hourly = await self.hass.async_add_executor_job(
-                    client.get_hourly_precipitation_forecast
-                )
             days = max(
                 1,
                 config.get(
@@ -234,6 +233,20 @@ class SkipConditionsMixin:
             )
             now = dt_util.utcnow()
             start = dt_util.as_utc(run_start) if run_start is not None else now
+            # The far end of the window, so a client can pick a document that
+            # reaches it: it is the run's start plus the whole look-ahead, not the
+            # evaluation's. Only Met Office acts on it -- it holds two products of
+            # different reach -- and the other three take it and hand back the one
+            # document they have. No client shortens its series to it.
+            covering_until = start + datetime.timedelta(hours=24 * days)
+            hourly = None
+            if hasattr(client, "get_hourly_precipitation_forecast"):
+                hourly = await self.hass.async_add_executor_job(
+                    functools.partial(
+                        client.get_hourly_precipitation_forecast,
+                        covering_until=covering_until,
+                    )
+                )
             rain = expected_rain(
                 run_start=start,
                 evaluated_at=now,

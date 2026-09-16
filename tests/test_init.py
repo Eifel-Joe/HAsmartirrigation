@@ -582,7 +582,7 @@ class _FakeForecastClient:
     def get_forecast_data(self):
         return self._days
 
-    def get_hourly_precipitation_forecast(self):
+    def get_hourly_precipitation_forecast(self, covering_until=None):
         return self._hourly
 
 

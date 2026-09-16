@@ -33,22 +33,15 @@ HOURLY_UPDATE = 3599
 DAILY_UPDATE = 86399
 
 
+def _wrap(steps):
+    """``steps`` as a Global Spot document, the shape both endpoints return."""
+    return {"features": [{"properties": {"timeSeries": steps}}]}
+
+
 def _doc(time, amount, temperature):
-    return {
-        "features": [
-            {
-                "properties": {
-                    "timeSeries": [
-                        {
-                            "time": time,
-                            "totalPrecipAmount": amount,
-                            "screenTemperature": temperature,
-                        }
-                    ]
-                }
-            }
-        ]
-    }
+    return _wrap(
+        [{"time": time, "totalPrecipAmount": amount, "screenTemperature": temperature}]
+    )
 
 
 def _client(hourly_age, cache_seconds=HOURLY_UPDATE):
@@ -128,3 +121,100 @@ def test_the_tolerance_is_one_cache_lifetime_at_most_three_hours(
 def test_an_hourly_document_fetched_after_the_three_hourly_one_is_preferred():
     c = _client(datetime.timedelta(days=-1), DAILY_UPDATE)
     assert c.get_hourly_precipitation_forecast() == HOURLY_SERIES
+
+
+# --- reach: the caller says how far it needs the series to go ----------------
+#
+# The hourly product runs about 48 hours from its own fetch, the three-hourly one
+# about seven days. Every document below is fetched at the same moment unless a
+# test says otherwise, so the freshness rule above always answers "hourly" and
+# only the coverage target can move the choice.
+
+HOUR = datetime.timedelta(hours=1)
+# The top of the hour the documents were fetched in; both products start there.
+FIRST_STEP = datetime.datetime(2026, 9, 13, 6, tzinfo=UTC)
+# 48 hourly steps reach FIRST_STEP + 48 h, 56 three-hourly steps FIRST_STEP + 168 h.
+HOURLY_STEPS = 48
+THREE_HOURLY_STEPS = 56
+
+
+def _steps(first, step, count, amount, temperature):
+    """``count`` time-series entries spaced ``step`` apart, as a product serves them."""
+    return [
+        {
+            "time": (first + i * step).strftime("%Y-%m-%dT%H:%MZ"),
+            "totalPrecipAmount": amount,
+            "screenTemperature": temperature,
+        }
+        for i in range(count)
+    ]
+
+
+def _reach_client(
+    hourly_age=datetime.timedelta(0),
+    hourly_steps=HOURLY_STEPS,
+    three_hourly_steps=THREE_HOURLY_STEPS,
+):
+    c = MetOfficeClient(api_key="k", latitude=51.5, longitude=-0.1, elevation=10)
+    c.cache_seconds = HOURLY_UPDATE
+    c._cached_hourly = _wrap(_steps(FIRST_STEP, HOUR, hourly_steps, 0.0, 11.0))
+    c._cached_hourly_at = FETCHED - hourly_age
+    c._cached_three_hourly = _wrap(
+        _steps(FIRST_STEP, 3 * HOUR, three_hourly_steps, 3.0, 17.0)
+    )
+    c._cached_three_hourly_at = FETCHED
+    return c
+
+
+def _step_of(series):
+    """The spacing of a returned series: an hour hourly, three hours three-hourly."""
+    return series[1][0] - series[0][0]
+
+
+def test_a_target_past_the_hourly_reach_is_served_from_the_three_hourly_document():
+    # The case the guard hits: the hourly document stops 48 hours out, the window
+    # needs 60, and a daily entry cannot fill the gap because it begins before the
+    # series ends. The coarser product reaches the target, so it serves.
+    target = FIRST_STEP + 60 * HOUR
+    series = _reach_client().get_hourly_precipitation_forecast(covering_until=target)
+    assert _step_of(series) == 3 * HOUR
+    assert series[-1][0] >= target
+
+
+def test_a_target_the_hourly_document_reaches_keeps_the_finer_product():
+    # Resolution is given up only where it buys coverage. Proven by the spacing:
+    # a three-hourly series would step three hours here.
+    target = FIRST_STEP + 30 * HOUR
+    series = _reach_client().get_hourly_precipitation_forecast(covering_until=target)
+    assert _step_of(series) == HOUR
+    assert series[-1][0] >= target
+
+
+def test_without_a_target_the_hourly_document_is_served_however_short_it_stops():
+    # live_estimate asks with no target at all and both accessors must answer as
+    # they did: the intra-day estimate reads short spans, where the finer
+    # product's placing matters and its reach does not. The same documents as the
+    # 60-hour case above, where the target moves the choice.
+    c = _reach_client()
+    assert _step_of(c.get_hourly_precipitation_forecast()) == HOUR
+    assert _step_of(c.get_hourly_temperature_forecast()) == HOUR
+
+
+@pytest.mark.parametrize(
+    ("hourly_age", "expected_step"),
+    [
+        pytest.param(datetime.timedelta(days=1), 3 * HOUR, id="stale-hourly"),
+        pytest.param(datetime.timedelta(minutes=30), HOUR, id="fresh-hourly"),
+    ],
+)
+def test_with_equal_reaches_the_fetch_time_rule_still_decides(
+    hourly_age, expected_step
+):
+    # Both products stop at the same instant, short of the target: the coarser one
+    # covers no more of the window than the finer, so nothing is given up for it
+    # and the freshness comparison alone picks the document -- in both directions.
+    c = _reach_client(hourly_age, three_hourly_steps=16)
+    target = FIRST_STEP + 60 * HOUR
+    series = c.get_hourly_precipitation_forecast(covering_until=target)
+    assert _step_of(series) == expected_step
+    assert series[-1][0] == FIRST_STEP + 48 * HOUR

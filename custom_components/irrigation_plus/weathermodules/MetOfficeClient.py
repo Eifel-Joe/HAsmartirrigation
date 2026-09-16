@@ -79,6 +79,16 @@ _THREE_HOURLY_URL = (
 _WIND_10M_TO_2M = 4.87 / math.log((67.8 * 10) - 5.42)
 
 
+def _is_aware_instant(value) -> bool:
+    """Whether ``value`` is a datetime carrying a time zone.
+
+    A coverage target without one cannot be compared with a document's stamps,
+    which are aware UTC, so it is passed over rather than read as UTC -- the rule
+    ``forecast_window.day_span`` already applies to a daily entry's span.
+    """
+    return isinstance(value, datetime.datetime) and value.utcoffset() is not None
+
+
 def _compute_dew_point(temp_c: float, humidity: float) -> float:
     """Magnus formula: dew point (°C) from temperature (°C) and relative humidity (%)."""
     a, b = 17.625, 243.04
@@ -141,6 +151,48 @@ class MetOfficeClient:  # pylint: disable=invalid-name
             return []
         return features[0].get("properties", {}).get("timeSeries", []) or []
 
+    @classmethod
+    def _series_reach(cls, doc):
+        """How far a document's hourly series runs, or None where that cannot be told.
+
+        Wurzel: the two products reach differently -- the hourly one about 48
+          hours from its own FETCH, the three-hourly one about seven days -- and
+          only ``get_data`` refreshes the hourly document, so its reach ages with
+          it. "48 hours" written into the code would be a guess about the product
+          and about when it was fetched, and a caller cannot check either.
+        Fix-Logik: read it off the document. The accessors stamp each sample at
+          ``when + span``, so a document reaches its last step's time plus that
+          step's span, and the last step's span is the spacing before it -- an
+          hour for a lone sample, exactly as
+          ``get_hourly_precipitation_forecast`` reads one. None where the series
+          is empty, holds no usable stamp or does not run forwards; the caller
+          then keeps its other rule rather than guessing.
+        NOT-TO-DO: do not measure this over the steps carrying precipitation only.
+          It is the document's reach, and the chooser it serves answers for both
+          accessors. A document whose last steps carry no amount therefore reads
+          as reaching further than its precipitation series does, which keeps the
+          finer product -- what happens today, and bounded by one step.
+        siehe tests/test_met_office_forecast_document.py
+        """
+        stamps = []
+        for step in cls._time_series(doc):
+            ts = step.get("time")
+            if not ts:
+                continue
+            try:
+                stamps.append(cls._parse_time(ts))
+            except (AttributeError, TypeError, ValueError):
+                continue
+        if not stamps:
+            return None
+        if len(stamps) > 1:
+            span = stamps[-1] - stamps[-2]
+        else:
+            span = datetime.timedelta(hours=1)
+        if span <= datetime.timedelta(0):
+            return None
+        return stamps[-1] + span
+
     def _wind_2m(self, wind_10m):
         return wind_10m * _WIND_10M_TO_2M
 
@@ -191,8 +243,11 @@ class MetOfficeClient:  # pylint: disable=invalid-name
         self._cached_three_hourly_at = datetime.datetime.now()
         return doc
 
-    def _forecast_document(self):
+    def _forecast_document(self, covering_until=None):
         """The fetched document the hourly accessors read, or None.
+
+        ``covering_until`` is how far the caller needs the series to reach; a
+        caller with nothing to cover names none.
 
         Wurzel: both accessors took the hourly document whenever one existed. Only
           ``get_data`` refreshes it, and the precipitation skip guard runs before
@@ -204,24 +259,49 @@ class MetOfficeClient:  # pylint: disable=invalid-name
           fetched the evening before a fresh three-hourly one still won, and its
           T..T+48 h series can end before the run's local date does. The guard
           then found the run date uncovered and did not decide, although the
-          three-hourly document covered it.
-        Fix-Logik: prefer the hourly product, the finer of the two, unless the
-          three-hourly one was fetched more than one cache lifetime, at most three
-          hours, after it. Three hours is the three-hourly product's own step: a
-          three-hourly document newer than the hourly one by more than one of its
-          steps is the more current forecast, and the cap bounds how far behind
-          the hourly series can fall whatever the update interval. Within an
-          hourly update cycle the lifetime is below the cap and nothing changes:
-          a document younger than that is as current as the cache allows.
+          three-hourly document covered it. Fetch times alone cannot close that
+          either: an hourly document too young to lose the comparison below can
+          still stop inside the window, and nothing fills the gap afterwards --
+          ``forecast_window._entries_behind`` admits a daily entry only where its
+          span starts after the series ends.
+        Fix-Logik: two rules, because two different questions are being asked.
+          Which document is more CURRENT: prefer the hourly product, the finer of
+          the two, unless the three-hourly one was fetched more than one cache
+          lifetime, at most three hours, after it. Three hours is the three-hourly
+          product's own step: a three-hourly document newer than the hourly one by
+          more than one of its steps is the more current forecast, and the cap
+          bounds how far behind the hourly series can fall whatever the update
+          interval. Within an hourly update cycle the lifetime is below the cap
+          and nothing changes: a document younger than that is as current as the
+          cache allows. Which document REACHES far enough: where the caller names
+          a ``covering_until`` the hourly series stops before and the three-hourly
+          one attains, the coarser product serves whatever the fetch times say --
+          a finer series ending inside the window cannot answer what is being
+          asked of it, while resolution is worth keeping everywhere else. Where
+          neither reaches the target, or both do, that swap buys no coverage and
+          the fetch times decide alone.
         NOT-TO-DO: do not fetch here; the accessors read already-fetched documents
           only. And do not simply take the later fetch: the calculation's forecast
           fetch follows the update cycle by minutes and would swap the finer
-          product out of the intra-day estimate after every calculation.
+          product out of the intra-day estimate after every calculation. Do not
+          hand ``get_hourly_temperature_forecast`` a target: the intra-day
+          estimate reads short spans, where the finer product's placing matters
+          and its reach does not. And do not take a product's reach as given
+          ("48 hours") -- it is measured off the document, see ``_series_reach``.
         siehe tests/test_met_office_forecast_document.py
         """
         hourly, three_hourly = self._cached_hourly, self._cached_three_hourly
         if not hourly or not three_hourly:
             return hourly or three_hourly
+        if _is_aware_instant(covering_until):
+            hourly_reach = self._series_reach(hourly)
+            three_hourly_reach = self._series_reach(three_hourly)
+            if (
+                hourly_reach is not None
+                and three_hourly_reach is not None
+                and hourly_reach < covering_until <= three_hourly_reach
+            ):
+                return three_hourly
         if self._cached_hourly_at is None or self._cached_three_hourly_at is None:
             return hourly
         lifetime = datetime.timedelta(
@@ -240,7 +320,9 @@ class MetOfficeClient:  # pylint: disable=invalid-name
         product where only that has been fetched, or where the hourly document
         is more than one cache lifetime, at most three hours, older
         (``_forecast_document``) -- coarser, but it still places the window's
-        extremes far better than reading them off the observation.
+        extremes far better than reading them off the observation. It names no
+        coverage target: this reads short spans, where the finer product's
+        placing matters and how far it runs does not.
 
         Reads an already-fetched document only; see
         ``OpenMeteoClient.get_hourly_temperature_forecast`` for why.
@@ -260,7 +342,7 @@ class MetOfficeClient:  # pylint: disable=invalid-name
                 continue
         return out or None
 
-    def get_hourly_precipitation_forecast(self):
+    def get_hourly_precipitation_forecast(self, covering_until=None):
         """``[(aware UTC datetime, mm/h)]`` from the hourly product.
 
         ``totalPrecipAmount`` is the accumulation over the period FOLLOWING each
@@ -272,10 +354,17 @@ class MetOfficeClient:  # pylint: disable=invalid-name
         hours, older (``_forecast_document``), and its samples are divided back
         to a rate rather than counted as an hour's worth.
 
+        ``covering_until`` is a HINT about how far the caller needs coverage, and
+        the one thing it changes is WHICH of the two documents is read: the
+        three-hourly one stands in where the hourly series stops before that
+        moment and it does not. The series is never truncated, padded or
+        otherwise cut to the hint -- whichever document is chosen is handed back
+        whole, and the caller windows it as it sees fit.
+
         Reads only the already-fetched document and never issues a request of its
         own, for the same reason the temperature accessor does not.
         """
-        doc = self._forecast_document()
+        doc = self._forecast_document(covering_until)
         if not doc:
             return None
         stamps = []

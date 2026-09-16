@@ -186,7 +186,7 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                 continue
         return out or None
 
-    def get_hourly_precipitation_forecast(self):
+    def get_hourly_precipitation_forecast(self, covering_until=None):
         """``[(aware UTC datetime, mm/h)]`` from the hourly block.
 
         ``precipIntensity`` is already a rate in mm/h under SI units, which is
@@ -201,6 +201,11 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
         resolution of it, since nothing in the response says what interval a RATE
         covers, only where its stamp sits. An hour's offset moves rain between two
         hours of the projection; it cannot change the total across a whole window.
+
+        ``covering_until`` is accepted for one signature across the clients and
+        ignored here: this client holds a single forecast document, so there is
+        no other one it could serve instead. The long hourly block it always asks
+        for (``extend=hourly``) is what gives that document its reach.
 
         Reads only the already-fetched document and never issues a request of its
         own, for the same reason the temperature accessor does not.
