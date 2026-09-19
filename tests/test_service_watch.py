@@ -172,11 +172,19 @@ class TestAValveThatShutsMidRunEndsTheRun:
 
 class TestAFullRunIsStillAFullRun:
     async def test_a_valve_off_at_the_planned_end_completes(self, hass):
-        c = _coord(hass)
-        started = dt_util.utcnow()
-        await _dispatch(hass, c, _zone())
+        """Completed, and recorded for the window the valve reported (#139).
 
-        with freeze_time(started + timedelta(seconds=600)):
+        actual_s is now the off report minus the on report rather than planned_s.
+        The dispatch runs under the same frozen clock as the close, so the on
+        report (clamped to the dispatch) is ``started`` exactly and a close at
+        the planned end is a window of exactly 600 s.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+
+            frozen.tick(timedelta(seconds=600))
             await _off(hass)
 
         kw = c._record_run.await_args.kwargs
@@ -671,6 +679,273 @@ class TestTheWatcherRecordsTheValvesOwnOffReport:
         assert const.RUN_LATENCY_MARGIN not in run
         assert not run.get(const.RUN_VALVE_OFF)
         await _settle(hass)
+
+
+async def _advance(hass, frozen, seconds):
+    """Move the frozen clock on by ``seconds`` and fire every timer now due."""
+    frozen.tick(timedelta(seconds=seconds))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+
+
+async def _run_until_the_valve_closes(hass, c, zone, closed_after, *, before=None):
+    """Dispatch, report the valve off ``closed_after`` s later, run out the debounce.
+
+    All under one frozen clock: RUN_VALVE_ON is then the dispatch instant
+    exactly, and the debounce timer is armed on the clock it is advanced on.
+    The clock stands AT the close when the off is reported (stamped with that
+    instant explicitly) and is moved PAST the debounce before the timer fires,
+    so a run measured when the decision is taken, rather than at the off
+    report, comes out visibly longer. ``before`` runs after the dispatch and
+    before the close.
+    """
+    started = dt_util.utcnow().replace(microsecond=0)
+    with freeze_time(started) as frozen:
+        await _dispatch(hass, c, zone)
+        if before is not None:
+            before()
+        frozen.tick(timedelta(seconds=closed_after))
+        await _report(hass, "off", started + timedelta(seconds=closed_after))
+        await _advance(hass, frozen, const.SERVICE_WATCH_SETTLE_SECONDS + 1)
+
+
+class TestAConfirmedRunIsSettledOnItsValveWindow:
+    """The debounce decides WHETHER the run ended; the reports say how long (#139).
+
+    actual_s is the valve's off report minus its on report, and a close within
+    the zone's latency margin of the planned end still completes. Before, the
+    elapsed time was read when the debounce expired, 5 s after the close, and a
+    completed run discarded it for planned_s, so neither the late Tuya close nor
+    an early one was ever recorded as what the valve did.
+
+    Only a close the valve reported is settled that way. With no off report on
+    record the one clock left is read after the debounce, and the margin as a
+    tolerance on it would let a close nobody reported complete up to debounce +
+    margin short of the plan; such a run keeps the old rule.
+    """
+
+    async def test_a_close_just_after_the_window_completes_on_the_reported_window(
+        self, hass
+    ):
+        """The Beet valve: it reports its close 2-3 s after the planned end."""
+        c = _coord(hass)
+
+        await _run_until_the_valve_closes(hass, c, _zone(), 602)
+
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["planned_s"] == 600
+        assert kw["actual_s"] == pytest.approx(602, abs=0.01)  # not 608, not 600
+        # Only the recorded duration moves: the timed volume and the calibration
+        # sample stay on the window the run was credited and sized for.
+        assert c._timed_volume_l.call_args.args[1] == 600
+        c._flow_calibration_check.assert_awaited_once()
+        assert c._flow_calibration_check.await_args.args[2] == 600
+
+    async def test_a_close_inside_the_margin_completes_on_the_reported_window(
+        self, hass
+    ):
+        """3 s short with the default 4 s margin: a normal end, not a stop."""
+        c = _coord(hass)
+
+        await _run_until_the_valve_closes(hass, c, _zone(), 597)
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == pytest.approx(597, abs=0.01)
+
+    async def test_a_close_beyond_the_margin_is_a_partial_credited_for_its_window(
+        self, hass
+    ):
+        c = _coord(hass)
+
+        await _run_until_the_valve_closes(hass, c, _zone(), 590)
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["actual_s"] == pytest.approx(590, abs=0.01)  # not 596
+        # 20 mm credited at dispatch from -20 mm; 590 of 600 s were delivered
+        written = [ck.args[1] for ck in c.async_write_watered_bucket.await_args_list]
+        assert written[-1] == pytest.approx(-20 + 20 * 590 / 600, abs=0.001)
+
+    async def test_a_margin_of_zero_still_tolerates_one_second(self, hass):
+        """max(1, margin): the old one-second slack is the floor, not the margin."""
+        c = _coord(hass)
+
+        await _run_until_the_valve_closes(
+            hass, c, _zone(**{const.ZONE_LATENCY_MARGIN: 0}), 599.5
+        )
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == pytest.approx(599.5, abs=0.01)
+
+    async def test_a_margin_of_zero_settles_a_close_beyond_that_second_as_partial(
+        self, hass
+    ):
+        c = _coord(hass)
+
+        await _run_until_the_valve_closes(
+            hass, c, _zone(**{const.ZONE_LATENCY_MARGIN: 0}), 598.5
+        )
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["actual_s"] == pytest.approx(598.5, abs=0.01)
+
+    async def test_an_off_after_an_unavailable_mid_run_keeps_the_old_rule(self, hass):
+        """on -> unavailable -> off mid-run: no off report, so the old rule settles.
+
+        The off at +302 s follows unavailable, so its last_changed is the
+        entity's return and not the close, and nothing is recorded. The run is
+        settled like any close nobody reported: on its elapsed time since the
+        observed start, read when the debounce decides (+308 s), and not on the
+        302 s a recorded off would have given.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=300))
+            await _report(hass, "unavailable", started + timedelta(seconds=300))
+            frozen.tick(timedelta(seconds=2))
+            await _report(hass, "off", started + timedelta(seconds=302))
+
+            run = await c._sc_find_run(2)
+            assert not run.get(const.RUN_VALVE_OFF)
+            observed = dt_util.parse_datetime(run[const.RUN_OBSERVED_START])
+
+            await _advance(hass, frozen, const.SERVICE_WATCH_SETTLE_SECONDS + 1)
+            decided = dt_util.utcnow()
+
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["actual_s"] == pytest.approx(
+            (decided - observed).total_seconds(), abs=0.01
+        )  # 308 s, not 302
+
+    async def test_an_unreported_close_seven_seconds_early_stays_partial(self, hass):
+        """No off report: the margin is not added to a clock that holds the debounce.
+
+        The valve drops out at +590 s and comes back off at +593 s, so nothing
+        is recorded and the debounce decides at +598 s, exactly as it would
+        live. The old rule reads that clock: 598 + 1 < 600 is a partial. The
+        margin as tolerance on the same clock (598 + 4 >= 600) would complete
+        it, and with it any close nobody reported up to 9 s short of the plan.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=590))
+            await _report(hass, "unavailable", started + timedelta(seconds=590))
+            frozen.tick(timedelta(seconds=3))
+            await _report(hass, "off", started + timedelta(seconds=593))
+            assert not (await c._sc_find_run(2)).get(const.RUN_VALVE_OFF)
+
+            await _advance(hass, frozen, const.SERVICE_WATCH_SETTLE_SECONDS)  # 598
+
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["actual_s"] == pytest.approx(598, abs=0.01)
+        c._flow_calibration_check.assert_not_awaited()
+
+    async def test_an_unreported_close_inside_the_old_second_completes_for_its_plan(
+        self, hass
+    ):
+        """No off report, decided at +599.5 s: completed and recorded for the plan.
+
+        599.5 + 1 >= 600 completes under the old rule, through the finish that
+        has no reported window to record, so actual_s is planned_s and not the
+        599.5 s the clock read after the debounce.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=592))
+            await _report(hass, "unavailable", started + timedelta(seconds=592))
+            frozen.tick(timedelta(seconds=2.5))
+            await _report(hass, "off", started + timedelta(seconds=594.5))
+            assert not (await c._sc_find_run(2)).get(const.RUN_VALVE_OFF)
+
+            await _advance(hass, frozen, const.SERVICE_WATCH_SETTLE_SECONDS)  # 599.5
+
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == kw["planned_s"] == 600
+
+    async def test_a_record_from_before_the_update_keeps_the_old_rule(self, hass):
+        """No frozen margin: elapsed at the decision + 1 >= planned, planned_s kept.
+
+        Closed at 593.5 s, so the debounce decides at 599.5 s. The old rule
+        completes that with actual_s == planned_s; the window rule would have
+        recorded 599.5 s, so this pins that such a record is not routed there.
+        """
+        c = _coord(hass)
+
+        def _strip_the_new_keys():
+            for record in c._cfg[const.CONF_ACTIVE_VALVE_RUNS]:
+                del record[const.RUN_LATENCY_MARGIN]
+                del record[const.RUN_VALVE_ON]
+
+        await _run_until_the_valve_closes(
+            hass, c, _zone(), 593.5, before=_strip_the_new_keys
+        )
+
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == kw["planned_s"] == 600
+
+
+class TestACloseReportedPastTheMarginIsKnownAndDeliberatelyUnchanged:
+    """A close reported later than the margin is still finished for its plan (#139).
+
+    Known and deliberately unchanged, as agreed on #139 (2026-09-16). With the
+    off reported at +606 and a margin of 4 s the debounce would decide at +611,
+    but the backstop is due at +609 (600 + 5 + 4) and comes first. It finishes
+    the run for planned_s, as the backstop always has, and the off report
+    already on the record is not used. Settling that run on the reported
+    window instead would only make its record better than it is today, not
+    close a hole the grace opens, so it waits. Pinned so it reads as a
+    decision, not an oversight, and so changing it is a decision too.
+    """
+
+    async def test_the_backstop_finishes_it_for_the_plan_before_the_debounce(
+        self, hass
+    ):
+        c = _coord(hass)
+        _the_real_backstop_from_here(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone(**{const.ZONE_LATENCY_MARGIN: 4}))
+            frozen.tick(timedelta(seconds=606))
+            await _report(hass, "off", started + timedelta(seconds=606))
+
+            run = await c._sc_find_run(2)
+            reported = (started + timedelta(seconds=606)).isoformat()
+            assert run[const.RUN_VALVE_OFF] == reported
+            assert c._watchers()[2].finish_cancel is not None  # due at 611
+
+            await _advance(hass, frozen, 4)  # 610: the backstop (609) is out
+
+            assert await c._sc_find_run(2) is None
+            c._record_run.assert_awaited_once()
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == kw["planned_s"] == 600  # not the reported 606
+
+            await _advance(hass, frozen, 2)  # 612: where the debounce was due
+
+            c._record_run.assert_awaited_once()  # no second settle
+            watcher = c._watchers().get(2)
+            assert watcher is None or watcher.finish_cancel is None  # none pending
+            assert not c._sc_cleanup_timers()
 
 
 class TestAWriteOnlyValveIsUntouched:

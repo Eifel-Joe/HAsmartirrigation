@@ -957,10 +957,51 @@ class RunWatchMixin:
 
         watcher.finish_cancel = async_call_later(self.hass, max(0.0, delay), _decide)
 
+    def _watch_valve_window(self, run: dict) -> float:
+        """Seconds the run's valve reported itself open (see valve_window_seconds)."""
+        return valve_window_seconds(run, dt_util.utcnow())
+
+    async def _watch_settle_by_window(self, zone_id, run: dict) -> None:
+        """Settle a run with a finish grace on the window its valve reported.
+
+        Only for a run whose off report is on record (see _watch_finish). The
+        window is RUN_VALVE_OFF minus RUN_VALVE_ON, both taken from the valve's
+        own reports, so it does not grow with the 5 s debounce or with anything
+        else that settles the run later (#139).
+        The run completes when that window falls short of the plan by no more
+        than the tolerance, max(1 s, frozen margin): a valve's own reports land
+        either side of the planned end (measured within 0.7 s on a seconds-unit
+        valve, one normal run 0.67 s short), so the old one second left a third
+        of a second between a normal end and a partial with its credit reversed.
+        A shorter window was cut off and settles as a partial on that window.
+        """
+        zid = int(zone_id)
+        self._watch_cancel(zid)
+        window = self._watch_valve_window(run)
+        if window + run_completion_tolerance(run) >= planned_seconds(run):
+            await self._sc_finish_run(zid, actual_s=window)
+        else:
+            await self.async_stop_self_closing(zid, close_valve=False, actual_s=window)
+
     async def _watch_finish(self, zone_id, run: dict) -> None:
         """Watering stopped. Settle the run against what it actually delivered."""
         zid = int(zone_id)
         self._watch_cancel(zid)
+        if run_has_finish_grace(run) and run.get(const.RUN_VALVE_OFF):
+            # The valve reported both ends of this run, so it is settled on
+            # them (#139). The clock read below comes after the debounce and
+            # would count those 5 s as watering.
+            #
+            # Only with the off report on record. A close nobody reported (on ->
+            # unavailable -> off, or an off seen by a watcher's first evaluate)
+            # has no end but that same clock, and the margin as a tolerance on
+            # it would complete a close up to debounce + margin short of the
+            # plan, where the one second below stops at debounce + 1. Such a run
+            # keeps the rule below, as does every run without a frozen margin
+            # (batch, OpenSprinkler, a service record persisted before the
+            # margin existed), whose timing must not move.
+            await self._watch_settle_by_window(zid, run)
+            return
         planned = planned_seconds(run)
         elapsed = self._sc_run_elapsed(run)
         # A zone that ran its full window is a completed run; one the controller

@@ -337,12 +337,18 @@ class SelfClosingMixin:
         measured = d if (d is not None and d > 0) else None
         return measured, self._flow_learn_end_changes(zone, meter, open_start_l)
 
-    async def _sc_finish_run(self, zone_id) -> None:
+    async def _sc_finish_run(self, zone_id, *, actual_s: float | None = None) -> None:
         """Finalise a completed run: record actual usage, clear, fire finished.
 
         Idempotent: a no-op if the run is no longer active (e.g. the cleanup
         timer fires after an early stop already removed it), so usage is never
         double-counted.
+
+        ``actual_s`` is the window the valve itself reported open, passed by the
+        watcher when it settles a confirmed service run on its stored off report
+        (#139). Without it the run is recorded for its plan, as it is for every
+        caller with no reported close to go on (the backstop, the watcher's rule
+        for a close nobody reported, OpenSprinkler, batch).
         """
         run = await self._sc_find_run(zone_id)
         if run is None:
@@ -390,7 +396,13 @@ class SelfClosingMixin:
             result=const.RUN_RESULT_COMPLETED,
             volume_l=volume_l,
             planned_s=planned_s,
-            actual_s=planned_s,
+            # The observed window when there is one (#139): a completed run used
+            # to discard it for planned_s, so a valve closing 2-3 s late, or up
+            # to its margin early, was recorded as exactly on time. Only the
+            # recorded duration moves; the timed volume above and the
+            # calibration probe below stay on planned_s, the window the run was
+            # credited and sized for.
+            actual_s=planned_s if actual_s is None else actual_s,
             trigger=const.RUN_TRIGGER_SELF_CLOSING,
             add_to_total=True,
         )
@@ -764,7 +776,12 @@ class SelfClosingMixin:
         return None
 
     async def async_stop_self_closing(
-        self, zone_id, *, close_valve: bool = True, detail: str | None = None
+        self,
+        zone_id,
+        *,
+        close_valve: bool = True,
+        detail: str | None = None,
+        actual_s: float | None = None,
     ) -> bool:
         """Stop a self-closing run early: close the valve + correct the bucket.
 
@@ -772,6 +789,9 @@ class SelfClosingMixin:
         hardware, for the case where the hardware has already ended the run
         itself — an OpenSprinkler station that stopped short of its window, or
         one that never opened at all. ``detail`` overrides the run-log marker.
+        ``actual_s`` is the delivered window when the caller measured it from
+        the valve's own reports (#139); without it the run's elapsed time is
+        read here, as before.
         """
         run = await self._sc_find_run(zone_id)
         if run is None:
@@ -818,7 +838,14 @@ class SelfClosingMixin:
         # Correct the bucket for the undelivered portion of the optimistic open credit.
         planned = float(run.get(const.RUN_PLANNED_SECONDS) or 0)
         planned_mm = float(run.get(const.RUN_PLANNED_MM) or 0)
-        elapsed = self._sc_run_elapsed(run)
+        # A caller that measured the window at the valve's off report passes it
+        # (#139). Reading the clock here instead puts the debounce into a
+        # watcher-settled partial: this runs 5 s after the close, and those 5 s
+        # are credited, volumed and recorded as delivered. The watcher accepts
+        # that only for a close nobody reported, which has no other end (see
+        # _watch_finish). One value feeds all three below, so the bucket, the
+        # volume and actual_s agree.
+        elapsed = actual_s if actual_s is not None else self._sc_run_elapsed(run)
         delivered_frac = min(elapsed / planned, 1.0) if planned > 0 else 1.0
         # Iter FM-5: finalize the flow sampler UP FRONT — the measured litres both refine
         # the recorded usage below AND (review finding F) reconcile the bucket. Cancels the
