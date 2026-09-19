@@ -368,8 +368,10 @@ class SelfClosingMixin:
         # The hardware has closed the valve — drop the master hold taken at open.
         await self.async_master_release(self._sc_master_token(zone_id))
         zone = self.store.get_zone(zone_id) or {}
-        # Count usage once, at completion, for the actual delivered volume (the
-        # run ran for its full planned duration).
+        # Count usage once, at completion, for the actual delivered volume.
+        # planned_s is what the run was sized and credited for; it no longer
+        # implies the run ran that long — actual_s below may record a shorter
+        # or longer reported window (#139).
         planned_s = float(run.get(const.RUN_PLANNED_SECONDS) or 0)
         # Iter FM-5: prefer the measured volume from the non-blocking sampler over the
         # open-time time-based estimate. Cancel the sampler + persist the totalizer end
@@ -437,7 +439,12 @@ class SelfClosingMixin:
         await self._chain_advance_for_run(zone_id, run)
 
     def _sc_schedule_cleanup(self, zone_id, delay_seconds: float) -> None:
-        """Schedule the cosmetic finish after the run's planned duration."""
+        """Schedule the cosmetic finish after the given delay.
+
+        The caller decides what that delay covers — the run's planned
+        duration, or, for a confirmed service run waiting out its finish
+        grace (#139), planned + grace minus what has already elapsed.
+        """
 
         async def _done(_now):
             await self._sc_finish_run(zone_id)
@@ -967,10 +974,12 @@ class SelfClosingMixin:
     async def async_resume_self_closing_runs(self) -> None:
         """Reconcile persisted in-flight runs after a restart.
 
-        Self-closing hardware closes on its own, so we NEVER re-open: if the run
-        is overdue it has already closed (finalise); if it is still within its
-        window the hardware countdown is still running (reschedule the cosmetic
-        cleanup for the remainder). The bucket was credited at start
+        Self-closing hardware closes on its own, so we NEVER re-open: overdue
+        now means past its plan AND its finish grace (#139) — only then has
+        the run definitely closed, so it is finalised. Anything short of
+        that — still running, or past the plan but still waiting out the
+        grace for its close to be reported — reschedules the cosmetic
+        cleanup for the remainder instead. The bucket was credited at start
         (credited=True), so it is never re-credited here.
         """
         for run in await self._sc_active_runs():
@@ -1007,9 +1016,12 @@ class SelfClosingMixin:
                 # record the grace does not make worse, so it is left as it was.
                 await self._sc_finish_run(zone_id)
             else:
-                # Still inside the hardware window: the valve is open but master
-                # holds live only in memory and did not survive the restart.
-                # Re-take it so the pump keeps running for the remainder. Past
+                # Not yet overdue: the backstop is re-armed for the remainder,
+                # inside the plan or inside the grace alike, and the watcher is
+                # re-adopted below without retaking the master in the grace.
+                # Master holds live only in memory and did not survive the
+                # restart, so it is re-taken for the remainder — but only
+                # while the valve is still running (elapsed < planned). Past
                 # the plan but inside the grace, the valve's own countdown is
                 # over and the run only waits for the report of its close: a
                 # hold taken for that would switch the pump on, kick it and wait
