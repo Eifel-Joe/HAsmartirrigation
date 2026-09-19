@@ -23,6 +23,7 @@ import pytest
 from freezegun import freeze_time
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
+    async_capture_events,
     async_fire_time_changed,
     async_mock_service,
 )
@@ -208,12 +209,217 @@ class TestAFullRunIsStillAFullRun:
         c._sc_start_flow_sampling.assert_awaited_once()
 
     async def test_the_finish_backstop_is_armed_once(self, hass):
-        """Re-arming it from the observation would push it past the real close."""
+        """Re-arming it from the observation would push it past the real close.
+
+        Armed once, at dispatch, and already carrying a confirmed run's finish
+        grace: the planned 600 s plus the 5 s debounce plus the default 4 s
+        latency margin (#139). Armed at exactly the window, it beat the valve's
+        own off report on every normal run.
+        """
         c = _coord(hass)
         await _dispatch(hass, c, _zone())
 
         assert c._sc_schedule_cleanup.call_count == 1
+        assert c._sc_schedule_cleanup.call_args.args == (2, 609)
+
+
+class TestAConfirmedRunFreezesItsMarginAtDispatch:
+    """The margin a run waits for is the one it was dispatched under (#139).
+
+    Frozen into the record, so a margin edited mid-run cannot move a backstop
+    that is already armed, and so a record without it (write-only, unverifiable,
+    or persisted before this change) keeps the timing it started with.
+    """
+
+    async def test_the_default_margin_is_frozen_into_the_record(self, hass):
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone())
+
+        run = await c._sc_find_run(2)
+        assert run[const.RUN_LATENCY_MARGIN] == 4
+
+    async def test_the_zones_own_margin_is_frozen_into_the_record(self, hass):
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone(**{const.ZONE_LATENCY_MARGIN: 7}))
+
+        run = await c._sc_find_run(2)
+        assert run[const.RUN_LATENCY_MARGIN] == 7
+
+    async def test_a_write_only_run_carries_neither_margin_nor_valve_on(self, hass):
+        """No confirm_entity: nothing reports the valve, nothing to wait for."""
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone(confirm=None))
+
+        run = await c._sc_find_run(2)
+        assert const.RUN_LATENCY_MARGIN not in run
+        assert const.RUN_VALVE_ON not in run
+
+    async def test_an_unverifiable_run_carries_neither_margin_nor_valve_on(self, hass):
+        """A confirm of None is "cannot verify": the run stays write-only."""
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone(), valve_state="unavailable")
+
+        run = await c._sc_find_run(2)
+        assert const.RUN_LATENCY_MARGIN not in run
+        assert const.RUN_VALVE_ON not in run
+
+
+class TestTheValveOnReportIsClampedToTheDispatch:
+    """RUN_VALVE_ON is the valve's own on report, never older than the dispatch.
+
+    RUN_STARTED is stamped after the confirm poll returns, up to a poll after
+    the water started. The valve's last_changed is closer, but a valve that was
+    already open before the dispatch would drag the anchor back by however long
+    it had been open, so the report is clamped to [dispatch, confirm return].
+    """
+
+    async def test_a_valve_already_open_is_anchored_at_the_dispatch(self, hass):
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started):
+            c = _coord(hass)
+            zone = _zone()
+            c._zones[2] = zone
+            # on for an hour already: the confirm poll accepts it at first read
+            hass.states.async_set(
+                VALVE, "on", timestamp=(started - timedelta(hours=1)).timestamp()
+            )
+            await hass.async_block_till_done()
+
+            assert await c.async_run_self_closing(zone, trigger="schedule")
+            await hass.async_block_till_done()
+
+        run = await c._sc_find_run(2)
+        assert run[const.RUN_VALVE_ON] == started.isoformat()
+
+    async def test_a_valve_reporting_on_after_the_dispatch_is_anchored_at_its_report(
+        self, hass
+    ):
+        started = dt_util.utcnow().replace(microsecond=0)
+        reported = started + timedelta(seconds=0.4)
+        with freeze_time(started) as frozen:
+            c = _coord(hass)
+            zone = _zone()
+
+            async def _slow_confirm(zone_id, entity_id, retry=True):
+                # the valve reports on 0.4 s after the dispatch, and the poll
+                # that sees it returns a whole second after the dispatch
+                hass.states.async_set(entity_id, "on", timestamp=reported.timestamp())
+                frozen.tick(timedelta(seconds=1))
+                return True
+
+            c._confirm_valve_running = AsyncMock(side_effect=_slow_confirm)
+            await _dispatch(hass, c, zone, valve_state="off")
+
+        run = await c._sc_find_run(2)
+        assert run[const.RUN_VALVE_ON] == reported.isoformat()
+        assert run[const.RUN_STARTED] == (started + timedelta(seconds=1)).isoformat()
+
+    async def test_a_report_stamped_after_the_confirm_returned_is_clamped_to_it(
+        self, hass
+    ):
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            c = _coord(hass)
+            zone = _zone()
+
+            async def _skewed_confirm(zone_id, entity_id, retry=True):
+                stamp = (started + timedelta(seconds=5)).timestamp()
+                hass.states.async_set(entity_id, "on", timestamp=stamp)
+                frozen.tick(timedelta(seconds=1))
+                return True
+
+            c._confirm_valve_running = AsyncMock(side_effect=_skewed_confirm)
+            await _dispatch(hass, c, zone, valve_state="off")
+
+        run = await c._sc_find_run(2)
+        assert run[const.RUN_VALVE_ON] == (started + timedelta(seconds=1)).isoformat()
+
+
+class TestTheBackstopWaitsOnlyForAConfirmedValve:
+    async def test_a_margin_of_zero_still_waits_out_the_debounce(self, hass):
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone(**{const.ZONE_LATENCY_MARGIN: 0}))
+
+        assert c._sc_schedule_cleanup.call_args.args == (2, 605)
+
+    async def test_a_write_only_run_is_backstopped_at_exactly_its_window(self, hass):
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone(confirm=None))
+
         assert c._sc_schedule_cleanup.call_args.args == (2, 600)
+
+    async def test_an_unverifiable_run_is_backstopped_at_exactly_its_window(self, hass):
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone(), valve_state="unavailable")
+
+        assert c._sc_schedule_cleanup.call_args.args == (2, 600)
+
+
+def _finished(hass):
+    """Capture the irrigation_finished events the coordinator fires."""
+    return async_capture_events(hass, f"{const.DOMAIN}_{const.EVENT_IRRIGATE_FINISHED}")
+
+
+def _the_real_backstop_from_here(c):
+    """Swap _coord's backstop double for the real timer, its calls still recorded.
+
+    With the double a test reads the delay the backstop is armed with but never
+    sees it fire, so it cannot show whether the backstop or a debounce comes
+    first, nor what the backstop settles when it does. Dropping the instance
+    doubles falls back to the coordinator's own _sc_schedule_cleanup and
+    _sc_cancel_cleanup; wrapping the first keeps its calls assertable. Only a
+    backstop armed after the call is real, so it is called before the dispatch
+    (or the restart) whose backstop the test is about.
+    """
+    del c._sc_schedule_cleanup
+    del c._sc_cancel_cleanup
+    c._sc_schedule_cleanup = Mock(wraps=c._sc_schedule_cleanup)
+
+
+class TestAMissedCloseStillSettlesViaTheBackstop:
+    """A close the valve never reports is still finished, by the backstop (#139).
+
+    The watcher settles a confirmed run on the valve's own reports. When the
+    off report never comes (the close was missed, or its report was lost), the
+    backstop is what ends the run, as it always was, only now at the end of the
+    finish grace, planned + debounce + margin, rather than at the planned end.
+    The delay it is armed with is pinned above on the double; here it is the
+    real timer, so the test sees when it fires and what it settles.
+    """
+
+    async def test_a_valve_that_never_reports_off_is_finished_when_the_grace_is_out(
+        self, hass
+    ):
+        c = _coord(hass)
+        _the_real_backstop_from_here(c)
+        finished = _finished(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone(**{const.ZONE_LATENCY_MARGIN: 4}))
+
+            frozen.tick(timedelta(seconds=608))
+            async_fire_time_changed(hass, dt_util.utcnow())
+            await hass.async_block_till_done()
+
+            # 608 s: past the plan, a second short of the grace (600 + 5 + 4)
+            assert await c._sc_find_run(2) is not None
+            c._record_run.assert_not_awaited()
+            assert not finished
+            c.async_master_release.assert_not_awaited()
+
+            frozen.tick(timedelta(seconds=2))
+            async_fire_time_changed(hass, dt_util.utcnow())
+            await hass.async_block_till_done()
+
+        # 610 s: the backstop, due at 609, has finished the run for its plan
+        assert await c._sc_find_run(2) is None
+        c._record_run.assert_awaited_once()
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == kw["planned_s"] == 600
+        assert len(finished) == 1
+        c.async_master_release.assert_awaited_once()
+        assert not c._sc_cleanup_timers()  # nothing left armed
 
 
 class TestTheWatcherNeverWritesAWateringRunOff:

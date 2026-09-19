@@ -23,8 +23,10 @@ from .run_watch import (
     WatchPolicy,
     register_watch_policy,
     run_credit_ceiling,
+    run_finish_grace_seconds,
     run_is_queue_bound,
     run_is_segmented,
+    zone_latency_margin,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -434,6 +436,22 @@ class SelfClosingMixin:
             self.hass, max(0.0, delay_seconds), _done
         )
 
+    def _sc_valve_on_instant(self, entity_id, lower, upper) -> str:
+        """The instant a confirmed valve reported itself on, as ISO-8601 UTC.
+
+        Its state's last_changed, clamped to [lower, upper] = [dispatch, confirm
+        return] (#139). RUN_STARTED is stamped after the confirm poll returns, up
+        to a poll later than the water, so measuring the valve window from it
+        would shorten every run by that poll. But last_changed alone is not safe
+        either: _confirm_valve_running accepts a valve that was ALREADY on at its
+        first read, whose last_changed can be hours old, and a report can never
+        precede the command that caused it. Without a state (nothing to read) the
+        confirm return is the only instant known to be on.
+        """
+        state = self.hass.states.get(entity_id)
+        reported = state.last_changed if state else upper
+        return min(max(reported, lower), upper).isoformat()
+
     async def async_run_self_closing(
         self, zone: dict, *, trigger: str = "schedule"
     ) -> bool:
@@ -499,6 +517,11 @@ class SelfClosingMixin:
         # threading a value through the persisted run record.
         await self.async_master_acquire(self._sc_master_token(zone_id))
 
+        # The earliest instant the valve can have opened BECAUSE of this run: the
+        # lower bound of RUN_VALVE_ON (#139). Taken immediately before the open
+        # is fired, so a valve that was already on before the dispatch is
+        # anchored here and not at its hours-old last_changed.
+        dispatched_at = dt_util.utcnow()
         await self._sc_dispatch_open(zone)
 
         # Iter FM-5 (unified flow engine): measure delivered volume across the fixed
@@ -542,6 +565,12 @@ class SelfClosingMixin:
                 if confirm_target
                 else None
             )
+            # The upper bound of RUN_VALVE_ON (#139): the poll that saw the valve
+            # on has just returned, so it cannot have reported on any later.
+            # Stamped here and not at RUN_STARTED below, which follows the bucket
+            # write and is later still. _confirm_valve_running keeps its boolean
+            # return: three other callers compare it with `is False`.
+            confirmed_at = dt_util.utcnow()
             if confirmed is False:
                 # The valve never opened -> abort the run. Cancel the just-started
                 # sampling (discard the measurement) so the aborted run leaks no
@@ -607,6 +636,17 @@ class SelfClosingMixin:
                 # — a write-only run (no confirm_entity) has nothing to watch, and
                 # the hardware still owns its close.
                 record[const.RUN_WATCH_ENTITY] = confirm_target
+                # And the two things its finish is settled on (#139): the zone's
+                # latency margin, frozen so a margin edited mid-run cannot move a
+                # backstop that is already armed (and whose presence is what gives
+                # this record a finish grace at all), and the valve's own on
+                # report, the anchor of the window actual_s is measured over. Only
+                # here: a write-only or unverifiable run has no valve reports, so
+                # it keeps the backstop at exactly its window, as before.
+                record[const.RUN_LATENCY_MARGIN] = zone_latency_margin(zone)
+                record[const.RUN_VALVE_ON] = self._sc_valve_on_instant(
+                    confirm_target, dispatched_at, confirmed_at
+                )
             await self._sc_add_run(record)
 
             self._sc_fire(
@@ -632,7 +672,18 @@ class SelfClosingMixin:
                 # The backstop is armed FIRST and stays the mode's own: the valve
                 # is already open and its window already running, so the watcher
                 # below must not re-arm it (WatchPolicy.opens_at_dispatch).
-                self._sc_schedule_cleanup(zone_id, planned_seconds)
+                #
+                # For a confirmed run it waits the finish grace past the window:
+                # the debounce plus the frozen latency margin (#139). Armed at
+                # exactly the window it fired before the valve's off report on
+                # every normal run (measured 2-3 s late on Tuya valves) or inside
+                # the debounce, cancelling the watcher, so the run was never
+                # settled on what the valve did. Added HERE and not inside
+                # _sc_schedule_cleanup, which batch and OpenSprinkler share; a
+                # record without the margin gets 0 and the window as before.
+                self._sc_schedule_cleanup(
+                    zone_id, planned_seconds + run_finish_grace_seconds(record)
+                )
                 if confirmed:
                     # And now watch the valve for the rest of the run. Only a
                     # CONFIRMED run: without a confirm_entity there is nothing to
