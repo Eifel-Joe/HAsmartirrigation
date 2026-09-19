@@ -209,8 +209,8 @@ class OpenMeteoClient:
             # The request asks for past_days=1 so the intra-day estimate can
             # reach back to the previous evening's calculation, which puts
             # yesterday at index 0 and today at index 1. Skipping index 0 served
-            # today as the first forecast day, although the forecast list starts
-            # at tomorrow for every client (see CONF_PRECIPITATION_FORECAST_DAYS).
+            # today as the first forecast day, although get_forecast_data starts
+            # at tomorrow for every client.
             # Filter on the date instead, against today at the site from the
             # document's own offset: skipping two positions breaks as soon as a
             # document is read from the cache after the site's midnight or
@@ -330,7 +330,7 @@ class OpenMeteoClient:
             out.append((local.replace(tzinfo=datetime.timezone.utc) - offset, temp))
         return out or None
 
-    def get_hourly_precipitation_forecast(self):
+    def get_hourly_precipitation_forecast(self, covering_until=None):
         """``[(aware UTC datetime, mm/h)]`` over the whole hourly series.
 
         The rate is the mean over the interval ENDING at each instant, which is
@@ -338,6 +338,10 @@ class OpenMeteoClient:
         hour of it, so the number is its own rate). Handing back a rate rather
         than an accumulation is what lets a three-hourly product integrate to the
         same water as an hourly one.
+
+        ``covering_until`` is accepted for one signature across the clients and
+        ignored here: this client holds a single forecast document, so there is
+        no other one it could serve instead.
 
         Reads only what has already been fetched and never issues a request of
         its own, for the same reason the temperature accessor does not: the

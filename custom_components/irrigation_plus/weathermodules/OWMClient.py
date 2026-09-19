@@ -195,7 +195,7 @@ class OWMClient:  # pylint: disable=invalid-name
                 continue
         return out or None
 
-    def get_hourly_precipitation_forecast(self):
+    def get_hourly_precipitation_forecast(self, covering_until=None):
         """``[(aware UTC datetime, mm/h)]`` from the three-hourly product.
 
         The free forecast reports ``rain.3h`` (and ``snow.3h``) as the
@@ -204,6 +204,10 @@ class OWMClient:  # pylint: disable=invalid-name
         is what lets this integrate to the same water as an hourly product; an
         entry with neither key saw no precipitation and reports zero, because a
         dry sample is coverage of the span rather than a hole in it.
+
+        ``covering_until`` is accepted for one signature across the clients and
+        ignored here: this client holds a single forecast document, so there is
+        no other one it could serve instead.
 
         Reads only the already-fetched document and never issues a request of its
         own, for the same reason the temperature accessor does not.

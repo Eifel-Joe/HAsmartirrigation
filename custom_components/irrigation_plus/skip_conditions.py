@@ -7,11 +7,14 @@ sensor, the days-between-irrigation counter, and the total-duration query used
 by the scheduler and websockets.
 """
 
+import datetime
+import functools
 import logging
 
 import homeassistant.util.dt as dt_util
 
 from . import const
+from .forecast_window import expected_rain
 from .helpers import normalize_zone_selection
 from .run_window import concurrent_wall_clock
 
@@ -56,7 +59,7 @@ class SkipConditionsMixin:
 
     # --- structured (no-side-effect) evaluation for the dashboard outlook ----
 
-    async def async_evaluate_skip_conditions(self) -> dict:
+    async def async_evaluate_skip_conditions(self, run_start=None) -> dict:
         """Evaluate every skip guard and return structured results.
 
         Unlike the boolean ``_check_*`` helpers this does not log skip decisions;
@@ -64,10 +67,15 @@ class SkipConditionsMixin:
         ``id``, ``enabled``, ``would_skip``, ``available`` (could it be
         evaluated), ``observed`` and ``threshold``. Precipitation/temperature/
         wind reuse the in-memory weather-client cache, so this is normally cheap.
+
+        ``run_start`` is the run being asked about. The precipitation guard's
+        window starts at the moment it names. Only dispatch leaves it out, meaning
+        now; every preview names a moment, because the guard logs an uncovered
+        first 24 hours at INFO when none is named.
         """
         config = await self.store.async_get_config()
         checks = [
-            await self._eval_precipitation(config),
+            await self._eval_precipitation(config, run_start),
             await self._eval_days_between(config),
             await self._eval_temp(config),
             await self._eval_wind(config),
@@ -80,14 +88,37 @@ class SkipConditionsMixin:
     async def async_get_irrigation_outlook(self) -> dict:
         """Assemble the dashboard outlook: next runs + skip preview + last run.
 
-        ``skip_preview`` is evaluated live (as of now — forecasts may change
-        before the run). ``last_skip_evaluation`` is the persisted result of the
-        most recent real scheduled-irrigate decision (None until one has run, or
-        after a restart).
+        ``skip_preview`` is evaluated live against the current forecast, for the
+        next scheduled irrigate run (forecasts may still change before it).
+        ``last_skip_evaluation`` is the persisted result of the most recent real
+        scheduled-irrigate decision (None until one has run, or after a restart).
         """
         config = await self.store.async_get_config()
-        skip_preview = await self.async_evaluate_skip_conditions()
         upcoming = await self.recurring_schedule_manager.async_get_upcoming_runs()
+        # The precipitation guard's window starts at the run itself, so ask about
+        # the next run rather than about now: opened in the evening, "now" would
+        # examine the 24 hours from this moment instead of the 24 hours the run
+        # will face. With no run scheduled it still names a moment, because only
+        # dispatch names none.
+        # Wurzel: the upcoming list keeps a finish-anchored run that is still
+        #   watering at its start, which already lies in the past. Named as the
+        #   run start, the window's first block is cut back to whatever is left of
+        #   it: the guard decides on a few hours while the chip claims the whole
+        #   look-ahead, and nothing signals the difference.
+        # Fix-Logik: pass over irrigate entries that start before now; with none
+        #   left, name now. Consequence, unchanged by this and worth knowing: while
+        #   a run is watering the preview describes the run AFTER it, while
+        #   upcoming_runs still hands the dashboard the watering one at the top, so
+        #   the chip and the "next run" line name different runs until it finishes.
+        # NOT-TO-DO: do not advance past fired occurrences in
+        #   async_get_upcoming_runs -- the list feeds other consumers. Do not
+        #   apply not_before to _project_days_between_to_next_run either.
+        # siehe test_skip_run_start_threading.py::
+        #   test_the_outlook_passes_over_a_run_that_is_already_watering
+        now = dt_util.utcnow()
+        skip_preview = await self.async_evaluate_skip_conditions(
+            run_start=self._next_irrigate_run_utc(upcoming, not_before=now) or now
+        )
         # The days-between guard is a day counter bumped at local midnight, so a
         # live "as of now" evaluation is pessimistic right after a run (counter
         # 0). Project it to the next scheduled irrigate run so the preview shows
@@ -128,8 +159,39 @@ class SkipConditionsMixin:
             "rain_delay_until": config.get(const.CONF_RAIN_DELAY_UNTIL),
         }
 
-    async def _eval_precipitation(self, config) -> dict:
-        """Structured precipitation-forecast guard (today+tomorrow vs threshold)."""
+    async def _eval_precipitation(self, config, run_start=None) -> dict:
+        """Structured precipitation-forecast guard over the run's own 24-hour blocks.
+
+        Wurzel: this summed whole days out of ``get_forecast_data``, which by
+          contract starts TOMORROW, while the guard runs at dispatch on the morning
+          of the run. The window therefore began the day after the run: a dry day
+          was skipped for the next day's rain, and the rain day itself watered
+          (#137). Counting the run's LOCAL calendar dates closed that gap but was
+          only an intermediate step: it made the setting mean different things at
+          different hours of the day.
+        Fix-Logik: the window starts at ``run_start`` itself and spans
+          ``precipitation_forecast_days`` blocks of 24 absolute hours; without
+          ``run_start`` it starts now, which is dispatch -- every preview names a
+          start. The hourly precipitation series every client serves forecasts the
+          first block; dated daily entries starting after it fill in the blocks it
+          does not reach. The client is told where the window ends, so one holding
+          several products can serve the one reaching that far -- Met Office is
+          the only one with the choice. Hours before the evaluation are not
+          forecast and do not count, but the cut moves only a block's START -- its
+          end stays 24 hours after the run, so an evening run sees the night and
+          the next morning with a look-ahead of one.
+          Without a daily forecast nothing is decided: a refresh that failed
+          returns none, while the hourly accessor still serves the document of the
+          last success, however old.
+        NOT-TO-DO: do not make ``get_forecast_data`` include today to get at the
+          run's date. The ET averages and the freeze guard's "coming night" both
+          depend on it excluding today. Do not derive the window from a client's
+          own clock (OWM uses ``utcnow().date()``): the run's start decides, and
+          nothing else -- no client's date and no time zone, Home Assistant's
+          included. And do not decide on the hourly series when the daily forecast
+          is missing.
+        siehe tests/test_precipitation_guard.py, tests/test_forecast_window.py
+        """
         threshold = config.get(
             const.CONF_PRECIPITATION_THRESHOLD_MM,
             const.CONF_DEFAULT_PRECIPITATION_THRESHOLD_MM,
@@ -152,13 +214,15 @@ class SkipConditionsMixin:
         use_weather_service = config.get(
             const.CONF_USE_WEATHER_SERVICE, const.CONF_DEFAULT_USE_WEATHER_SERVICE
         )
-        if not use_weather_service or self._WeatherServiceClient is None:
+        client = self._WeatherServiceClient
+        if not use_weather_service or client is None:
             return result
         try:
-            forecast_data = await self.hass.async_add_executor_job(
-                self._WeatherServiceClient.get_forecast_data
-            )
-            if not forecast_data:
+            # Daily first, and nothing without it: a failed refresh returns no
+            # daily list, while the hourly accessor would still serve the last
+            # good document.
+            daily = await self.hass.async_add_executor_job(client.get_forecast_data)
+            if not daily:
                 return result
             days = max(
                 1,
@@ -167,13 +231,58 @@ class SkipConditionsMixin:
                     const.CONF_DEFAULT_PRECIPITATION_FORECAST_DAYS,
                 ),
             )
-            total = 0.0
-            for day_data in forecast_data[:days]:
-                if const.MAPPING_PRECIPITATION in day_data:
-                    total += day_data[const.MAPPING_PRECIPITATION]
+            now = dt_util.utcnow()
+            start = dt_util.as_utc(run_start) if run_start is not None else now
+            # The far end of the window, so a client can pick a document that
+            # reaches it: it is the run's start plus the whole look-ahead, not the
+            # evaluation's. Only Met Office acts on it -- it holds two products of
+            # different reach -- and the other three take it and hand back the one
+            # document they have. No client shortens its series to it.
+            covering_until = start + datetime.timedelta(hours=24 * days)
+            hourly = None
+            if hasattr(client, "get_hourly_precipitation_forecast"):
+                hourly = await self.hass.async_add_executor_job(
+                    functools.partial(
+                        client.get_hourly_precipitation_forecast,
+                        covering_until=covering_until,
+                    )
+                )
+            rain = expected_rain(
+                run_start=start,
+                evaluated_at=now,
+                days=days,
+                hourly=hourly,
+                daily=daily,
+            )
+            if not rain.first_24h_covered:
+                # At dispatch this sits the run out of the guard, and nothing in
+                # the dashboard says so. Only dispatch names no start; previews
+                # name one and repeat on every refresh, so they log at debug.
+                log = _LOGGER.info if run_start is None else _LOGGER.debug
+                log(
+                    "Precipitation skip: the forecast does not cover the first "
+                    "24 hours from the run's start, so rain is not deciding "
+                    "this run"
+                )
+                return result
+            if not rain.complete:
+                _LOGGER.debug(
+                    "Precipitation skip: the forecast covers only part of the "
+                    "%s x 24-hour window",
+                    days,
+                )
+            # Wurzel: the window integrates rates per second, and that loses the
+            #   last bit -- ten hours of 0.2 mm come to 1.9999999999999998, shown
+            #   as 2.0 of 2.0 mm while the run watered.
+            # Fix-Logik: decide on the rounded value the dashboard shows.
+            # NOT-TO-DO: no epsilon under the threshold; its size would be a guess,
+            #   and the chip could still contradict the decision.
+            # siehe tests/test_precipitation_guard.py::
+            #   test_rain_adding_up_to_the_threshold_skips_as_the_dashboard_shows_it
+            observed = round(rain.mm, 2)
             result["available"] = True
-            result["observed"] = round(total, 2)
-            result["would_skip"] = total >= threshold
+            result["observed"] = observed
+            result["would_skip"] = observed >= threshold
         except Exception as e:  # noqa: BLE001 — preview must never raise
             _LOGGER.debug("Skip preview: precipitation eval failed: %s", e)
         return result
@@ -222,6 +331,24 @@ class SkipConditionsMixin:
         }
 
     @staticmethod
+    def _next_irrigate_run_utc(upcoming: list, *, not_before=None):
+        """The start of the next scheduled irrigate run, or None.
+
+        ``upcoming`` is sorted by ``next_run_utc``; the first irrigate entry with a
+        start is the next one. Shared by every preview that projects a run-time
+        decision, so they cannot pick different runs. With ``not_before`` an
+        entry whose start lies before that moment is passed over.
+        """
+        for r in upcoming:
+            if r.get("action") != "irrigate" or not r.get("next_run_utc"):
+                continue
+            start = dt_util.parse_datetime(r["next_run_utc"])
+            if not_before is not None and start is not None and start < not_before:
+                continue
+            return start
+        return None
+
+    @staticmethod
     def _project_days_between_to_next_run(skip_preview: dict, upcoming: list) -> None:
         """Advance the days-between preview to the next irrigate run's date.
 
@@ -239,17 +366,7 @@ class SkipConditionsMixin:
         )
         if check is None or not check["enabled"]:
             return
-        next_run = next(
-            (
-                r["next_run_utc"]
-                for r in upcoming
-                if r.get("action") == "irrigate" and r.get("next_run_utc")
-            ),
-            None,
-        )
-        if not next_run:
-            return
-        run_dt = dt_util.parse_datetime(next_run)
+        run_dt = SkipConditionsMixin._next_irrigate_run_utc(upcoming)
         if run_dt is None:
             return
         offset = (dt_util.as_local(run_dt).date() - dt_util.now().date()).days

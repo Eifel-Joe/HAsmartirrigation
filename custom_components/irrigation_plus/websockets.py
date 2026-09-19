@@ -25,6 +25,7 @@ from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
 from .const import SmartIrrigationError
+from .forecast_window import day_span
 from .helpers import CannotConnect, InvalidAuth, validate_api_key
 
 _LOGGER = logging.getLogger(__name__)
@@ -1065,10 +1066,10 @@ async def websocket_save_coordinates(hass: HomeAssistant, connection, msg):
 async def websocket_get_weather_forecast(hass: HomeAssistant, connection, msg):
     """Return the weather service's daily forecast (one entry per upcoming day).
 
-    Reuses the coordinator's weather client (the same forecast already used for
-    the precip look-ahead skip). Each entry carries the span of the day it
-    covers (FORECAST_DAY_START/END), and the local date of its middle is the
-    label.
+    Reuses the coordinator's weather client, whose daily entries the precip
+    look-ahead skip also reads. Each entry carries the span of the day it covers
+    (FORECAST_DAY_START/END), read through ``forecast_window.day_span``, and the
+    local date of its middle is the label.
     Values are metric (the frontend labels units; value conversion is the
     separate H7-units follow-up).
     """
@@ -1095,9 +1096,9 @@ async def websocket_get_weather_forecast(hass: HomeAssistant, connection, msg):
     today = dt_util.now().date()
     days = []
     for i, day in enumerate(raw):
-        start = day.get(const.FORECAST_DAY_START)
-        end = day.get(const.FORECAST_DAY_END)
-        if start is not None and end is not None:
+        span = day_span(day)
+        if span is not None:
+            start, end = span
             # The day the client says this entry covers, in local time. Reading
             # it off the entry rather than off its position is what keeps a
             # client whose list does not start at tomorrow from being mislabelled.
@@ -1108,7 +1109,9 @@ async def websocket_get_weather_forecast(hass: HomeAssistant, connection, msg):
             # middle is local midnight, and the later of the two dates wins.
             label = dt_util.as_local(start + (end - start) / 2).date()
         else:
-            # No span, or only half of one: assume the list starts at tomorrow.
+            # No usable span -- none, half of one, naive, or not after its start
+            # (day_span, shared with the skip guard): assume the list starts at
+            # tomorrow.
             # A start alone labelled by its local date would bring back the
             # day-early label above.
             label = today + datetime.timedelta(days=i + 1)

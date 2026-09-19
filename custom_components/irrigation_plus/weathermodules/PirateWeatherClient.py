@@ -47,7 +47,26 @@ _MIN_CACHE_SECONDS = 60
 # low usually falls after the window closes, so the construction imports an
 # extreme the commit will never see and never lets go of it. Costs response size
 # on a call that is made anyway, and no extra call.
-PirateWeather_URL = "https://api.pirateweather.net/forecast/{}/{},{}?units={}&version={}&exclude=minutely,alerts"
+#
+# Wurzel: without ``extend=hourly`` the hourly block is 48 entries, reaching only
+#   floor(fetch) + 47 h. The precipitation skip guard measures its window as
+#   ``precipitation_forecast_days x 24`` hours from the RUN's start and refuses
+#   to decide unless the first 24 of those hours are covered; ``get_forecast_data``
+#   will not refresh a cached document younger than its cache window (86399 s on
+#   a daily auto-update interval), so once that document passes about 23 hours
+#   old the block no longer reaches dispatch + 24 h, the guard falls silent, and
+#   the zone waters straight through forecast rain with only a log line to say
+#   why.
+# Fix-Logik: ``extend=hourly`` asks Pirate Weather for the long hourly block --
+#   168 entries reaching floor(fetch) + 167 h, instead of 48 reaching
+#   floor(fetch) + 47 h. Measured on 2026-09-16 (Berlin 52.52/13.41): response
+#   size 30986 -> 85602 bytes (factor 2.76) at the same round-trip time
+#   (~0.2 s); the daily block is untouched, still 8 entries either way.
+# NOT-TO-DO: do not assume every subscription tier serves the long block on this
+#   parameter -- the numbers above were measured against one key, not surveyed
+#   across plans.
+# siehe tests/test_pirateweather_daily.py::test_the_request_asks_for_the_long_hourly_block
+PirateWeather_URL = "https://api.pirateweather.net/forecast/{}/{},{}?units={}&version={}&exclude=minutely,alerts&extend=hourly"
 
 RETRY_TIMES = 3
 # Required PirateWeather keys for validation
@@ -167,7 +186,7 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                 continue
         return out or None
 
-    def get_hourly_precipitation_forecast(self):
+    def get_hourly_precipitation_forecast(self, covering_until=None):
         """``[(aware UTC datetime, mm/h)]`` from the hourly block.
 
         ``precipIntensity`` is already a rate in mm/h under SI units, which is
@@ -176,10 +195,17 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
 
         ⚠️ That convention is ASSUMED here, not verified. This API follows Dark
         Sky, whose hourly points are documented as the hour BEGINNING at ``time``
-        -- which would put this series an hour early. It has never been exercised
-        against a real response for want of a key, so the shift is unmeasured
-        rather than ruled out. An hour's offset moves rain between two hours of
-        the projection; it cannot change the total across a whole window.
+        -- which would put this series an hour early. Measured against a live
+        response on 2026-09-16, the first stamp falls on the hour the fetch began
+        in -- evidence for the documented "beginning" convention rather than a
+        resolution of it, since nothing in the response says what interval a RATE
+        covers, only where its stamp sits. An hour's offset moves rain between two
+        hours of the projection; it cannot change the total across a whole window.
+
+        ``covering_until`` is accepted for one signature across the clients and
+        ignored here: this client holds a single forecast document, so there is
+        no other one it could serve instead. The long hourly block it always asks
+        for (``extend=hourly``) is what gives that document its reach.
 
         Reads only the already-fetched document and never issues a request of its
         own, for the same reason the temperature accessor does not.
@@ -235,10 +261,10 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                     ):
                         data = doc[PirateWeather_daily_weather_key_name]["data"][x]
                         # Each block is stamped with the start of its local day;
-                        # the next block's stamp ends it. That stamp is the true
-                        # local-day boundary, so a DST day comes out as 23 or 25
-                        # hours, which start + 1 day would not. The loop stops one
-                        # short of the last block, so x + 1 always exists.
+                        # the next block's stamp ends it. That stamp is the local-day
+                        # boundary as the API documents it, so a DST day comes out as
+                        # 23 or 25 hours, which start + 1 day would not. The loop
+                        # stops one short of the last block, so x + 1 always exists.
                         next_data = doc[PirateWeather_daily_weather_key_name]["data"][
                             x + 1
                         ]
@@ -273,6 +299,15 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                         parsed_data[MAPPING_PRECIPITATION] = (
                             data[PirateWeather_precip_key_name] * 10.0
                         )
+                        # A daily block's "time" is local midnight at the start of
+                        # that day: measured against a live response on 2026-09-16
+                        # (Berlin 52.52/13.41), 2026-09-15T22:00Z equalled
+                        # 2026-09-16T00:00+02:00, and every span between
+                        # consecutive blocks in that document was exactly 86400 s.
+                        # No daylight-saving date fell inside the measured window,
+                        # so a 23- or 25-hour day stays inference from the
+                        # local-midnight bucketing (see FORECAST_DAY_END below),
+                        # not something this measurement itself covers.
                         parsed_data[FORECAST_DAY_START] = (
                             datetime.datetime.fromtimestamp(
                                 data["time"], datetime.timezone.utc

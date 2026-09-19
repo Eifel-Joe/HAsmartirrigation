@@ -1,8 +1,11 @@
 """Test Irrigation Plus integration initialization."""
 
+import datetime
 from unittest.mock import AsyncMock, Mock, patch
 
+import homeassistant.util.dt as dt_util
 import pytest
+from freezegun import freeze_time
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
@@ -572,11 +575,15 @@ class TestDaysBetweenIrrigation:
 class _FakeForecastClient:
     """Minimal weather client exposing a fixed forecast for skip tests."""
 
-    def __init__(self, days):
+    def __init__(self, days, hourly=None):
         self._days = days
+        self._hourly = hourly
 
     def get_forecast_data(self):
         return self._days
+
+    def get_hourly_precipitation_forecast(self, covering_until=None):
+        return self._hourly
 
 
 class TestPrecipitationLookAhead:
@@ -588,7 +595,7 @@ class TestPrecipitationLookAhead:
         mock_config_entry: ConfigEntry,
         mock_session: AsyncMock,
     ) -> None:
-        """1-day window sees only the next day; 2-day window sums two days."""
+        """1-day window sees the first 24 hours from the run; 2 adds the next 24."""
         cfg = {
             const.CONF_SKIP_IRRIGATION_ON_PRECIPITATION: True,
             const.CONF_PRECIPITATION_THRESHOLD_MM: 2.0,
@@ -613,21 +620,45 @@ class TestPrecipitationLookAhead:
         coordinator = SmartIrrigationCoordinator(
             hass, mock_session, mock_config_entry, mock_store
         )
-        # next forecast day is dry, the day after has 5 mm of rain
-        coordinator._WeatherServiceClient = _FakeForecastClient(
-            [
-                {const.MAPPING_PRECIPITATION: 0.0},
-                {const.MAPPING_PRECIPITATION: 5.0},
+        hour = datetime.timedelta(hours=1)
+        frozen = datetime.datetime(2026, 9, 13, 18, 0, tzinfo=datetime.timezone.utc)
+        with freeze_time(frozen):
+            # The window is 24-hour blocks from the run's start, so build the
+            # series from the run rather than from a local midnight: 5 mm in the
+            # hour ending 30 hours out lie in the SECOND block whatever zone the
+            # fixtures set, and the first block stays dry. The first stamp is one
+            # hour after the run and its sample reaches one step back, to the run
+            # itself, so the series covers the whole first block.
+            rain_at = frozen + 30 * hour
+            hourly = [
+                (frozen + h * hour, 5.0 if frozen + h * hour == rain_at else 0.0)
+                for h in range(1, 32)
             ]
-        )
+            # A dated daily entry only so the guard has a forecast at all; it
+            # starts after the series and carries no rain.
+            day_after = dt_util.as_utc(
+                dt_util.start_of_local_day(
+                    dt_util.now().date() + datetime.timedelta(days=2)
+                )
+            )
+            coordinator._WeatherServiceClient = _FakeForecastClient(
+                [
+                    {
+                        const.FORECAST_DAY_START: day_after,
+                        const.FORECAST_DAY_END: day_after + 24 * hour,
+                        const.MAPPING_PRECIPITATION: 0.0,
+                    }
+                ],
+                hourly,
+            )
 
-        # 1-day window: only the dry next day counts -> no skip
-        res = await coordinator._eval_precipitation(cfg)
-        assert res["observed"] == 0.0
-        assert res["would_skip"] is False
+            # 1-day window: only the dry first 24 hours count -> no skip
+            res = await coordinator._eval_precipitation(cfg)
+            assert res["observed"] == 0.0
+            assert res["would_skip"] is False
 
-        # 2-day window: 0 + 5 mm >= 2 mm threshold -> skip
-        cfg[const.CONF_PRECIPITATION_FORECAST_DAYS] = 2
-        res = await coordinator._eval_precipitation(cfg)
-        assert res["observed"] == 5.0
-        assert res["would_skip"] is True
+            # 2-day window: 0 + 5 mm >= 2 mm threshold -> skip
+            cfg[const.CONF_PRECIPITATION_FORECAST_DAYS] = 2
+            res = await coordinator._eval_precipitation(cfg)
+            assert res["observed"] == 5.0
+            assert res["would_skip"] is True

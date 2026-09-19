@@ -9,6 +9,7 @@ against a live response.
 
 import datetime
 import json
+import pathlib
 import zoneinfo
 from unittest.mock import MagicMock, patch
 
@@ -24,6 +25,14 @@ from custom_components.irrigation_plus.weathermodules.PirateWeatherClient import
 _PATCH = (
     "custom_components.irrigation_plus.weathermodules.PirateWeatherClient._SESSION.get"
 )
+
+# Recorded from the live Pirate Weather API on 2026-09-16 for Berlin
+# (52.52/13.41, the site the tests above already use), requested with
+# ``extend=hourly``. Trimmed to the ``hourly``/``daily``/``currently`` keys
+# PirateWeatherClient actually reads -- see PirateWeatherClient.py for which
+# those are -- so a human can scan the whole thing; the 168 hourly and 8 daily
+# entry counts are kept exactly, since they are what the tests below check.
+_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "pirate_weather_berlin.json"
 
 
 def _block(start, precip_cm):
@@ -83,3 +92,29 @@ def test_a_dst_day_spans_its_real_length():
     assert day[FORECAST_DAY_END] - day[FORECAST_DAY_START] == datetime.timedelta(
         hours=25
     )
+
+
+def test_the_hourly_block_reaches_past_two_days():
+    """Characterises the fixture, not the request: the fixture already has 168
+    hourly entries, so this passes whether or not the client asks for them.
+    ``test_the_request_asks_for_the_long_hourly_block`` below is what is red
+    before the URL carries ``extend=hourly`` and green after."""
+    doc = json.loads(_FIXTURE.read_text(encoding="utf-8"))
+    client = PirateWeatherClient("key", "1", 52.52, 13.41, 0)
+    client._cached_doc = doc
+
+    series = client.get_hourly_precipitation_forecast()
+
+    span = series[-1][0] - series[0][0]
+    assert span > datetime.timedelta(hours=48)
+
+
+def test_the_request_asks_for_the_long_hourly_block():
+    """Without ``extend=hourly`` Pirate Weather's default hourly block is 48
+    entries, reaching only floor(fetch) + 47 h -- not enough to keep covering a
+    rolling 24-hour window once the cached document is about a day old. This is
+    the test the fixture-based one above cannot be: it fails on the request the
+    client builds, not on a recorded response."""
+    client = PirateWeatherClient("key", "1", 52.52, 13.41, 0)
+
+    assert "extend=hourly" in client.url
