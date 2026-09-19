@@ -497,6 +497,182 @@ class TestOneOffSampleIsNotEvidenceTheWaterStopped:
         assert await c._sc_find_run(2) is None
 
 
+async def _report(hass, state, when, attributes=None):
+    """The valve reports ``state``, stamped ``when`` (the state's last_changed)."""
+    hass.states.async_set(VALVE, state, attributes, timestamp=when.timestamp())
+    await hass.async_block_till_done()
+
+
+class TestTheWatcherRecordsTheValvesOwnOffReport:
+    """RUN_VALVE_OFF is the first off report since the last on (#139).
+
+    Read off the event's state.last_changed rather than stamped when the
+    watcher gets round to it: the evaluate runs as a task, a poll or more after
+    the report, and every later off update of the same valve (an attribute
+    refresh, a link-quality tick) is an event of its own that would move a
+    clock-stamped value. Recorded only from an event whose previous state was
+    running: an off that follows unavailable, unknown or no state the watcher
+    saw carries the entity's return in its last_changed, not the close. Each
+    test asserts before the debounce runs out: the report is recorded at the
+    event, not when the run is settled.
+    """
+
+    async def test_an_off_event_records_the_states_last_changed(self, hass):
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone())
+        closed = dt_util.utcnow().replace(microsecond=0) + timedelta(seconds=2.5)
+
+        await _report(hass, "off", closed)
+
+        run = await c._sc_find_run(2)
+        assert run[const.RUN_VALVE_OFF] == closed.isoformat()
+        c._record_run.assert_not_awaited()
+        await _settle(hass)
+
+    async def test_an_attribute_only_update_does_not_move_the_off_report(self, hass):
+        """HA keeps last_changed while the state text stays the same."""
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone())
+        closed = dt_util.utcnow().replace(microsecond=0) + timedelta(seconds=2.5)
+
+        await _report(hass, "off", closed)
+        await _report(hass, "off", closed + timedelta(seconds=3), {"linkquality": 42})
+
+        state = hass.states.get(VALVE)
+        assert state.last_changed == closed
+        assert state.last_updated == closed + timedelta(seconds=3)
+        run = await c._sc_find_run(2)
+        assert run[const.RUN_VALVE_OFF] == closed.isoformat()
+        await _settle(hass)
+
+    async def test_an_off_after_an_unavailable_spell_keeps_the_first_off_report(
+        self, hass
+    ):
+        """unavailable is no information, not an on: the valve closed at the first.
+
+        The first off follows the on and is the close. The off after the spell
+        follows unavailable, not a running state, and moves nothing.
+        """
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone())
+        closed = dt_util.utcnow().replace(microsecond=0) + timedelta(seconds=2.5)
+
+        await _report(hass, "off", closed)
+        await _report(hass, "unavailable", closed + timedelta(seconds=1))
+        await _report(hass, "off", closed + timedelta(seconds=2))
+
+        assert hass.states.get(VALVE).last_changed == closed + timedelta(seconds=2)
+        run = await c._sc_find_run(2)
+        assert run[const.RUN_VALVE_OFF] == closed.isoformat()
+        await _settle(hass)
+
+    async def test_an_off_after_an_unavailable_mid_run_records_nothing(self, hass):
+        """on -> unavailable -> off: the off does not follow a running state.
+
+        Its last_changed is when the entity came back, which can be any time
+        after the valve really closed. Nothing is recorded, and the run is
+        settled like any close nobody reported (accepted trade-off, #139).
+        """
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone())
+        now = dt_util.utcnow().replace(microsecond=0)
+
+        await _report(hass, "unavailable", now + timedelta(seconds=1))
+        await _report(hass, "off", now + timedelta(seconds=3))
+
+        # the off was evaluated: the debounce is running
+        assert c._watchers()[2].finish_cancel is not None
+        run = await c._sc_find_run(2)
+        assert not run.get(const.RUN_VALVE_OFF)
+        await _settle(hass)
+
+    async def test_an_on_inside_the_debounce_clears_the_off_report(self, hass):
+        """A blip is not a close: the next off starts a fresh window end."""
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone())
+        closed = dt_util.utcnow().replace(microsecond=0) + timedelta(seconds=2.5)
+        await _report(hass, "off", closed)
+        assert (await c._sc_find_run(2))[const.RUN_VALVE_OFF] == closed.isoformat()
+
+        await _report(hass, "on", closed + timedelta(seconds=1))
+
+        run = await c._sc_find_run(2)
+        assert run is not None
+        assert not run.get(const.RUN_VALVE_OFF)
+        await _settle(hass)
+        assert await c._sc_find_run(2) is not None
+        c._record_run.assert_not_awaited()
+
+    async def test_a_re_adopted_run_does_not_record_the_initial_off(self, hass):
+        """After a restart last_changed is the entity's return, not the close.
+
+        The watcher re-adopting the run evaluates the valve once, and finds it
+        off. That evaluation must not stamp RUN_VALVE_OFF: the state it reads
+        was restored when the entity came back, so its last_changed can be any
+        time after the real close.
+        """
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone())
+        c._run_watchers = {}  # the subscription lived in memory only
+        await _report(
+            hass, "off", dt_util.utcnow().replace(microsecond=0) + timedelta(seconds=2)
+        )
+
+        await c.async_resume_self_closing_runs()
+        await hass.async_block_till_done()
+
+        # the initial evaluate did see the off: the debounce is running
+        assert c._watchers()[2].finish_cancel is not None
+        run = await c._sc_find_run(2)
+        assert not run.get(const.RUN_VALVE_OFF)
+        await _settle(hass)
+
+    async def test_a_re_adopted_run_does_not_record_an_off_after_unavailable(
+        self, hass
+    ):
+        """The valve is unavailable when the run is re-adopted, then reports off.
+
+        After a restart a Zigbee valve comes back as unavailable first. The off
+        that follows is the first report the new subscription sees, but its
+        previous state is unavailable: its last_changed is the entity's return,
+        not the close.
+        """
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone())
+        c._watch_cancel(2)  # the subscription lived in memory only
+        now = dt_util.utcnow().replace(microsecond=0)
+        await _report(hass, "unavailable", now + timedelta(seconds=1))
+
+        await c.async_resume_self_closing_runs()
+        await hass.async_block_till_done()
+        assert c._watchers()[2].finish_cancel is None  # unavailable: no information
+
+        await _report(hass, "off", now + timedelta(seconds=3))
+
+        # the off was evaluated: the debounce is running
+        assert c._watchers()[2].finish_cancel is not None
+        run = await c._sc_find_run(2)
+        assert not run.get(const.RUN_VALVE_OFF)
+        await _settle(hass)
+
+    async def test_a_record_from_before_the_update_records_nothing(self, hass):
+        """No frozen margin, no finish grace: the run keeps the timing it had."""
+        c = _coord(hass)
+        await _dispatch(hass, c, _zone())
+        for record in c._cfg[const.CONF_ACTIVE_VALVE_RUNS]:
+            del record[const.RUN_LATENCY_MARGIN]
+
+        await _report(
+            hass, "off", dt_util.utcnow().replace(microsecond=0) + timedelta(seconds=2)
+        )
+
+        assert c._watchers()[2].finish_cancel is not None
+        run = await c._sc_find_run(2)
+        assert const.RUN_LATENCY_MARGIN not in run
+        assert not run.get(const.RUN_VALVE_OFF)
+        await _settle(hass)
+
+
 class TestAWriteOnlyValveIsUntouched:
     async def test_a_zone_with_no_confirm_entity_is_not_watched(self, hass):
         """Nothing to subscribe to, and the hardware still owns the close."""

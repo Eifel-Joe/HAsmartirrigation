@@ -658,11 +658,22 @@ class RunWatchMixin:
             if watcher.entity != entity_id:
                 continue
             self.hass.async_create_task(
-                self._watch_evaluate(zone_id, event.data.get("new_state"))
+                self._watch_evaluate(
+                    zone_id,
+                    event.data.get("new_state"),
+                    previous_state=event.data.get("old_state"),
+                )
             )
 
-    async def _watch_evaluate(self, zone_id, state) -> None:
-        """Advance a watched run from one observation of its entity."""
+    async def _watch_evaluate(self, zone_id, state, *, previous_state=None) -> None:
+        """Advance a watched run from one observation of its entity.
+
+        ``previous_state`` is the state ``state`` replaced, passed only by the
+        subscription (the event's old_state). The one-off read in
+        ``_watch_start`` and a mode's own re-evaluation of the current state
+        leave it None: they did not see the entity move, so they cannot say
+        what ``state`` followed or when the valve moved.
+        """
         zid = int(zone_id)
         watcher = self._watchers().get(zid)
         if watcher is None:
@@ -690,6 +701,14 @@ class RunWatchMixin:
             elif policy.segmented and run.get(const.RUN_SEGMENT_STARTED) is None:
                 # Watering again after a pause: open the next segment.
                 await self._watch_resume(zid, run)
+            if policy.settles_on_valve_window and run.get(const.RUN_VALVE_OFF):
+                # The valve is on again, so the off report it made was a blip
+                # and not the close (#139). Dropped rather than kept: the run's
+                # window ends at the first off AFTER this on, and a stale value
+                # would survive the next off unchanged (it is only recorded
+                # when unset) and cut the window short by the blip's distance
+                # from the real end.
+                await self._watch_update_run(zid, {const.RUN_VALVE_OFF: None})
             return
 
         if observed_start is not None:
@@ -698,6 +717,41 @@ class RunWatchMixin:
                 # time; bank what has been delivered and wait.
                 await self._watch_pause(zid, run)
                 return
+            if (
+                previous_state is not None
+                and previous_state.state in RUNNING_STATES
+                and run_has_finish_grace(run)
+                and not run.get(const.RUN_VALVE_OFF)
+            ):
+                # The end of the valve window this run is settled on (#139): the
+                # first off report since the last on, taken from the state's
+                # last_changed and never from the clock. This evaluate runs as a
+                # task a moment after the report, and the debounce below decides
+                # seconds later still; both would stretch the window by their
+                # latency. last_changed is also stable against the reports that
+                # follow: HA keeps it while the state text stays "off", so an
+                # attribute-only update (which is a state_changed event of its
+                # own and restarts the debounce) cannot move it, and a value
+                # already stored is never overwritten.
+                #
+                # The close is the first off that directly follows a running
+                # state, so only that event records it. Never the initial
+                # evaluate (no previous state: a watcher re-adopted after a
+                # restart reads a state restored when the entity came back), and
+                # never unavailable/unknown/None -> off: after a restart Zigbee
+                # valves come back as unavailable first, and the last_changed of
+                # the off that follows is the entity's return, not the close.
+                # Either would stretch the window by the downtime. Do not widen
+                # this to "any off the subscription delivered". Accepted
+                # trade-off: on -> unavailable -> off mid-run records nothing,
+                # and that run is settled like any close nobody reported, on
+                # its elapsed time when the debounce decides.
+                run = (
+                    await self._watch_update_run(
+                        zid, {const.RUN_VALVE_OFF: state.last_changed.isoformat()}
+                    )
+                    or run
+                )
             # The zone stopped. The controller ended the run, on time or early;
             # either way it is over now — unless this mode's pause indicator may
             # simply not have caught up yet, in which case decide in a moment.
