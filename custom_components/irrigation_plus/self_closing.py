@@ -60,6 +60,12 @@ SERVICE_WATCH_POLICY = WatchPolicy(
     # _confirm_valve_running is written around. One off sample is not evidence
     # the water stopped, so look again before settling the run.
     finish_settle_seconds=const.SERVICE_WATCH_SETTLE_SECONDS,
+    # The valve reports both ends of the run itself, so actual_s is the window
+    # between those reports and a close that arrives within the zone's latency
+    # margin of the planned end still settles through the watcher (#139). The
+    # backstop, armed at exactly the window, used to beat that report on every
+    # normal run.
+    settles_on_valve_window=True,
 )
 register_watch_policy(SERVICE_WATCH_POLICY)
 

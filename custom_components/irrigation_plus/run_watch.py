@@ -203,6 +203,20 @@ class WatchPolicy:
     # or spurious `off` would otherwise settle a run as a partial and reverse the
     # credit for water that never stopped flowing.
     finish_settle_seconds: float = 0.0
+    # Whether a run's end is settled on the VALVE'S OWN reports rather than on
+    # the wall clock: its backstop waits finish_settle_seconds plus the zone's
+    # latency margin past the planned window, and a close the valve reports
+    # within that margin of its window is completed, not partial, for the window
+    # from the on report to the off report (#139). A close nobody reported keeps
+    # the wall-clock rule.
+    #
+    # Only a mode whose valve opens at dispatch and reports its own close has
+    # those reports. A queue controller's watch entity is its station, whose
+    # timing is the controller's, and a batch controller can pause, so both keep
+    # False and stay byte-for-byte on the timing their tests pin. Keyed on the
+    # policy rather than on RUN_WATCH_ENTITY, because batch and OpenSprinkler
+    # records carry that key as well.
+    settles_on_valve_window: bool = False
 
 
 def is_acknowledged(state) -> bool:
@@ -248,6 +262,80 @@ def run_credit_ceiling(run: dict, zone: dict) -> float:
         return float(recorded)
     except (TypeError, ValueError):
         return float("inf")
+
+
+def zone_latency_margin(zone: dict) -> int:
+    """The zone's latency margin in whole seconds, clamped to [0, MAX]."""
+    raw = (zone or {}).get(const.ZONE_LATENCY_MARGIN)
+    if raw is None:
+        return const.DEFAULT_LATENCY_MARGIN_SECONDS
+    try:
+        value = int(round(float(raw)))
+    except (TypeError, ValueError):
+        return const.DEFAULT_LATENCY_MARGIN_SECONDS
+    return max(0, min(const.MAX_LATENCY_MARGIN_SECONDS, value))
+
+
+def run_latency_margin(run: dict) -> float | None:
+    """The margin frozen into a run at dispatch, or None (write-only / pre-update record)."""
+    raw = run.get(const.RUN_LATENCY_MARGIN) if isinstance(run, dict) else None
+    if raw is None:
+        return None
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return None
+
+
+def run_has_finish_grace(run: dict) -> bool:
+    """True for a run whose end the watcher settles on the valve's own reports.
+
+    All three: its mode's policy settles on the valve window (service only), it was
+    confirmed (RUN_WATCH_ENTITY) and it carries a frozen margin. RUN_WATCH_ENTITY alone
+    is not enough — OpenSprinkler and batch records carry it too.
+    """
+    if not isinstance(run, dict) or not run.get(const.RUN_WATCH_ENTITY):
+        return False
+    if run_latency_margin(run) is None:
+        return False
+    return watch_policy_for(run.get(const.RUN_MODE)).settles_on_valve_window
+
+
+def run_finish_grace_seconds(run: dict) -> float:
+    """settle + frozen margin for a run with a finish grace, else 0."""
+    if not run_has_finish_grace(run):
+        return 0.0
+    policy = watch_policy_for(run.get(const.RUN_MODE))
+    return float(policy.finish_settle_seconds) + float(run_latency_margin(run))
+
+
+def run_completion_tolerance(run: dict) -> float:
+    """Seconds short of the planned window that still count as a completed run."""
+    if not run_has_finish_grace(run):
+        return 1.0
+    return max(1.0, float(run_latency_margin(run)))
+
+
+def valve_window_seconds(run: dict, now) -> float:
+    """Seconds the valve was reported open: its off report minus its on report.
+
+    Anchor = RUN_VALVE_ON, else RUN_OBSERVED_START, else RUN_STARTED. Without an off
+    report the window runs to ``now`` and is bounded by the plan, not guessed:
+    min(now - anchor, planned).
+    """
+    planned = planned_seconds(run)
+    anchor = dt_util.parse_datetime(
+        run.get(const.RUN_VALVE_ON)
+        or run.get(const.RUN_OBSERVED_START)
+        or run.get(const.RUN_STARTED)
+        or ""
+    )
+    if anchor is None:
+        return planned
+    off = dt_util.parse_datetime(run.get(const.RUN_VALVE_OFF) or "")
+    if off is not None:
+        return max(0.0, (off - anchor).total_seconds())
+    return max(0.0, min((now - anchor).total_seconds(), planned))
 
 
 def queue_deadline_seconds(runs: list, run: dict, *, mode: str | None = None) -> float:
