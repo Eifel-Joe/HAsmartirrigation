@@ -1816,3 +1816,298 @@ class TestARestartCarriesTheFinishGrace:
             assert 2 not in c._watchers()
             c._sc_schedule_cleanup.assert_not_called()
             c.async_master_acquire.assert_not_awaited()
+
+
+FLOW = "sensor.zone_flow"
+RATE = 10.0  # L/min from the open: 2.5 L a poll, 1/6 L a second
+COUNTER = {"unit": "L", "state_class": "total_increasing"}
+
+
+def _metered(c):
+    """Swap _coord's flow doubles for the real sampler and its finish.
+
+    _coord stubs both, because the watcher tests are not about litres. These
+    are, so the meter, its 15 s interval and its final read are real. The timed
+    volume becomes 1 L, which none of these runs meters, so a run that lost its
+    measurement cannot pass for one that kept it.
+    """
+    del c._sc_start_flow_sampling
+    del c._sc_finish_flow
+    c._timed_volume_l = Mock(return_value=1.0)
+
+
+def _metered_zone(duration, **kw):
+    return _zone(duration=duration, **{const.ZONE_FLOW_SENSOR: FLOW}, **kw)
+
+
+async def _flow(hass, value, unit="L/min", state_class="measurement"):
+    """The flow sensor reads ``value``."""
+    hass.states.async_set(
+        FLOW, str(value), {"unit_of_measurement": unit, "state_class": state_class}
+    )
+    await hass.async_block_till_done()
+
+
+async def _walk(hass, frozen, seconds):
+    """Walk the clock on ``seconds`` in steps of at most one poll.
+
+    The sampler's interval re-arms itself a poll after it fires, so a jump
+    fires one late tick for several and shifts every later one. Walked from
+    the dispatch, each tick fires on time, at a multiple of the poll.
+    """
+    while seconds > 0:
+        step = min(seconds, const.FLOW_POLL_INTERVAL)
+        await _advance(hass, frozen, step)
+        seconds -= step
+
+
+def _litres(c):
+    """The litres the finished run was recorded with."""
+    return c._record_run.await_args.kwargs["volume_l"]
+
+
+class TestAConfirmedRunsFlowEndsAtItsOffReport:
+    """A rate sensor is metered to the valve's off report, not to the settle (#139).
+
+    The flow meter credits each interval at the rate read at its end. Before
+    the finish grace the backstop read the sensor at the planned end, with the
+    valve still open. A confirmed run is now finalised after its close, by the
+    watcher the debounce later or by the backstop at the end of the grace, so
+    the read that ends the interval spanning the close, a tick after it or the
+    final read, finds the water stopped and credits that whole interval, up to
+    a poll of flow the valve reported, at nothing. A sensor that holds its
+    last value credits the seconds after the close instead. With the off
+    report on the record the integration ends there, the last interval at its
+    last measured rate. A run without the report and a totalizer are metered
+    as before.
+
+    The sensor reads 10 L/min from the open, the clock is walked so every tick
+    fires on time, and the expected litres are 10 L/min over the seconds from
+    the open to the close.
+    """
+
+    async def test_a_close_settled_by_the_watcher_is_metered_to_its_off_report(
+        self, hass
+    ):
+        """612 s plan, closed at +614, settled at +619: 614 s of flow.
+
+        The tick at +615 reads the water stopped and used to credit (600, 615]
+        at nothing, 14 s the valve reported open; so did the read at +619.
+        """
+        c = _coord(hass)
+        _metered(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _dispatch(hass, c, _metered_zone(612))
+            await _walk(hass, frozen, 614)
+            await _flow(hass, 0)
+            await _report(hass, "off", started + timedelta(seconds=614))
+            await _advance(hass, frozen, 1)  # 615: the tick reads nothing
+            await _advance(hass, frozen, 4)  # 619: the debounce settles the run
+
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == pytest.approx(614, abs=0.01)
+        assert _litres(c) == pytest.approx(RATE * 614 / 60, abs=0.01)  # not 100
+        assert 2 not in c._sc_meters()
+
+    async def test_a_sensor_that_holds_its_last_value_is_not_metered_past_it(
+        self, hass
+    ):
+        """The same close with a sensor still reading 10 L/min after it.
+
+        Its reads at +615 and +619 used to credit the 5 s after the close as
+        water: 619 s of flow for a valve that reported 614.
+        """
+        c = _coord(hass)
+        _metered(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _dispatch(hass, c, _metered_zone(612))
+            await _walk(hass, frozen, 614)
+            await _report(hass, "off", started + timedelta(seconds=614))
+            await _advance(hass, frozen, 1)  # 615: the tick still reads 10
+            await _advance(hass, frozen, 4)  # 619: the debounce settles the run
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert _litres(c) == pytest.approx(RATE * 614 / 60, abs=0.01)  # not 619 s
+
+    async def test_a_partial_settled_on_its_window_is_metered_to_its_off_report(
+        self, hass
+    ):
+        """Off at +598 on a 612 s plan: a partial on its window, settled at +603.
+
+        async_stop_self_closing books the partial and finalises the meter
+        itself; the tick at +600 used to credit (585, 600] at nothing.
+        """
+        c = _coord(hass)
+        _metered(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _dispatch(hass, c, _metered_zone(612))
+            await _walk(hass, frozen, 598)
+            await _flow(hass, 0)
+            await _report(hass, "off", started + timedelta(seconds=598))
+            await _advance(hass, frozen, 2)  # 600: the tick reads nothing
+            await _advance(hass, frozen, 3)  # 603: the debounce settles the run
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["actual_s"] == pytest.approx(598, abs=0.01)
+        assert _litres(c) == pytest.approx(RATE * 598 / 60, abs=0.01)  # not 585 s
+
+    async def test_a_stop_in_the_grace_is_metered_to_the_off_report(self, hass):
+        """(d): off at +614, stopped at +616, completed on the reported window."""
+        c = _coord(hass)
+        _metered(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _dispatch(hass, c, _metered_zone(612))
+            await _walk(hass, frozen, 614)
+            await _flow(hass, 0)
+            await _report(hass, "off", started + timedelta(seconds=614))
+            await _advance(hass, frozen, 1)  # 615: the tick reads nothing
+            frozen.tick(timedelta(seconds=1))  # 616: the debounce (619) not fired
+
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == pytest.approx(614, abs=0.01)
+            assert _litres(c) == pytest.approx(RATE * 614 / 60, abs=0.01)
+
+            # _coord's _os_cancel_watch is a double, so the debounce is still
+            # armed; run it out against the removed run, which it leaves alone.
+            await _advance(hass, frozen, 4)  # 620
+
+        c._record_run.assert_awaited_once()
+
+    async def test_a_stop_before_the_plan_is_metered_to_a_stored_off_report(self, hass):
+        """(c): off stored at +298, stopped at +301 while its debounce is pending.
+
+        The stop keeps its own clock, 301 s, as (c) has it. The litres are a
+        measurement, and the record holds the off only while it is the valve's
+        latest report, so the flow ends there: 298 s, not the 285 s the tick at
+        +300 left.
+        """
+        c = _coord(hass)
+        _metered(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _dispatch(hass, c, _metered_zone(612))
+            await _walk(hass, frozen, 298)
+            await _flow(hass, 0)
+            await _report(hass, "off", started + timedelta(seconds=298))
+            await _advance(hass, frozen, 2)  # 300: the tick reads nothing
+            frozen.tick(timedelta(seconds=1))  # 301: the debounce (303) not fired
+
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_PARTIAL
+            assert kw["actual_s"] == pytest.approx(301, abs=0.01)
+            assert _litres(c) == pytest.approx(RATE * 298 / 60, abs=0.01)
+
+            await _advance(hass, frozen, 3)  # 304: run the debounce out
+
+        c._record_run.assert_awaited_once()
+
+    async def test_the_backstop_meters_to_an_off_report_it_beat_to_the_settle(
+        self, hass
+    ):
+        """605 s plan, off at +611, backstop at +614, debounce due at +616.
+
+        The backstop finishes the run for its plan, as agreed on #139 (see
+        TestACloseReportedPastTheMarginIsKnownAndDeliberatelyUnchanged). The
+        water still stopped at the report on the record, and the backstop's
+        read at +614 comes after it just like the watcher's: 611 s of flow,
+        not the 600 s the read at +614 left.
+        """
+        c = _coord(hass)
+        _metered(c)
+        _the_real_backstop_from_here(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _dispatch(
+                hass, c, _metered_zone(605, **{const.ZONE_LATENCY_MARGIN: 4})
+            )
+            await _walk(hass, frozen, 611)
+            await _flow(hass, 0)
+            await _report(hass, "off", started + timedelta(seconds=611))
+            await _advance(hass, frozen, 3)  # 614: the backstop (605 + 5 + 4)
+
+            assert await c._sc_find_run(2) is None
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == kw["planned_s"] == 605
+            assert _litres(c) == pytest.approx(RATE * 611 / 60, abs=0.01)
+
+            await _advance(hass, frozen, 3)  # 617: past where the debounce was due
+
+            c._record_run.assert_awaited_once()
+            assert not c._sc_cleanup_timers()
+            assert 2 not in c._sc_meters()
+
+    async def test_a_close_nobody_reported_is_metered_as_before(self, hass):
+        """on -> unavailable -> off: no off report on the record, nothing is cut.
+
+        The watcher settles it by its base rule at +619, for its plan, and the
+        meter keeps every read it took: the interval spanning the close is
+        still credited at the nothing read after it, 600 s of flow.
+        """
+        c = _coord(hass)
+        _metered(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _dispatch(hass, c, _metered_zone(612))
+            await _walk(hass, frozen, 613)
+            await _flow(hass, 0)
+            await _report(hass, "unavailable", started + timedelta(seconds=613))
+            await _advance(hass, frozen, 1)  # 614
+            await _report(hass, "off", started + timedelta(seconds=614))
+            assert not (await c._sc_find_run(2)).get(const.RUN_VALVE_OFF)
+            await _advance(hass, frozen, 1)  # 615: the tick reads nothing
+            await _advance(hass, frozen, 4)  # 619: the debounce decides
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == kw["planned_s"] == 612
+        assert _litres(c) == pytest.approx(RATE * 600 / 60, abs=0.01)
+
+    async def test_a_totalizer_keeps_the_climb_it_reports_after_the_close(self, hass):
+        """A counter only climbs for water that flowed, so a late read still counts.
+
+        Lifetime counter at 1000 L on open, 2.5 L a poll; the valve reports off
+        at +614 and the counter's last climb arrives at +617. The final read at
+        +619 credits it, off report or not: 614 s of flow.
+        """
+        c = _coord(hass)
+        _metered(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, 1000, **COUNTER)
+            await _dispatch(hass, c, _metered_zone(612))
+            for poll in range(1, 41):  # the ticks at +15 .. +600
+                await _flow(hass, 1000 + 2.5 * poll, **COUNTER)
+                await _advance(hass, frozen, 15)
+            await _advance(hass, frozen, 14)  # 614
+            await _report(hass, "off", started + timedelta(seconds=614))
+            await _advance(hass, frozen, 3)  # 617: the tick at 615 read 1100 L
+            await _flow(hass, 1000 + RATE * 614 / 60, **COUNTER)
+            await _advance(hass, frozen, 2)  # 619: the debounce settles the run
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert (await c._sc_find_run(2)) is None
+        assert _litres(c) == pytest.approx(RATE * 614 / 60, abs=0.01)

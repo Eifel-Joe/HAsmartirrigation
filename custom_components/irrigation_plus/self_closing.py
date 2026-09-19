@@ -308,11 +308,15 @@ class SelfClosingMixin:
         if sample is not None:
             meter.sample(*sample, at=at)
 
-    def _sc_finish_flow(self, zone_id):
+    def _sc_finish_flow(self, zone_id, run: dict | None = None):
         """Cancel a zone's sampling and return (measured_l | None, end_changes). measured
         is None when there is no sensor, the meter was lost to a restart, or no positive
         flow was seen (caller then keeps its time-based volume). Takes ONE final reading
         at close so a totalizer's last (up to a poll interval) of climb isn't dropped.
+
+        ``run`` is the record being finalised; the callers that only discard a meter
+        pass none. When it carries the valve's off report, a rate sensor is metered to
+        that report and not to this read (#139).
         """
         entry = self._sc_meters().pop(zone_id, None)
         if not entry:
@@ -324,6 +328,23 @@ class SelfClosingMixin:
         final = self._read_flow_sample(sensor)
         if final is not None:
             meter.sample(*final, at=(dt_util.utcnow() - started).total_seconds())
+        off = dt_util.parse_datetime((run or {}).get(const.RUN_VALVE_OFF) or "")
+        if off is not None:
+            # A rate meter credits each interval at the rate read at its end. A run
+            # whose valve reported its close is finalised after it: by the watcher,
+            # the debounce later, or by the backstop at planned + grace. Before the
+            # finish grace a normal end was the backstop's read at the planned end,
+            # with the valve still open (#139). Now this read, or a 15 s tick before
+            # it, ends the interval spanning the close with the water already
+            # stopped, and up to a poll of flow the valve reported open is credited
+            # at 0 (a sensor holding its last value credits the seconds after the
+            # close instead). The report is when the water stopped, so the
+            # integration ends there, the last interval at its last measured rate
+            # (FlowMeter.end_rate_at). Read first, cut after: a totalizer ignores
+            # the cut and keeps this read, whose climb is water that flowed. A run
+            # without the report (write-only, unverifiable, a close nobody reported,
+            # a backstop that beat the report) is metered to this read as before.
+            meter.end_rate_at((off - started).total_seconds())
         d = meter.delivered()
         if d is None and sensor:
             # The per-tick reads are DEBUG (they poll every 15 s), so a persistently
@@ -377,7 +398,7 @@ class SelfClosingMixin:
         # open-time time-based estimate. Cancel the sampler + persist the totalizer end
         # for cross-run learning. measured is None when the zone has no flow_sensor, the
         # meter was lost to a restart, or no positive flow was seen -> time-based volume.
-        measured, end_changes = self._sc_finish_flow(zone_id)
+        measured, end_changes = self._sc_finish_flow(zone_id, run)
         if end_changes:
             await self.store.async_update_zone(zone_id, end_changes)
         if measured is not None:
@@ -909,7 +930,7 @@ class SelfClosingMixin:
         # sampler and persists the totalizer end for cross-run learning. measured is None
         # when there is no sensor, the meter was lost to a restart, or no positive flow was
         # seen. See test_self_closing.
-        measured, end_changes = self._sc_finish_flow(zone_id)
+        measured, end_changes = self._sc_finish_flow(zone_id, run)
         if end_changes:
             await self.store.async_update_zone(zone_id, end_changes)
         # Reconcile ABSOLUTELY from the pre-run level (RUN_PRE_BUCKET) when we have it: the
