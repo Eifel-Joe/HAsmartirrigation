@@ -743,6 +743,50 @@ class TestAConfirmedRunIsSettledOnItsValveWindow:
         c._flow_calibration_check.assert_awaited_once()
         assert c._flow_calibration_check.await_args.args[2] == 600
 
+    async def test_the_watcher_settles_it_before_the_real_backstop_fires(self, hass):
+        """The same close with the backstop's real timer armed, not its double.
+
+        The test above settles against _coord's backstop double, which never
+        fires, so on its own it cannot show that the watcher gets there first.
+        Here the backstop is the real timer, due at 609 (600 + 5 + 4): the
+        debounce, due at 607, settles the run on the reported window, and the
+        backstop, cancelled with the run, never settles it a second time.
+
+        The clock is walked past the planned end before the close is reported,
+        not jumped over it: a timer that falls due inside a jump is only
+        queued, and the time fired next runs the debounce ahead of it, whose
+        settle cancels it unrun. A backstop armed at the plan would so never
+        get its live turn at 600, and the test could not tell it from one
+        armed at 609.
+        """
+        c = _coord(hass)
+        _the_real_backstop_from_here(c)
+        finished = _finished(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone(**{const.ZONE_LATENCY_MARGIN: 4}))
+            await _advance(hass, frozen, 601)  # past the plan, the valve still on
+            frozen.tick(timedelta(seconds=1))
+            await _report(hass, "off", started + timedelta(seconds=602))
+
+            await _advance(hass, frozen, 6)  # 608: the debounce (607) is out
+
+            assert await c._sc_find_run(2) is None
+            c._record_run.assert_awaited_once()
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == pytest.approx(602, abs=0.01)  # not 600, not 608
+            assert len(finished) == 1
+
+            await _advance(hass, frozen, 2)  # 610: past where the backstop was due
+
+            c._record_run.assert_awaited_once()  # no second settle
+            assert len(finished) == 1
+            c.async_master_release.assert_awaited_once()
+            watcher = c._watchers().get(2)
+            assert watcher is None or watcher.finish_cancel is None  # none pending
+            assert not c._sc_cleanup_timers()  # the backstop went with the run
+
     async def test_a_close_inside_the_margin_completes_on_the_reported_window(
         self, hass
     ):
