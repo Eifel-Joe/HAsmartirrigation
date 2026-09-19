@@ -22,8 +22,10 @@ from .run_chain import ChainPolicy, register_chain_policy
 from .run_watch import (
     WatchPolicy,
     register_watch_policy,
+    run_completion_tolerance,
     run_credit_ceiling,
     run_finish_grace_seconds,
+    run_has_finish_grace,
     run_is_queue_bound,
     run_is_segmented,
     zone_latency_margin,
@@ -346,9 +348,12 @@ class SelfClosingMixin:
 
         ``actual_s`` is the window the valve itself reported open, passed by the
         watcher when it settles a confirmed service run on its stored off report
-        (#139). Without it the run is recorded for its plan, as it is for every
-        caller with no reported close to go on (the backstop, the watcher's rule
-        for a close nobody reported, OpenSprinkler, batch).
+        (#139), and by a manual stop that settles such a run inside its finish
+        grace by the same rule (see async_stop_self_closing), where a valve still
+        reporting on makes it the plan. Without it the run is recorded for its
+        plan, as it is for every caller with no reported close to go on (the
+        backstop, the watcher's rule for a close nobody reported, OpenSprinkler,
+        batch).
         """
         run = await self._sc_find_run(zone_id)
         if run is None:
@@ -790,8 +795,11 @@ class SelfClosingMixin:
         itself — an OpenSprinkler station that stopped short of its window, or
         one that never opened at all. ``detail`` overrides the run-log marker.
         ``actual_s`` is the delivered window when the caller measured it from
-        the valve's own reports (#139); without it the run's elapsed time is
-        read here, as before.
+        the valve's own reports (#139). Without it, a stop that closes a
+        confirmed service run's valve is measured from the valve's on report,
+        and one past the planned end, inside the run's finish grace, is settled
+        by the watcher's rule, which may complete the run; every other call
+        reads the run's elapsed time, as before.
         """
         run = await self._sc_find_run(zone_id)
         if run is None:
@@ -845,7 +853,49 @@ class SelfClosingMixin:
         # that only for a close nobody reported, which has no other end (see
         # _watch_finish). One value feeds all three below, so the bucket, the
         # volume and actual_s agree.
-        elapsed = actual_s if actual_s is not None else self._sc_run_elapsed(run)
+        if actual_s is not None:
+            elapsed = actual_s
+        elif close_valve and run_has_finish_grace(run):
+            # A stop that closes a confirmed service run's valve is measured from
+            # the valve's own on report, the anchor the watcher settles on:
+            # RUN_OBSERVED_START is the confirm return, up to a poll after that
+            # report, so a stopped run would be measured shorter than a settled
+            # one. Only such a stop. A caller passing close_valve=False saw the
+            # hardware end the run and keeps its own clock: the watcher decided
+            # its partial for a close nobody reported on the elapsed time below,
+            # so it is booked on it too. And _sc_run_elapsed stays for every run
+            # without a frozen margin (write-only, batch, OpenSprinkler, a
+            # pre-update service record), whose queue-bound and segmented timing
+            # the window does not know.
+            if self._sc_elapsed(run.get(const.RUN_STARTED)) < planned:
+                # Before the planned end (from RUN_STARTED, where the backstop is
+                # anchored) the run is not in its finish grace, and the stop is
+                # its end, as it always was: measured to the stop and capped at
+                # the plan, even with an off report stored, whose debounce has
+                # not decided yet whether it was the close or a blip.
+                elapsed = self._watch_valve_window({**run, const.RUN_VALVE_OFF: None})
+            else:
+                # Past the planned end the run is only waiting in its finish
+                # grace for the valve to report the close. Before the grace the
+                # backstop finished it at the planned end for its plan; measured
+                # to the stop, the grace would now be booked as watering, a
+                # partial for more than the plan. So it is settled by the
+                # watcher's rule (_watch_settle_by_window) on the same reports:
+                # the window to the stored off report, or the plan while the
+                # valve still reports on, completes within the tolerance, with
+                # the finished event and the calibration sample as the watcher
+                # would, and a shorter window is a partial on it below. The
+                # valve was closed above first, as by any stop. _sc_finish_run
+                # cancels the subscription and releases the master hold again:
+                # the subscription is already gone, and releasing a dropped
+                # token only re-arms the pump's off timer for the deadline it
+                # already has.
+                elapsed = self._watch_valve_window(run)
+                if elapsed + run_completion_tolerance(run) >= planned:
+                    await self._sc_finish_run(zone_id, actual_s=elapsed)
+                    return True
+        else:
+            elapsed = self._sc_run_elapsed(run)
         delivered_frac = min(elapsed / planned, 1.0) if planned > 0 else 1.0
         # Iter FM-5: finalize the flow sampler UP FRONT — the measured litres both refine
         # the recorded usage below AND (review finding F) reconcile the bucket. Cancels the

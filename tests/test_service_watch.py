@@ -971,6 +971,460 @@ class TestAWriteOnlyValveIsUntouched:
         assert not c._watchers()
 
 
+def _stops_seen_by_the_record(hass, c):
+    """The stop script's calls, and how many had been sent when the run was recorded.
+
+    A stop closes the valve first and settles the run second, whichever way it
+    settles; the count read from inside _record_run pins that order.
+    """
+    stops = async_mock_service(hass, "script", "stop_irrigation_beet")
+    seen = []
+    c._record_run = AsyncMock(side_effect=lambda *a, **kw: seen.append(len(stops)))
+    return stops, seen
+
+
+class TestAManualStopMeasuresFromTheValvesOnReport:
+    """A manual stop of a confirmed run is measured on the valve's reports (#139).
+
+    async_stop_self_closing read the clock from RUN_OBSERVED_START, which for a
+    service run is RUN_STARTED, stamped when the confirm poll returned. So a
+    stopped run was measured from a later instant than a watcher-settled one.
+    A stop that closes the valve itself is now measured from RUN_VALVE_ON.
+    Before the planned end it books the time to the stop, capped at the plan,
+    and never a stored off report. Past the planned end the run is only waiting
+    in its finish grace, and a stop there used to book the grace as watering;
+    it now settles the run by the watcher's rule on the same reports: completed
+    within the tolerance, else a partial on the window. Every stop happens
+    under the dispatch's frozen clock, so the anchors are exact.
+    """
+
+    async def test_a_stop_mid_run_is_measured_from_the_valve_on_report(self, hass):
+        """The valve was on before the dispatch: anchored at the dispatch."""
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            run = await c._sc_find_run(2)
+            assert run[const.RUN_VALVE_ON] == started.isoformat()
+
+            frozen.tick(timedelta(seconds=100))
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["planned_s"] == 600
+        assert kw["actual_s"] == pytest.approx(100, abs=0.01)
+        written = [ck.args[1] for ck in c.async_write_watered_bucket.await_args_list]
+        assert written[-1] == pytest.approx(-20 + 20 * 100 / 600, abs=0.001)
+
+    async def test_a_valve_reporting_on_after_the_dispatch_is_measured_from_its_report(
+        self, hass
+    ):
+        """On reported 0.4 s after the dispatch, the confirm returning at 1 s.
+
+        RUN_STARTED (and so RUN_OBSERVED_START) is the confirm return; measured
+        from there the stop would book 99.0 s, 0.6 s less than the valve ran.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        reported = started + timedelta(seconds=0.4)
+        with freeze_time(started) as frozen:
+
+            async def _slow_confirm(zone_id, entity_id, retry=True):
+                hass.states.async_set(entity_id, "on", timestamp=reported.timestamp())
+                frozen.tick(timedelta(seconds=1))
+                return True
+
+            c._confirm_valve_running = AsyncMock(side_effect=_slow_confirm)
+            await _dispatch(hass, c, _zone(), valve_state="off")
+            run = await c._sc_find_run(2)
+            assert run[const.RUN_VALVE_ON] == reported.isoformat()
+            assert (
+                run[const.RUN_OBSERVED_START]
+                == (started + timedelta(seconds=1)).isoformat()
+            )
+
+            frozen.tick(timedelta(seconds=99))  # 100 s after the dispatch
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["actual_s"] == pytest.approx(99.6, abs=0.01)  # not 99.0
+
+    async def test_a_stop_before_the_planned_end_is_not_booked_on_an_off_report(
+        self, hass
+    ):
+        """Off reported at +300, stopped at +302: 302 s, not 300.
+
+        Before the planned end the stop is the end of the run, as it always was.
+        The off report is still inside its debounce, which has not decided
+        whether it was the close or a blip, so it is not taken as the end.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=300))
+            await _report(hass, "off", started + timedelta(seconds=300))
+            frozen.tick(timedelta(seconds=2))  # 302: the debounce (305) not fired
+
+            run = await c._sc_find_run(2)
+            assert (
+                run[const.RUN_VALVE_OFF]
+                == (started + timedelta(seconds=300)).isoformat()
+            )
+
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_PARTIAL
+            assert kw["actual_s"] == pytest.approx(302, abs=0.01)  # not 300
+            written = [
+                ck.args[1] for ck in c.async_write_watered_bucket.await_args_list
+            ]
+            assert written[-1] == pytest.approx(-20 + 20 * 302 / 600, abs=0.001)
+
+            # _coord's _os_cancel_watch is a double, so the debounce is still
+            # armed; run it out against the removed run, which it leaves alone.
+            await _advance(hass, frozen, 4)  # 306
+
+        c._record_run.assert_awaited_once()
+
+    async def test_a_stop_just_before_the_planned_end_is_capped_at_the_plan(self, hass):
+        """On reported 0.6 s before the confirm return, stopped 0.2 s before the end.
+
+        The stop comes 599.8 s after RUN_STARTED, where the backstop is anchored,
+        so before the planned end, but 600.4 s after the valve's on report. It
+        books the plan, not more.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        reported = started + timedelta(seconds=0.4)
+        with freeze_time(started) as frozen:
+
+            async def _slow_confirm(zone_id, entity_id, retry=True):
+                hass.states.async_set(entity_id, "on", timestamp=reported.timestamp())
+                frozen.tick(timedelta(seconds=1))
+                return True
+
+            c._confirm_valve_running = AsyncMock(side_effect=_slow_confirm)
+            await _dispatch(hass, c, _zone(), valve_state="off")
+
+            frozen.tick(timedelta(seconds=599.8))  # 600.8 s after the dispatch
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["actual_s"] == 600  # not 599.8, not 600.4
+        assert c._timed_volume_l.call_args.args[1] == 600
+
+    async def test_a_stop_in_the_grace_after_an_off_report_inside_the_tolerance_completes(
+        self, hass
+    ):
+        """Off at +597 (3 s short, default 4 s margin), stopped at +601.
+
+        Past the planned end the run is only waiting for its debounce, which
+        would complete it on this window at +602. The stop settles it the same
+        way, after closing the valve as any stop does: completed on 597 s, with
+        the finished event and the calibration sample on the plan.
+        """
+        c = _coord(hass)
+        stops, seen = _stops_seen_by_the_record(hass, c)
+        finished = _finished(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=597))
+            await _report(hass, "off", started + timedelta(seconds=597))
+            frozen.tick(timedelta(seconds=4))  # 601: the debounce (602) not fired
+
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+            assert await c._sc_find_run(2) is None
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["planned_s"] == 600
+            assert kw["actual_s"] == pytest.approx(597, abs=0.01)  # not 601
+            assert seen == [1]  # the valve was closed before the run was settled
+            assert stops[0].data == {"zone_id": 2, "dauer": 0}
+
+            await _advance(hass, frozen, 2)  # 603: the debounce, against no run
+
+        c._record_run.assert_awaited_once()
+        assert len(finished) == 1
+        c._flow_calibration_check.assert_awaited_once()
+        assert c._flow_calibration_check.await_args.args[2] == 600
+
+    async def test_a_stop_in_the_grace_after_a_late_off_report_completes_on_it(
+        self, hass
+    ):
+        """Off reported at 601, stopped at 604 while the debounce still decides.
+
+        The watcher would complete this run on 601 s when its debounce ran out
+        at 606; the stop settles it on the same window. The valve closed a
+        second late, and a completed run records the 601 s it reported.
+        """
+        c = _coord(hass)
+        stops, seen = _stops_seen_by_the_record(hass, c)
+        finished = _finished(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=601))
+            await _report(hass, "off", started + timedelta(seconds=601))
+            frozen.tick(timedelta(seconds=3))  # 604: the debounce (606) not fired
+
+            run = await c._sc_find_run(2)
+            assert (
+                run[const.RUN_VALVE_OFF]
+                == (started + timedelta(seconds=601)).isoformat()
+            )
+            c._record_run.assert_not_awaited()
+
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == pytest.approx(601, abs=0.01)  # not 604
+            assert seen == [1]
+
+            # _coord's _os_cancel_watch is a double, so the debounce is still
+            # armed; run it out against the removed run, which it leaves alone.
+            await _advance(hass, frozen, 3)  # 607
+
+        c._record_run.assert_awaited_once()
+        assert len(finished) == 1
+
+    async def test_a_stop_in_the_grace_after_an_off_report_beyond_the_tolerance_is_partial(
+        self, hass
+    ):
+        """Margin 0: off at +598 is 2 s short, beyond the 1 s floor; stopped at +601.
+
+        The watcher would settle that as a partial on 598 s at +603, and so does
+        the stop: the credit is reconciled to what the window delivered, and no
+        finished event is fired.
+        """
+        c = _coord(hass)
+        finished = _finished(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone(**{const.ZONE_LATENCY_MARGIN: 0}))
+            frozen.tick(timedelta(seconds=598))
+            await _report(hass, "off", started + timedelta(seconds=598))
+            frozen.tick(timedelta(seconds=3))  # 601: the debounce (603) not fired
+
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_PARTIAL
+            assert kw["actual_s"] == pytest.approx(598, abs=0.01)  # not 601
+            written = [
+                ck.args[1] for ck in c.async_write_watered_bucket.await_args_list
+            ]
+            assert written[-1] == pytest.approx(-20 + 20 * 598 / 600, abs=0.001)
+
+            await _advance(hass, frozen, 3)  # 604: the debounce, against no run
+
+        c._record_run.assert_awaited_once()
+        assert not finished
+        c._flow_calibration_check.assert_not_awaited()
+
+    async def test_a_stop_in_the_grace_with_the_valve_still_on_completes_for_the_plan(
+        self, hass
+    ):
+        """No off report yet at 604: the run ran its plan and is settled as such.
+
+        The watcher's rule on the same reports: while the valve still reports on
+        the window is bounded by the plan, so the run completes on 600 s, with
+        the finished event, after the stop has closed the valve. Not a partial
+        for 604 s: the grace is waiting for a report, not watering.
+        """
+        c = _coord(hass)
+        stops, seen = _stops_seen_by_the_record(hass, c)
+        finished = _finished(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=604))
+            assert not (await c._sc_find_run(2)).get(const.RUN_VALVE_OFF)
+
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == kw["planned_s"] == 600  # not 604
+        assert c._timed_volume_l.call_args.args[1] == 600  # not 604
+        assert seen == [1]
+        assert stops[0].data == {"zone_id": 2, "dauer": 0}
+        assert len(finished) == 1
+
+    async def test_a_stop_exactly_at_the_planned_end_is_settled_in_the_grace(
+        self, hass
+    ):
+        """600 s after RUN_STARTED the plan is out and the grace has begun.
+
+        With the valve still on, the watcher's rule completes the run for its
+        plan; before the end the same stop would be a partial.
+        """
+        c = _coord(hass)
+        finished = _finished(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=600))
+
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == kw["planned_s"] == 600
+        assert len(finished) == 1
+
+    async def test_a_stop_all_in_the_grace_settles_the_run_the_same_way(self, hass):
+        """Stop all reaches the run in its grace and settles it as a single stop."""
+        c = _coord(hass)
+        stops, seen = _stops_seen_by_the_record(hass, c)
+        finished = _finished(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=601))
+            await _report(hass, "off", started + timedelta(seconds=601))
+            frozen.tick(timedelta(seconds=3))  # 604: the debounce (606) not fired
+            # get_active_runs reads the persisted runs off the live config.
+            c.store.config.active_valve_runs = c._cfg[const.CONF_ACTIVE_VALVE_RUNS]
+            assert "2" in c.get_active_runs()
+
+            await c.async_stop_all_zones()
+            await hass.async_block_till_done()
+
+            assert await c._sc_find_run(2) is None
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == pytest.approx(601, abs=0.01)
+            assert seen == [1]
+
+            await _advance(hass, frozen, 3)  # 607: the debounce, against no run
+
+        c._record_run.assert_awaited_once()
+        assert len(finished) == 1
+
+    async def test_a_completing_stop_books_exactly_what_the_watcher_would(self, hass):
+        """The same late close settled twice: by the debounce, and by a stop at +604.
+
+        With a measured volume, so both paths reconcile the bucket from it.
+        Everything the run books must come out the same and once: the record,
+        the bucket, the meter and what it learned, the stamp, the finished
+        event, the calibration sample, the deferred calculation and the master
+        hold (released by the stop before its close and again, a no-op, by the
+        finish).
+        """
+
+        async def _close_late(by_stop):
+            c = _coord(hass)
+            c._sc_finish_flow = Mock(return_value=(90.0, {"flow_learned": 1}))
+            finished = _finished(hass)
+            started = dt_util.utcnow().replace(microsecond=0)
+            with freeze_time(started) as frozen:
+                await _dispatch(hass, c, _zone())
+                frozen.tick(timedelta(seconds=601))
+                await _report(hass, "off", started + timedelta(seconds=601))
+                if by_stop:
+                    frozen.tick(timedelta(seconds=3))
+                    assert await c.async_stop_self_closing(2)
+                    await hass.async_block_till_done()
+                await _advance(hass, frozen, const.SERVICE_WATCH_SETTLE_SECONDS + 1)
+            assert await c._sc_find_run(2) is None
+            return {
+                "record": c._record_run.await_args_list,
+                "bucket": c.async_write_watered_bucket.await_args_list,
+                "meter": c._sc_finish_flow.call_count,
+                "learned": c.store.async_update_zone.await_args_list,
+                "stamp": c._stamp_run_finalized.await_args_list,
+                "finished": [event.data for event in finished],
+                "calibration": c._flow_calibration_check.await_args_list,
+                "deferred": c.async_run_deferred_calculation.await_count,
+                "released": {ck.args for ck in c.async_master_release.await_args_list},
+            }
+
+        watched = await _close_late(by_stop=False)
+        stopped = await _close_late(by_stop=True)
+
+        assert stopped == watched
+        assert len(watched["record"]) == 1
+        kw = watched["record"][0].kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == pytest.approx(601, abs=0.01)
+        assert kw["volume_l"] == 90.0
+        assert watched["meter"] == 1
+        assert len(watched["finished"]) == 1
+        assert len(watched["calibration"]) == 1
+
+    async def test_the_watchers_own_partial_keeps_its_observed_start(self, hass):
+        """The watcher's partial for a close nobody reported is not a stop.
+
+        on -> unavailable -> off records no off report, so the watcher settles
+        the run on its elapsed time since RUN_OBSERVED_START when the debounce
+        decides (+308 s) and hands async_stop_self_closing no actual_s. Its
+        completion was decided on that clock, so the partial is booked on it
+        too: 307 s from the confirm return, not 307.6 s from the on report
+        0.6 s earlier, which only a stop that closes the valve is measured from.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        reported = started + timedelta(seconds=0.4)
+        with freeze_time(started) as frozen:
+
+            async def _slow_confirm(zone_id, entity_id, retry=True):
+                hass.states.async_set(entity_id, "on", timestamp=reported.timestamp())
+                frozen.tick(timedelta(seconds=1))
+                return True
+
+            c._confirm_valve_running = AsyncMock(side_effect=_slow_confirm)
+            await _dispatch(hass, c, _zone(), valve_state="off")
+            frozen.tick(timedelta(seconds=299))  # 300 s after the dispatch
+            await _report(hass, "unavailable", started + timedelta(seconds=300))
+            frozen.tick(timedelta(seconds=2))
+            await _report(hass, "off", started + timedelta(seconds=302))
+            assert not (await c._sc_find_run(2)).get(const.RUN_VALVE_OFF)
+
+            await _advance(hass, frozen, const.SERVICE_WATCH_SETTLE_SECONDS + 1)
+
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["actual_s"] == pytest.approx(307, abs=0.01)  # not 307.6
+
+    async def test_a_write_only_run_keeps_the_elapsed_since_its_start(self, hass):
+        """No valve reports, no finish grace: measured from RUN_STARTED as before."""
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone(confirm=None))
+            run = await c._sc_find_run(2)
+            assert run[const.RUN_STARTED] == started.isoformat()
+            assert const.RUN_VALVE_ON not in run
+
+            frozen.tick(timedelta(seconds=100))
+            assert await c.async_stop_self_closing(2)
+            await hass.async_block_till_done()
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["actual_s"] == pytest.approx(100, abs=0.01)
+
+
 class TestTheSubscriptionSurvivesARestart:
     async def test_a_run_still_inside_its_window_is_re_adopted(self, hass):
         c = _coord(hass)
