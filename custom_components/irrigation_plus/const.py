@@ -857,6 +857,18 @@ ZONE_STOP_SERVICE = "stop_service"  # optional "domain.service" for early stop
 # re-actuation); when unset, the service run is treated as write-only and credited
 # optimistically. The momentary run_service script is NOT a valid liveness signal.
 ZONE_CONFIRM_ENTITY = "confirm_entity"
+# How late a confirmed service valve may report its own close, in whole seconds.
+# A run with a confirm_entity is finished by the watcher on the valve's off report
+# plus SERVICE_WATCH_SETTLE_SECONDS of debounce; a backstop armed at exactly the
+# planned window beat that report on every normal run (#139): measured Tuya valves
+# report their close 2-3 s after their window, so the watcher never got to decide
+# and actual_s was never the observed window. The margin is added to the backstop
+# of confirmed service runs only (batch and OpenSprinkler keep their own timing)
+# and is the tolerance between a completed and a partial run. Default 4 covers the
+# measured need with ~2 s to spare; capped so a typo cannot hold a chain for minutes.
+ZONE_LATENCY_MARGIN = "latency_margin"
+DEFAULT_LATENCY_MARGIN_SECONDS = 4
+MAX_LATENCY_MARGIN_SECONDS = 30
 # Observed-watering (opt-in): the physical valve/switch to watch for EXTERNAL
 # runs of a service/self-closing zone (which has no linked_entity). Distinct from
 # confirm_entity (run confirmation). Only consulted when observed_watering_enabled.
