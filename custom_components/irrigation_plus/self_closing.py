@@ -991,17 +991,46 @@ class SelfClosingMixin:
                 await self._batch_resume_run(run)
                 continue
             elapsed = self._sc_elapsed(run.get(const.RUN_STARTED))
-            if elapsed >= planned:
+            # A confirmed service run waits planned + debounce + margin for its
+            # valve to report the close (#139), and a restart must not take that
+            # away: finishing it at planned, or re-arming the backstop for
+            # planned - elapsed, would settle a run inside its grace for its plan
+            # before a late close had the chance to be seen, which is the defect
+            # the grace exists to fix. 0 for every record without a frozen margin
+            # (write-only, pre-update), which keeps the formula it had.
+            grace = run_finish_grace_seconds(run)
+            if elapsed >= planned + grace:
+                # Past the whole grace the run is finished for its plan, as it
+                # was past the plan before, even with the valve's off report on
+                # record: the backstop finishes such a run for its plan too.
+                # Settling it on the reported window instead would improve a
+                # record the grace does not make worse, so it is left as it was.
                 await self._sc_finish_run(zone_id)
             else:
                 # Still inside the hardware window: the valve is open but master
                 # holds live only in memory and did not survive the restart.
-                # Re-take it so the pump keeps running for the remainder.
-                await self.async_master_acquire(self._sc_master_token(zone_id))
-                self._sc_schedule_cleanup(zone_id, planned - elapsed)
+                # Re-take it so the pump keeps running for the remainder. Past
+                # the plan but inside the grace, the valve's own countdown is
+                # over and the run only waits for the report of its close: a
+                # hold taken for that would switch the pump on, kick it and wait
+                # the master settle for a valve that has closed, where a restart
+                # past the plan used to finish the run without starting the
+                # pump. Settling the run then releases a token that is not held,
+                # as finishing it outright above always has.
+                if elapsed < planned:
+                    await self.async_master_acquire(self._sc_master_token(zone_id))
+                self._sc_schedule_cleanup(zone_id, planned + grace - elapsed)
                 # The valve subscription did not survive either, and without it
                 # the rest of this run is back to being timed blind. Re-adopt it
-                # for the runs that recorded one (a confirmed service run).
+                # for the runs that recorded one (a confirmed service run). A
+                # valve that closed while HA was down is found off by the
+                # watcher's first evaluate, or reports off after coming back as
+                # unavailable; neither is stored as the off report (its
+                # last_changed is the entity's return, not the close), so the
+                # run is settled like any close nobody reported (_watch_finish).
+                # An off report stored before HA went down stays on the record
+                # and settles the run on its window, provided the debounce
+                # decides before the backstop re-armed above.
                 watch_entity = run.get(const.RUN_WATCH_ENTITY)
                 if watch_entity:
                     await self._watch_start(

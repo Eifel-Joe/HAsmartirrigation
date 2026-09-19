@@ -1446,3 +1446,329 @@ class TestTheSubscriptionSurvivesARestart:
         await _off(hass)
 
         assert await c._sc_find_run(2) is None
+
+
+def _ha_goes_down(c):
+    """HA stops: everything but the persisted run record lived in memory.
+
+    _watch_cancel drops each watcher with its subscription and a pending
+    debounce, as the process dying would; left armed, that debounce would fire
+    into the watcher re-adopted after the restart and settle the run itself.
+    The backstop and master doubles are reset so the restart's own calls are
+    the only ones seen.
+    """
+    for zone_id in list(c._watchers()):
+        c._watch_cancel(zone_id)
+    c._run_watchers = {}
+    c._sc_schedule_cleanup.reset_mock()
+    c.async_master_acquire.reset_mock()
+
+
+async def _ha_comes_back(hass, c):
+    await c.async_resume_self_closing_runs()
+    await hass.async_block_till_done()
+
+
+class TestARestartCarriesTheFinishGrace:
+    """A confirmed service run re-adopted after a restart keeps its grace (#139).
+
+    The backstop is re-armed for planned + debounce + margin minus the time
+    already elapsed since RUN_STARTED (downtime included), and a run is
+    finished outright only once that whole grace is out, then for its plan
+    whatever its record holds. Past the plan the master is not requested
+    again: the valve's own countdown is over. Dispatch, downtime and restart
+    happen under one frozen clock. The backstop stays _coord's double, so the
+    delay it is armed with is asserted directly and the re-adopted watcher's
+    own decision is seen even where the real backstop would come first; for a
+    close nobody reported, both settle the run the same way, for its plan.
+    """
+
+    async def test_a_run_inside_its_window_re_arms_the_backstop_with_the_grace(
+        self, hass
+    ):
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            _ha_goes_down(c)
+            frozen.tick(timedelta(seconds=100))
+
+            await _ha_comes_back(hass, c)
+
+            c._sc_schedule_cleanup.assert_called_once_with(2, 509.0)  # 600 + 9 - 100
+            c.async_master_acquire.assert_awaited_once()
+            assert 2 in c._watchers()
+            assert c._watchers()[2].finish_cancel is None
+            assert await c._sc_find_run(2) is not None
+            c._record_run.assert_not_awaited()
+
+    async def test_a_restart_exactly_at_the_plan_takes_no_master_hold(self, hass):
+        """The plan is out, the grace is not: waited out, but without the pump.
+
+        The valve's own countdown has ended, so the master is not switched on
+        again for it; the backstop and the watcher are re-armed as inside the
+        window.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            _ha_goes_down(c)
+            frozen.tick(timedelta(seconds=600))
+
+            await _ha_comes_back(hass, c)
+
+            c.async_master_acquire.assert_not_awaited()
+            c._sc_schedule_cleanup.assert_called_once_with(2, 9.0)
+            assert 2 in c._watchers()
+            assert await c._sc_find_run(2) is not None
+            c._record_run.assert_not_awaited()
+
+    async def test_a_restart_inside_the_grace_does_not_finish_a_valve_still_on(
+        self, hass
+    ):
+        """+604 is past the plan but not past the grace: the close may still come.
+
+        The pump is not brought back up for a valve whose own countdown is over.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            _ha_goes_down(c)
+            frozen.tick(timedelta(seconds=604))
+
+            await _ha_comes_back(hass, c)
+
+            assert await c._sc_find_run(2) is not None
+            c._record_run.assert_not_awaited()
+            c._sc_schedule_cleanup.assert_called_once_with(2, 5.0)
+            c.async_master_acquire.assert_not_awaited()
+            assert 2 in c._watchers()
+
+    async def test_a_valve_found_off_inside_the_grace_completes_for_its_plan(
+        self, hass
+    ):
+        """Closed while HA was down: no off report, so the old rule settles it.
+
+        The re-adopted watcher's first evaluate sees the off but does not store
+        it (its last_changed is the entity's return, not the close). After the
+        debounce the run is settled like any close nobody reported: 610 s since
+        its start plus the one second reach the plan, so it completes for its
+        plan.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            _ha_goes_down(c)
+            frozen.tick(timedelta(seconds=604))
+            await _report(hass, "off", started + timedelta(seconds=604))
+
+            await _ha_comes_back(hass, c)
+
+            assert await c._sc_find_run(2) is not None  # not finished outright
+            c._record_run.assert_not_awaited()
+            c._sc_schedule_cleanup.assert_called_once_with(2, 5.0)
+            c.async_master_acquire.assert_not_awaited()
+            assert not (await c._sc_find_run(2)).get(const.RUN_VALVE_OFF)
+            assert c._watchers()[2].finish_cancel is not None  # debounce due at 609
+
+            await _advance(hass, frozen, 6)  # 610
+
+            assert await c._sc_find_run(2) is None
+            c._record_run.assert_awaited_once()
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == kw["planned_s"] == 600
+
+    async def test_a_valve_back_from_unavailable_completes_for_its_plan(self, hass):
+        """Restart at +604 with the valve unavailable; it reports off at +606.
+
+        That off follows unavailable, not a running state: its last_changed is
+        the valve's return, so it is not stored as the close, and the run is
+        settled like any close nobody reported: completed for its plan, not on
+        606.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            _ha_goes_down(c)
+            frozen.tick(timedelta(seconds=604))
+            await _report(hass, "unavailable", started + timedelta(seconds=604))
+
+            await _ha_comes_back(hass, c)
+
+            assert await c._sc_find_run(2) is not None  # not finished outright
+            c._sc_schedule_cleanup.assert_called_once_with(2, 5.0)
+            c.async_master_acquire.assert_not_awaited()
+            assert c._watchers()[2].finish_cancel is None  # no information yet
+
+            frozen.tick(timedelta(seconds=2))
+            await _report(hass, "off", started + timedelta(seconds=606))
+
+            assert not (await c._sc_find_run(2)).get(const.RUN_VALVE_OFF)
+            assert c._watchers()[2].finish_cancel is not None  # debounce due at 611
+
+            await _advance(hass, frozen, 6)  # 612
+
+            assert await c._sc_find_run(2) is None
+            c._record_run.assert_awaited_once()
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == kw["planned_s"] == 600  # not 606
+
+    async def test_a_valve_found_off_mid_run_is_a_partial_up_to_the_decision(
+        self, hass
+    ):
+        """Closed while HA was down, 400 s short: a partial up to the decision.
+
+        The close itself was never reported, so the run is settled like any
+        close nobody reported, on its elapsed time when the debounce decides:
+        restart at +200 plus the 5 s debounce. Still inside the plan, the
+        master hold is taken again.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            _ha_goes_down(c)
+            frozen.tick(timedelta(seconds=200))
+            await _report(hass, "off", started + timedelta(seconds=150))
+
+            await _ha_comes_back(hass, c)
+
+            c._sc_schedule_cleanup.assert_called_once_with(2, 409.0)  # 600 + 9 - 200
+            c.async_master_acquire.assert_awaited_once()
+            assert c._watchers()[2].finish_cancel is not None  # debounce due at 205
+
+            await _advance(hass, frozen, 5)  # 205
+
+            assert await c._sc_find_run(2) is None
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_PARTIAL
+            assert kw["actual_s"] == pytest.approx(205, abs=0.01)
+            written = [
+                ck.args[1] for ck in c.async_write_watered_bucket.await_args_list
+            ]
+            assert written[-1] == pytest.approx(-20 + 20 * 205 / 600, abs=0.001)
+
+    async def test_a_stored_off_report_inside_the_grace_settles_on_its_window(
+        self, hass
+    ):
+        """Off reported at +601, HA gone before the debounce decided (606).
+
+        Back at +602, the re-adopted watcher's debounce (due 607) comes before
+        the re-armed backstop (due 609) and settles the run on the stored
+        report. The backstop is the real timer here, so the order is the one a
+        live restart has: from +604 on it is re-armed for no more than the
+        debounce and, armed first, would finish the run for its plan.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=601))
+            await _report(hass, "off", started + timedelta(seconds=601))
+            assert c._watchers()[2].finish_cancel is not None  # due at 606
+            _ha_goes_down(c)  # the pending debounce dies with the process
+            _the_real_backstop_from_here(c)  # the restart arms the only real timer
+            frozen.tick(timedelta(seconds=1))
+
+            await _ha_comes_back(hass, c)  # +602
+
+            run = await c._sc_find_run(2)
+            assert (
+                run[const.RUN_VALVE_OFF]
+                == (started + timedelta(seconds=601)).isoformat()
+            )
+            c._record_run.assert_not_awaited()
+            c._sc_schedule_cleanup.assert_called_once_with(2, 7.0)  # 609 - 602
+            c.async_master_acquire.assert_not_awaited()
+            assert c._watchers()[2].finish_cancel is not None  # due at 607
+
+            await _advance(hass, frozen, 6)  # 608: the debounce out, the backstop not
+
+            assert await c._sc_find_run(2) is None
+            c._record_run.assert_awaited_once()
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == pytest.approx(601, abs=0.01)  # not 600, not 608
+            assert not c._sc_cleanup_timers()  # the backstop went with the run
+
+    async def test_a_restart_exactly_at_the_end_of_the_grace_finishes_the_run(
+        self, hass
+    ):
+        """At planned + grace the whole grace is out: finished outright, for its plan."""
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            _ha_goes_down(c)
+            frozen.tick(timedelta(seconds=609))
+
+            await _ha_comes_back(hass, c)
+
+            assert await c._sc_find_run(2) is None
+            c._record_run.assert_awaited_once()
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == kw["planned_s"] == 600
+            assert 2 not in c._watchers()
+            c._sc_schedule_cleanup.assert_not_called()
+            c.async_master_acquire.assert_not_awaited()
+
+    async def test_a_stored_off_report_past_the_grace_is_finished_for_the_plan(
+        self, hass
+    ):
+        """A pin of a known case, deliberately left as it was.
+
+        The watcher stored the valve's off report (+601) before HA went down,
+        and the restart comes after the whole grace (+700). The run is finished
+        for its plan, as the backstop finishes such a run. Settling it on the
+        reported 601 instead would make the record better than it has been,
+        not close a hole the grace opens.
+        """
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            frozen.tick(timedelta(seconds=601))
+            await _report(hass, "off", started + timedelta(seconds=601))
+            _ha_goes_down(c)
+            frozen.tick(timedelta(seconds=99))
+
+            await _ha_comes_back(hass, c)  # +700
+
+            assert await c._sc_find_run(2) is None
+            c._record_run.assert_awaited_once()
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == kw["planned_s"] == 600  # not 601
+            assert 2 not in c._watchers()
+            c._sc_schedule_cleanup.assert_not_called()
+            c.async_master_acquire.assert_not_awaited()
+
+    async def test_no_off_report_past_the_grace_completes_for_the_plan_at_once(
+        self, hass
+    ):
+        """Nothing observed the close: completed for its plan, as before."""
+        c = _coord(hass)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, c, _zone())
+            _ha_goes_down(c)
+            frozen.tick(timedelta(seconds=700))
+            await _report(hass, "off", started + timedelta(seconds=650))
+
+            await _ha_comes_back(hass, c)
+
+            assert await c._sc_find_run(2) is None
+            c._record_run.assert_awaited_once()
+            kw = c._record_run.await_args.kwargs
+            assert kw["result"] == const.RUN_RESULT_COMPLETED
+            assert kw["actual_s"] == kw["planned_s"] == 600
+            assert 2 not in c._watchers()
+            c._sc_schedule_cleanup.assert_not_called()
+            c.async_master_acquire.assert_not_awaited()
