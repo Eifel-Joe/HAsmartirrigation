@@ -179,6 +179,46 @@ class CalculationMixin:
     Mixed into the coordinator; methods use ``self`` to reach coordinator state.
     """
 
+    def strip_foreign_source_values(self, wd, mapping):
+        """Drop weather-service values for fields the group sources elsewhere (#149).
+
+        Root: the merged row STARTS as the weather service's full row and sensor
+          values are laid over it, so a field the user mapped to a sensor keeps
+          the weather service's value whenever that sensor cannot be read -
+          unavailable, unknown, non-numeric, or briefly missing after a restart.
+          Nothing records which source a stored value came from, so everything
+          downstream reads it as the configured one.
+        Fix-Logik: the mapping says where each field comes from. A poll that
+          cannot read that source has no value for the field, and the row simply
+          omits it; select_window carries the last known value forward per field,
+          which is the same shape the event-driven path already produces.
+        Why it matters most for a cumulative gauge: the two sources are not the
+          same quantity. Open-Meteo reports PRECIPITATION IN THE PAST HOUR while
+          a daily rain sensor reports a RUNNING TOTAL, so one leaked reading
+          makes a monotonic counter appear to fall. A leaked 0.0 in a dry hour is
+          indistinguishable from a midnight reset, so the whole day's rain is
+          credited a second time: 6.8 mm booked for a real 4.3 mm (#149,
+          reported by Megalos, whose sensor never dips).
+        NOT-TO-DO: do not "fix" this in the aggregate instead. A stored row
+          cannot say which source it came from, so the aggregate has nothing to
+          test; the provenance only exists here, at the merge.
+        Applied BEFORE the sensor and static values are laid on top - it strips
+        the weather service's copy, never the configured source's own value.
+        """
+        if not wd or not mapping:
+            return wd
+        for key, the_map in (mapping.get(const.MAPPING_MAPPINGS) or {}).items():
+            # Legacy stored shape: a bare string instead of a config dict. It
+            # carries no source, so it cannot claim the field either way.
+            if isinstance(the_map, str):
+                continue
+            if the_map.get(const.MAPPING_CONF_SOURCE) in (
+                const.MAPPING_CONF_SOURCE_SENSOR,
+                const.MAPPING_CONF_SOURCE_STATIC_VALUE,
+            ):
+                wd.pop(key, None)
+        return wd
+
     async def merge_weatherdata_and_sensor_values(self, wd, sv):
         """Merge weather data and sensor values dictionaries, giving precedence to sensor values.
 

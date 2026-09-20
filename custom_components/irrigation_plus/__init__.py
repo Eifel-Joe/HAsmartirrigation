@@ -1482,6 +1482,12 @@ class SmartIrrigationCoordinator(
                         "Weather service returned no data — check your API key and subscription."
                     )
 
+            if sensor_in_mapping or static_in_mapping:
+                # A field the group maps to a sensor or a static value must not
+                # keep the weather service's copy when its own source cannot be
+                # read (#149). Stripped BEFORE the overlay below, so the values
+                # that are readable still win as they always did.
+                weatherdata = self.strip_foreign_source_values(weatherdata, mapping)
             if sensor_in_mapping:
                 sensor_values = self.build_sensor_values_for_mapping(mapping)
                 weatherdata = await self.merge_weatherdata_and_sensor_values(
@@ -1604,6 +1610,10 @@ class SmartIrrigationCoordinator(
                     )
                     continue
 
+            if sensor_in_mapping or static_in_mapping:
+                # See _async_update_zone: a field mapped to a sensor or a static
+                # value keeps no weather-service copy to fall back on (#149).
+                weatherdata = self.strip_foreign_source_values(weatherdata, mapping)
             if sensor_in_mapping:
                 sensor_values = self.build_sensor_values_for_mapping(mapping)
                 weatherdata = await self.merge_weatherdata_and_sensor_values(
