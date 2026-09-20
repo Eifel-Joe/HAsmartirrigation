@@ -1374,7 +1374,17 @@ class IrrigationRunnerMixin:
             live = getattr(self, "_live_run_zones", None)
             if live:
                 live.discard(int(zone_id))
-            ceiling = self._zone_target_bucket(zone)
+            # Never below the bucket the run starts from. This branch derives its
+            # ceiling from _zone_target_bucket directly, so the floor _run_ceiling
+            # applies does not reach it — and here the withdrawal is at its
+            # starkest: a zone already above target has 0 L to deliver, and the
+            # clamp would still write it down to the target.
+            # The target volume is unchanged by the floor: _metered_target_volume
+            # floors at 0 L, which is what `ceiling - bucket` already gave.
+            # siehe test_metered_run.py::test_a_metered_run_never_takes_credit_away
+            ceiling = max(
+                self._zone_target_bucket(zone), float(zone.get(const.ZONE_BUCKET) or 0)
+            )
             target_volume = self._metered_target_volume(zone, ceiling)
             max_seconds = float(
                 zone.get(const.ZONE_MAXIMUM_DURATION) or const.FLOW_SAFETY_TIMEOUT
@@ -2707,7 +2717,9 @@ class IrrigationRunnerMixin:
         """Bucket level (display units) a run may credit *up to*.
 
         Normal / real-flow runs replenish only to the post-run target floor
-        (0.0, or the forecast-weighting remainder). Live-estimate runs (WS-3,
+        (0.0, or the forecast-weighting remainder) — but never to BELOW the
+        bucket the run started from, because a ceiling under the current level
+        makes the run a withdrawal. Live-estimate runs (WS-3,
         marked in ``_live_run_zones``) came from the intra-day deficit, which can
         exceed the stored daily bucket — so they may credit up to ``maximum_bucket``
         (a surplus), matching the live-estimate crediting that used to live in
@@ -2719,7 +2731,26 @@ class IrrigationRunnerMixin:
             live.discard(zid)
             max_bucket = zone.get(const.ZONE_MAXIMUM_BUCKET)
             return float(max_bucket) if max_bucket is not None else float("inf")
-        return self._zone_target_bucket(zone)
+        # Never below the water already in the bucket. The target floor exists to
+        # absorb a timed run's own over-credit (the lead time's flow, see this
+        # module's header), and absorbing stops at the level the run started from:
+        # clamping past it writes the bucket DOWN and turns a run into a
+        # withdrawal — issue #88, the same row _mark_manual_run describes, on
+        # every path that has no manual marker to reach for. Reachable because a
+        # hand-set bucket only zeroes the stored duration at exactly 0
+        # (store.py async_update_zone), so "bucket above target AND duration > 0"
+        # survives — which is what async_irrigate_now filters on.
+        # NOT fixed by marking irrigate-now manual: that branch returns
+        # maximum_bucket, so the normal case (bucket below target) would keep the
+        # lead-time over-credit the floor is there to absorb.
+        # An ABSENT bucket is not a bucket of 0: reading it as one would raise the
+        # ceiling above a negative target and break forecast weighting, which
+        # deliberately leaves a zone short of 0 when rain is coming.
+        # siehe test_credit_ceiling.py::test_irrigate_now_never_takes_credit_away
+        # siehe test_experimental_features.py::test_run_ceiling_uses_target
+        target = self._zone_target_bucket(zone)
+        pre = zone.get(const.ZONE_BUCKET)
+        return target if pre is None else max(target, float(pre))
 
     async def async_write_watered_bucket(
         self, zone_id, new_bucket: float, extra_changes: dict | None = None
