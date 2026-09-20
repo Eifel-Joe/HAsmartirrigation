@@ -1,12 +1,28 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
 [![release][release-badge]][release-url]
 
-[release-url]: https://github.com/JustChr/HAsmartirrigation/releases
-[release-badge]: https://img.shields.io/github/v/release/JustChr/HAsmartirrigation?style=flat-square
+[release-url]: https://github.com/Eifel-Joe/HAsmartirrigation/releases
+[release-badge]: https://img.shields.io/github/v/release/Eifel-Joe/HAsmartirrigation?style=flat-square
 
 # Irrigation Plus — Maintained Community Fork
 
 ![](logo.png?raw=true)
+
+> **Heads-up — this is a personal build of [JustChr/HAsmartirrigation](https://github.com/JustChr/HAsmartirrigation).**
+> The base is JustChr's current `master`, so everything upstream ships is in here. On
+> top of it sit this fork's Eifel-Joe branding and one patch that is waiting on
+> upstream review:
+>
+> - [#153](https://github.com/JustChr/HAsmartirrigation/pull/153) — a run credits its water
+>   up to a ceiling, and that ceiling could sit BELOW the bucket the run started from, so
+>   the run wrote the bucket down and removed credit it never used. A metered zone already
+>   above its target showed it plainly: nothing to deliver, `0.00 L` measured, and the
+>   bucket still written back down. The ceiling is now never below where the run started.
+>
+> When it is merged this fork's delta is branding again, which is how it is meant to
+> sit. You can switch back to JustChr at any time with no data loss and nothing to leave
+> behind. This fork stays a staging ground where new experiments are tried before they
+> are offered upstream.
 
 This is an actively maintained community fork of [jeroenterheerdt/HAsmartirrigation](https://github.com/jeroenterheerdt/HAsmartirrigation), which has been stale since late 2025. It ships all the original functionality plus a growing set of bug fixes and improvements — see [What's been fixed and improved](#whats-been-fixed-and-improved) below.
 
