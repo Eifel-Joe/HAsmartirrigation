@@ -340,11 +340,16 @@ class SelfClosingMixin:
             # at 0 (a sensor holding its last value credits the seconds after the
             # close instead). The report is when the water stopped, so the
             # integration ends there, the last interval at its last measured rate
-            # (FlowMeter.end_rate_at). Read first, cut after: a totalizer ignores
-            # the cut and keeps this read, whose climb is water that flowed. A run
-            # without the report (write-only, unverifiable, a close nobody reported,
-            # a backstop that beat the report) is metered to this read as before.
-            meter.end_rate_at((off - started).total_seconds())
+            # (FlowMeter.end_rate_at), bounded by ONE poll — the cadence just
+            # above — because the far end of that last interval is this report and
+            # not a reading: a sensor that died mid-run credits nothing past its
+            # last mark. Read first, cut after: a totalizer ignores the cut and
+            # keeps this read, whose climb is water that flowed. A run without the
+            # report (write-only, unverifiable, a close nobody reported, a backstop
+            # that beat the report) is metered to this read as before.
+            meter.end_rate_at(
+                (off - started).total_seconds(), poll_s=const.FLOW_POLL_INTERVAL
+            )
         d = meter.delivered()
         if d is None and sensor:
             # The per-tick reads are DEBUG (they poll every 15 s), so a persistently
@@ -426,10 +431,10 @@ class SelfClosingMixin:
             planned_s=planned_s,
             # The observed window when there is one (#139): a completed run used
             # to discard it for planned_s, so a valve closing 2-3 s late, or up
-            # to its margin early, was recorded as exactly on time. Only the
-            # recorded duration moves; the timed volume above and the
-            # calibration probe below stay on planned_s, the window the run was
-            # credited and sized for.
+            # to its margin early, was recorded as exactly on time. It is also
+            # what the calibration probe below prices its litres over; the timed
+            # volume above stays on planned_s, the window the run was credited
+            # and sized for.
             actual_s=planned_s if actual_s is None else actual_s,
             trigger=const.RUN_TRIGGER_SELF_CLOSING,
             add_to_total=True,
@@ -449,7 +454,19 @@ class SelfClosingMixin:
         )
         # A self-closing zone can't stop early, so it gets the same calibration advisory
         # (shared base helper) as a can't-stop distributor member (FM-7).
-        await self._flow_calibration_check(zone, measured, planned_s)
+        # Root: the advisory reads litres / minutes as the zone's observed rate, and
+        #   since the meter is cut at the valve's off report (#139) those litres span
+        #   the REPORTED window. Divided by the plan, a 60 s run whose close is reported
+        #   4 s late reads 6.7 % fast on every run, in a band judged at 15 %.
+        # Fix: divide by the window the litres were measured over. A run with no report
+        #   (the backstop, write-only, OpenSprinkler, batch) has only its plan, as it
+        #   has for actual_s above.
+        # NOT-TO-DO: do not move the timed volume above onto actual_s as well — it
+        #   prices the water the run was CREDITED for, which stays the plan.
+        # See test_service_watch.py::TestTheAdvisoryIsPricedOnTheWindowItMeasured.
+        await self._flow_calibration_check(
+            zone, measured, planned_s if actual_s is None else actual_s
+        )
         # Ordered AFTER _sc_remove_run above so the calculation no longer sees a run
         # in flight. No-op unless this run displaced one.
         await self.async_run_deferred_calculation(zone_id)

@@ -374,9 +374,25 @@ def test_end_rate_at_holds_the_converted_rate():
     assert m.delivered() == pytest.approx(5.0)  # 10 L/min for 30 s
 
 
-def test_end_rate_at_bridges_no_wider_gap_than_a_sample_would():
-    # max_gap_s holds for the last interval too: 60 s after the last sample is still
-    # bridged, anything wider is not (the sensor may have been gone the whole time).
+def test_end_rate_at_bridges_no_wider_gap_than_one_poll():
+    # The tail's far end is a valve REPORT, not a flow sample: max_gap_s (4 polls) is
+    # the bound for an interval with a live reading at BOTH ends. Told the sampler's
+    # cadence, the tail is bridged one poll and no further -- past that the sensor may
+    # have been gone since the mark.
+    series = [(10.0, "L/min", None, 0.0), (10.0, "L/min", None, 15.0)]
+    bridged = FlowMeter(max_gap_s=60.0)
+    _feed(bridged, series)
+    bridged.end_rate_at(30.0, poll_s=15.0)
+    assert bridged.delivered() == pytest.approx(2.5 + 2.5)
+    too_wide = FlowMeter(max_gap_s=60.0)
+    _feed(too_wide, series)
+    too_wide.end_rate_at(30.5, poll_s=15.0)
+    assert too_wide.delivered() == pytest.approx(2.5)
+
+
+def test_end_rate_at_without_a_poll_keeps_the_max_gap_bound():
+    # No cadence given: the meter has nothing tighter to go on and bounds the tail as
+    # it bounds any interval. Unchanged for every caller that passes no poll.
     series = [(10.0, "L/min", None, 0.0), (10.0, "L/min", None, 15.0)]
     bridged = FlowMeter(max_gap_s=60.0)
     _feed(bridged, series)
@@ -386,6 +402,20 @@ def test_end_rate_at_bridges_no_wider_gap_than_a_sample_would():
     _feed(too_wide, series)
     too_wide.end_rate_at(75.5)
     assert too_wide.delivered() == pytest.approx(2.5)
+
+
+def test_end_rate_at_credits_no_tail_from_a_sensor_dead_since_the_mark():
+    # A 612 s run at 10 L/min whose sensor goes 'unavailable' at +570 -- every later
+    # tick and the final read return None -- and whose valve reports off at +614. The
+    # 4-poll bound bridged 44 s x 10 L/min = 7.3 L no sensor measured, and
+    # _sc_finish_run reconciles the bucket from those litres absolutely, so the surplus
+    # would be carried into the next run's deficit. Nothing past the last mark is known.
+    m = FlowMeter(max_gap_s=60.0)
+    _feed(m, [(10.0, "L/min", None, float(t)) for t in range(0, 571, 15)])
+    m.sample(None, "L/min", None, 585.0)  # unavailable: nothing is fed
+    m.sample(None, "L/min", None, 600.0)
+    m.end_rate_at(614.0, poll_s=15.0)
+    assert m.delivered() == pytest.approx(10.0 * 570 / 60)  # 95 L, not 102.3
 
 
 def test_end_rate_at_a_sample_keeps_that_samples_credit():

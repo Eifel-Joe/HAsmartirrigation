@@ -195,7 +195,7 @@ class FlowMeter:
                 self._reset_done = True
         # else glitch (or lifetime): keep _last, add nothing (never over-credit a dip)
 
-    def end_rate_at(self, at: float) -> None:
+    def end_rate_at(self, at: float, *, poll_s: float | None = None) -> None:
         """End a rate sensor's integration at ``at``, the instant the water is known to
         have stopped. The meter's last call: nothing is sampled after it.
 
@@ -204,10 +204,17 @@ class FlowMeter:
         real flow lost — or, from a sensor that holds its last value, credits the seconds
         after the close as water. Here the interval from the last sample at or before
         ``at`` runs on to ``at`` at that sample's rate, the last one measured with the
-        water on, bounded by ``max_gap_s`` like any interval (a wider gap may be a dead
-        sensor: never bridged), and every sample after ``at`` is taken back out. With no
-        sample at or before ``at`` nothing is known of the flow before the close and
-        nothing is credited (the caller falls back to its time-based volume).
+        water on, and every sample after ``at`` is taken back out. With no sample at or
+        before ``at`` nothing is known of the flow before the close and nothing is
+        credited (the caller falls back to its time-based volume).
+
+        ``poll_s`` is the sampler's own cadence, and bounds that tail: this interval's
+        far end is the CALLER's evidence that the water stopped, not a reading, so
+        ``max_gap_s`` — the bound for an interval with a live reading at both ends —
+        would extrapolate four polls from a sensor that may have died at the mark. A
+        live sensor leaves a mark within one poll of the cut, so the bound only bites
+        when reads are missing. Without ``poll_s`` the tail is bounded by ``max_gap_s``
+        as any interval is.
 
         A totalizer is left as it is: its counter only climbs for water that flowed, so
         a read after the close (a counter reporting late) still belongs to the run.
@@ -220,7 +227,19 @@ class FlowMeter:
             return
         mark_at, delivered, rate = mark
         dt = at - mark_at
-        if self._max_gap_s is None or dt <= self._max_gap_s:
+        # Root: a sensor that goes 'unavailable' mid-run leaves its last mark behind,
+        #   and the caller's cut is no evidence that water flowed on to it. Bounded by
+        #   max_gap_s alone, a sensor dead since +570 of a 612 s run still credited the
+        #   44 s up to a close reported at +614 — litres the caller reconciles the
+        #   bucket from, so the surplus rides into the next run (#139 review).
+        # Fix: bridge no more than one poll, the widest tail a live sensor can leave.
+        # NOT-TO-DO: do not derive the poll from max_gap_s (it is FLOW_POLL_INTERVAL x 4
+        #   today, a coupling the next tuning of either silently breaks), and do not
+        #   tighten _sample_rate the same way — its intervals have a reading at both
+        #   ends, which is what max_gap_s was chosen for.
+        # See test_end_rate_at_credits_no_tail_from_a_sensor_dead_since_the_mark.
+        bounds = [b for b in (self._max_gap_s, poll_s) if b is not None]
+        if not bounds or dt <= min(bounds):
             delivered += rate * dt / 60.0
         self._delivered = delivered
 

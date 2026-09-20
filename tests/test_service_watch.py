@@ -737,11 +737,13 @@ class TestAConfirmedRunIsSettledOnItsValveWindow:
         assert kw["result"] == const.RUN_RESULT_COMPLETED
         assert kw["planned_s"] == 600
         assert kw["actual_s"] == pytest.approx(602, abs=0.01)  # not 608, not 600
-        # Only the recorded duration moves: the timed volume and the calibration
-        # sample stay on the window the run was credited and sized for.
+        # The timed volume stays on the window the run was credited and sized
+        # for; the calibration sample is priced on the window its litres were
+        # measured over, which for a reported close is the reported window.
         assert c._timed_volume_l.call_args.args[1] == 600
         c._flow_calibration_check.assert_awaited_once()
-        assert c._flow_calibration_check.await_args.args[2] == 600
+        seconds = c._flow_calibration_check.await_args.args[2]
+        assert seconds == pytest.approx(602, abs=0.01)  # not the 600 s plan
 
     async def test_the_watcher_settles_it_before_the_real_backstop_fires(self, hass):
         """The same close with the backstop's real timer armed, not its double.
@@ -1175,7 +1177,7 @@ class TestAManualStopMeasuresFromTheValvesOnReport:
         Past the planned end the run is only waiting for its debounce, which
         would complete it on this window at +602. The stop settles it the same
         way, after closing the valve as any stop does: completed on 597 s, with
-        the finished event and the calibration sample on the plan.
+        one finished event and the calibration sample priced on that window.
         """
         c = _coord(hass)
         stops, seen = _stops_seen_by_the_record(hass, c)
@@ -1203,7 +1205,8 @@ class TestAManualStopMeasuresFromTheValvesOnReport:
         c._record_run.assert_awaited_once()
         assert len(finished) == 1
         c._flow_calibration_check.assert_awaited_once()
-        assert c._flow_calibration_check.await_args.args[2] == 600
+        seconds = c._flow_calibration_check.await_args.args[2]
+        assert seconds == pytest.approx(597, abs=0.01)  # not the 600 s plan
 
     async def test_a_stop_in_the_grace_after_a_late_off_report_completes_on_it(
         self, hass
@@ -2111,3 +2114,68 @@ class TestAConfirmedRunsFlowEndsAtItsOffReport:
         assert kw["result"] == const.RUN_RESULT_COMPLETED
         assert (await c._sc_find_run(2)) is None
         assert _litres(c) == pytest.approx(RATE * 614 / 60, abs=0.01)
+
+
+class TestTheAdvisoryIsPricedOnTheWindowItMeasured:
+    """The advisory divides a run's litres by the window they were measured over.
+
+    Its whole point is the observed rate, litres over minutes. A confirmed
+    run's meter is cut at the valve's own off report (#139), so those litres
+    span the REPORTED on-to-off window: priced over the plan, a valve that
+    closes late reads as a zone flowing faster than it does. Short runs are
+    where that bites -- 4 s late on a 60 s plan is 6.7 %, on a 612 s plan
+    0.3 %, against FLOW_CAL_DEVIATION = 0.15. A run with no reported close has
+    only its plan, and keeps it.
+    """
+
+    async def test_a_late_close_is_priced_on_the_reported_window(self, hass):
+        """60 s plan (a minute-unit valve's smallest), closed at +64, settled at +69.
+
+        10 L/min from the open, so the meter's litres span 64 s. Divided by the
+        plan they read as 10.67 L/min: a zone whose throughput is configured
+        correctly would be advised to raise it, on every run.
+        """
+        c = _coord(hass)
+        _metered(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _dispatch(hass, c, _metered_zone(60))
+            await _walk(hass, frozen, 64)
+            await _flow(hass, 0)
+            await _report(hass, "off", started + timedelta(seconds=64))
+            await _advance(hass, frozen, 1)  # 65: the tick reads nothing
+            await _advance(hass, frozen, 4)  # 69: the debounce settles the run
+
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == pytest.approx(64, abs=0.01)
+        c._flow_calibration_check.assert_awaited_once()
+        _zone_arg, measured, seconds = c._flow_calibration_check.await_args.args
+        assert measured == pytest.approx(RATE * 64 / 60, abs=0.01)
+        assert seconds == pytest.approx(64, abs=0.01)  # not the 60 s plan
+        # the rate the zone really ran at, not the 10.67 L/min the plan reads
+        assert measured / (seconds / 60.0) == pytest.approx(RATE, abs=0.01)
+
+    async def test_a_close_nobody_reported_keeps_the_plan(self, hass):
+        """The same plan with no off report at all: the backstop settles it at +69.
+
+        Without a reported window the litres are metered to the final read and
+        the plan is the only window there is -- as it is for a write-only
+        valve, OpenSprinkler and batch.
+        """
+        c = _coord(hass)
+        _metered(c)
+        _the_real_backstop_from_here(c)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _dispatch(hass, c, _metered_zone(60))
+            await _walk(hass, frozen, 69)  # the backstop (60 + 5 + 4)
+
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_COMPLETED
+        assert kw["actual_s"] == kw["planned_s"] == 60
+        c._flow_calibration_check.assert_awaited_once()
+        assert c._flow_calibration_check.await_args.args[2] == 60
