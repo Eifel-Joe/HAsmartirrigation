@@ -699,6 +699,30 @@ MAPPING_CONF_AGGREGATE_RIEMANNSUM = "riemannsum"
 MAPPING_CONF_AGGREGATE_DELTA = "delta"
 MAPPING_CONF_AGGREGATE_OPTIONS_DEFAULT = MAPPING_CONF_AGGREGATE_AVERAGE
 MAPPING_CONF_AGGREGATE_OPTIONS_DEFAULT_PRECIPITATION = MAPPING_CONF_AGGREGATE_DELTA
+# A DELTA counter only ever climbs, so a reading BELOW the running high-water
+# mark is one of two things, and they are credited oppositely (#149):
+#   - the counter restarted (a "today" rain gauge at local midnight), after
+#     which everything above zero is new rain;
+#   - the source revised its figure DOWN, which an API-backed daily total does
+#     routinely. Nothing fell; the climb back to the old mark is the SAME water
+#     and must not be credited twice.
+# They are told apart by how far the reading fell RELATIVE TO THE MARK: at or
+# below this fraction of it the counter restarted, anything above it is a
+# revision. Same idea as FlowMeter's totalizer rule (FLOW_NEAR_ZERO_FRAC), with
+# its own constant because that one is litres of water and this is whatever
+# field a user has pointed a DELTA aggregate at.
+# Deliberately NOT max(floor, frac x mark) as FlowMeter uses. An absolute floor
+# would catch a gauge whose first reading after midnight is already non-zero,
+# but it also swallows the small-value regime a freshly reset daily gauge lives
+# in: with a 0.5 mm floor, a mark of 0.4 and a dip to 0.2 is "near zero", so the
+# revision it is gets re-credited and the defect reappears in miniature for the
+# rest of the morning. A proportional threshold scales with the counter and has
+# no such blind spot, and it carries no unit assumption.
+# The residual cost is the mild direction: a restart whose first reading is more
+# than this fraction of yesterday's total reads as a revision, so that day's
+# rain is under-credited and the zone waters slightly more than it needed.
+# Over-crediting rain under-waters, which is the one that costs a plant.
+CUMULATIVE_RESET_FRAC = 0.1
 
 # For timestamps
 RETRIEVED_AT = "retrieved"  # when HA fetched the data (datetime.now())
