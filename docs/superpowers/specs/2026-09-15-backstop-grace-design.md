@@ -669,8 +669,15 @@ bleiben (Wartezeit dann 5 s, Toleranz 1 s).
   Confirm-Poll länger); ein Stopp in der Wartezeit rechnet nach der Watcher-Regel ab (vorher unerreichbar).
 - **Neustart in der Wartezeit** schließt nicht mehr sofort ab, sondern wartet auf Watcher oder Backstop, ohne die Pumpe
   anzufordern.
-- **Durchfluss-Ratensensor**, der nach dem Schluss seinen letzten Wert hält, wird bis zum Abschluss länger integriert
-  (`flow_metering.py:156-164`, rechter Endpunkt); Zähler unberührt.
+- **Durchfluss-Ratensensor:** mit gespeicherter `RUN_VALVE_OFF` endet die Integration an der Aus-Meldung
+  (`FlowMeter.end_rate_at`, R1/C3): das letzte Intervall wird bis zur Meldung mit der zuletzt gemessenen Rate
+  gutgeschrieben, die Lesung nach dem Schluss zählt nicht. Das gilt für den Watcher-Abschluss (abgeschlossen und
+  Teil-Lauf), den Stopp in der Wartezeit (d), den Stopp vor dem Ende (c) mit noch entprellender Meldung und den
+  Backstop, der mit der Meldung im Datensatz feuert. Ohne gespeicherte Aus-Meldung (write-only, nicht prüfbar,
+  `on --> unavailable --> off`, nach Neustart wieder aufgenommen, Backstop vor der Meldung) bleibt es wie heute: ein
+  Sensor, der seinen letzten Wert hält, wird bis zum Abschluss integriert, einer, der auf 0 fällt, verliert das
+  Intervall über dem Schluss (`flow_metering.py:160-170` auf dem Endstand, rechter Endpunkt). Zähler (Totalizer)
+  unberührt: ihre Lesung nach dem Schluss gehört zum Lauf. Nachtrag R1.
 - **Unberührt:** Batch, OpenSprinkler (Watch-Policies und Tests byte-gleich), Verteiler (eigener Pfad ohne
   `_sc_`/`_watch_`, `distributor.py:677-760`), write-only Service-Zonen, Datensätze von vor dem Update,
   `irrigation_finished`-Nutzlast, Panel-Countdown.
@@ -694,6 +701,12 @@ bleiben (Wartezeit dann 5 s, Toleranz 1 s).
 - **(c) Manueller Stopp vor dem geplanten Ende** misst bis zum Stopp, wie heute, auch wenn eine Aus-Meldung gespeichert ist.
 - **Sub-Sekunden-Lücke** zwischen dem Ende von In-flight und dem Backstop, der den Datensatz entfernt (Design 4;
   JustChr 09-19).
+- **Neustart-Lücke von rund 10 s (R2, vorbestehend):** die Wiederaufnahme liest `elapsed` VOR
+  `async_master_acquire`, das bei ausgeschalteter Pumpe Kick-Pause und Master-Settle (Default 10 s, `const.py:1039`)
+  schläft; der danach gestellte Backstop ist um diese Zeit später fällig als das Ende des In-flight-Fensters. Dieselbe
+  Form hat der Basiscode (`planned − elapsed` nach demselben `await`), die Wartezeit öffnet die Lücke also nicht. Der
+  PR-Text nennt sie neben der Sub-Sekunden-Lücke als vorbestehend und unverändert und verweist auf das eigene Issue
+  (Entwurf `D:/Entwicklung/HASI/pr139-work/rev3/issue-restart-master-gap.md`). Nachtrag R2.
 - **#1 / T10 — Zeitfenster-Preis:** `zone_confirm_seconds` (`run_window.py:336-361`) preist eine bestätigte Zone weiter
   mit `VALVE_CONFIRM_TIMEOUT` (30, `const.py:548`) ohne Wartezeit. Eigenes Issue nach dem stabilen Release mit den
   PR-Zahlen und drei Korrekturen (Kommentar 5740280769): unter `rotating` ist der Preis je Slot, bewegt sich also um mehr
@@ -891,3 +904,644 @@ Gegenüber Revision 2 (Stand 15.09., Basis `0b418644`, alle vier abtrennbaren Te
 - **Nachtrag 19.09. abends:** Befunde der Vollständigkeits- und der Nachvollzugs-Prüfung (`wf-rev3.json`) eingearbeitet:
   Live-Test mit allen neun Szenarien und `irrigation_finished` gezählt; Ergebnis als Kommentar auf dem PR, von #139
   verlinkt; Verweis auf den korrigierten Issue-Entwurf; Commit-Zeile und MSG-SAME in jedem Task des Plans.
+
+## Nachtrag: Befunde der Schluss-Review (2026-09-19)
+
+**Quelle:** die Schluss-Review von Task 13 auf `fix/backstop-grace` (Stand `66763c34`, zehn Commits auf `2b2c403b`),
+Ergebnis in `D:/Entwicklung/HASI/pr139-work/wf-task13.json` (`result.review`). Verdikt: „I found no correctness bug in
+the grace mechanics themselves“ — Timer, Entprellung gegen Backstop, Stopp, Neustart, In-flight und die Abgrenzung
+gegen Batch, OpenSprinkler, Verteiler und write-only halten wie beschrieben. Fünf Befunde: zwei wichtige (R1, R2),
+drei kleine (R3, R4, R5).
+
+Der User hat am 19.09. je Befund entschieden. Gebaut wurde zuerst als Probelauf `dry7/backstop-grace` (vier Commits
+C1–C4 auf `66763c34`, Worktree `D:/Entwicklung/HASI/pr139-work/dry2`, Protokolle `dry7-logs/C1.md` bis `C4.md`,
+Schlussprüfung `dry7-logs/final.md`). Der Nachvollzug auf dem echten Branch steht im Plan als Task 13b, in derselben
+Form wie T1–T12 (E9).
+
+**SHA-Korrektur 20.09.** Dieser Abschnitt nannte C1–C4 zuerst unter ihren `dry7`-SHAs. Die gehören dem
+Probelauf-Branch und sind von `fix/backstop-grace` aus **nicht erreichbar** — sie lösen nur so lange auf, wie der
+Worktree `dry2` und sein Branch existieren, und verschwinden mit dem nächsten `gc`. Da hier steht, was **ausgeliefert**
+wurde, nennen Tabelle und „Gebaut“-Zeilen unten jetzt die Branch-SHAs; die `dry7`-SHAs stehen nur noch in dieser
+Zuordnung, und der Plan (Task 13b, Spalte `SRC`) behält sie, weil er den Nachvollzug beschreibt und von dort
+auscheckt. Die Bäume sind paarweise gleich (`git diff <dry7> <branch>` je leer, 20.09. geprüft), also gilt jede im
+`dry7`-Abschnitt gemessene Zahl unverändert für den Branch-Commit:
+
+| | `dry7` (Probelauf) | `fix/backstop-grace` (ausgeliefert) | `git diff` |
+|---|---|---|---|
+| C1 (R3) | `83dca3a2` | `308c1907` | leer |
+| C2 (R5) | `d9b468ee` | `20c2a008` | leer |
+| C3 (R1) | `0c6010f1` | `2e829217` | leer |
+| C4 (R4) | `ba44620d` | `a0baf8c6` | leer |
+
+Geprüft mit `git merge-base --is-ancestor <sha> fix/backstop-grace`: die vier rechten SHAs sind Vorfahren, die vier
+linken nicht. Alle übrigen SHAs in Spec und Plan wurden am 20.09. genauso geprüft; das Ergebnis steht unten unter
+„SHA-Prüfung (20.09., alle Vorkommen)“.
+
+| Befund | Art | Entscheidung (User 19.09.) | Umsetzung |
+|---|---|---|---|
+| **R1** Ratensensor verliert das Intervall über dem Schluss | wichtig, **Loch der Wartezeit** | in diesem PR fixen, eigener abtrennbarer Commit | C3 `2e829217` |
+| **R2** Neustart liest `elapsed` vor dem Master-Acquire | wichtig, **vorbestehend** | nicht hier fixen: im PR-Text offenlegen, eigenes Issue | kein Commit; Entwurf `rev3/issue-restart-master-gap.md` |
+| **R3** vier Kommentare aus der Zeit vor der Wartezeit | klein | nur Wortlaut | C1 `308c1907` |
+| **R4** Doku und Panel-Hilfe nennen die Ein-Meldung nicht | klein | Doku + Panel-Hilfe in 8 Sprachen + PR-Text | C4 `a0baf8c6` |
+| **R5** Kopf-Test läuft gegen das Backstop-Double | klein | einen Dispatch-Test mit echtem Timer | C2 `20c2a008` |
+
+R1 ist der einzige Produktivcode-Fix; C1 ist kommentar-only, C2 reiner Test, C4 Doku/Übersetzungen/dist.
+
+### R1 — Ein Ratensensor verliert bis zu einem Poll-Intervall über dem Schluss (wichtig, Loch der Wartezeit)
+
+**Befund.** `FlowMeter._sample_rate` schreibt jedes Intervall mit der Rate seines RECHTEN Endpunkts gut
+(`flow_metering.py:156-164` auf `2b2c403b`). Vor der Wartezeit rechnete der Backstop am geplanten Ende ab, da war das
+Ventil noch offen: die Schlusslesung sah Fluss, verloren waren nur die 2–3 s zwischen Plan und echtem Schluss. Mit der
+Wartezeit wird ein bestätigter Lauf frühestens `SERVICE_WATCH_SETTLE_SECONDS` (5 s) nach der Aus-Meldung abgerechnet
+(Watcher) oder bei `planned + Wartezeit` (Backstop). Die Lesung, die das Intervall über dem Schluss schließt — ein
+15-s-Tick danach oder die Schlusslesung in `_sc_finish_flow` — sieht das Wasser schon stehen, und das ganze Intervall
+wird mit 0 gutgeschrieben: bis zu ein `FLOW_POLL_INTERVAL` (15 s, `const.py:508`) echten Flusses geht verloren, wenn das
+Ventil nach seinem Plan schließt. Die Gegenrichtung (Sensor hält seinen letzten Wert, also zu viel) stand schon in der
+Reichweite, diese Richtung nicht.
+
+**Beleg (Review-Szenario).** 300-s-Lauf, Ratensensor 10 L/min, fällt ~1 s nach dem Schluss auf 0. Letzter Tick mit
+Fluss bei +288, Ventil zu bei +302, Meldung +302,5. Heute: Schlusslesung des Backstops bei ~+301 sieht 10 L/min,
+(288, 301] wird gutgeschrieben, ~1 s fehlt. Mit der Wartezeit: Entprellung entscheidet +307,5, Schlusslesung 0,
+(288, 307,5] wird mit 0 gutgeschrieben — ~14 s, rund 2,3 L von ~50 L (4,7 %). Die gemessene Menge steuert die absolute
+Eimer-Abstimmung und die Kalibrierprobe, beide also zu niedrig.
+
+**Entscheidung (User 19.09.).** In diesem PR fixen, eigener Commit: **trägt der abzurechnende Lauf eine gespeicherte
+`RUN_VALVE_OFF`, endet die Rate-Integration an der Aus-Meldung** — das letzte Intervall bis zur Meldung mit der zuletzt
+gemessenen Rate, die Lesung nach dem Schluss zählt nicht. Läufe ohne Aus-Meldung und Zähler (Totalizer) behalten das
+heutige Verhalten. Nach E8 ist das ein Loch, das die Wartezeit selbst öffnet: vorher las der Backstop vor dem Schluss.
+Der Punkt „Stopp des Durchfluss-Samplers bei der Aus-Meldung“ unter „Sonst nicht Teil des Fixes“ bleibt gültig:
+gestoppt wird der Sampler nicht, gerechnet wird beim Abschluss.
+
+**Gebaut (C3 `2e829217`, `fix(flow): end a confirmed run's rate integration at the valve's off report`).**
+
+- `FlowMeter` merkt sich je angenommener Ratenprobe, die seine Uhr vorstellt, eine Marke `(at, bis dahin
+  gutgeschriebene Liter, Rate in L/min)` — angehängt genau dort, wo `_last_at` vorrückt; eine nicht vorrückende Probe
+  erzeugt also keine Marke. Die umgerechnete Rate wird einmal berechnet und wiederverwendet (dieselben
+  Float-Operationen in derselben Reihenfolge), `delivered()` bleibt für jeden anderen Nutzer bit-gleich.
+- Neu `FlowMeter.end_rate_at(at)` (`flow_metering.py:198` auf dem Endstand): die letzte Marke bei oder vor `at` ist der
+  Stand der Integration dort; das Intervall von ihr bis `at` wird mit der Rate dieser Marke gutgeschrieben (der letzten
+  mit Wasser gemessenen), begrenzt durch `max_gap_s` (`FLOW_MAX_GAP_SECONDS` = 60, `const.py:512`) wie jedes Intervall,
+  und jede spätere Probe fällt heraus, weil `_delivered` auf den Stand der Marke zurückgesetzt wird. Keine Marke bei
+  oder vor `at` --> 0.0, der Aufrufer fällt auf sein Zeitvolumen zurück (`delivered()` bleibt ohne jede Lesung `None`).
+  Ein Totalizer kehrt sofort zurück: sein Zähler steigt nur für geflossenes Wasser, eine späte Lesung gehört zum Lauf.
+- `_sc_finish_flow(zone_id, run=None)` (`self_closing.py:311`) liest wie heute einmal ab und ruft danach, wenn `run`
+  eine `RUN_VALVE_OFF` trägt, `meter.end_rate_at(off − started)` auf der Uhr des Meters. Erst lesen, dann schneiden ist
+  ein Pfad für beide Meter-Arten: der Totalizer behält seine Schlusslesung, dem Ratenmeter wird sie abgeschnitten.
+  `_sc_finish_run` und `async_stop_self_closing` reichen ihren Datensatz durch; die drei Aufrufer, die nur einen Meter
+  verwerfen (`_sc_start_flow_sampling`, fehlgeschlagener Confirm, Ausnahme im Aufbau), reichen nichts.
+- **Reichweite des Schnitts** (am Datensatz entschieden, nicht am Pfad): Watcher-Abschluss (abgeschlossen und Teil-Lauf
+  auf dem Fenster), Stopp in der Wartezeit (d), Stopp vor dem Ende (c) mit noch entprellender Aus-Meldung — `actual_s`
+  bleibt dort bis zum Stopp gemessen, (c) ist eine Regel für die Teil-Lauf-Entscheidung, der Fluss ist eine Messung —,
+  und der Backstop, der mit der Meldung im Datensatz feuert (der Datensatz behält `actual_s = planned_s`, #3/T6
+  unverändert; die Regel sagt, wann das Wasser stand, nicht wer abrechnet).
+- **Unverändert:** Läufe ohne Aus-Meldung (write-only, nicht prüfbar, `on --> unavailable --> off`, vom Neustart
+  wieder aufgenommen, Backstop vor der Meldung), Totalizer, OpenSprinkler und Batch (ihre Datensätze tragen nie
+  `RUN_VALVE_OFF`), der klassische und der metered Runner, Verteiler und Observed (rufen `end_rate_at` nie), ein
+  Neustart (der Meter lebt nur im Speicher und ist danach weg).
+- **Verworfen** (`dry7-logs/C3.md`): den Sampler bei der Aus-Meldung stoppen (koppelt Watcher und Meter, ein Blip
+  löscht die Meldung wieder, ein Tick kann zwischen `last_changed` und die aufzeichnende Auswertung fallen); die
+  Schlusslesung bei gespeicherter Meldung auslassen (schreibt das Intervall über dem Schluss trotzdem nicht gut und
+  nimmt Ticks zwischen Schluss und Abschluss nicht zurück); linke Endpunkte für jede Probe (änderte die geteilte Engine
+  für klassisch, Verteiler und Observed); eine künstliche Probe zum Aus-Zeitpunkt (ein Tick nach dem Schluss macht `at`
+  nicht vorrückend, die Engine ignoriert sie); nur auf den Fenster-Pfaden schneiden, mit einem Flag aus `actual_s`
+  (ließe Backstop- und Teil-Lauf-Pfad nach dem Schluss lesen und fügte einen Parameter hinzu, wo der Datensatz es schon
+  sagt); eigene Tick-Historie in `self_closing.py` (dupliziert Lücken- und Umrechnungsregeln außerhalb der
+  einheitengetesteten Engine).
+- **Eine Abweichung vom Entwurf,** vom Lint gefunden: die Suche „letzte Marke bei oder vor `at`“ war zuerst eine
+  `for … else`-Schleife; `ruff` B007 rügte die Schleifenvariablen, also
+  `next((m for m in reversed(self._rate_marks) if m[0] <= at), None)` — gleiches Verhalten, erneut durch alle Tests und
+  Proben belegt.
+
+**Tests.** 8 End-to-End in `tests/test_service_watch.py::TestAConfirmedRunsFlowEndsAtItsOffReport` (echtes `hass`,
+echter Watcher, echter Sampler und echtes Intervall unter einer eingefrorenen Uhr, die in Schritten von höchstens einem
+Poll gestellt wird, damit jeder 15-s-Tick zu seiner Zeit feuert; Rate 10 L/min, `_timed_volume_l` 1.0, damit eine
+verlorene Messung nicht als Wert durchgeht; Fixture `sensor.zone_flow`, E7):
+
+| Test | Fall | Erwartet |
+|---|---|---|
+| `test_a_close_settled_by_the_watcher_is_metered_to_its_off_report` | 612 s Plan, Aus +614, Sensor danach 0 | 102,333 L (heute 100,0) |
+| `test_a_sensor_that_holds_its_last_value_is_not_metered_past_it` | Sensor hält 10 L/min | 102,333 L (heute 103,167) |
+| `test_a_partial_settled_on_its_window_is_metered_to_its_off_report` | Aus +598, Teil-Lauf auf dem Fenster | 99,667 L |
+| `test_a_stop_in_the_grace_is_metered_to_the_off_report` | (d), Aus +614, Stopp +616 | 102,333 L |
+| `test_a_stop_before_the_plan_is_metered_to_a_stored_off_report` | (c), Aus +298, Stopp +301 | 49,667 L, `actual_s` 301 |
+| `test_the_backstop_meters_to_an_off_report_it_beat_to_the_settle` | 605 s Plan, Aus +611, Backstop +614 | 101,833 L, `actual_s == planned_s == 605` |
+| `test_a_close_nobody_reported_is_metered_as_before` | `on --> unavailable --> off`, Basisregel (b) | unverändert 100,0 L |
+| `test_a_totalizer_keeps_the_climb_it_reports_after_the_close` | Zähler meldet nach dem Schluss nach | 102,333 L |
+
+Dazu 8 Einheiten in `tests/test_flow_meter.py`: `test_end_rate_at_holds_the_last_rate_to_the_cut_and_drops_later_samples`,
+`…_holds_the_converted_rate`, `…_bridges_no_wider_gap_than_a_sample_would` (60 s überbrückt, 75 s nicht),
+`…_a_sample_keeps_that_samples_credit`, `…_before_any_reading_credits_nothing`, `…_without_any_reading_stays_none`,
+`…_ignores_a_sample_that_did_not_advance`, `…_leaves_a_totalizer_alone`.
+
+RED (Tests zuerst, Produktivcode unberührt): `14 failed, 37 passed, 3 errors`, darunter
+`assert 100.0 == 102.33333333333333 ± 1.0e-02` (Watcher), `assert 103.16666666666667 == 102.33333333333333 …`
+(haltender Sensor), `assert 97.5 == 99.66666666666667 …` (Teil-Lauf), `assert 100.0 == 102.33333333333333 …` (Stopp in
+der Wartezeit), `assert 47.5 == 49.666666666666664 …` (Stopp vor dem Plan), `assert 100.0 == 101.83333333333333 …`
+(Backstop mit Meldung) und 8× `AttributeError: 'FlowMeter' object has no attribute 'end_rate_at'`. Die zwei Pins, die
+sich NICHT ändern dürfen (ohne Aus-Meldung 100,0 L; Totalizer 102,333 L), waren schon am alten Code grün; die 3 Errors
+sind Lingering timer der drei RED-Tests, die vor ihrer Entprellung abbrachen, und sind im GREEN weg. GREEN: `51 passed`.
+
+**Mutationsproben:** 10, alle gefangen (`dry7-logs/C3.md`, zwei Läufe mit gleichem Ergebnis): Datensatz nicht
+durchgereicht (in `_sc_finish_run` bzw. in `async_stop_self_closing`), erst schneiden dann lesen, letztes Intervall
+ohne Lückengrenze überbrückt, Marke nur strikt vor dem Schnitt (`m[0] < at`), ohne Marke den heutigen Stand behalten,
+Totalizer-Tor entfernt, rohe statt umgerechnete Rate in der Marke, Marke bei jeder Probe statt nur bei vorrückender,
+letztes Intervall gar nicht gutgeschrieben (10 Tests fallen).
+
+### R2 — Beim Neustart wird `elapsed` vor dem Master-Acquire gelesen (wichtig, vorbestehend)
+
+**Befund.** In `async_resume_self_closing_runs` wird `elapsed` vor `await self.async_master_acquire(...)` gelesen. Ist
+die Pumpe aus, schläft dieser Aufruf die Kick-Pause und das Master-Settle (Default 10 s, `const.py:1039`); der danach
+mit `planned + grace − elapsed` gestellte Backstop ist also rund 10 s nach dem Ende des In-flight-Fensters fällig. In
+diesen Sekunden liest die Zone „nicht in flight“, während Datensatz, Watcher und Backstop leben — genau die Invariante,
+die die Anker-Tests aus T9 pinnen (In-flight endet, wenn der Backstop fällig ist). Dieselbe Form hat der Basiscode
+(`planned − elapsed` nach demselben `await`): **die Wartezeit öffnet dieses Loch nicht**, sie verschiebt es mit. Der
+Block wird von diesem PR allerdings ohnehin umgeschrieben.
+
+**Beleg (Review-Szenario).** Master konfiguriert, HA startet 100 s in einen 600-s-Lauf neu, Marge 4. Die
+Wiederaufnahme schläft von +100 bis +110 und stellt dann 509 s: Backstop fällig +619, In-flight endet +609. Wird die
+Aus-Meldung verpasst oder kommt sie später als die Marge, passiert ein geplanter, manueller oder `run_zone`-Dispatch
+bei +612 den Wächter, nimmt `sc:{zone}`, öffnet das Ventil und pollt den Confirm; bei +619 rechnet der alte Backstop
+den ALTEN Datensatz ab, gibt das geteilte Token frei (die Pumpe darf 5 s später unter offenem Ventil ausgehen) und
+bucht gegen den Meter des neuen Laufs — der Doppel-Dispatch, den JustChr „the worst outcome in this whole issue“
+nannte. Der Schlaf verzögert außerdem die folgenden Datensätze derselben Schleife um dasselbe Maß.
+
+**Entscheidung (User 19.09.).** Nicht in diesem PR. Nach E8 ist es kein Loch, das die Wartezeit öffnet; der PR-Text
+nennt es neben der Sub-Sekunden-Lücke als vorbestehend und unverändert, und es bekommt ein eigenes Issue (Englisch,
+Entwurf `D:/Entwicklung/HASI/pr139-work/rev3/issue-restart-master-gap.md`) mit Szenario und Einzeiler-Fix: die
+Restlaufzeit NACH dem Acquire berechnen oder den Backstop vor dem Acquire stellen. Testskizze im Issue: ein Neustart,
+dessen Master-Acquire die eingefrorene Uhr um das Settle vorstellt, prüft, dass der Backstop bei
+`RUN_STARTED + planned + grace` fällig ist.
+
+**Nicht gebaut.** Weder in `dry7` noch auf dem Branch gibt es dazu einen Commit; `git diff --stat 66763c34 a0baf8c6`
+enthält keine Zeile aus diesem Block (`dry7-logs/final.md`, Abschnitt 6).
+
+### R3 — Vier Kommentare beschreiben noch die Zeit vor der Wartezeit (klein)
+
+**Befund und Beleg.** (1) `_sc_finish_run`, Kommentar auf `planned_s`: „(the run ran for its full planned duration)“ —
+ein abgeschlossener Lauf kann jetzt ein Fenster bis zu max(1 s, Marge) unter dem Plan oder über ihm haben. (2)
+`_sc_schedule_cleanup`-Docstring: „Schedule the cosmetic finish after the run's planned duration“ — die
+Service-Aufrufstellen übergeben `planned + Wartezeit`. (3) Docstring von `async_resume_self_closing_runs`: „if the run
+is overdue it has already closed (finalise); if it is still within its window …“ — „overdue“ heißt jetzt jenseits von
+Plan UND Wartezeit. (4) Lead-in des `else`-Zweigs der Wiederaufnahme: „Still inside the hardware window: the valve is
+open“ — der Zweig deckt jetzt auch die Wartezeit nach dem Fenster, in der das Ventil längst zu ist und der Master nicht
+neu genommen wird.
+
+**Entscheidung (User 19.09.).** Nur Wortlaut.
+
+**Gebaut (C1 `308c1907`, `docs(service): describe the finish grace in the restart, cleanup and finish comments`).**
+`planned_s` ist jetzt „what the run was sized and credited for“ und sagt nichts mehr über die Laufzeit; der
+Cleanup-Docstring sagt „after the given delay“ und erklärt, was der Aufrufer übergibt; der Wiederaufnahme-Docstring
+definiert „overdue“ als Plan UND Wartezeit; der `else`-Lead-in heißt „Not yet overdue: … re-armed … re-adopted …
+without retaking the master in the grace“, die bestehende Erklärung des `elapsed` kleiner `planned`-Tors folgt
+unverändert.
+
+**Kriterien statt Test** (kommentar-only, nicht automatisiert prüfbar): AST-Vergleich mit geleerten Docstrings --> „AST
+MATCH: code is identical once docstrings are stripped“; Token-Diff ohne Kommentare und dreifach gequotete Strings -->
+3345 Token vorher wie nachher, `MATCH`. Dazu black/ruff sauber und die 8 Service-Suiten `300 passed, 1 error` (der
+vorbestehende Lingering-timer-Teardown in
+`TestOneOffSampleIsNotEvidenceTheWaterStopped::test_the_run_is_not_settled_before_the_window_is_out`, in der Baseline
+belegt und in `wf-task13.json` als zulässiger Lauf-zu-Lauf-Unterschied benannt).
+
+### R4 — Doku und Panel-Hilfe nennen nur die Aus-Meldung (klein)
+
+**Befund und Beleg.** Das Fenster ist `RUN_VALVE_OFF − RUN_VALVE_ON`, die Prüfung vergleicht Fenster gegen Plan
+(`_watch_settle_by_window`). Eine Ein-Meldung, die dem physischen Öffnen nachhinkt, verkürzt das Fenster also genau wie
+ein früher Schluss: eine Confirm-Entität, deren Ein-Meldung ihrer Aus-Meldung um mehr als die Marge nachhinkt, macht
+**jedes normale Ende zum Teil-Lauf** (Gutschrift zurückgenommen, kein `irrigation_finished`, keine Kalibrierprobe). Im
+Basiscode wurden solche Läufe abgeschlossen, weil der Backstop zuerst kam. Erreichbares Muster: ein aus dem Durchfluss
+abgeleiteter `binary_sensor` — die Form von `binary_sensor.valve_flowing` in den Tests und von `grace_emu_flowing` im
+Emulator (E10). Die Doku warnte bisher nur vor der späten Aus-Meldung.
+
+**Entscheidung (User 19.09.).** Doku (`docs/configuration-my-zones.md`, Punkt „Latency margin“) und Panel-Hilfe
+(`latency_margin_help` in allen 8 Katalogen: de en es fr it nl no sk) beschreiben die Toleranz über dem **gemeldeten**
+Ein-bis-Aus-Fenster, sagen, dass die Marge auch die späte Ein-Meldung auffängt, und empfehlen das Ventil selbst als
+Confirm-Entität statt eines Durchfluss-Indikators. Derselbe Punkt in den PR-Text. dist neu bauen (Node 24 = Node-22-CI),
+die geänderten Bundles mit `git add -f` stagen (Memory `hasi-i18n-all-languages`).
+
+**Gebaut (C4 `a0baf8c6`, `docs(i18n): explain on-report lag in the latency margin help`).** 11 Dateien, 29/29 Zeilen:
+Doku-Punkt, 8 Kataloge und die zwei dist-Bundles, die die Kataloge bündeln (`irrigation-plus.js`,
+`irrigation-plus-card-impl.js`; `card.js` und `card-legacy.js` unverändert). Die 7 Übersetzungen sind aus dem eigenen
+Wortschatz jeder Sprache gebaut (Label, `confirm_entity`, `flow_sensor`, die Lauf-Ergebnis-Wörter
+Abgeschlossen/Teilweise aus `services.history_dialog.results`, das Fenster-Substantiv der Zeitfenster-Schlüssel), nicht
+aus dem englischen Satz maschinell übersetzt, und übernehmen das Parallelsatz-Muster des bisherigen Textes derselben
+Sprache.
+
+**Kriterien statt Test** (UI-Text, vorher benannt): `tests/test_i18n_completeness.py` grün (keine fehlenden, keine
+verwaisten Schlüssel, kein Wert gleich dem englischen) — gemessen `66 passed`; alle 8 Werte nennen (a) das
+Ein-bis-Aus-Fenster bzw. die späte Ein-Meldung und (b) das Ventil selbst statt eines Durchflusssensors; der Doku-Punkt
+sagt dasselbe wie die Panel-Hilfe, damit beide nicht auseinanderlaufen; vitest bleibt bei 23 Dateien / 624 Tests; die 8
+Service-Suiten unverändert (`309 passed, 1 error`). Alle acht JSON-Dateien wurden nach der Änderung geparst.
+
+### R5 — Der Kopf-Test läuft am Dispatch gegen das Backstop-Double (klein)
+
+**Befund und Beleg.** Der von JustChr verlangte Kopf-Test („a close inside the grace settles via `_watch_finish` with
+`actual_s` = the observed window“) lief am Dispatch-Pfad gegen `_coord`s `_sc_schedule_cleanup`-Double, das nie feuert.
+Dass der Watcher wirklich zuerst kommt, folgte nur aus der Zusammensetzung: der Arm-Pin `(2, 609)` plus der
+Echt-Timer-Test für den verpassten Schluss. Den echten Timer mit einem gewinnenden Watcher gab es nur auf dem
+Neustart-Pfad (SP-3).
+
+**Entscheidung (User 19.09.).** Eine Variante am Dispatch-Pfad mit dem ECHTEN Backstop
+(`_the_real_backstop_from_here`): Schluss bei +602 gemeldet, auf +608 vorstellen --> `completed`, `actual_s` 602; über
++609 hinaus --> kein zweiter Abschluss, kein Cleanup-Timer übrig.
+
+**Gebaut (C2 `20c2a008`, `test(service): let the watcher beat the real backstop on the dispatch path`).** Neuer Test
+`TestAConfirmedRunIsSettledOnItsValveWindow::test_the_watcher_settles_it_before_the_real_backstop_fires`: echter
+Backstop vor dem Dispatch gestellt (Marge 4, fällig 609), Uhr bei offenem Ventil bis +601 **gegangen**, Schluss bei
++602 gemeldet, bei +608 Lauf weg, ein Datensatz, `completed`, `actual_s == approx(602)`, ein `irrigation_finished`;
+nach +610 weiterhin ein Datensatz, ein Event, eine Master-Freigabe, keine wartende Entprellung, kein Cleanup-Timer.
+
+**Harness-Befund (gilt für jeden künftigen Echt-Timer-Test).** Der erste Entwurf sprang mit `frozen.tick(602)` zum
+Schluss, wie `_run_until_the_valve_closes` — und **überlebte** die Probe „Backstop am Plan gestellt“. Wurzel, mit einer
+instrumentierten Wegwerf-Kopie belegt: ein Timer, der innerhalb eines `tick`-Sprungs fällig wird, landet nur in der
+Ready-Queue der Loop, hinter dem Schritt des Tests; das nächste `_advance` feuert die Entprellung synchron, deren
+Abschluss `_sc_cancel_cleanup` ruft, und der eingereihte Backstop wird als abgebrochen übersprungen. Ein Sprung kann
+also **nie** zeigen, dass ein Backstop zu früh feuert. Deshalb wird die Uhr über das geplante Ende **gegangen**, bevor
+der Schluss gemeldet wird; der Docstring des Tests sagt warum. Die Cleanup-Timer-Assertion steht am Ende, damit die
+„kein zweiter Abschluss“-Assertion die dritte Probe trifft.
+
+**Kein RED.** Der Test prüft bestehendes Verhalten (R5 verlangte einen Test, keinen Fix): er war sofort grün
+(`1 passed`). Seine Falsifikation sind die Proben (`dry7-logs/C2.md`, je Probe die neue Test-Datei allein und die 7
+Service-Suiten):
+
+| Probe | Mutation | neue Test-Datei | gefangen an |
+|---|---|---|---|
+| `backstop-no-grace` | Dispatch stellt `planned` statt `planned + Wartezeit` | FAILED | `assert 600.0 == 602 ± 1.0e-02` (der Backstop bei 600 schloss für den Plan ab); dazu die zwei Arm-Pins und der Test für den verpassten Schluss |
+| `window-route-removed` | Fensterweg im `_watch_finish` auf `if False:` | FAILED | `assert 600.0 == 602 ± 1.0e-02`; dazu 7 weitere Tests |
+| `second-settle-unguarded` | weder Abbruch des Backstops beim Abschluss noch Idempotenz-Stopp | FAILED | `c._record_run.assert_awaited_once()` --> „Awaited 2 times“; dazu 5 weitere (verpasster Schluss, T6-Pin, SP-3-Neustart, zwei in `test_self_closing.py`) |
+| `finish-keeps-backstop` (ergänzend) | nur der `_sc_cancel_cleanup` beim Abschluss entfernt | FAILED | `assert not c._sc_cleanup_timers()` (das Handle bleibt stehen) |
+| `finish-not-idempotent` (ergänzend) | nur der Idempotenz-Stopp entfernt | passed (erwartet) | auf diesem Pfad bricht schon der Abbruch den Backstop ab, der zweite Schutz wird nie erreicht; er bleibt gepinnt von `test_self_closing.py::test_finish_is_idempotent_when_run_missing` |
+
+### Messstand `dry7` (2026-09-20, `dry7-logs/final.md`)
+
+- black `68 files would be left unchanged.`, ruff `All checks passed!` am Endstand `a0baf8c6` (im Probelauf an
+  `ba44620d` gemessen, baumgleich).
+- Volle Suite gegen die Basis vom selben Tag (`baseline-2b2c403b-fix-0919.txt`): `collected 3022` -->
+  `collected 3132`; `7 failed, 3006 passed, 9 skipped, 10 warnings, 320 errors` -->
+  `7 failed, 3116 passed, 9 skipped, 10 warnings, 320 errors`. Delta passed = Delta collected = **+110**, also
+  ausschließlich neue grüne Tests (+93 aus T1–T12, +17 aus C2/C3). FAILED/ERROR-Namensmengen sortiert verglichen:
+  333/333 Zeilen, Diff leer.
+- Je Commit im separaten Worktree: C1 `300 passed, 1 error`; C2 `301`; C3 `309` (dazu `tests/test_flow_meter.py`
+  allein `43 passed`); C4 `309` — immer derselbe eine vorbestehende Teardown-Error, black und ruff je sauber.
+- vitest unverändert `23 passed (23)` / `624 passed (624)`; C1–C4 fassen keine Frontend-Testdatei an.
+- dist aus den Quellen neu gebaut (Node v24.15.0), alle vier Bundles identisch zum Commit (nur CR/LF-Rauschen).
+- `git diff --stat 66763c34 a0baf8c6`: 15 Dateien, 539 Einfügungen, 43 Löschungen — `flow_metering.py`,
+  `self_closing.py`, `docs/configuration-my-zones.md`, 8 Kataloge, 2 Bundles, `tests/test_flow_meter.py`,
+  `tests/test_service_watch.py`. R2 erwartungsgemäß nicht im Diff.
+
+### Folgen für die Abschnitte oben
+
+- **Reichweite:** der Punkt zum Durchfluss-Ratensensor ist neu gefasst (Integration endet an der Aus-Meldung, sobald
+  eine gespeichert ist).
+- **Ausdrücklich nicht dazu:** R2 ist als vorbestehende Neustart-Lücke neben der Sub-Sekunden-Lücke aufgenommen.
+- **Tests/Harness:** der Sprung-Befund aus C2 gilt für jeden Test, der einen Timer gegen einen anderen antreten lässt:
+  die Uhr über die Fälligkeit **gehen**, nicht springen.
+- **Proben:** zu den 133 aus Task 13 kommen 15 aus `dry7` (5 zu C2, 10 zu C3); Task 13b lässt sie auf dem echten
+  Branch erneut laufen.
+
+## Nachtrag: Befunde der zweiten Review-Runde (2026-09-20)
+
+**Quelle:** die Review der vier Nachzieh-Commits C1–C4 auf `fix/backstop-grace` (Stand `a0baf8c6`, vierzehn Commits auf
+`2b2c403b`), Ergebnis in `D:/Entwicklung/HASI/pr139-work/wf-followups.json` (`result.review`). Verdikt zum einzigen
+Produktivcode-Commit: „C3 (2e829217) is correct and well scoped; I found no defect that would change a delivered volume
+in a normal run“ — Einheiten, Zeitbasis (der Schnitt läuft auf der Uhr des Meters, nicht auf dem Anker des Datensatzes),
+Totalizer-Tor, „keine Aus-Meldung“-Fall und die Abdeckung aller fünf Aufrufstellen von `_sc_finish_flow` einzeln
+nachgewiesen. C1 sei kommentar-treu, C2 diskriminiere echt („a backstop armed at the plan would fire inside it and
+settle for 600“), C4 sei in allen acht Sprachen zutreffend.
+
+**Fünf Befunde, alle als `minor` eingestuft.** Der User hat am 2026-09-20 entschieden: **alle fünf vor dem
+Pre-Release fixen.** Die Nummerierung R6–R10 setzt die erste Runde (R1–R5) fort; in Klammern die Position im
+Review-Ergebnis.
+
+| Befund | Ort | Entscheidung (User 20.09.) | Umsetzung |
+|---|---|---|---|
+| **R6** (1) Schluss-Intervall mit `max_gap_s` (4 Polls) statt einem Poll begrenzt | `flow_metering.py:223` | fixen | C5 `3623e71b` |
+| **R7** (2) Kalibrier-Hinweis teilt durch `planned_s`, gemessen ist das Fenster | `self_closing.py:452` | fixen | C5 `3623e71b` |
+| **R8** (3) `latency_margin_help` hat die Warte-Hälfte in allen 8 Sprachen verloren | `…/languages/en.json:630` u. a. | fixen | C6 `9da4c0b2` |
+| **R9** (4) Französisch benennt die zwei Fenster-Kanten unsymmetrisch | `…/languages/fr.json:411` | fixen | C6 `9da4c0b2` |
+| **R10** (5) Spec nennt C3/C4 unter nicht erreichbaren `dry7`-SHAs | dieses Dokument, Nachtrag der ersten Runde | fixen | kein Code-Commit; die SHA-Korrektur oben |
+
+**Abweichung von E9 (Nachvollzug statt Neubau), bewusst und vom User am 20.09. so entschieden.** C5 und C6 wurden
+**direkt auf `fix/backstop-grace` mit TDD** gebaut — erst der fehlschlagende Test, dann der Produktivcode —, nicht
+erst als Probelauf und dann nachvollzogen. Begründung: E9 galt für den Rumpf, der aus mehreren Probeläufen
+(`dry2`…`dry7`) hervorgegangen war; dort ersetzte der Nachvollzug eine bereits gemessene Bauarbeit. R6–R9 sind
+dagegen kleine, von der Review NACH den Probeläufen gefundene Korrekturen an vier Dateien: ein achter Probelauf
+hätte dieselbe Arbeit zweimal gemacht, ohne neue Evidenz, und die globale Regel „kein Produktionscode vor einem
+fehlschlagenden Test“ ist auf dem echten Branch direkt erfüllt und unten belegt (RED vor GREEN, verbatim). Der
+Verzicht auf den Probelauf kostet nur das eine, was er sonst liefert — die Vorab-Messung der Suiten-Zahlen —, und
+die steht hier stattdessen als Vorher/Nachher gegen die Branch-Basis `a0baf8c6`.
+
+### R6 — Das Schluss-Intervall wird mit vier Polls statt einem begrenzt (klein)
+
+**Befund.** `end_rate_at` begrenzt den Schwanz — das Intervall von der letzten Marke bis zur Aus-Meldung — mit
+`_max_gap_s` (`FLOW_MAX_GAP_SECONDS` = 4 Polls = 60 s). Diese Grenze wurde für ein Intervall gewählt, das an
+**beiden** Enden eine Lesung hat. Hier ist das ferne Ende eine Ventil-Meldung, keine Flussprobe: bis zu 60 s können
+aus einem Sensor extrapoliert werden, der seit der Marke tot ist — genau der Fall, den `_sample_rate` nicht
+gutschreibt. Der Docstring („bounded by max_gap_s like any interval“) übertünchte den Unterschied.
+
+**Beleg (Review-Szenario).** 612-s-Lauf, 10 L/min, Zigbee-Flusssensor fällt bei +570 auf `unavailable` (jeder
+spätere Tick und die Schlusslesung in `_sc_finish_flow` liefern `None`, `irrigation.py:1125`), Ventil meldet Aus bei
++614. `end_rate_at(614)` findet die Marke bei 570, `dt = 44 <= 60`, und schreibt 44 s × 10 L/min ≈ **7,3 L gut, die
+kein Sensor gemessen hat** — vor C3 wurde nach 570 gar nichts gutgeschrieben. `_sc_finish_run` stimmt den Eimer
+**absolut** aus den gemessenen Litern ab, der Überschuss wandert also in das Defizit des nächsten Laufs. Die Review
+stellte `flow_metering.py:222-224` dem eigenen Kommentar von `_sample_rate` gegenüber
+(`flow_metering.py:166-167`: „gap too large … do not credit the recovered rate across it (would over-credit)“) und
+wies darauf hin, dass `tests/test_flow_meter.py:377` die 60 s als gewollt pinnte.
+
+**Entscheidung (User 20.09.).** Fixen. Im Normalfall ist der Schwanz ohnehin durch den Meldeverzug begrenzt (eine
+Marke liegt innerhalb eines Polls vor dem Schnitt, und jede Probe zwischen physischem Schluss und Meldung liest 0
+und wird die Marke), die engere Grenze kostet also nichts: jeder legitime Schwanz in den C3-Tests (letzter Tick 600,
+Schnitt 611–614) liegt unter einem Poll.
+
+**Gebaut (C5 `3623e71b`, `fix(flow): bound the off-report tail by one poll and price the advisory on the measured window`, Teil 1).**
+`end_rate_at(at, *, poll_s: float | None = None)` nimmt die Kadenz des Samplers und begrenzt den Schwanz mit der
+**engsten** Grenze, die es hat: `bounds = [b for b in (self._max_gap_s, poll_s) if b is not None]`, dann
+`if not bounds or dt <= min(bounds)`. Die Kadenz wird von der einzigen Schnittstelle durchgereicht, die sie ohnehin
+kennt — `_sc_finish_flow` ruft `meter.end_rate_at((off − started).total_seconds(), poll_s=const.FLOW_POLL_INTERVAL)`,
+dieselbe Konstante, die `_sc_start_flow_sampling` für sein Intervall liest.
+
+- **Verworfen** (im Commit als NOT-TO-DO festgehalten): den Poll aus `max_gap_s` ableiten (heute
+  `FLOW_POLL_INTERVAL × 4` — eine Kopplung, die das nächste Nachziehen einer der beiden Konstanten still bricht);
+  die Kadenz am Meter speichern (belastet jeden Aufrufer, der nie schneidet); `_sample_rate` genauso verschärfen
+  (dessen Intervalle haben an beiden Enden eine Lesung, wofür `max_gap_s` gewählt wurde).
+- Ein Aufrufer ohne `poll_s` behält exakt die bisherige Grenze; `end_rate_at` hat weiterhin genau einen Aufrufer.
+
+### R7 — Der Kalibrier-Hinweis teilt durch den Plan, gemessen ist das Fenster (klein)
+
+**Befund.** Der Flow-Kalibrier-Hinweis rechnet `observed_lpm = measured_l / (seconds / 60.0)`
+(`irrigation.py:1245`) — sein ganzer Zweck ist die **beobachtete Rate**. `_sc_finish_run` übergab dafür `planned_s`.
+Seit C3 spannen die Liter aber das **gemeldete** An-bis-Aus-Fenster: Zähler und Nenner werden über verschiedene
+Fenster gemessen. C3 erzeugt den Bruch nicht (vorher liefen die Liter bis zur letzten Lesung mit Wasser, auch nicht
+`planned_s`), dreht aber sein Vorzeichen — ein Ventil, das nach seinem Plan schließt, liefert jetzt Liter für mehr
+Sekunden als der Divisor.
+
+**Beleg (Review-Szenario).** Minuten-Ventil, 60-s-Plan, Schluss 4 s zu spät gemeldet: 10 L über ein 64-s-Fenster.
+10 L / 60 s liest sich als 10,0 L/min gegen wahre 9,4 L/min — **6,7 % Verzerrung auf jedem Lauf**, in einem Band,
+das bei `FLOW_CAL_DEVIATION` = 0,15 mit `FLOW_CAL_MIN_SAMPLES` = 3 beurteilt wird. Auf langen Läufen ist es
+vernachlässigbar (0,3 % bei 612 s): ein Effekt kleiner Zonen, kein Blocker.
+
+**Entscheidung (User 20.09.).** Fixen, mit der von der Review vorgeschlagenen Form.
+
+**Gebaut (C5 `3623e71b`, Teil 2).** `_sc_finish_run` preist den Hinweis auf dem Fenster, über das die Liter gemessen
+wurden: `await self._flow_calibration_check(zone, measured, planned_s if actual_s is None else actual_s)` —
+dieselbe Regel, der das aufgezeichnete `actual_s` schon folgt. Ein Lauf ohne Meldung hat nur seinen Plan, und behält
+ihn: **Backstop, write-only, OpenSprinkler und Batch bleiben auf `planned_s`.**
+
+- **Nicht mitgezogen:** das Zeitvolumen oben bleibt auf `planned_s` — es preist das Wasser, für das der Lauf
+  **gutgeschrieben** wurde, und das ist der Plan (im Commit als NOT-TO-DO festgehalten).
+- **Schwester-Pfad-Check:** die zwei anderen Aufrufer von `_flow_calibration_check` wurden geprüft und übergeben
+  bereits das Fenster, das sie gemessen haben (Observed-Watering das externe Öffnen, Verteiler `actual_seconds`) —
+  kein Spiegel-Bug.
+
+### R8 — Die Panel-Hilfe nennt nur noch die Toleranz, nicht mehr die Wartezeit (klein)
+
+**Befund.** Die in C4 neu gefasste `latency_margin_help` beschrieb nur noch die Abschluss-Toleranz und ließ die
+andere Hälfte dessen weg, was der eine Wert tut: **wie lange die Integration auf die Aus-Meldung wartet, bevor sie
+den Lauf ohne sie abschließt.** Diese Hälfte stand im alten Text und steht weiterhin in der Doku — Panel und Doku
+widersprachen sich also darüber, was die Einstellung steuert. Die Auslassung war in allen acht Katalogen gleich
+(de:411, es:411, fr:411, it:451, nl:411, no:411, sk:411, en:630), also konsequent und kein Ausrutscher einer
+Sprache.
+
+**Beleg.** Entfallen war „Irrigation Plus waits this long for the report before it settles the run without it“;
+`docs/configuration-my-zones.md:93` trägt es weiter („The integration waits this long for the confirm entity to
+report *off* before it settles the run without that report. … A run whose close report never arrives is settled as
+complete at planned duration + 5 s + margin.“). Im Code hängen beide Hälften am selben Wert:
+`run_finish_grace_seconds` = Settle + eingefrorene Marge, `run_completion_tolerance` = die Marge
+(`run_watch.py:304-310`). Szenario der Review: wer für ein schläfriges Ventil die Marge auf das Maximum 30 stellt,
+erfährt aus dem Panel nicht, dass Lauf, Verlaufseintrag und Master-/Pumpen-Halt jetzt 35 s nach dem geplanten Ende
+abgeschlossen werden.
+
+**Entscheidung (User 20.09.).** Fixen: beide Hälften in allen acht Katalogen, die Warnung vor der späten
+Ein-Meldung und die Empfehlung „Ventil statt Durchflusssensor“ aus C4 bleiben.
+
+**Gebaut (C6 `9da4c0b2`, `docs(i18n): say what the latency margin waits for and what it tolerates`).** Alle acht
+Texte neu gefasst; jeder trägt jetzt (a) die Wartezeit, (b) die Toleranz auf dem gemeldeten Fenster, (c) das
+Auffangen der späten Ein-Meldung und (d) die Empfehlung, auf das Ventil selbst zu zeigen. Jeder Text ist **kürzer**
+als der, den er ersetzt (en 560 → 517, de 671 → 591, es 668 → 612, fr 760 → 618, it 703 → 613, nl 661 → 558,
+no 631 → 544, sk 571 → 518 Zeichen). `docs/configuration-my-zones.md` trug beide Hälften und die Empfehlung schon
+und bleibt **unverändert** — die Richtung des Fixes ist Panel zu Doku, nicht umgekehrt.
+
+Englisch, wie committet:
+
+> „How many seconds this valve may take after the end of its run to report that it closed. Irrigation Plus waits
+> this long for that report before it settles the run without it, and the same value is the tolerance on the
+> reported on-to-off window: a window that falls short of the planned duration by no more than the margin still
+> counts as a complete run, which likewise absorbs a late 'on' report. Only used with a confirm entity — point it
+> at the valve itself, not at a flow sensor, which lags the water on both edges.“
+
+### R9 — Französisch benennt die zwei Kanten des Fensters unsymmetrisch (klein)
+
+**Befund und Beleg.** Französisch war die einzige der acht Sprachen, die das Fenster mit einem unsymmetrischen Paar
+benannte — `activation` (ein Einschalten) gegen `fermeture` (ein physisches Schließen) —, während Englisch und die
+anderen sechs ein symmetrisches An/Aus-Paar verwenden (de „An-bis-Aus-Fenster“, es „ventana de encendido a
+apagado“, it „finestra segnalata di accensione-spegnimento“, nl „aan-tot-uit-venster“, no „på-til-av-vinduet“,
+sk „okno zapnutia až vypnutia“, en „reported on-to-off window“). Der übrige französische Text zitierte die Zustände
+dann korrekt als 'on' und 'off' — zwei Vokabulare für dieselben zwei Kanten.
+
+**Entscheidung (User 20.09.).** Fixen, mit dem von der Review vorgeschlagenen symmetrischen Paar.
+
+**Gebaut (C6 `9da4c0b2`).** `d'activation à désactivation`, passend zum `état activé` desselben Katalogs in
+`confirm_entity_help`; zusätzlich der Doppelpunkt mit dem normalen Leerzeichen dieses Katalogs statt eines
+alleinstehenden geschützten Leerzeichens. Französisch, wie committet:
+
+> „Nombre de secondes dont cette vanne dispose après la fin de son exécution pour signaler sa fermeture. Irrigation
+> Plus attend ce signalement pendant ce délai avant de clôturer l'exécution sans lui, et cette même valeur est la
+> tolérance sur la fenêtre signalée d'activation à désactivation : une fenêtre plus courte que la durée prévue d'au
+> plus la marge compte toujours comme une exécution complète, ce qui absorbe aussi un signalement 'on' tardif.
+> Utilisé uniquement avec une entité de confirmation — pointez-la vers la vanne elle-même, non vers un capteur de
+> débit, qui accuse un retard sur l'eau aux deux extrémités.“
+
+Nachgemessen an den **committeten** Blobs (`git show HEAD:<katalog>`): `d'activation à désactivation` vorhanden,
+`d'activation à fermeture` nicht mehr.
+
+### R10 — Die Spec nennt C3 und C4 unter nicht erreichbaren SHAs (klein)
+
+**Befund und Beleg.** Der Nachtrag der ersten Runde führte C1–C4 unter den `dry7`-SHAs (`83dca3a2`, `d9b468ee`,
+`0c6010f1`, `ba44620d`). Der Branch trägt `308c1907`, `20c2a008`, `2e829217`, `a0baf8c6`;
+`git merge-base --is-ancestor 0c6010f1 fix/backstop-grace` scheitert für beide genannten. Die Bäume sind paarweise
+gleich (`git diff 0c6010f1 2e829217` und `git diff ba44620d a0baf8c6` je leer) und die festgehaltene Diffstat stimmt
+mit dem Branch überein (`git diff --stat 66763c34 a0baf8c6` --> 15 Dateien, 539 Einfügungen, 43 Löschungen), jede
+Messung galt also weiter — nur die Zeiger hingen in der Luft und hätten nach einem `gc` nicht mehr aufgelöst. Nach
+Regel P1 gehen diese Dokumente auf `archive/design-history`; ein Archiv, dessen SHAs nicht gegen den ausliefernden
+Branch auflösen, ist keine Historie.
+
+**Entscheidung (User 20.09.).** Fixen, **vor** dem Schieben ins Archiv.
+
+**Gebaut (kein Code-Commit).** Die SHA-Korrektur oben in diesem Dokument: Entscheidungstabelle und alle
+„Gebaut“-Zeilen nennen die Branch-SHAs, die `dry7`-SHAs stehen nur noch in der Zuordnungstabelle, und
+`git diff --stat 66763c34 ba44620d` ist zu `… 66763c34 a0baf8c6` geworden. Der Plan behält seine `SRC`-Spalte mit den
+`dry7`-SHAs, weil er beschreibt, von wo der Nachvollzug auscheckt, nicht was ausgeliefert ist. Vollständiges
+Prüfergebnis für **jeden** SHA in beiden Dokumenten unten unter „SHA-Prüfung (20.09., alle Vorkommen)“.
+
+### C5 — TDD-Beleg (RED vor GREEN, verbatim)
+
+Beide Tests standen **vor** jeder Produktivänderung; Auswahl über `tests/test_service_watch.py` und
+`tests/test_flow_meter.py`, `--tb=line`:
+
+```
+tests\test_service_watch.py FFF.                                         [ 28%]
+tests\test_flow_meter.py ..F.F.....                                      [100%]
+D:\Entwicklung\HASI\HAsmartirrigation\tests\test_service_watch.py:746: assert 600.0 == 602 ± 1.0e-02
+D:\Entwicklung\HASI\HAsmartirrigation\tests\test_service_watch.py:1209: assert 600.0 == 597 ± 1.0e-02
+D:\Entwicklung\HASI\HAsmartirrigation\tests\test_service_watch.py:2156: assert 60.0 == 64 ± 1.0e-02
+D:\Entwicklung\HASI\HAsmartirrigation\tests\test_flow_meter.py:385: TypeError: FlowMeter.end_rate_at() got an unexpected keyword argument 'poll_s'
+D:\Entwicklung\HASI\HAsmartirrigation\tests\test_flow_meter.py:417: TypeError: FlowMeter.end_rate_at() got an unexpected keyword argument 'poll_s'
+================= 5 failed, 9 passed, 111 deselected in 1.54s ==================
+```
+
+Der vierte ausgewählte Test — der Pin „Backstop behält den Plan“
+(`test_a_close_nobody_reported_keeps_the_plan`) — war von Anfang an grün: er pinnt Verhalten, das sich **nicht**
+bewegen darf. GREEN, dieselbe Auswahl nach der Umsetzung:
+
+```
+tests\test_service_watch.py ....                                         [ 28%]
+tests\test_flow_meter.py ..........                                      [100%]
+===================== 14 passed, 111 deselected in 1.67s ======================
+```
+
+**Tests von C5** (4 neue Items, 3 bewegte Pins):
+
+| Datei | Test | Fall |
+|---|---|---|
+| `test_flow_meter.py` | `test_end_rate_at_bridges_no_wider_gap_than_one_poll` (umbenannt aus `…_than_a_sample_would`) | 30,0 s überbrückt (2,5 + 2,5 L), 30,5 s nicht (2,5 L) |
+| `test_flow_meter.py` | `test_end_rate_at_without_a_poll_keeps_the_max_gap_bound` **(neu)** | ohne Kadenz gilt `max_gap_s` wie bisher |
+| `test_flow_meter.py` | `test_end_rate_at_credits_no_tail_from_a_sensor_dead_since_the_mark` **(neu)** | das Review-Szenario: 95 L, nicht 102,3 L |
+| `test_service_watch.py` | `TestTheAdvisoryIsPricedOnTheWindowItMeasured::test_a_late_close_is_priced_on_the_reported_window` **(neu)** | 60-s-Plan, Schluss +64: Divisor 64, `measured / (seconds/60)` == 10 L/min |
+| `test_service_watch.py` | `…::test_a_close_nobody_reported_keeps_the_plan` **(neu, von Anfang grün)** | ohne Meldung Divisor 60, am ECHTEN Backstop-Timer |
+| `test_service_watch.py` | zwei bestehende Hinweis-Pins (Z. 746, 1209) | 600 → 602 bzw. 600 → 597 |
+
+`tests/test_flow_meter.py` hat damit **zehn** Einheiten zu `end_rate_at` (vorher acht).
+
+**Mutationsproben C5: fünf, einzeln, alle gefangen.** Je Probe Sicherung nach
+`D:/Entwicklung/HASI/pr139-work/mut/<name>.bak`, CRLF-erhaltend angewandt, aus der Sicherung zurückgespielt,
+sha256 vorher/nachher verglichen und der Baum je wieder auf die vier beabsichtigten Dateien geprüft:
+
+| Probe | Mutation | Ergebnis | gefangen an |
+|---|---|---|---|
+| `m1` | Poll-Grenze zurück auf `if self._max_gap_s is None or dt <= self._max_gap_s:` | 2 failed, 123 passed | `test_flow_meter.py:390` `assert 5.083333333333334 == 2.5 ± 2.5e-06`; `:418` `assert 102.33333333333333 == 95.0 ± 9.5e-05` — die 7,33 L Phantom-Gutschrift der Review |
+| `m2` | Grenze ganz weg (`delivered += rate * dt / 60.0` bedingungslos) | 3 failed, 122 passed | `:390`, `:404` (der Pin ohne Kadenz), `:418` |
+| `m3` | `min(bounds)` zu `max(bounds)` | 2 failed, 123 passed | `:390` und `:418`, gleiche Werte wie `m1` |
+| `m4` | Divisor zurück auf `planned_s` | 3 failed, 160 passed | `test_service_watch.py:746` `assert 600.0 == 602 ± 1.0e-02`; `:1209` `assert 600.0 == 597 ± 1.0e-02`; `:2156` `assert 60.0 == 64 ± 1.0e-02` |
+| `m5` | Divisor **immer** `actual_s` (muss den Backstop-Pin brechen) | 4 failed, 159 passed | `test_service_watch.py:2181` `assert None == 60` (der neue Backstop-Pin), dazu zwei `irrigation.py:1222: TypeError: '<=' not supported …` |
+
+sha256 je Datei vor und nach der Wiederherstellung gleich (`flow_metering.py` `6327a398…e825f3d` bei m1–m3,
+`self_closing.py` `dafb1079…04feb9a9` bei m4–m5). `m5` ist die Gegenprobe zu R7: sie zeigt, dass der Fix den
+Backstop-Pfad **nicht** mitnimmt.
+
+### C6 — TDD-Beleg (RED vor GREEN, verbatim)
+
+Der neue Pin `tests/test_i18n_completeness.py::test_the_latency_margin_help_says_what_it_waits_for_and_what_it_tolerates`
+wurde gegen den Text von `a0baf8c6` geschrieben und fiel:
+
+```
+tests\test_i18n_completeness.py:303: in test_the_latency_margin_help_says_what_it_waits_for_and_what_it_tolerates
+    assert "waits this long" in text, text
+E   AssertionError: How many seconds the reported on-to-off window may fall short of the planned duration and still count as a complete run. That tolerance covers a late 'off' report, ...
+====================== 1 failed, 66 deselected in 1.40s =======================
+```
+
+GREEN danach: `67 passed in 3.53s` (`tests/test_i18n_completeness.py`).
+
+Der Pin friert je Hälfte **eine** Wendung des englischen Textes ein (`"waits this long"`,
+`"still counts as a complete run"`) und **nicht** die sieben Übersetzungen — dieselbe Konvention wie der
+Niederschlagsschwellen-Pin darüber; die Schlüsselparität und `test_no_value_is_left_as_the_english_string` decken
+die anderen sieben ab.
+
+**Kriterien statt Probe** (UI-Text, vorher benannt; gegen die committeten Blobs mit `git show HEAD:<katalog>`
+gemessen):
+
+| Sprache | Wartezeit | Toleranz | späte Ein-Meldung | Ventil statt Durchfluss | ≠ en | Zeichen |
+|---|---|---|---|---|---|---|
+| en | ja | ja | ja | ja | ja | 517 |
+| de | ja | ja | ja | ja | ja | 591 |
+| es | ja | ja | ja | ja | ja | 612 |
+| fr | ja | ja | ja | ja | ja | 618 |
+| it | ja | ja | ja | ja | ja | 613 |
+| nl | ja | ja | ja | ja | ja | 558 |
+| no | ja | ja | ja | ja | ja | 544 |
+| sk | ja | ja | ja | ja | ja | 518 |
+
+Doku unverändert und beide Hälften weiterhin darin (`docs/configuration-my-zones.md`, `grep -c` je 1). dist neu
+gebaut: nur `irrigation-plus.js` und `irrigation-plus-card-impl.js` ändern sich (sie bündeln die Kataloge), die
+anderen zwei sind gegen HEAD unverändert (CR ignoriert); vitest bleibt bei 23 Dateien / 624 Tests.
+
+**Keine Mutationsprobe zu C6.** Der Bericht führt keine, und das ist konsequent: C6 ändert reinen Anzeigetext plus
+den Pin darauf, und dessen Falsifikation ist der RED-Lauf oben — er ist gegen den vorherigen committeten Text
+gelaufen und gefallen. Die Sicherung `mut/en.json.bak` ist byte-gleich zum committeten Blob
+(sha256 `f8f496e7daededa1…`, identisch mit `git show HEAD:…/en.json` in CRLF), der Baum kam also sauber zurück.
+
+### Messstand C5/C6 (2026-09-20, Endstand `9da4c0b2`)
+
+- **Lint am Endstand:** `uvx black --check custom_components/irrigation_plus/` --> `68 files would be left
+  unchanged.`; mit den drei berührten Testdateien `71`; `uvx ruff check custom_components/irrigation_plus/` -->
+  `All checks passed!`.
+- **Volle Suite, Branch-Basis `a0baf8c6` (`after-13b.txt`) --> C5 committet (`after-c5-committed.txt`) --> C6
+  (`after-c6.txt`):**
+
+  ```
+  a0baf8c6:  collected 3132  |  7 failed, 3116 passed, 9 skipped, 10 warnings, 320 errors in 239.78s
+  3623e71b:  collected 3136  |  7 failed, 3120 passed, 9 skipped, 10 warnings, 320 errors in 243.78s
+  9da4c0b2:  collected 3137  |  7 failed, 3121 passed, 9 skipped, 10 warnings, 320 errors in 236.38s
+  ```
+
+  Delta passed = Delta collected = **+4** (C5) und **+1** (C6), also ausschließlich neue grüne Tests. Die
+  FAILED/ERROR-Namensmengen sind über alle drei Läufe gleich: je **330** Zeilen, `diff` leer (`a0baf8c6` gegen
+  `9da4c0b2` und `3623e71b` gegen `9da4c0b2`). Die sieben FAILED sind die bekannten lokalen Windows-Fehlschläge
+  (`test_init` ×2, `test_next_irrigation_sensor`, `test_opensprinkler_teardown` ×3, `test_panel`); CI ist der Gate
+  (Projekt-`CLAUDE.md`).
+- **Die neun benannten Suiten am committeten Stand:** `356 passed, 1 error in 23.52s`, mit demselben einen
+  vorbestehenden Teardown-Error
+  (`tests/test_service_watch.py::TestOneOffSampleIsNotEvidenceTheWaterStopped::test_the_run_is_not_settled_before_the_window_is_out`,
+  „Lingering timer“). Er ist **nicht neu**: er steht ebenso im Branch-Basislauf (`after-13b.txt:2772` und `:3891`).
+- **Diffstats:** C5 `4 files changed, 158 insertions(+), 24 deletions(-)`
+  (`flow_metering.py`, `self_closing.py`, `tests/test_flow_meter.py`, `tests/test_service_watch.py`);
+  C6 `11 files changed, 36 insertions(+), 10 deletions(-)` (8 Kataloge, 2 Bundles,
+  `tests/test_i18n_completeness.py`).
+- **Baum nach beiden Commits sauber**, nur `?? docs/SESSION-STAND.md` (vorbestehend, nicht verfolgt). Nichts
+  gepusht; der Branch steht auf **16 Commits** über `upstream/master`.
+
+### Folgen für die Abschnitte oben
+
+- **Reichweite / Flussmessung am Ratensensor:** der Schwanz bis zur Aus-Meldung ist jetzt mit **einem Poll**
+  begrenzt, nicht mit vier. Ein Sensor, der seit seiner letzten Marke tot ist, schreibt nichts mehr über die Marke
+  hinaus gut.
+- **Reichweite, neuer Punkt:** der **Kalibrier-Hinweis** wird auf dem Fenster gepreist, über das seine Liter
+  gemessen wurden (`actual_s`, wenn das Ventil seinen Schluss gemeldet hat, sonst `planned_s`). Das Zeitvolumen und
+  die absolute Eimer-Abstimmung bleiben davon unberührt.
+- **„R1 ist der einzige Produktivcode-Fix“** gilt nur noch für die erste Runde: C5 ist der zweite
+  Produktivcode-Commit dieses Nachtrags (`flow_metering.py`, `self_closing.py`).
+- **Panel-Hilfe:** trägt wieder **beide** Hälften — Wartezeit und Toleranz —, und deckt sich damit wieder mit
+  `docs/configuration-my-zones.md`. Der englische Text ist ab jetzt durch einen Test gepinnt.
+- **Proben:** zu den 148 aus Task 13/13b (133 + 15) kommen **5 aus C5**; Summe **153, davon 148 gefangen und 5
+  äquivalent** (dieselben fünf wie in Task 13). Neue Test-Items über den ganzen Branch: **115** pytest
+  (110 aus T1–T12/C1–C4 + 4 aus C5 + 1 aus C6) plus 8 vitest = **123**; kein Item ohne fangende Probe bzw. — für
+  den i18n-Pin aus C6 — ohne belegten RED-Lauf gegen den vorherigen Text.
+- **E9 (Nachvollzug statt Neubau)** hat mit C5/C6 eine benannte Ausnahme: kleine Review-Korrekturen nach dem
+  letzten Probelauf werden direkt auf dem Branch mit TDD gebaut. Im Plan steht das als **Task 13c**.
+
+### SHA-Prüfung (20.09., alle Vorkommen)
+
+Jeder SHA-förmige Token in beiden Dokumenten wurde mit `git cat-file -t` und
+`git -C D:/Entwicklung/HASI/HAsmartirrigation merge-base --is-ancestor <sha> fix/backstop-grace` geprüft. Jeder, der
+ein Git-Objekt sein soll, löst im Haupt-Repo als `commit` auf — es gibt keinen toten Zeiger.
+
+Gezählt wird der Endstand beider Dokumente **nach** dieser Korrektur, die in diesem Abschnitt zitierten SHAs
+eingeschlossen.
+
+- **Spec: 38 SHA-förmige Tokens.** Drei sind gar keine Git-Objekte, sondern sha256-Präfixe aus den Probentabellen
+  (`6327a398`, `dafb1079`, `04feb9a9`). Von den 35 Commits sind **zwölf Vorfahren** von `fix/backstop-grace`: die
+  Basis `2b2c403b`, das Release `0b418644`, die geerbten `e9f2da51`, `0e0bb5d1` und `4e53caf4`, der Stand vor der
+  Review `66763c34`, die vier korrigierten C1–C4 (`308c1907`, `20c2a008`, `2e829217`, `a0baf8c6`) und die beiden
+  neuen C5/C6 (`3623e71b`, `9da4c0b2`). Die übrigen **23 sind ausschließlich Probelauf-Commits** (`dry5`, `dry6`,
+  `dry7`) und damit erwartungsgemäß nicht erreichbar — die bestehende Konvention für Zwischenstände, die die
+  Review ausdrücklich als eigene Sache stehen ließ. Ein einziger darunter, `bc41374b` (Z. 568 und 631, ein
+  T3-Zwischenstand aus `dry6`), hängt an **gar keiner** Branch mehr und löst nur bis zum nächsten `gc` auf; er
+  trägt keine Messung, die nicht daneben auch am Endstand `70dc0c18` steht.
+- **Plan: 68 SHA-förmige Tokens.** Dieselben drei sha256-Präfixe; von den 65 Commits sind **neun Vorfahren**
+  (`2b2c403b` und `0b418644` je kurz und voll, `4e53caf4`, `66763c34`, `a0baf8c6`, `3623e71b`, `9da4c0b2`). Die
+  übrigen **56** sind die `SRC`-Spalte des Nachvollzugs (`dry2`…`dry7`, `tmp/drop-6-10`, `tmp/dry3-drop-3b`), drei
+  Doku-Commits auf `archive/design-history` und zwei Commits aus `production` / `fix/rain-guard-run-date`. Das ist
+  **so gewollt**: der Plan sagt, von wo ausgecheckt wird, nicht was ausgeliefert ist, und hält das im Kopfteil
+  „Nachvollzug“ ausdrücklich fest — Task 13c hat deshalb als einziger Task **keine** `SRC`-Spalte. Drei davon
+  hängen an keiner Branch mehr, mit derselben Einschränkung wie `bc41374b`.
+- **Korrigiert wurden nur die vier Paare aus R10** — die Stellen, die einen **ausgelieferten** Commit benennen.
+  Alles andere ist geprüft und bleibt absichtlich stehen.
