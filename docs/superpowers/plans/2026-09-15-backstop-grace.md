@@ -448,6 +448,10 @@ den schon überschriebenen Index zurück, `evidence.md` „Methodik-Korrektur“
   Schwester-Pfade, Text-Hygiene, alle 133 Mutationsproben erneut (T9-Probe `live-zone-margin` über
   `zone_latency_margin` neu formuliert, weil `zone_finish_grace_seconds` nicht existiert) und die Prüfung, dass jedes
   der 101 neuen Test-Items an mindestens einer Probe scheitert (Step 8b).
+- **Task 13b:** die fünf Befunde der Schluss-Review nachziehen — C1 Kommentare (`83dca3a2`), C2 Echt-Timer-Test am
+  Dispatch (`d9b468ee`), C3 Rate-Integration endet an der Aus-Meldung (`0c6010f1`), C4 Doku/Panel-Hilfe zur späten
+  Ein-Meldung in 8 Sprachen + dist (`ba44620d`); R2 (Neustart-Lücke) bewusst ohne Commit, nur PR-Text und eigenes
+  Issue. Probelauf `dry7/backstop-grace`, Protokolle `dry7-logs/`.
 - **Task 14:** PR-Text (Englisch; Messbasis der Default-Marge, Reichweite, „known and deliberately unchanged“, E5,
   Batch/OpenSprinkler unberührt), Push und PR, Kommentar auf #139, Design-Historie (Spec und Plan Revision 3 auf
   `archive/design-history`), Befunde in `D:\Entwicklung\HASI\ToDo.md`, Aufräumen der Probelauf-Branches und des
@@ -4673,6 +4677,682 @@ außerhalb des Repos.
 
 ---
 
+### Task 13b: Review-Befunde nachziehen (C1–C4)
+
+**Woher:** die Schluss-Review von Task 13 (`D:/Entwicklung/HASI/pr139-work/wf-task13.json`, `result.review`) fand fünf
+Befunde R1–R5. Der User hat am 19.09. entschieden: R1 wird hier gefixt (eigener Commit), R2 nur offengelegt (PR-Text +
+eigenes Issue), R3/R4/R5 werden nachgezogen. Gebaut und gemessen im Probelauf `dry7/backstop-grace` (vier Commits auf
+`66763c34`, Worktree `D:/Entwicklung/HASI/pr139-work/dry2`, Protokolle `dry7-logs/C1.md` … `C4.md`, Schlussprüfung
+`dry7-logs/final.md`). Begründungen, Belege und verworfene Alternativen: Spec, Abschnitt „Nachtrag: Befunde der
+Schluss-Review (2026-09-19)“.
+
+**Form:** derselbe Nachvollzug wie T1–T12 (E9) — je Commit zuerst die Testdatei(en) aus dem `dry7`-Commit, RED prüfen,
+dann die Produktivdateien, GREEN, Suiten, Lint, Baumgleichheit, Commit mit derselben Nachricht. Es gelten die Blöcke A,
+B und C aus dem Kopfteil, die Stopp-Regel und die Umgebungswarnungen unverändert; die Abweichungen je Commit stehen
+unten.
+
+**Vorbedingung:** Task 13 ist gelaufen, `fix/backstop-grace` steht auf `66763c34` (Baum von T12), Arbeitsbaum sauber
+bis auf `?? docs/SESSION-STAND.md`. R2 erzeugt **keinen** Commit: wer hier einen fünften Commit sieht, hat einen Fix
+gebaut, den der User nicht bestellt hat.
+
+#### Commits, Befunde, Dateien
+
+Kurzform wie oben: `cc/` = `custom_components/irrigation_plus/`, `fe/` = `custom_components/irrigation_plus/frontend/`.
+
+| # | Befund | SRC (`dry7`) | Betreff | TESTS | PROD | `git show --stat` |
+|---|---|---|---|---|---|---|
+| C1 | R3 | `83dca3a2` | `docs(service): describe the finish grace in the restart, cleanup and finish comments` | — | `cc/self_closing.py` | `1 file changed, 22 insertions(+), 10 deletions(-)` |
+| C2 | R5 | `d9b468ee` | `test(service): let the watcher beat the real backstop on the dispatch path` | `tests/test_service_watch.py` | — | `1 file changed, 44 insertions(+)` |
+| C3 | R1 | `0c6010f1` | `fix(flow): end a confirmed run's rate integration at the valve's off report` | `tests/test_flow_meter.py tests/test_service_watch.py` | `cc/flow_metering.py cc/self_closing.py` | `4 files changed, 444 insertions(+), 4 deletions(-)` |
+| C4 | R4 | `ba44620d` | `docs(i18n): explain on-report lag in the latency margin help` | — | `docs/configuration-my-zones.md`, `fe/localize/languages/{de,en,es,fr,it,nl,no,sk}.json`, `fe/dist/irrigation-plus.js`, `fe/dist/irrigation-plus-card-impl.js` (11 Dateien) | `11 files changed, 29 insertions(+), 29 deletions(-)` |
+
+Die SHAs lösen im Haupt-Repo auf: `dry2` teilt dessen Objektspeicher (Kopfteil „Nachvollzug“).
+
+#### Erwartung je Commit
+
+Quellen: `dry7-logs/C1.md` … `C4.md` und `dry7-logs/final.md`, Abschnitt 3. „Suiten“ = `$SUITES` aus Block B (die 8
+Service-Suiten), jeweils mit genau `1 error` = der vorbestehende Lingering timer in
+`TestOneOffSampleIsNotEvidenceTheWaterStopped::test_the_run_is_not_settled_before_the_window_is_out` (in der Baseline
+belegt; `wf-task13.json` führt „lingering-timer addresses“ als zulässigen Lauf-zu-Lauf-Unterschied).
+
+| # | RED bzw. Kriterium | GREEN eigene Tests | Suiten | black (Planzeile)¹ | black (dry7 gemessen) |
+|---|---|---|---|---|---|
+| C1 | keine Testdatei --> Kriterien (AST/Token, unten) | — | `300 passed, 1 error` | 73 | 68 (nur die Produktivdatei) |
+| C2 | kein RED: der Test prüft bestehendes Verhalten, sofort `1 passed`² | `1 passed` | `301 passed, 1 error` | 73 | 69 |
+| C3 | `14 failed, 37 passed, 3 errors` | `51 passed` | `309 passed, 1 error`; `tests/test_flow_meter.py` allein `43 passed` | 74 | 70 |
+| C4 | keine Testdatei --> Kriterien (unten) | `tests/test_i18n_completeness.py`: `66 passed` | `309 passed, 1 error` | 74 | 68 |
+
+ruff: immer `All checks passed!`.
+
+¹ **abgeleitet, nicht gemessen.** Block B ruft `uvx black --check custom_components/irrigation_plus/ $(git diff
+--name-only 2b2c403b -- tests)`; das sind 68 Produktivdateien plus die geänderten Testdateien (5 bis C2, ab C3 6, weil
+`tests/test_flow_meter.py` dazukommt). Der Probelauf hat je Commit nur die berührten Dateien geprüft, daher die kleinere
+Zahl in der letzten Spalte. Weicht die Planzeile von 73/74 ab, ist die Ursache die Dateimenge, nicht ein Formatfehler:
+dann `uvx black --check` auf die Liste aus `git diff --name-only 2b2c403b -- tests` einzeln prüfen und melden.
+
+² **Abweichung von der Regel „kein Produktionscode vor einem fehlschlagenden Test“ gibt es hier nicht:** C2 fügt
+KEINEN Produktionscode hinzu. R5 verlangte einen Test für bereits gebautes Verhalten; seine Falsifikation sind die
+Proben in Step C2-4 — vier der fünf lassen ihn fallen, die fünfte ist erwartungsgemäß von einem bestehenden Pin
+gefangen. Siehe Spec, Nachtrag R5.
+
+---
+
+#### C1 (R3): vier Kommentare auf den Stand der Wartezeit bringen
+
+**Was und warum.** `_sc_finish_run` behauptete auf `planned_s` „the run ran for its full planned duration“;
+`_sc_schedule_cleanup` „after the run's planned duration“; der Docstring von `async_resume_self_closing_runs` setzte
+„overdue“ mit „jenseits des Plans“ gleich; der `else`-Zweig der Wiederaufnahme begann mit „Still inside the hardware
+window: the valve is open“. Alle vier stimmen seit der Wartezeit nicht mehr (Spec, Nachtrag R3). Nur Wortlaut, kein
+Verhalten.
+
+- [ ] **Step C1-1: Kriterien benennen (vor dem Auschecken)**
+
+Kommentar-only ist nicht automatisiert testbar; das beobachtbare Kriterium ist die Gleichheit des ausführbaren Codes:
+
+1. AST-Vergleich mit geleerten Docstrings: `AST MATCH`.
+2. Token-Vergleich ohne Kommentare und dreifach gequotete Strings: gleiche Tokenfolge vor und nach dem Auschecken.
+   Maßgeblich ist `MATCH`; die absolute Zahl hängt vom Filter ab (das Skript unten zählt 3909 je Seite, gegen die
+   Blobs `66763c34` und `83dca3a2` am 20.09. nachgemessen; das Werkzeug des Probelaufs zählte mit einem anderen
+   Filter 3345).
+3. black/ruff sauber, die 8 Suiten `300 passed, 1 error`.
+
+- [ ] **Step C1-2: Produktivdatei auschecken und die Kriterien prüfen**
+
+```bash
+cd /d/Entwicklung/HASI/HAsmartirrigation
+PY=D:/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe
+R=D:/Entwicklung/HASI/pr139-work/replay
+SRC=83dca3a2; PROD="custom_components/irrigation_plus/self_closing.py"
+git status --short
+[ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$SRC~1^{tree}")" ] && echo PARENT-TREE-SAME
+git show HEAD:$PROD > $R/C1-before.py
+git checkout "$SRC" -- $PROD
+git show "$SRC":$PROD > $R/C1-after.py
+"$PY" - "$R/C1-before.py" "$R/C1-after.py" <<'PY'
+import ast, io, sys, tokenize
+
+def blank_docstrings(tree):
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            body = node.body
+            first = body[0] if body else None
+            if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                    and isinstance(first.value.value, str)):
+                first.value.value = ""
+    return tree
+
+def code_tokens(src):
+    out = []
+    for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+        if tok.type in (tokenize.COMMENT, tokenize.NL):
+            continue
+        if tok.type == tokenize.STRING and tok.string.lstrip("rbfuRBFU")[:3] in ('"""', "'''"):
+            continue
+        out.append((tok.type, tok.string))
+    return out
+
+a, b = (open(p, encoding="utf-8").read() for p in sys.argv[1:3])
+print("AST MATCH" if ast.dump(blank_docstrings(ast.parse(a))) == ast.dump(blank_docstrings(ast.parse(b)))
+      else "AST DIFF")
+ta, tb = code_tokens(a), code_tokens(b)
+print(len(ta), len(tb), "MATCH" if ta == tb else "DIFF")
+PY
+```
+
+Erwartet: `PARENT-TREE-SAME`, `AST MATCH`, `3909 3909 MATCH` (Skript am 20.09. gegen die beiden Blobs gemessen). Bei
+`AST DIFF` oder `DIFF`: **STOPP** — dann ist mehr als ein Kommentar ausgecheckt worden.
+
+- [ ] **Step C1-3: Suiten, Lint, Gleichstand, Commit**
+
+Block B (ohne die `$TESTS`-Zeile, es gibt keine Testdatei) und Block C mit `SRC=83dca3a2`. Erwartet: Suiten
+`300 passed, 1 error`, `All checks passed!`, beide Diffs leer, `TREE-SAME`, `MSG-SAME`,
+` 1 file changed, 22 insertions(+), 10 deletions(-)`, danach nur `?? docs/SESSION-STAND.md`.
+
+---
+
+#### C2 (R5): der Watcher schlägt am Dispatch den ECHTEN Backstop
+
+**Was und warum.** Der Kopf-Test der Vorgabe lief am Dispatch gegen `_coord`s `_sc_schedule_cleanup`-Double, das nie
+feuert; dass der Watcher zuerst kommt, folgte nur aus dem Arm-Pin `(2, 609)` plus dem Echt-Timer-Test für den
+verpassten Schluss. Neu: eine Variante mit `_the_real_backstop_from_here(c)` vor dem Dispatch.
+
+**Test** (`tests/test_service_watch.py`, in `TestAConfirmedRunIsSettledOnItsValveWindow` direkt nach dem Kopf-Test):
+`test_the_watcher_settles_it_before_the_real_backstop_fires` — echter Backstop (Marge 4, fällig 609), Uhr bei offenem
+Ventil bis +601 **gegangen**, Schluss bei +602 gemeldet; bei +608 Lauf weg, ein Datensatz, `completed`,
+`actual_s == approx(602)`, ein `irrigation_finished`; nach +610 weiterhin ein Datensatz, ein Event, eine
+Master-Freigabe, keine wartende Entprellung, `not c._sc_cleanup_timers()`.
+
+**Warum gegangen und nicht gesprungen** (Harness-Befund, `dry7-logs/C2.md`): ein Timer, der innerhalb eines
+`frozen.tick`-Sprungs fällig wird, landet nur in der Ready-Queue hinter dem Schritt des Tests; das nächste `_advance`
+feuert die Entprellung synchron, deren Abschluss `_sc_cancel_cleanup` ruft, und der eingereihte Backstop wird als
+abgebrochen übersprungen. Ein Sprung kann also nie zeigen, dass ein Backstop zu früh feuert — der erste Entwurf
+überlebte damit die Probe `backstop-no-grace`.
+
+- [ ] **Step C2-1: Test auschecken und laufen lassen**
+
+Block A mit `SRC=d9b468ee`, `TESTS="tests/test_service_watch.py"`, aber nur der neue Test:
+
+```bash
+cd /d/Entwicklung/HASI/HAsmartirrigation
+mkdir -p D:/Entwicklung/HASI/pr139-work/tmp D:/Entwicklung/HASI/pr139-work/npm-cache && export TEMP=D:/Entwicklung/HASI/pr139-work/tmp TMP=D:/Entwicklung/HASI/pr139-work/tmp TMPDIR=D:/Entwicklung/HASI/pr139-work/tmp npm_config_cache=D:/Entwicklung/HASI/pr139-work/npm-cache
+PY=D:/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe
+R=D:/Entwicklung/HASI/pr139-work/replay
+SRC=d9b468ee; TESTS="tests/test_service_watch.py"
+NEW="tests/test_service_watch.py::TestAConfirmedRunIsSettledOnItsValveWindow::test_the_watcher_settles_it_before_the_real_backstop_fires"
+[ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$SRC~1^{tree}")" ] && echo PARENT-TREE-SAME
+git checkout "$SRC" -- $TESTS
+"$PY" -m pytest "$NEW" -p _local_socket_unblock -q --tb=line -p no:cacheprovider > $R/C2-green.txt 2>&1
+tail -n 1 $R/C2-green.txt
+```
+
+Erwartet: `PARENT-TREE-SAME`, `1 passed in …` — **kein RED**, siehe Fußnote ² oben.
+
+- [ ] **Step C2-2: Suiten, Lint, Gleichstand**
+
+Block B ohne `PROD` (es gibt keine Produktivdatei; die `git checkout "$SRC" -- $PROD`-Zeile entfällt). Erwartet:
+Suiten `301 passed, 1 error`, `All checks passed!`, beide Diffs leer.
+
+- [ ] **Step C2-3: Commit**
+
+Block C mit `SRC=d9b468ee`. Erwartet: `TREE-SAME`, `MSG-SAME`, ` 1 file changed, 44 insertions(+)`.
+
+- [ ] **Step C2-4: Proben (Falsifikation des neuen Tests)**
+
+Werkzeug: `D:/Entwicklung/HASI/pr139-work/scratch/dry7/probe.py` mit `probes_c2.py` und `run_probe.sh` (Kopie des
+dry6-Werkzeugs, Sicherungspräfix `dry7-C2-`, CRLF-erhaltend, sha256 vor und nach jeder Probe). Je Probe: der neue Test
+allein, danach die 7 Service-Suiten ohne i18n.
+
+| Probe | Mutation | neuer Test | erwartete Assertion bzw. weitere Fänger |
+|---|---|---|---|
+| `backstop-no-grace` | Dispatch: `planned_seconds + run_finish_grace_seconds(record)` --> `planned_seconds` | FAILED | `assert 600.0 == 602 ± 1.0e-02`; dazu `test_the_finish_backstop_is_armed_once`, `test_a_margin_of_zero_still_waits_out_the_debounce`, `…_never_reports_off_is_finished_when_the_grace_is_out` (`4 failed, 231 passed, 1 error`) |
+| `window-route-removed` | `run_watch.py`: `if run_has_finish_grace(run) and run.get(const.RUN_VALVE_OFF):` --> `if False:` | FAILED | `assert 600.0 == 602 ± 1.0e-02`; insgesamt `8 failed, 227 passed, 1 error` |
+| `second-settle-unguarded` | `_sc_finish_run`: weder Idempotenz-Stopp noch `_sc_cancel_cleanup` | FAILED | `c._record_run.assert_awaited_once()` --> „Awaited 2 times“; `6 failed, 229 passed, 2 errors` |
+| `finish-keeps-backstop` | nur `_sc_cancel_cleanup(zone_id)` entfernt | FAILED | `assert not c._sc_cleanup_timers()`; `5 failed, 230 passed, 2 errors` |
+| `finish-not-idempotent` | nur `if run is None: return` --> `run = {}` | **passed (erwartet)** | auf diesem Pfad bricht der Abbruch den Backstop ab, der zweite Schutz wird nie erreicht; gefangen von `tests/test_self_closing.py::test_finish_is_idempotent_when_run_missing` (`1 failed, 234 passed, 1 error`) |
+
+Nach jeder Probe: sha256 zurück auf den Ausgangswert, `git status --short` leer (der Commit ist schon gemacht).
+
+---
+
+#### C3 (R1): die Rate-Integration endet an der Aus-Meldung
+
+**Was und warum (Wurzel).** `FlowMeter._sample_rate` schreibt jedes Intervall mit der Rate seines RECHTEN Endpunkts
+gut. Vor der Wartezeit las der Backstop am geplanten Ende, bei noch offenem Ventil. Jetzt wird ein bestätigter Lauf
+frühestens 5 s nach der Aus-Meldung abgerechnet, die Lesung über dem Schluss sieht 0 — bis zu ein `FLOW_POLL_INTERVAL`
+(15 s) echten Flusses verloren; die gemessene Menge steuert Eimer-Abstimmung und Kalibrierprobe. Das ist ein Loch, das
+die Wartezeit selbst öffnet (E8) --> Fix in diesem PR, eigener Commit. Regel: **trägt der abzurechnende Datensatz eine
+`RUN_VALVE_OFF`, endet die Rate-Integration dort**; Läufe ohne Meldung und Totalizer bleiben wie heute. Entwurf,
+Reichweite und verworfene Alternativen: Spec, Nachtrag R1.
+
+**Neu im Code:** `FlowMeter` merkt je vorrückender Ratenprobe eine Marke `(at, gutgeschriebene Liter, L/min)`;
+`FlowMeter.end_rate_at(at)` schreibt vom letzten Mark bei oder vor `at` bis `at` mit dessen Rate gut (begrenzt durch
+`max_gap_s`) und nimmt spätere Proben zurück; `_sc_finish_flow(zone_id, run=None)` liest wie bisher einmal ab und
+schneidet danach, wenn `run` die Meldung trägt; `_sc_finish_run` und `async_stop_self_closing` reichen ihren Datensatz
+durch.
+
+**Tests:** 8 End-to-End in `TestAConfirmedRunsFlowEndsAtItsOffReport` (Watcher-Abschluss, haltender Sensor,
+Watcher-Teil-Lauf, Stopp in der Wartezeit, Stopp vor dem Plan, Backstop mit Meldung, kein Schluss gemeldet, Totalizer)
+und 8 Einheiten `test_end_rate_at_*` in `tests/test_flow_meter.py`.
+
+- [ ] **Step C3-1: Testdateien auschecken**
+
+```bash
+cd /d/Entwicklung/HASI/HAsmartirrigation
+SRC=0c6010f1; TESTS="tests/test_flow_meter.py tests/test_service_watch.py"
+git status --short
+[ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$SRC~1^{tree}")" ] && echo PARENT-TREE-SAME
+git checkout "$SRC" -- $TESTS
+git status --short
+```
+
+Soll: `PARENT-TREE-SAME`, danach `M  tests/test_flow_meter.py` und `M  tests/test_service_watch.py`.
+
+- [ ] **Step C3-2: RED prüfen (Auswahl wie im Probelauf)**
+
+```bash
+cd /d/Entwicklung/HASI/HAsmartirrigation
+mkdir -p D:/Entwicklung/HASI/pr139-work/tmp D:/Entwicklung/HASI/pr139-work/npm-cache && export TEMP=D:/Entwicklung/HASI/pr139-work/tmp TMP=D:/Entwicklung/HASI/pr139-work/tmp TMPDIR=D:/Entwicklung/HASI/pr139-work/tmp npm_config_cache=D:/Entwicklung/HASI/pr139-work/npm-cache
+PY=D:/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe
+R=D:/Entwicklung/HASI/pr139-work/replay
+SEL="tests/test_service_watch.py::TestAConfirmedRunsFlowEndsAtItsOffReport tests/test_flow_meter.py"
+"$PY" -m pytest $SEL -p _local_socket_unblock -q --tb=line -rfE -p no:cacheprovider > $R/C3-red.txt 2>&1
+grep -E "^collected |^(FAILED|ERROR) |\.py:[0-9]+: " $R/C3-red.txt; tail -n 1 $R/C3-red.txt
+```
+
+Erwartet (real, `dry7-logs/C3.md`): `14 failed, 37 passed, 3 errors`, darunter
+
+```
+tests/test_service_watch.py:1912: assert 100.0 == 102.33333333333333 ± 1.0e-02
+tests/test_service_watch.py:1936: assert 103.16666666666667 == 102.33333333333333 ± 1.0e-02
+tests/test_service_watch.py:1961: assert 97.5 == 99.66666666666667 ± 1.0e-02
+tests/test_service_watch.py:1983: assert 100.0 == 102.33333333333333 ± 1.0e-02
+tests/test_service_watch.py:2019: assert 47.5 == 49.666666666666664 ± 1.0e-02
+tests/test_service_watch.py:2054: assert 100.0 == 101.83333333333333 ± 1.0e-02
+tests/test_flow_meter.py:366..433: AttributeError: 'FlowMeter' object has no attribute 'end_rate_at'   (8×)
+```
+
+Die zwei Pins, die sich NICHT ändern dürfen, sind schon hier grün: kein Schluss gemeldet 100,0 L, Totalizer
+102,333 L. Die 3 Errors sind Lingering timer der drei Tests, die vor ihrer Entprellung an der Assertion abbrechen; im
+GREEN sind sie weg. Zeilennummern sind Sollwerte aus dem Probelauf; das Pfadpräfix darf abweichen (Stopp-Regel).
+
+- [ ] **Step C3-3: Produktivdateien auschecken**
+
+```bash
+cd /d/Entwicklung/HASI/HAsmartirrigation
+SRC=0c6010f1; PROD="custom_components/irrigation_plus/flow_metering.py custom_components/irrigation_plus/self_closing.py"
+git checkout "$SRC" -- $PROD
+```
+
+- [ ] **Step C3-4: GREEN, Suiten, Lint, Gleichstand**
+
+GREEN auf derselben Auswahl wie Step C3-2: `51 passed`. Danach Block B (die `$TESTS`-Zeile durch die Auswahl ersetzt),
+zusätzlich `tests/test_flow_meter.py` allein:
+
+```bash
+"$PY" -m pytest $SEL -p _local_socket_unblock -q --tb=line -p no:cacheprovider | tail -n 1
+"$PY" -m pytest tests/test_flow_meter.py -p _local_socket_unblock -q -p no:cacheprovider | tail -n 1
+```
+
+Erwartet: `51 passed`, `43 passed`, Suiten `309 passed, 1 error`, black 74 (abgeleitet), ruff `All checks passed!`,
+beide Diffs gegen `SRC` leer.
+
+- [ ] **Step C3-5: Commit**
+
+Block C mit `SRC=0c6010f1`. Erwartet: `TREE-SAME`, `MSG-SAME`, ` 4 files changed, 444 insertions(+), 4 deletions(-)`.
+
+- [ ] **Step C3-6: Proben (10, alle gefangen)**
+
+Werkzeug `scratch/dry7/c3/probe.py` mit `probes_c3.py` und `run_probe.sh` (Sicherungen `mut/dry7-C3-<name>.bak`); je
+Probe `tests/test_flow_meter.py` plus `TestAConfirmedRunsFlowEndsAtItsOffReport`.
+
+| # | Probe | Mutation | Erwartet |
+|---|---|---|---|
+| 1 | `finish-run-no-record` | `_sc_finish_run` ruft `_sc_finish_flow(zone_id)` ohne Datensatz | 4 failed (Watcher 100,0; haltend 103,167; Stopp in der Wartezeit 100,0; Backstop 100,0) |
+| 2 | `stop-no-record` | `async_stop_self_closing` ruft ohne Datensatz | 2 failed (Teil-Lauf 97,5; Stopp vor dem Plan 47,5) |
+| 3 | `cut-before-final-read` | erst schneiden, dann lesen | 1 failed (haltender Sensor 103,0) |
+| 4 | `cut-gap-unbounded` | letztes Intervall ohne `max_gap_s` | 1 failed (Einheit Lücke 12,583 statt 2,5) |
+| 5 | `mark-strict` | `m[0] < at` statt `m[0] <= at` | 1 failed (Einheit Schnitt auf einer Probe 2,5 statt 5,0) |
+| 6 | `no-mark-keeps-total` | ohne Marke den heutigen Stand behalten | 1 failed (Einheit ohne Lesung 2,5 statt 0,0) |
+| 7 | `totalizer-cut` | Totalizer-Tor entfernt | 2 failed (Einheit 0,0 statt 10,0; e2e Totalizer 1,0 statt 102,333) |
+| 8 | `mark-raw-rate` | rohe statt umgerechnete Rate in der Marke | 1 failed (Einheit L/h 300,0 statt 5,0) |
+| 9 | `mark-every-sample` | Marke außerhalb des Vorrück-Tors | 1 failed (Einheit nicht vorrückend 22,5 statt 7,5) |
+| 10 | `last-interval-dropped` | letztes Intervall gar nicht gutgeschrieben | 10 failed (4 Einheiten + 6 e2e) |
+
+sha256 vor == nach für jede Probe; `git status --short` danach leer.
+
+- [ ] **Step C3-7: Die Proben aus Task 13 gelten weiter**
+
+C3 ändert `self_closing.py` (Signatur von `_sc_finish_flow` und zwei Aufrufstellen). Die Proben aus Task 13 arbeiten
+mit wörtlicher Suche/Ersetzung, also prüfen:
+
+```bash
+cd D:/Entwicklung/HASI/pr139-work/mut
+REV3_WT=D:/Entwicklung/HASI/HAsmartirrigation "$PY" rev3_probes.py --count
+```
+
+Erwartet: `### count: 0 probe(s) do not apply` (wie in Task 13 Step 8; die 88 Treiber-Ersetzungen greifen weiter je
+genau einmal). Schlägt eine fehl, ist der Suchtext von C3 berührt: **STOPP** und melden, nicht anpassen.
+
+Zusatz, **nicht gemessen:** die T6-Pin-Probe (`t05pin: t6-backstop-settles-on-stored-off`) wurde in Task 13 an einem
+Stand ohne die Flusstests gefahren. Seit C3 pinnt `test_the_backstop_meters_to_an_off_report_it_beat_to_the_settle`
+denselben Fall mit `actual_s == planned_s`, dürfte die Probe also ebenfalls fangen. Wer die Probe hier erneut fährt,
+notiert, welche Tests fallen; der PR-Text nennt beide Pins, aber keine Ausschließlichkeit mehr.
+
+---
+
+#### C4 (R4): Doku und Panel-Hilfe erklären die späte Ein-Meldung
+
+**Was und warum.** Das Fenster ist `RUN_VALVE_OFF − RUN_VALVE_ON`; eine Ein-Meldung, die dem Öffnen nachhinkt,
+verkürzt es wie ein früher Schluss. Eine Confirm-Entität, deren Ein-Meldung um mehr als die Marge nachhinkt, macht
+jedes normale Ende zum Teil-Lauf. Doku und Panel-Hilfe sagten das nicht (Spec, Nachtrag R4).
+
+- [ ] **Step C4-1: Kriterien benennen (vor dem Auschecken)**
+
+UI-Text ist nicht automatisiert testbar; vorher benannt:
+
+1. `tests/test_i18n_completeness.py` grün (`66 passed`): keine fehlenden, keine verwaisten Schlüssel, kein Wert gleich
+   der englischen Fassung.
+2. Alle 8 Kataloge und der Doku-Punkt stammen wörtlich aus `SRC` (Diff gegen `SRC` leer) und nennen das
+   Ein-bis-Aus-Fenster, die späte Ein-Meldung und das Ventil statt eines Durchflusssensors.
+3. Alle 8 JSON-Dateien parsen.
+4. dist aus den Quellen gebaut, alle vier Bundles byte-gleich zu `SRC` (CR ignoriert); nur `irrigation-plus.js` und
+   `irrigation-plus-card-impl.js` ändern sich gegenüber dem Vorstand.
+5. vitest bleibt `23 passed (23)` / `624 passed (624)`; die 8 Suiten bleiben bei `309 passed, 1 error`.
+
+- [ ] **Step C4-2: Quellen auschecken, Kriterien 1–3 prüfen**
+
+```bash
+cd /d/Entwicklung/HASI/HAsmartirrigation
+mkdir -p D:/Entwicklung/HASI/pr139-work/tmp D:/Entwicklung/HASI/pr139-work/npm-cache && export TEMP=D:/Entwicklung/HASI/pr139-work/tmp TMP=D:/Entwicklung/HASI/pr139-work/tmp TMPDIR=D:/Entwicklung/HASI/pr139-work/tmp npm_config_cache=D:/Entwicklung/HASI/pr139-work/npm-cache
+PY=D:/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe
+SRC=ba44620d
+L=custom_components/irrigation_plus/frontend/localize/languages
+[ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$SRC~1^{tree}")" ] && echo PARENT-TREE-SAME
+git checkout "$SRC" -- docs/configuration-my-zones.md $L/de.json $L/en.json $L/es.json $L/fr.json $L/it.json $L/nl.json $L/no.json $L/sk.json
+"$PY" -m pytest tests/test_i18n_completeness.py -p _local_socket_unblock -q -p no:cacheprovider | tail -n 1
+for f in de en es fr it nl no sk; do "$PY" -c "import json,sys; json.load(open(r'$L/'+sys.argv[1]+'.json',encoding='utf-8')); print(sys.argv[1],'OK')" $f; done
+git diff "$SRC" --stat -- docs $L; echo "(diff-ende)"
+```
+
+Erwartet: `PARENT-TREE-SAME`, `66 passed`, 8× `OK`, Diff gegen `SRC` für Doku und Kataloge leer.
+
+- [ ] **Step C4-3: dist bauen und vergleichen (wie Task 12, Step 4/5)**
+
+```bash
+cd /d/Entwicklung/HASI/HAsmartirrigation/custom_components/irrigation_plus/frontend
+mkdir -p D:/Entwicklung/HASI/pr139-work/tmp D:/Entwicklung/HASI/pr139-work/npm-cache && export TEMP=D:/Entwicklung/HASI/pr139-work/tmp TMP=D:/Entwicklung/HASI/pr139-work/tmp TMPDIR=D:/Entwicklung/HASI/pr139-work/tmp npm_config_cache=D:/Entwicklung/HASI/pr139-work/npm-cache
+node --version
+npm ci && npm run build > D:/Entwicklung/HASI/pr139-work/replay/C4-build.txt 2>&1; tail -n 3 D:/Entwicklung/HASI/pr139-work/replay/C4-build.txt
+cd /d/Entwicklung/HASI/HAsmartirrigation
+for b in irrigation-plus.js irrigation-plus-card-impl.js irrigation-plus-card.js irrigation-plus-card-legacy.js; do
+  git show $SRC:custom_components/irrigation_plus/frontend/dist/$b | tr -d '\r' > D:/Entwicklung/HASI/pr139-work/tmp/src-$b
+  tr -d '\r' < custom_components/irrigation_plus/frontend/dist/$b > D:/Entwicklung/HASI/pr139-work/tmp/built-$b
+  cmp -s D:/Entwicklung/HASI/pr139-work/tmp/src-$b D:/Entwicklung/HASI/pr139-work/tmp/built-$b && echo "$b SAME" || echo "$b DIFF"
+done
+git add -f custom_components/irrigation_plus/frontend/dist/irrigation-plus.js custom_components/irrigation_plus/frontend/dist/irrigation-plus-card-impl.js
+git checkout -- custom_components/irrigation_plus/frontend/dist/irrigation-plus-card.js custom_components/irrigation_plus/frontend/dist/irrigation-plus-card-legacy.js
+git status --short
+cd custom_components/irrigation_plus/frontend && npx vitest run 2>&1 | grep -E "Test Files|Tests "
+```
+
+Erwartet: Node `v24.15.0` (= Node-22-CI), 4× `SAME`, `git status --short` mit 11 gestagten `M `-Zeilen plus
+`?? docs/SESSION-STAND.md`, vitest `Test Files  23 passed (23)` / `Tests  624 passed (624)`. Die zwei unveränderten
+Bundles zeigen nach dem Build nur Zeilenenden-Rauschen und werden zurückgesetzt (T12-Variante im Kopfteil).
+
+- [ ] **Step C4-4: Suiten, Lint, Gleichstand, Commit**
+
+Block B ohne die `$TESTS`-Zeile (keine Testdatei) und Block C mit `SRC=ba44620d`. Erwartet: Suiten
+`309 passed, 1 error`, black 74 (abgeleitet; dry7 maß 68 ohne Testdateien), `All checks passed!`, beide Diffs leer,
+`TREE-SAME`, `MSG-SAME`, ` 11 files changed, 29 insertions(+), 29 deletions(-)`, danach nur
+`?? docs/SESSION-STAND.md`.
+
+---
+
+#### Schlussprüfungen nach C4
+
+Erwartete Zahlen aus `dry7-logs/final.md`; Ablauf wie Task 13, Steps 2–4. Basis ist dieselbe Messung vom selben Tag
+(`baseline-2b2c403b-fix-MMDD.txt` aus Task 0/13).
+
+- [ ] **Step S-1: Lint am Endstand**
+
+`uvx black --check custom_components/irrigation_plus/` --> `68 files would be left unchanged.`;
+`uvx ruff check custom_components/irrigation_plus/` --> `All checks passed!`. Mit der Planzeile (plus die 6 geänderten
+Testdateien): 74, abgeleitet.
+
+- [ ] **Step S-2: Volle Suite gegen die Basis vom selben Tag**
+
+```bash
+cd /d/Entwicklung/HASI/HAsmartirrigation
+mkdir -p D:/Entwicklung/HASI/pr139-work/tmp D:/Entwicklung/HASI/pr139-work/npm-cache && export TEMP=D:/Entwicklung/HASI/pr139-work/tmp TMP=D:/Entwicklung/HASI/pr139-work/tmp TMPDIR=D:/Entwicklung/HASI/pr139-work/tmp npm_config_cache=D:/Entwicklung/HASI/pr139-work/npm-cache
+PY=D:/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe
+W=D:/Entwicklung/HASI/pr139-work
+BASE=$W/baseline-2b2c403b-fix-MMDD.txt          # der Dateiname aus Task 0/13, Tag einsetzen
+"$PY" -m pytest tests -p _local_socket_unblock -q -rfE -p no:cacheprovider > $W/after-13b.txt 2>&1
+grep -E "^collected " $W/after-13b.txt; tail -n 1 $W/after-13b.txt
+grep -E "^collected " "$BASE"; tail -n 1 "$BASE"
+grep -E "^(FAILED|ERROR) " "$BASE" | sort > $W/tmp/base-names.txt
+grep -E "^(FAILED|ERROR) " $W/after-13b.txt | sort > $W/tmp/after-names.txt
+wc -l $W/tmp/base-names.txt $W/tmp/after-names.txt; diff $W/tmp/base-names.txt $W/tmp/after-names.txt && echo NAMES-SAME
+```
+
+Erwartet: `collected 3132 items`; `7 failed, 3116 passed, 9 skipped, 10 warnings, 320 errors`; Basis
+`collected 3022` / `7 failed, 3006 passed, 9 skipped, 10 warnings, 320 errors`; `333` Zeilen je Seite, `NAMES-SAME`.
+Delta passed = Delta collected = **+110** (+93 aus T1–T12, +17 aus C2/C3), also ausschließlich neue grüne Tests. Eine
+andere FAILED/ERROR-Namensmenge ist ein Befund, kein Anlass für einen Fix (Stopp-Regel).
+
+- [ ] **Step S-3: vitest und dist**
+
+vitest unverändert `23 passed (23)` / `624 passed (624)` (Basis 22 / 616); C1–C4 fassen keine Frontend-Testdatei an.
+dist: alle vier Bundles aus den Quellen byte-gleich zum Commit (schon in Step C4-3 gezeigt; hier nur, falls nach C4
+noch gebaut wurde).
+
+- [ ] **Step S-4: Diff gegen den Stand vor Task 13b**
+
+```bash
+cd /d/Entwicklung/HASI/HAsmartirrigation
+git diff --stat 66763c34 HEAD
+```
+
+Erwartet: 15 Dateien, `539 insertions(+), 43 deletions(-)` — `cc/flow_metering.py`, `cc/self_closing.py`,
+`docs/configuration-my-zones.md`, 8 Kataloge, `fe/dist/irrigation-plus.js`, `fe/dist/irrigation-plus-card-impl.js`,
+`tests/test_flow_meter.py`, `tests/test_service_watch.py`. **R2 darf nicht im Diff stehen**: kein Commit, keine Zeile
+aus `async_resume_self_closing_runs` zum Master-Acquire.
+
+- [ ] **Step S-5: Jedes neue Test-Item hat eine fangende Probe**
+
+Die 17 neuen Items von C2/C3 (1 + 8 e2e + 8 Einheiten) kommen zu den 101 aus Task 13; die Zuordnung steht in den
+Tabellen der Steps C2-4 und C3-6. Erwartet: kein Item ohne fangende Probe. Summe über den ganzen Branch: **148 Proben
+(133 aus Task 13 + 5 + 10), 143 gefangen, 5 äquivalent** (die fünf aus Task 13), **118 neue Items** (110 pytest +
+8 vitest), keines ohne Probe. `finish-not-idempotent` zählt als gefangen: nicht vom neuen Test, sondern von
+`test_finish_is_idempotent_when_run_missing` (Step C2-4).
+
+- [ ] **Step S-6: Zahlen fortschreiben**
+
+`D:/Entwicklung/HASI/pr139-work/real-final-check.md` um einen Abschnitt „Task 13b (C1–C4)“ ergänzen: Suite-Zeilen,
+`collected`, Namensvergleich, vitest, dist, Proben gesamt/gefangen/äquivalent und die neuen Item-Zahlen. Task 14 liest
+seine Zahlen von dort; der PR-Entwurf `rev3/pr-body-draft.md` hat für genau diese Werte Platzhalter.
+
+**Kein weiterer Commit.** Die `.bak`-Dateien unter `mut/` liegen außerhalb des Repos und dürfen danach weg.
+
+---
+
+### Task 13c: Zweite Review-Runde (C5, C6)
+
+**Status: AUSGEFÜHRT am 2026-09-20**, direkt auf `fix/backstop-grace`. Dieser Abschnitt ist deshalb ein Protokoll
+und keine Schrittliste: er hält fest, was gebaut wurde, womit es belegt ist und wie die Zahlen danach stehen.
+
+**Woher:** die Review der vier Nachzieh-Commits C1–C4 (`D:/Entwicklung/HASI/pr139-work/wf-followups.json`,
+`result.review`) fand am Stand `a0baf8c6` fünf Befunde, alle `minor`. Der User hat am 20.09. entschieden: **alle fünf
+vor dem Pre-Release fixen.** Begründungen, Belege und verworfene Alternativen: Spec, Abschnitt „Nachtrag: Befunde der
+zweiten Review-Runde (2026-09-20)“, dort als R6–R10 geführt.
+
+| Befund | Kurz | Umsetzung |
+|---|---|---|
+| R6 | Schluss-Intervall mit `max_gap_s` (4 Polls) statt einem Poll begrenzt | C5 |
+| R7 | Kalibrier-Hinweis teilt durch `planned_s`, gemessen ist das Fenster | C5 |
+| R8 | `latency_margin_help` hat die Warte-Hälfte in allen 8 Sprachen verloren | C6 |
+| R9 | Französisch benennt die zwei Fenster-Kanten unsymmetrisch | C6 |
+| R10 | Spec nennt C3/C4 unter nicht erreichbaren `dry7`-SHAs | kein Code-Commit — Spec-Korrektur |
+
+#### Form: bewusste Abweichung von E9 (kein Probelauf, sondern TDD direkt auf dem Branch)
+
+T1–T12 und C1–C4 wurden **nachvollzogen** (E9): gebaut und gemessen in einem Probelauf-Worktree, dann auf dem echten
+Branch Testdatei zuerst, RED prüfen, Produktivdatei, GREEN, Baumgleichheit gegen den `SRC`-Commit. C5 und C6 sind
+anders entstanden: **zuerst der fehlschlagende Test, dann der Produktivcode, alles direkt auf `fix/backstop-grace`.**
+
+Warum die Abweichung richtig ist — und warum sie eine Abweichung bleibt, die hier benannt gehört:
+
+- E9 löste ein Problem, das hier nicht besteht. Der Rumpf war über die Probeläufe `dry2`…`dry7` entstanden; der
+  Nachvollzug ersetzte eine bereits **gemessene** Bauarbeit durch ein überprüfbares Nachspielen. R6–R9 sind dagegen
+  kleine Korrekturen an vier Dateien, von der Review **nach** dem letzten Probelauf gefunden. Ein achter Probelauf
+  hätte dieselbe Arbeit zweimal gemacht und nichts hinzugefügt, was der TDD-Zyklus auf dem Branch nicht selbst zeigt.
+- Die globale Regel „**kein Produktionscode vor einem fehlschlagenden Test**“ ist damit nicht gelockert, sondern
+  direkt erfüllt: beide RED-Läufe unten sind gegen den unveränderten Produktivcode von `a0baf8c6` gelaufen.
+- Was der Probelauf sonst zusätzlich liefert — die Vorab-Erwartung der Suiten-Zahlen — steht hier stattdessen als
+  Vorher/Nachher gegen die Branch-Basis `a0baf8c6` (Abschnitt „Schlusszahlen“).
+- Die übrigen Regeln des Kopfteils gelten unverändert: Stopp-Regel, Umgebungswarnungen, eine Probe je neuer
+  Codezeile, Commit-Nachricht per Datei bzw. `| git commit -F -`, Trailer `Co-Authored-By: Claude Opus 5`, nie
+  gepusht.
+
+**Vorbedingung war erfüllt:** `fix/backstop-grace` stand auf `a0baf8c6` (14 Commits auf `2b2c403b`), Arbeitsbaum
+sauber bis auf `?? docs/SESSION-STAND.md`.
+
+#### Commits, Befunde, Dateien
+
+Kurzform wie oben: `cc/` = `custom_components/irrigation_plus/`, `fe/` = `custom_components/irrigation_plus/frontend/`.
+
+| # | Befund | SHA (Branch) | Betreff | TESTS | PROD | `git show --stat` |
+|---|---|---|---|---|---|---|
+| C5 | R6 + R7 | `3623e71b` | `fix(flow): bound the off-report tail by one poll and price the advisory on the measured window` | `tests/test_flow_meter.py tests/test_service_watch.py` | `cc/flow_metering.py cc/self_closing.py` | `4 files changed, 158 insertions(+), 24 deletions(-)` |
+| C6 | R8 + R9 | `9da4c0b2` | `docs(i18n): say what the latency margin waits for and what it tolerates` | `tests/test_i18n_completeness.py` | `fe/localize/languages/{de,en,es,fr,it,nl,no,sk}.json`, `fe/dist/irrigation-plus.js`, `fe/dist/irrigation-plus-card-impl.js` (10 Dateien) | `11 files changed, 36 insertions(+), 10 deletions(-)` |
+
+Anders als in Task 13b gibt es **keine `SRC`-Spalte**: es gibt keinen Probelauf-Commit, von dem ausgecheckt würde.
+Die beiden SHAs sind Vorfahren von `fix/backstop-grace`
+(`git merge-base --is-ancestor 3623e71b fix/backstop-grace`, ebenso `9da4c0b2`).
+
+Was C5 im Produktivcode tut, in einem Satz je Befund:
+
+- **R6:** `FlowMeter.end_rate_at(at, *, poll_s: float | None = None)` begrenzt den Schwanz mit der engsten Grenze,
+  die es hat (`bounds = [b for b in (self._max_gap_s, poll_s) if b is not None]`, dann
+  `if not bounds or dt <= min(bounds)`); `_sc_finish_flow` reicht `poll_s=const.FLOW_POLL_INTERVAL` durch — dieselbe
+  Konstante, die `_sc_start_flow_sampling` für sein Intervall liest. Ein Aufrufer ohne Kadenz behält `max_gap_s`.
+- **R7:** `_sc_finish_run` ruft
+  `self._flow_calibration_check(zone, measured, planned_s if actual_s is None else actual_s)` — der Hinweis wird auf
+  dem Fenster gepreist, über das seine Liter gemessen wurden. Backstop, write-only, OpenSprinkler und Batch behalten
+  `planned_s`. Das **Zeitvolumen bleibt auf `planned_s`** (es preist das gutgeschriebene Wasser, nicht das
+  gemessene). Schwester-Pfad-Check: die zwei anderen Aufrufer von `_flow_calibration_check` (Observed-Watering,
+  Verteiler) übergeben bereits das Fenster, das sie gemessen haben.
+
+C6 fasst alle acht `latency_margin_help`-Texte neu (beide Hälften: Wartezeit UND Toleranz; späte Ein-Meldung und die
+Empfehlung „Ventil statt Durchflusssensor“ aus C4 bleiben), korrigiert das unsymmetrische französische Kantenpaar zu
+`d'activation à désactivation` und pinnt den englischen Text. `docs/configuration-my-zones.md` trug beide Hälften
+schon und bleibt unverändert.
+
+#### C5 — RED vor GREEN (verbatim)
+
+Beide Tests wurden **vor jeder Produktivänderung** geschrieben; Auswahl über `tests/test_service_watch.py` und
+`tests/test_flow_meter.py`, `--tb=line`:
+
+```
+tests\test_service_watch.py FFF.                                         [ 28%]
+tests\test_flow_meter.py ..F.F.....                                      [100%]
+D:\Entwicklung\HASI\HAsmartirrigation\tests\test_service_watch.py:746: assert 600.0 == 602 ± 1.0e-02
+D:\Entwicklung\HASI\HAsmartirrigation\tests\test_service_watch.py:1209: assert 600.0 == 597 ± 1.0e-02
+D:\Entwicklung\HASI\HAsmartirrigation\tests\test_service_watch.py:2156: assert 60.0 == 64 ± 1.0e-02
+D:\Entwicklung\HASI\HAsmartirrigation\tests\test_flow_meter.py:385: TypeError: FlowMeter.end_rate_at() got an unexpected keyword argument 'poll_s'
+D:\Entwicklung\HASI\HAsmartirrigation\tests\test_flow_meter.py:417: TypeError: FlowMeter.end_rate_at() got an unexpected keyword argument 'poll_s'
+================= 5 failed, 9 passed, 111 deselected in 1.54s ==================
+```
+
+Der vierte ausgewählte Test — der Pin `test_a_close_nobody_reported_keeps_the_plan` — war von Anfang an grün: er
+pinnt Verhalten, das sich **nicht** bewegen darf (ohne Aus-Meldung bleibt der Divisor der Plan).
+
+GREEN, dieselbe Auswahl nach der Umsetzung:
+
+```
+tests\test_service_watch.py ....                                         [ 28%]
+tests\test_flow_meter.py ..........                                      [100%]
+===================== 14 passed, 111 deselected in 1.67s ======================
+```
+
+Die neun benannten Suiten am committeten Baum:
+
+```
+======================== 356 passed, 1 error in 23.52s ========================
+ERROR tests/test_service_watch.py::TestOneOffSampleIsNotEvidenceTheWaterStopped::test_the_run_is_not_settled_before_the_window_is_out
+```
+
+Dieser ERROR ist der bekannte „Lingering timer“-Teardown der lokalen Env, **nicht neu**: er steht ebenso im
+Branch-Basislauf (`D:/Entwicklung/HASI/pr139-work/after-13b.txt:2772` und `:3891`).
+
+Vier neue Items, drei bewegte Pins:
+
+| Datei | Test | Fall |
+|---|---|---|
+| `test_flow_meter.py` | `test_end_rate_at_bridges_no_wider_gap_than_one_poll` (umbenannt aus `…_than_a_sample_would`) | 30,0 s überbrückt, 30,5 s nicht |
+| `test_flow_meter.py` | `test_end_rate_at_without_a_poll_keeps_the_max_gap_bound` (neu) | ohne Kadenz gilt `max_gap_s` wie bisher |
+| `test_flow_meter.py` | `test_end_rate_at_credits_no_tail_from_a_sensor_dead_since_the_mark` (neu) | Review-Szenario: 95 L statt 102,3 L |
+| `test_service_watch.py` | `TestTheAdvisoryIsPricedOnTheWindowItMeasured::test_a_late_close_is_priced_on_the_reported_window` (neu) | 60-s-Plan, Schluss +64 --> Divisor 64 |
+| `test_service_watch.py` | `…::test_a_close_nobody_reported_keeps_the_plan` (neu, von Anfang grün) | ohne Meldung Divisor 60, am ECHTEN Backstop-Timer |
+| `test_service_watch.py` | zwei bestehende Hinweis-Pins (Z. 746, 1209) | 600 --> 602 bzw. 600 --> 597 |
+
+`tests/test_flow_meter.py` hat damit zehn Einheiten zu `end_rate_at` (vorher acht).
+
+#### C5 — Mutationsproben (fünf, einzeln, alle gefangen)
+
+Ablauf je Probe wie im Kopfteil: Sicherung nach `D:/Entwicklung/HASI/pr139-work/mut/<name>.bak`, CRLF-erhaltend
+angewandt, aus der Sicherung zurückgespielt, sha256 vorher/nachher verglichen, Baum danach wieder auf genau die vier
+beabsichtigten Dateien geprüft.
+
+| Probe | Mutation | Ergebnis | gefangen an |
+|---|---|---|---|
+| `m1` | Poll-Grenze zurück auf `if self._max_gap_s is None or dt <= self._max_gap_s:` | 2 failed, 123 passed | `test_flow_meter.py:390` `assert 5.083333333333334 == 2.5 ± 2.5e-06`; `:418` `assert 102.33333333333333 == 95.0 ± 9.5e-05` (die 7,33 L Phantom-Gutschrift) |
+| `m2` | Grenze ganz weg (`delivered += rate * dt / 60.0` bedingungslos) | 3 failed, 122 passed | `:390`, `:404` (Pin ohne Kadenz), `:418` |
+| `m3` | `min(bounds)` zu `max(bounds)` | 2 failed, 123 passed | `:390` und `:418`, gleiche Werte wie `m1` |
+| `m4` | Divisor zurück auf `planned_s` | 3 failed, 160 passed | `test_service_watch.py:746` `assert 600.0 == 602 ± 1.0e-02`; `:1209` `assert 600.0 == 597 ± 1.0e-02`; `:2156` `assert 60.0 == 64 ± 1.0e-02` |
+| `m5` | Divisor **immer** `actual_s` (muss den Backstop-Pin brechen) | 4 failed, 159 passed | `test_service_watch.py:2181` `assert None == 60` (der neue Backstop-Pin), dazu zwei `irrigation.py:1222: TypeError: '<=' not supported …` |
+
+sha256 je Datei vor und nach der Wiederherstellung gleich (`flow_metering.py` `6327a398…e825f3d` bei m1–m3,
+`self_closing.py` `dafb1079…04feb9a9` bei m4–m5). `m5` ist die Gegenprobe zu R7: der Fix nimmt den Backstop-Pfad
+**nicht** mit.
+
+#### C6 — RED vor GREEN (verbatim)
+
+Der neue Pin
+`tests/test_i18n_completeness.py::test_the_latency_margin_help_says_what_it_waits_for_and_what_it_tolerates` wurde
+gegen den Text von `a0baf8c6` geschrieben und fiel:
+
+```
+tests\test_i18n_completeness.py:303: in test_the_latency_margin_help_says_what_it_waits_for_and_what_it_tolerates
+    assert "waits this long" in text, text
+E   AssertionError: How many seconds the reported on-to-off window may fall short of the planned duration and still count as a complete run. That tolerance covers a late 'off' report, ...
+====================== 1 failed, 66 deselected in 1.40s =======================
+```
+
+GREEN danach: `67 passed in 3.53s` (`tests/test_i18n_completeness.py`).
+
+Der Pin friert je Hälfte eine Wendung des **englischen** Textes ein (`"waits this long"`,
+`"still counts as a complete run"`) und nicht die sieben Übersetzungen — Konvention des
+Niederschlagsschwellen-Pins darüber; Schlüsselparität und `test_no_value_is_left_as_the_english_string` decken die
+anderen sieben ab.
+
+**Kriterien statt Probe** (UI-Text, vorher benannt, gegen die committeten Blobs mit `git show HEAD:<katalog>`
+gemessen): alle acht Texte tragen beide Hälften, die späte Ein-Meldung und die Ventil-Empfehlung, keiner ist mit dem
+englischen identisch; Zeichenzahl je Sprache en 517 / de 591 / es 612 / fr 618 / it 613 / nl 558 / no 544 / sk 518,
+jeweils **kürzer** als der ersetzte Text. Französisches Kantenpaar symmetrisch
+(`d'activation à désactivation` vorhanden, `d'activation à fermeture` nicht mehr).
+`docs/configuration-my-zones.md` unverändert, beide Hälften weiterhin darin (`grep -c` je 1). dist neu gebaut: nur
+`irrigation-plus.js` und `irrigation-plus-card-impl.js` ändern sich, die anderen zwei sind gegen HEAD unverändert
+(CR ignoriert); vitest bleibt bei 23 Dateien / 624 Tests.
+
+**Keine Mutationsprobe zu C6**, und das ist konsequent: C6 ändert Anzeigetext plus den Pin darauf, und dessen
+Falsifikation ist der RED-Lauf oben gegen den vorher committeten Text. Die Sicherung `mut/en.json.bak` ist
+byte-gleich zum committeten Blob (sha256 `f8f496e7daededa1…`), der Baum kam also sauber zurück.
+
+#### Schlusszahlen (Endstand `9da4c0b2`)
+
+- **Lint:** `uvx black --check custom_components/irrigation_plus/` --> `68 files would be left unchanged.`; mit den
+  drei berührten Testdateien `71`; `uvx ruff check custom_components/irrigation_plus/` --> `All checks passed!`.
+- **Volle Suite, Branch-Basis --> C5 --> C6:**
+
+  ```
+  a0baf8c6 (after-13b.txt):           collected 3132 | 7 failed, 3116 passed, 9 skipped, 10 warnings, 320 errors
+  3623e71b (after-c5-committed.txt):  collected 3136 | 7 failed, 3120 passed, 9 skipped, 10 warnings, 320 errors
+  9da4c0b2 (after-c6.txt):            collected 3137 | 7 failed, 3121 passed, 9 skipped, 10 warnings, 320 errors
+  ```
+
+  Delta passed = Delta collected = **+4** (C5) und **+1** (C6) — ausschließlich neue grüne Tests. FAILED/ERROR-
+  Namensmengen sortiert verglichen: je **330** Zeilen, `diff` leer (Basis gegen C6 und C5 gegen C6). Die sieben
+  FAILED sind die bekannten lokalen Windows-Fehlschläge (`test_init` ×2, `test_next_irrigation_sensor`,
+  `test_opensprinkler_teardown` ×3, `test_panel`); CI ist der Gate (Projekt-`CLAUDE.md`).
+- **Diff gegen den Stand vor Task 13b:** `git diff --stat 66763c34 HEAD` --> **16 Dateien, `709 insertions(+),
+  53 deletions(-)`** (die 15 aus Task 13b plus `tests/test_i18n_completeness.py`; `flow_metering.py`,
+  `self_closing.py`, `tests/test_flow_meter.py` und `tests/test_service_watch.py` kommen in beiden Tasks vor,
+  `docs/configuration-my-zones.md` nur in Task 13b). Am 20.09. nachgemessen, nicht fortgeschrieben.
+- **Proben gesamt über den Branch:** 133 (Task 13) + 15 (Task 13b) + 5 (C5) = **153**, davon **148 gefangen** und
+  **5 äquivalent** (dieselben fünf wie in Task 13, dort begründet).
+- **Neue Test-Items gesamt:** 110 (T1–T12 und C1–C4) + 4 (C5) + 1 (C6) = **115 pytest** plus **8 vitest** =
+  **123**. Kein Item ohne fangende Probe; für den i18n-Pin aus C6 tritt der belegte RED-Lauf gegen den vorherigen
+  Text an ihre Stelle.
+- **Baum sauber**, nur `?? docs/SESSION-STAND.md`. Nichts gepusht; `fix/backstop-grace` steht auf **16 Commits**
+  über `upstream/master`.
+
+#### Was Task 14 davon liest
+
+- Die Zahlen oben lösen die Erwartungswerte aus Task 13b, Step S-5/S-6 ab: **153 Proben / 148 gefangen /
+  5 äquivalent** und **123 neue Items (115 pytest + 8 vitest)** statt 148 / 143 / 5 und 118.
+- `D:/Entwicklung/HASI/pr139-work/real-final-check.md` bekommt einen Abschnitt „Task 13c (C5, C6)“ mit denselben
+  Zeilen.
+- Der PR-Entwurf `rev3/pr-body-draft.md` ist am 20.09. inhaltlich nachgezogen (Ein-Poll-Grenze, Hinweis auf dem
+  gemessenen Fenster, Panel-Hilfe mit beiden Hälften); seine `<from the final check: …>`-Platzhalter bleiben stehen
+  und werden erst in Task 14 gefüllt.
+- Regel P1: Spec und Plan tragen die zweite Review-Runde (Spec-Nachtrag „Befunde der zweiten Review-Runde
+  (2026-09-20)“, dieser Task). Beides muss vor dem Löschen des Dev-Branches auf `archive/design-history`.
+
+**Kein weiterer Commit im Code-Repo.** Die `.bak`-Dateien unter `mut/` liegen außerhalb des Repos und dürfen weg.
+
+---
+
 ### Task 14: PR, Kommentare, Issue, Design-Historie
 
 Es gelten:
@@ -4692,6 +5372,7 @@ laufen. Der Merge wartet auf Task 15 (JustChr 09-19).
 - Create (außerhalb des Repos):
   - `D:/Entwicklung/HASI/pr139-work/pr-body.md`
   - `D:/Entwicklung/HASI/pr139-work/issue-window-pricing-final.md`
+  - `D:/Entwicklung/HASI/pr139-work/issue-restart-master-gap-final.md` (R2, Entwurf `rev3/issue-restart-master-gap.md`)
   - `D:/Entwicklung/HASI/pr139-work/comment-139-pr.md`
 - Modify:
   - `D:/Entwicklung/HASI/ToDo.md`
@@ -4701,24 +5382,25 @@ laufen. Der Merge wartet auf Task 15 (JustChr 09-19).
 
 - [ ] **Step 1: Zahlen auf dem Endstand übernehmen**
 
-Aus `real-final-check.md` (Task 13):
+Aus `real-final-check.md` (Task 13 **und** der Abschnitt aus Task 13b, Step S-6):
 
 - die Suite-Zeilen Basis und Endstand vom selben Tag;
-- neue Items, erwartet +93;
-- vitest Basis und Endstand, erwartet 616 --> 624;
-- Proben gesamt, gefangen, äquivalent, erwartet 133 / 128 / 5;
-- Items ohne fangende Probe (Step 8b), erwartet 0 von 101.
+- neue Items, erwartet +110 (93 aus T1–T12, 17 aus C2/C3);
+- vitest Basis und Endstand, erwartet 616 --> 624 (Task 13b ändert daran nichts);
+- Proben gesamt, gefangen, äquivalent, erwartet 148 / 143 / 5 (133 / 128 / 5 aus Task 13 plus 5 aus C2 und 10 aus C3);
+- Items ohne fangende Probe, erwartet 0 von 118.
 
-Jede Zahl im PR-Text muss aus diesen Ausgaben stammen, nicht aus diesem Plan und nicht aus dry6.
+Jede Zahl im PR-Text muss aus diesen Ausgaben stammen, nicht aus diesem Plan und nicht aus dry6/dry7.
 
 - [ ] **Step 2: PR-Text fertigstellen**
 
 `rev3/pr-body-draft.md` nach `pr139-work/pr-body.md` kopieren. Darin:
 
 - den HTML-Kommentar am Anfang löschen;
-- alle Platzhalter `<from Task 13 …>` durch die Zahlen aus Step 1 ersetzen;
+- alle Platzhalter `<from the final check …>` durch die Zahlen aus Step 1 ersetzen;
 - den Abschnitt „Live test“ so lassen, wie er ist (Plan, Ergebnis folgt als Kommentar);
-- `#<issue>` bleibt, bis Step 6 die Nummer liefert.
+- `#<issue: window pricing>` und `#<issue: restart master gap>` bleiben, bis Step 6 die Nummern liefert (zwei
+  Folge-Issues: Zeitfenster-Preis und die vorbestehende Neustart-Lücke aus R2).
 
 Prüf-Greps:
 
@@ -4760,11 +5442,11 @@ den User fragen. Nach der Projekt-Regel wird dann gemergt, nicht rebased.
 `mcp__ccd_pr__get_status` für den neuen PR, ersatzweise `gh pr checks <PR> --repo JustChr/HAsmartirrigation`.
 Erwartet: alle Checks grün. Ein roter Check ist vor jedem weiteren Außenschritt zu klären.
 
-- [ ] **Step 6: Issue zum Zeitfenster-Preis (nur nach Freigabe, erst wenn der PR existiert)**
+- [ ] **Step 6: Zwei Folge-Issues (nur nach Freigabe, erst wenn der PR existiert)**
 
-`rev3/issue-window-pricing.md` nach `pr139-work/issue-window-pricing-final.md` kopieren, den HTML-Kommentar am
-Anfang löschen und `#<PR>` einsetzen. Die Confirm-Spanne (0,46–0,97 s) muss mit dem endgültigen PR-Text
-übereinstimmen. Den Text im Chat vorlegen; nach „ja“:
+**6a Zeitfenster-Preis.** `rev3/issue-window-pricing.md` nach `pr139-work/issue-window-pricing-final.md` kopieren,
+den HTML-Kommentar am Anfang löschen und `#<PR>` einsetzen. Die Confirm-Spanne (0,46–0,97 s) muss mit dem endgültigen
+PR-Text übereinstimmen. Den Text im Chat vorlegen; nach „ja“:
 
 ```bash
 gh issue create --repo JustChr/HAsmartirrigation \
@@ -4772,8 +5454,19 @@ gh issue create --repo JustChr/HAsmartirrigation \
   --body-file /d/Entwicklung/HASI/pr139-work/issue-window-pricing-final.md
 ```
 
-Danach im PR-Text `#<issue>` durch die Nummer ersetzen. Die geänderte Zeile im Chat zeigen und nach Freigabe
-anwenden:
+**6b Vorbestehende Neustart-Lücke (R2).** `rev3/issue-restart-master-gap.md` nach
+`pr139-work/issue-restart-master-gap-final.md` kopieren, den HTML-Kommentar löschen und `#<PR>` einsetzen. Der PR-Text
+nennt denselben Fall unter „Known and deliberately unchanged“; beide müssen dasselbe sagen (vorbestehend, von diesem
+PR unverändert, Einzeiler-Fix). Vorlegen; nach „ja“:
+
+```bash
+gh issue create --repo JustChr/HAsmartirrigation \
+  --title "A restart with a master configured arms the finish backstop about a master settle too late" \
+  --body-file /d/Entwicklung/HASI/pr139-work/issue-restart-master-gap-final.md
+```
+
+Danach im PR-Text `#<issue: window pricing>` und `#<issue: restart master gap>` durch die Nummern ersetzen. Die
+geänderten Zeilen im Chat zeigen und nach Freigabe anwenden:
 `gh pr edit <PR> --repo JustChr/HAsmartirrigation --body-file /d/Entwicklung/HASI/pr139-work/pr-body.md`.
 
 - [ ] **Step 7: Kommentar auf #139 (nur nach Freigabe)**
@@ -5499,3 +6192,103 @@ ein Satz mit Link. Danach im Archiv-Worktree den Live-Test in den Umsetzungsnach
 `hasi-backstop-has-no-grace` und `hasi-production-on-upstream` (neuer Pre-Release-Absatz) fortschreiben.
 
 Der Merge ist JustChrs Entscheidung.
+
+---
+
+# Umsetzungsnachtrag (2026-09-20)
+
+Der Plan ist abgearbeitet. Was tatsächlich entstand, und wo es vom Plan abweicht.
+
+## Auslieferung
+
+Branch `fix/backstop-grace`, 16 Commits auf `2b2c403b` (= upstream/master nach dem Merge von #146),
+dazu ein Merge-Commit von `upstream/master` (v2026.09.17). Upstream-PR: **JustChr/HAsmartirrigation#150**.
+
+Die 16 Commits entsprechen den Tasks T1–T5, T7–T9, T11, T12 plus sechs Nacharbeiten aus dem eigenen
+Review (C1 Kommentare, C2 Backstop-Dispatch-Test, C3 Fluss-Schnitt am Aus-Bericht, C4 Doku/i18n zur
+Melde-Latenz, C5 Ein-Poll-Grenze + Divisor der Kalibrier-Empfehlung, C6 Hilfetext in acht Sprachen).
+
+**Nicht gebaut**, nach JustChrs Umfangsregel („drin ist, was ein Loch schließt, das der Zuschlag selbst
+aufreißt"):
+
+- **T6** (Backstop stützt sich auf einen gespeicherten Aus-Bericht) — von JustChr als „bekannt und
+  bewusst unverändert" eingestuft;
+- **T10** (Fensterbepreisung) — eigenes Issue **#151**, mit den Zahlen und der gebauten, wieder
+  verworfenen Änderung;
+- **T3b** (Sperre der Beobachtungs-Bewässerung über den Abschluss hinaus) — am 19.09. gestrichen.
+  Vorher war seine Prämisse zu korrigieren: die Flanke innerhalb des Zuschlags fängt bereits die
+  In-Flight-Prüfung ab.
+
+## Sechs Konsistenz-Entscheidungen des Users (19.09.)
+
+a) Neustart jenseits von planned+grace mit gespeichertem Aus-Bericht bucht `planned_s` wie bisher.
+b) Fensterregel nur mit gespeichertem `RUN_VALVE_OFF`, sonst Basisregel — **ändert Spec-Entscheidung E4**.
+c) Stopp vor dem geplanten Ende misst bis zum Stopp, nie aus einem gespeicherten Aus-Bericht.
+d) Stopp innerhalb des Zuschlags schließt nach der Wächterregel ab (`completed` in Toleranz).
+e) T3b raus, Prämisse zuerst korrigieren.
+f) Neustart innerhalb des Zuschlags schärft Backstop und Wächter neu, fordert aber **keinen** Master an
+   — dafür gibt es einen ausdrücklichen Test, den JustChr verlangt hatte.
+
+## Prüfung
+
+- Suite: `7 failed, 3006 passed, 9 skipped, 320 errors` (3022 gesammelt) --> `7 failed, 3121 passed,
+  9 skipped, 320 errors` (3137 gesammelt). 111 neue Testfunktionen, eine davon über fünf Fälle
+  parametrisiert = 115 gesammelte Einträge. Die 7 Fehlschläge und 320 Fehler sind namensgleich mit
+  master (Windows-Eventloop, Pfadtrenner, Teardown-Timer unter HA 2024.12); CI ist das Tor.
+- Frontend: vitest 616 --> 624, `dist` reproduzierbar aus den Quellen.
+- **Mutationsproben: 155 gefahren, 150 gefangen, 5 äquivalent, 0 Überlebende.** Alle fünf Äquivalenzen
+  laufen auf dieselbe Invariante hinaus: `RUN_VALVE_OFF` wird nur für Läufe gesetzt, die das Gate
+  ohnehin passieren. Ohne tötende Probe bleibt allein der i18n-Hilfetext-Pin — dessen Falsifikation
+  war der Rot-Lauf gegen den alten Wortlaut.
+- Vor dem PR haben acht Prüfgruppen jede Tatsachenbehauptung des PR-Bodys gegen den Branch geprüft,
+  jeder Verdachtsfall von drei unabhängigen Skeptikern gegengelesen: ein bestätigter Fund (eine
+  Katalogzahl in einem Kommentarentwurf), fünf abgewiesen.
+
+## Live-Nachweis
+
+**HA-Test**, neun Szenarien gegen einen Ventil-Emulator, getrieben von einem Skript **auf der Instanz**
+(kein MCP in der Zeitmessung): Normalende, späte Meldung innerhalb und jenseits der Marge, früher
+Schluss innerhalb und jenseits, Schluss ohne Meldung, Hand-Stopp im Zuschlag, zweiter `run_zone` im
+Zuschlag (wird abgewiesen), Reload im Zuschlag mit konfiguriertem Master (kein Master-Abruf). Alle
+erwartungsgemäß. Mängel des ersten Durchlaufs offengelegt: S6 lief zuerst mit Marge 4 statt 30 und
+belegte damit nur (f) — mit Marge 30 wiederholt, beide Läufe im Protokoll.
+
+**HA-Prod**, Pre-Release über HACS, je ein kurzer Handlauf pro Zone:
+
+| | Kirschlorbeer (Sekundenventil) | Beet (Minutenventil) |
+| --- | --- | --- |
+| Ventil offen | 60,001 s | **63,222 s** |
+| Abschluss | Zu-Meldung + 5,009 s | Zu-Meldung + 5,004 s |
+| Eintrag | `completed`, `actual_s` 60 | `completed`, **`actual_s` 63** |
+
+Der Wächterpfad war auf dieser Anlage vorher **unerreichbar** — das ist der eigentliche Beleg. Die
+gemessene Latenz von 3,22 s liegt über der Zehn-Tage-Spanne 2,08–2,90 s vom 13.09.; die Vorgabe 4 s
+behält damit 0,78 s Reserve, nicht 1,1 s wie ursprünglich geschrieben. Der PR-Body nennt die kleinere
+Zahl.
+
+Nicht belegt auf Prod: der Raten-Fluss-Schnitt (C3/C5). Kirschlorbeer zählt `per_run`, Beet hat keinen
+Sensor — offen und im PR benannt.
+
+## Zwei Befunde aus dem eigenen Review
+
+- **Unterbuchung beim Raten-Sensor:** Der Zuschlag schiebt den letzten Messwert hinter den Ventilschluss,
+  und eine Rate wird am rechten Intervallende gutgeschrieben — das Intervall über den Schluss hinweg
+  würde mit 0 bewertet, bis zu einem Poll echten Flusses. Gefixt in C3/C5 (Schnitt am Aus-Bericht,
+  Schwanz auf einen Poll begrenzt). Das ist ein Loch, das der Zuschlag selbst aufreißt, also Teil des PR.
+- **Master-Lücke nach Neustart:** Der Rest wird **vor** dem Master-Acquire gelesen, der Backstop also
+  etwa eine Master-Settle-Zeit zu spät geschärft. Vorbestehend, vom PR unverändert gelassen, eigenes
+  Issue **#152** mit Einzeiler-Fix und Testskizze.
+
+## Release-Kontext
+
+JustChr hat am 20.09. entgegen seiner Zusage vom 19.09. **v2026.09.17 ohne diesen PR als Stable**
+ausgeliefert — Begründung: Zonenfeld, Kataloge, `dist`-Rebuild und geändertes Abschlussverhalten gehören
+erst eine Woche in eine Beta. Der PR eröffnet die nächste Beta-Kette. Der Release-Commit kollidierte mit
+unseren `dist`-Bundles (Versionszeichenkette); aufgelöst per Merge von `upstream/master` und Neubau von
+`dist` aus den gemergten Quellen — **kein Rebase**, weil der Branch bereits gepusht war.
+
+## Offen
+
+- JustChrs Review zu #150.
+- Nach einem Merge: Produktiv-Rebuild auf upstream, dabei den Pre-Release-Stand ablösen.
+- #151 (Fensterbepreisung) und #152 (Master-Lücke) liegen bei JustChr.
