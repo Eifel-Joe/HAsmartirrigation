@@ -1827,6 +1827,22 @@ class IrrigationRunnerMixin:
             flow_delivered[zid] = 0.0
             flow_elapsed[zid] = 0.0
             flow_orig_bucket[zid] = raw_bucket
+            # The FOURTH ceiling derived from _zone_target_bucket, and the only
+            # one #153 did not have to floor at the run's starting bucket. It is
+            # safe for a reason that is NOT stated anywhere else: `flow_target`
+            # above and this floor come from the SAME `floor_mm - b_mm`
+            # comparison, so a zone whose bucket already sits above its target
+            # gets 0 L — and `_flow_done` (delivered >= target) is then true on
+            # the first pass, so the zone leaves the ring before the clamp at
+            # `min(flow_floor, flow_orig_bucket + depth)` below can write it
+            # DOWN. Verified by probe: the credit never executes in that state,
+            # while the same state on the metered branch does reach it (which is
+            # why that one needed the explicit floor).
+            # NOT-TO-DO: do not give a flow zone a minimum slot, or otherwise
+            # keep a 0 L zone in the ring, without flooring `flow_floor` at
+            # `flow_orig_bucket` first — that coupling is the whole guard, and
+            # breaking it brings the #153 withdrawal back silently.
+            # siehe test_credit_ceiling.py::test_a_rotating_flow_zone_above_target_never_reaches_the_clamp
             flow_floor[zid] = raw_floor
             flow_by_id[zid] = z
             _LOGGER.info(

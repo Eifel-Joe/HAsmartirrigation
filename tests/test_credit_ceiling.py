@@ -19,6 +19,7 @@ These tests drive the REAL credit arithmetic. Both mode suites mock
 never saw this.
 """
 
+import datetime
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -599,3 +600,100 @@ async def test_a_distributor_sweep_never_takes_credit_away():
     await c._dist_credit_zone(zone, 600, ceiling=c._zone_target_bucket(zone))
 
     assert _bucket_written(c) >= 3.0
+
+
+# --- the fourth ceiling: the ring's flow zones ----------------------------
+
+
+async def _run_ring_with_flow_zone(monkeypatch, bucket, delivered_per_slot):
+    """One flow zone through the real ``_run_rotation``, returning its credits."""
+    monkeypatch.setattr(
+        "custom_components.irrigation_plus.irrigation.async_dispatcher_send", Mock()
+    )
+    clock = {"t": datetime.datetime(2026, 8, 6, 12, 0, tzinfo=datetime.timezone.utc)}
+
+    class _Clock:
+        @staticmethod
+        def utcnow():
+            return clock["t"]
+
+        @staticmethod
+        def now():
+            return clock["t"]
+
+    monkeypatch.setattr("custom_components.irrigation_plus.irrigation.dt_util", _Clock)
+
+    zone = {
+        const.ZONE_ID: 0,
+        const.ZONE_NAME: "Ring",
+        const.ZONE_DURATION: 600,
+        const.ZONE_LINKED_ENTITY: "switch.ring",
+        const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+        const.ZONE_SIZE: 100.0,
+        const.ZONE_THROUGHPUT: 10.0,
+        const.ZONE_MULTIPLIER: 1.0,
+        const.ZONE_FLOW_SENSOR: "sensor.flow",
+        const.ZONE_BUCKET: bucket,
+        const.ZONE_BUCKET_THRESHOLD: -1.0,
+    }
+
+    c = _coord()
+    c.hass.data = {}
+    c.store.get_zone = Mock(return_value=dict(zone))
+    c.store.async_get_zones = AsyncMock(return_value=[dict(zone)])
+    c.store.config = Mock(
+        zone_sequencing="rotating",
+        zone_sequencing_max_consecutive_duration=1,
+        zone_sequencing_min_absorption_time=0,
+        live_estimate_enabled=False,
+    )
+
+    async def _slot(zid, seconds):
+        clock["t"] += datetime.timedelta(seconds=seconds)
+        return False
+
+    c._register_active_run = Mock()
+    c._unregister_active_run = Mock()
+    c._run_stopped = Mock(return_value=False)
+    c._run_trigger = Mock(return_value="schedule")
+    c._note_si_valve = Mock()
+    c._sleep_or_stopped = AsyncMock(side_effect=_slot)
+    c._clear_zone_fault = Mock()
+    c._commit_run_progress = AsyncMock()
+    c._live_run_zones = set()
+    c._irrigate_zone_flow_slot = AsyncMock(return_value=delivered_per_slot)
+    c._depth_from_volume_native = Mock(return_value=0.0)
+
+    await c._run_rotation([dict(zone)])
+
+    return [
+        ck.kwargs["new_bucket"]
+        for ck in c._commit_run_progress.await_args_list
+        if "new_bucket" in ck.kwargs
+    ]
+
+
+async def test_a_rotating_flow_zone_above_target_never_reaches_the_clamp(monkeypatch):
+    """``flow_floor`` is the one target-derived ceiling #153 left unfloored.
+
+    It is safe only because ``flow_target`` and that floor come from the SAME
+    ``floor_mm - b_mm`` comparison: a zone already above its target is priced at
+    0 L, and ``_flow_done`` (delivered >= target) is true on the first pass, so
+    the zone leaves the ring before ``min(flow_floor, flow_orig_bucket + depth)``
+    can write it down. The metered branch has no such drop, which is why THAT
+    one needed an explicit floor.
+
+    Pins the coupling, not the comment: give a 0 L zone a slot and this goes red.
+
+    The below-target control is in the same test on purpose — an assertion that
+    "nothing was credited" passes just as well when the rig never ran at all.
+    """
+    above = await _run_ring_with_flow_zone(
+        monkeypatch, bucket=3.0, delivered_per_slot=0.0
+    )
+    assert above == [], f"an above-target flow zone reached the credit clamp: {above}"
+
+    below = await _run_ring_with_flow_zone(
+        monkeypatch, bucket=-3.0, delivered_per_slot=5.0
+    )
+    assert below, "the rig never credited at all — the check above proves nothing"
