@@ -55,6 +55,49 @@ DEFAULT_COASTAL = False
 DEFAULT_SOLRAD_BEHAVIOR = SOLRAD_behavior.EstimateFromTemp
 DEFAULT_FORECAST_DAYS = 0
 
+
+def solrad_behavior_value(raw) -> str:
+    """The bare value string of a solrad behaviour, whatever form it arrives in.
+
+    Wurzel: the setting reaches us as the bare value string when the panel's
+    select wrote it, and as an enum MEMBER whenever the DEFAULT is used --
+    ``DEFAULT_SOLRAD_BEHAVIOR`` is a member. Every comparison downstream tests
+    against ``.value``, so a member matched NOTHING and fell through to the
+    implicit else -- sun hours. Two ways in, both ordinary:
+      * a fresh install, where the factory ``ModuleEntry`` carries no
+        ``MODULE_CONFIG`` at all (``store.py``), so ``if config:`` never runs;
+      * a config written by the panel for ``forecast_days`` or ``coastal``
+        alone, where ``config.get(KEY, DEFAULT_SOLRAD_BEHAVIOR)`` hands the
+        member back while the dropdown displays EstimateFromTemp.
+    Either way the constant, the schema default and the dropdown all said
+    EstimateFromTemp and the arithmetic used sun hours (#158).
+
+    NOT the schema: ``CalcModule.__init__`` calls ``self._schema(config)`` and
+    DISCARDS the result, so ``vol.Coerce(SOLRAD_behavior)`` validates but never
+    rewrites the stored dict. The member form is handled here anyway because it
+    costs nothing and the setting has two legal spellings either way -- but do
+    not describe coercion as its source.
+
+    Fix-Logik: normalise ONCE, here, so ``_solrad_behavior`` is always the bare
+    value string. That is what makes the three comparison sites correct at the
+    root rather than each guarding itself -- ``live_estimate`` had already grown
+    its own ``getattr(x, "value", x)`` for the config dict, and its other site
+    ``str(modinst._solrad_behavior)`` would have read a member as
+    ``"SOLRAD_behavior.DontEstimate"`` and never matched ``"3"``.
+
+    NOT-TO-DO: do not "fix" this by comparing against the members instead. The
+    panel writes bare strings, so the comparisons would then fail for every
+    install that HAS touched the dropdown -- the same defect from the other
+    side.
+
+    siehe tests/test_pyeto_solrad_default.py
+    """
+    value = getattr(raw, "value", raw)
+    if value is None:
+        return str(DEFAULT_SOLRAD_BEHAVIOR.value)
+    return str(value)
+
+
 MAPPING_DEWPOINT = "Dewpoint"
 MAPPING_EVAPOTRANSPIRATION = "Evapotranspiration"
 MAPPING_HUMIDITY = "Humidity"
@@ -112,11 +155,11 @@ class PyETO(SmartIrrigationCalculationModule):
         self._elevation = hass.config.as_dict().get(CONF_ELEVATION)
         self._coastal = DEFAULT_COASTAL
         self.forecast_days = DEFAULT_FORECAST_DAYS
-        self._solrad_behavior = DEFAULT_SOLRAD_BEHAVIOR
+        self._solrad_behavior = solrad_behavior_value(DEFAULT_SOLRAD_BEHAVIOR)
         if config:
             self._coastal = config.get(CONF_PYETO_COASTAL, DEFAULT_COASTAL)
-            self._solrad_behavior = config.get(
-                CONF_PYETO_SOLRAD_BEHAVIOR, DEFAULT_SOLRAD_BEHAVIOR
+            self._solrad_behavior = solrad_behavior_value(
+                config.get(CONF_PYETO_SOLRAD_BEHAVIOR, DEFAULT_SOLRAD_BEHAVIOR)
             )
             self.forecast_days = config.get(
                 CONF_PYETO_FORECAST_DAYS, DEFAULT_FORECAST_DAYS

@@ -49,7 +49,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
-from .calcmodules.pyeto import SOLRAD_behavior
+from .calcmodules.pyeto import SOLRAD_behavior, solrad_behavior_value
 from .calculation import (
     hourly_calculation_enabled,
     pending_bucket_events,
@@ -440,9 +440,11 @@ class LiveEstimateMixin:
         module = self.store.get_module(zone.get(const.ZONE_MODULE))
         config = module.get(const.MODULE_CONFIG) or {}
         # Stored either as the enum or as its bare value, depending on whether
-        # the config went through the voluptuous schema on the way in.
-        solrad = config.get(const.CONF_PYETO_SOLRAD_BEHAVIOR)
-        if str(getattr(solrad, "value", solrad)) != SOLRAD_behavior.DontEstimate.value:
+        # the config went through the voluptuous schema on the way in. Normalised
+        # by the module that owns the setting, so this is not a third spelling
+        # of the same rule (#158).
+        solrad = solrad_behavior_value(config.get(const.CONF_PYETO_SOLRAD_BEHAVIOR))
+        if solrad != SOLRAD_behavior.DontEstimate.value:
             return False
         try:
             forecast_days = int(config.get(const.CONF_PYETO_FORECAST_DAYS) or 0)
