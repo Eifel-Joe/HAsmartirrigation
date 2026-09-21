@@ -185,6 +185,8 @@ from .const import (
     ZONE_THROUGHPUT,
     ZONE_WATER_USED_TOTAL,
 )
+import homeassistant.util.dt as dt_util
+
 from .helpers import as_datetime, loadModules, zone_depth_default
 from .localize import localize
 
@@ -1630,7 +1632,7 @@ class SmartIrrigationStorage:
         # first calculation only covers weather data collected from now on (not a
         # backlog of up to the 7-day buffer).
         if new_zone.last_consumed_at is None:
-            new_zone = attr.evolve(new_zone, last_consumed_at=datetime.datetime.now())
+            new_zone = attr.evolve(new_zone, last_consumed_at=dt_util.now())
         self.zones[int(new_zone.id)] = new_zone
         self.async_schedule_save()
         return attr.asdict(new_zone)

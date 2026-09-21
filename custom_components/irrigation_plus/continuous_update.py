@@ -53,6 +53,8 @@ Methods live on a mixin the SmartIrrigationCoordinator inherits, so they use
 
 import logging
 from datetime import datetime, timedelta
+
+import homeassistant.util.dt as dt_util
 from functools import partial
 
 from homeassistant.const import (
@@ -249,7 +251,7 @@ class ContinuousUpdateMixin:
         (re)created — the entity-set diff above makes that rare, so this cannot
         append duplicate rows on every ``_config_updated``.
         """
-        timestamp = datetime.now()
+        timestamp = dt_util.now()
         coalesce_before = timestamp - CONTINUOUS_COALESCE_WINDOW
         system_is_metric = self.hass.config.units is METRIC_SYSTEM
         seeded = 0
@@ -375,7 +377,7 @@ class ContinuousUpdateMixin:
         # Naive local, exactly like the interval path's RETRIEVED_AT — the two
         # write into the SAME buffer and aggregate_window compares the stamps
         # against a naive-local watermark, so a tz-aware value here would raise.
-        timestamp = datetime.now()
+        timestamp = dt_util.now()
         ha_unit = new_state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
         system_is_metric = self.hass.config.units is METRIC_SYSTEM
 
@@ -518,7 +520,7 @@ class ContinuousUpdateMixin:
         row_count = self.store.get_mapping_row_count(mapping_id)
         if row_count is None:
             return
-        now = datetime.now()
+        now = dt_util.now()
         await self.store.async_update_mapping(
             mapping_id, {const.MAPPING_DATA_LAST_UPDATED: now}
         )

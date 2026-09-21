@@ -1018,7 +1018,7 @@ def as_stored_aware(value) -> datetime | None:
 
     Reading such a stamp as HA-local is the defect this replaces. It was in
     ``sensor._to_aware_datetime`` (``replace(tzinfo=DEFAULT_TIME_ZONE)``), in
-    ``live_estimate._parse_local_naive`` and — most expensively — in the
+    ``live_estimate._parse_stored`` and — most expensively — in the
     solar-time correction, whose own comment says the stamps are "naive LOCAL
     times" while handing them HA's offset. Rso is a denominator there, so the
     error reaches +23.5% / -16% on the radiation the clearness-ratio hold

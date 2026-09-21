@@ -34,6 +34,8 @@ import logging
 import statistics
 from typing import NamedTuple
 
+import homeassistant.util.dt as dt_util
+
 from . import const
 from .et_hourly import (
     atm_pressure,
@@ -42,7 +44,7 @@ from .et_hourly import (
     solar_elevation_sin,
     svp_from_t,
 )
-from .helpers import parse_datetime
+from .helpers import as_stored_aware
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -100,12 +102,12 @@ _INTEGRAL_AGGREGATES = (
 
 
 def _parse(value):
-    """Parse a stored RETRIEVED_AT (datetime or ISO string) to datetime/None."""
-    if isinstance(value, datetime.datetime):
-        return value
-    if value is None:
-        return None
-    return parse_datetime(value)
+    """Parse a stored RETRIEVED_AT (datetime or ISO string) to an aware datetime.
+
+    Aware, because a naive stamp on disk is in the PROCESS's zone and every
+    comparison here is against HA-local time. See helpers.as_stored_aware.
+    """
+    return as_stored_aware(value)
 
 
 def merge_latest_per_field(fields, timestamp, row, *, keep_row):
@@ -145,6 +147,12 @@ def select_window(readings, watermark):
     (polled) rows carry every field, so for them the merge degenerates to the
     latest row and nothing moves.
     """
+    # Normalise the caller-supplied boundaries the same way a stored stamp is
+    # normalised. This module compares them directly against RETRIEVED_AT, and
+    # Python raises rather than drifting when one side is naive -- so the only
+    # safe rule is that nothing naive gets past the entry points. A naive value
+    # is read in the process zone, exactly as ``_parse`` reads one off disk.
+    watermark = _parse(watermark)
     if watermark is None:
         return None, [r for r in readings if isinstance(r, dict)]
     fields = {}  # key -> (stamp, value): latest pre-watermark value per field
@@ -321,7 +329,7 @@ def aggregate_window(
         watermark: the zone's ``last_consumed_at`` (datetime) or None.
         mappings_config: the mapping's ``MAPPING_MAPPINGS`` dict (sources +
             per-sensor aggregate overrides).
-        now: override for "now" (testing); defaults to ``datetime.now()``.
+        now: override for "now" (testing); defaults to ``dt_util.now()``.
         last_entry: optional ``MAPPING_DATA_LAST_ENTRY`` used to backfill missing
             sensors for continuous-update mappings.
         time_weighted: aggregate AVERAGE fields over time instead of over stored
@@ -333,8 +341,8 @@ def aggregate_window(
         The aggregated weather dict (including ``MAPPING_DATA_MULTIPLIER``), or
         None when there is nothing to aggregate.
     """
-    if now is None:
-        now = datetime.datetime.now()
+    now = _parse(now) if now is not None else dt_util.now()
+    watermark = _parse(watermark)
     mappings_config = mappings_config or {}
 
     boundary, window = select_window(readings, watermark)
@@ -887,8 +895,8 @@ def build_hourly_rows(
     both the window and the carry-forward. The caller then keeps the daily form,
     so the failure mode is today's behaviour rather than a fabricated series.
     """
-    if now is None:
-        now = datetime.datetime.now()
+    now = _parse(now) if now is not None else dt_util.now()
+    watermark = _parse(watermark)
 
     effective, start, end = _effective_series(readings, watermark, now)
     if effective is None:
@@ -1068,8 +1076,8 @@ def build_substeps(
     then keeps the single-shot behaviour, so the failure mode is the status quo
     rather than a fabricated series.
     """
-    if now is None:
-        now = datetime.datetime.now()
+    now = _parse(now) if now is not None else dt_util.now()
+    watermark = _parse(watermark)
 
     effective, start, end = _effective_series(readings, watermark, now)
     if effective is None:

@@ -17,7 +17,7 @@ from custom_components.irrigation_plus.et_estimate import (
 )
 from custom_components.irrigation_plus.live_estimate import (
     LiveEstimateMixin,
-    _parse_local_naive,
+    _parse_stored,
 )
 
 
@@ -62,18 +62,27 @@ def _rows():
     return rows
 
 
-def test_parse_local_naive():
-    import homeassistant.util.dt as dt_util
+def test_parse_stored(monkeypatch):
+    """Stored stamps come back AWARE, in the zone they were written in.
 
-    # naive (the store's convention) is returned unchanged — interpreted local
-    assert _parse_local_naive("2026-06-07T12:00:00") == datetime.datetime(
-        2026, 6, 7, 12
+    This test used to pin the opposite -- that a naive stamp was returned
+    unchanged and an aware one was flattened to local. That WAS the defect:
+    a naive stamp is in the process's zone, not HA's, and flattening threw
+    away the only thing that said so.
+    """
+    from custom_components.irrigation_plus import helpers
+
+    monkeypatch.setattr(helpers, "_process_timezone", lambda: datetime.timezone.utc)
+
+    # naive: read in the PROCESS's zone, which the monkeypatch pins to UTC
+    assert _parse_stored("2026-06-07T12:00:00") == datetime.datetime(
+        2026, 6, 7, 12, tzinfo=datetime.timezone.utc
     )
-    # an aware value (shouldn't occur for these fields) is converted to local
+    # aware: passed through untouched, offset and all
     aware = datetime.datetime(2026, 6, 7, 12, tzinfo=datetime.timezone.utc)
-    assert _parse_local_naive(aware) == dt_util.as_local(aware).replace(tzinfo=None)
-    assert _parse_local_naive(None) is None
-    assert _parse_local_naive("not-a-date") is None
+    assert _parse_stored(aware) == aware
+    assert _parse_stored(None) is None
+    assert _parse_stored("not-a-date") is None
 
 
 def test_rows_since_filters_to_after_last_calc():

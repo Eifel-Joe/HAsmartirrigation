@@ -21,7 +21,7 @@ import homeassistant.util.dt as dt_util
 
 from . import const
 from .helpers import normalize_zone_selection
-from .live_estimate import _parse_local_naive
+from .live_estimate import _parse_stored
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -82,10 +82,10 @@ class AutoCalcMixin:
         """
         if not self._before_run_calc_active():
             return
-        # Naive local, because that is what the store holds: calculation.py
-        # stamps last_calculated with a bare datetime.now(). Comparing in that
-        # space is what _parse_local_naive exists for.
-        cutoff = dt_util.now().replace(tzinfo=None) - timedelta(
+        # Aware, like everything the store now holds. This used to strip the
+        # tzinfo to match calculation.py's bare datetime.now() stamps; both
+        # ends are aware since the weather buffer moved.
+        cutoff = dt_util.now() - timedelta(
             hours=const.AUTO_CALC_MAX_LEDGER_AGE_HOURS
         )
         # Only the zones the commit can actually advance. _async_calculate_all
@@ -124,7 +124,7 @@ class AutoCalcMixin:
         due, and erring the other way is what leaves the ledger to rot.
         """
         for zone in zones:
-            last = _parse_local_naive(zone.get(const.ZONE_LAST_CALCULATED))
+            last = _parse_stored(zone.get(const.ZONE_LAST_CALCULATED))
             if last is None or last < cutoff:
                 return True
         return False

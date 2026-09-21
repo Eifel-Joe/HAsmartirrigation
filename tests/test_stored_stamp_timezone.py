@@ -59,3 +59,27 @@ def test_datetime_instances_are_accepted_like_strings(monkeypatch):
 def test_none_passes_through_silently():
     """An unset watermark is normal, not an error (see helpers.as_datetime)."""
     assert helpers.as_stored_aware(None) is None
+
+
+def test_elapsed_window_is_the_real_one_across_a_process_ha_zone_split(monkeypatch):
+    """The seam, end to end: written under UTC, read with HA on Europe/Berlin.
+
+    _hour_multiplier prices a day's ET by the elapsed window, so a watermark
+    read in the wrong zone scales the whole result. At a +2 h offset a one-hour
+    window reads as three -- 3/24 instead of 1/24, i.e. 3x the ET.
+
+    RED on today's code: weather_aggregate._parse returns the stamp naive, and
+    subtracting it from an aware ``now`` raises TypeError.
+    """
+    monkeypatch.setattr(helpers, "_process_timezone", lambda: UTC)
+
+    # Written by a container running UTC at the real instant 12:00Z.
+    stored_on_disk = "2026-09-21T12:00:00"
+    # One real hour later.
+    now = datetime.datetime(2026, 9, 21, 13, 0, tzinfo=UTC)
+
+    watermark = weather_aggregate._parse(stored_on_disk)
+
+    assert weather_aggregate._hour_multiplier([], watermark, now) == pytest.approx(
+        1 / 24
+    )

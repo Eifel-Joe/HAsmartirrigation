@@ -24,7 +24,7 @@ from .et_estimate import (
     lumped_water_balance,
     replay_water_balance,
 )
-from .helpers import as_datetime as _as_datetime
+from .helpers import as_stored_aware as _as_datetime
 from .helpers import convert_between, loadModules
 from .localize import localize
 from .weather_aggregate import (
@@ -43,14 +43,13 @@ BUFFER_RETENTION = timedelta(days=7)
 
 
 def pending_bucket_events(zone):
-    """A zone's unconsumed mid-window bucket credits as ``[(naive_local, mm)]``.
+    """A zone's unconsumed mid-window bucket credits as ``[(aware, mm)]``.
 
     Stored aware (see ``IrrigationRunnerMixin.async_write_watered_bucket``) and
-    flattened to naive local here, because the window these have to be placed on
-    is built from naive ``datetime.now()`` stamps and mixing the two raises.
-    Entries that will not parse are dropped rather than defaulted to a time: a
-    credit placed at the wrong instant is worse than one placed at the window
-    start, which is what dropping it falls back to.
+    returned aware: the window these are placed on is aware too. Entries that
+    will not parse are dropped rather than defaulted to a time: a credit placed
+    at the wrong instant is worse than one placed at the window start, which is
+    what dropping it falls back to.
     """
     out = []
     for entry in zone.get(const.ZONE_PENDING_BUCKET_EVENTS) or []:
@@ -59,8 +58,6 @@ def pending_bucket_events(zone):
         stamp = _as_datetime(entry.get("ts"))
         if stamp is None:
             continue
-        if stamp.tzinfo is not None:
-            stamp = dt_util.as_local(stamp).replace(tzinfo=None)
         try:
             mm = float(entry.get("mm"))
         except (TypeError, ValueError):
@@ -262,7 +259,7 @@ class CalculationMixin:
         longer exists).
         """
         _LOGGER.info("Clearing all weatherdata")
-        now = datetime.now()
+        now = dt_util.now()
         # The deadband's reference values are not part of the store, so emptying
         # the buffers above does not touch them; left stale they suppress the
         # readings that would refill those buffers. See
@@ -374,7 +371,7 @@ class CalculationMixin:
         if mapping_id is None:
             return
         if now is None:
-            now = datetime.now()
+            now = dt_util.now()
         mapping = self.store.get_mapping(mapping_id)
         if not mapping:
             return
@@ -427,7 +424,7 @@ class CalculationMixin:
         _LOGGER.info("Calculating all automatic zones")
         zones = await self.store.async_get_zones()
 
-        now = datetime.now()
+        now = dt_util.now()
         forecastdata = None
         touched_mappings = set()
         for zone in zones:
@@ -489,7 +486,7 @@ class CalculationMixin:
         """
         _LOGGER.debug("async_calculate_zone: Calculating zone %s", zone_id)
         if now is None:
-            now = datetime.now()
+            now = dt_util.now()
         zone = self.store.get_zone(zone_id)
         if zone is None:
             return
@@ -881,7 +878,7 @@ class CalculationMixin:
         # window end land in different hours and silently drop the calculation
         # back to the single-shot path.
         if now is None:
-            now = datetime.now()
+            now = dt_util.now()
         # precip = 0
         ha_config_is_metric = self.hass.config.units is METRIC_SYSTEM
         bucket = zone.get(const.ZONE_BUCKET)

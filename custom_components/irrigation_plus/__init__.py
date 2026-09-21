@@ -3,12 +3,6 @@
 import asyncio
 import logging
 
-# NB: alias the stdlib datetime class. This package ships a ``datetime.py``
-# platform module (the rain-delay DateTimeEntity); importing that platform sets
-# the ``datetime`` attribute on this package — which IS this module's global
-# namespace — clobbering a global literally named ``datetime`` and breaking
-# ``dt_datetime.now()`` at runtime. The alias keeps our global name collision-free.
-from datetime import datetime as dt_datetime
 from datetime import timedelta
 from functools import partial
 
@@ -1426,7 +1420,7 @@ class SmartIrrigationCoordinator(
         if value is None:
             return value
         if now is None:
-            now = dt_datetime.now()
+            now = dt_util.now()
         offset = dt_util.now().utcoffset()
         clamped = clamp_solar_to_clear_sky(
             value,
@@ -1503,7 +1497,7 @@ class SmartIrrigationCoordinator(
 
             # add the weatherdata value to the mappings sensor values
             if mapping is not None and weatherdata is not None:
-                weatherdata[const.RETRIEVED_AT] = dt_datetime.now()
+                weatherdata[const.RETRIEVED_AT] = dt_util.now()
                 # Appends the row in place and schedules no write of its own; it
                 # reaches disk with the zone bookkeeping below (or, failing that,
                 # the buffer flush timer). See store.append_mapping_reading.
@@ -1513,7 +1507,7 @@ class SmartIrrigationCoordinator(
                     mapping_id,
                     weatherdata,
                 )
-                updated_at = dt_datetime.now()
+                updated_at = dt_util.now()
                 await self.store.async_update_mapping(
                     mapping_id, {const.MAPPING_DATA_LAST_UPDATED: updated_at}
                 )
@@ -1629,7 +1623,7 @@ class SmartIrrigationCoordinator(
 
             # add the weatherdata value to the mappings sensor values
             if mapping is not None and weatherdata is not None:
-                weatherdata[const.RETRIEVED_AT] = dt_datetime.now()
+                weatherdata[const.RETRIEVED_AT] = dt_util.now()
                 # See _async_update_zone: the append is O(1) and writes nothing;
                 # the per-zone writes below are what carry it to disk.
                 self.store.append_mapping_reading(mapping_id, weatherdata)
@@ -1641,7 +1635,7 @@ class SmartIrrigationCoordinator(
                 # store last updated and number of data points in the zone here.
                 row_count = self.store.get_mapping_row_count(mapping_id) or 0
                 changes_to_zone = {
-                    const.ZONE_LAST_UPDATED: dt_datetime.now(),
+                    const.ZONE_LAST_UPDATED: dt_util.now(),
                     const.ZONE_NUMBER_OF_DATA_POINTS: max(row_count - 1, 0),
                 }
                 zones_to_loop = await self._get_zones_that_use_this_mapping(mapping_id)
@@ -1796,7 +1790,7 @@ class SmartIrrigationCoordinator(
                 }
             await self.store.async_update_mapping(mapping_id, data)
             if source_changed:
-                now = dt_datetime.now()
+                now = dt_util.now()
                 for zone_id in await self._get_zones_that_use_this_mapping(mapping_id):
                     await self.store.async_update_zone(
                         zone_id,
@@ -2020,7 +2014,7 @@ class SmartIrrigationCoordinator(
                 # buffer's own. Aliased, because a global named ``datetime``
                 # here is shadowed by the platform submodule of that name
                 # (see tests/test_datetime_platform_shadowing.py).
-                const.ZONE_LAST_CONSUMED: dt_datetime.now(),
+                const.ZONE_LAST_CONSUMED: dt_util.now(),
                 const.ZONE_PENDING_BUCKET_EVENTS: [],
             },
         )

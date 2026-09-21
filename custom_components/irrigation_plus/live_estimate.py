@@ -78,7 +78,7 @@ from .et_estimate import (
     replay_water_balance,
     rigorous_et_since,
 )
-from .helpers import convert_between
+from .helpers import as_stored_aware, convert_between
 from .weather_aggregate import aggregate_window, build_substeps, weather_day
 
 _LOGGER = logging.getLogger(__name__)
@@ -131,29 +131,19 @@ class _HourlyCarry(NamedTuple):
     per_hour: dict
 
 
-def _parse_local_naive(value):
-    """Parse a stored last_calculated/last_updated to a NAIVE LOCAL datetime.
+def _parse_stored(value):
+    """Parse a stored last_calculated/last_updated to an AWARE datetime.
 
-    The store writes these as naive *local* datetimes (``datetime.now()`` in
-    ``calculation.py``); an aware value (shouldn't occur for these fields) is
-    converted to local. Mirrors ``sensor._to_aware_datetime``'s convention
-    (naive == local). Reading them as UTC shifts the intra-day window by the
-    local UTC offset — on the proxy path that pushes the anchor onto the next
-    calendar day, so a whole day's ET is spuriously subtracted right after the
-    daily calc (until the next weather update "heals" it).
+    Was ``_parse_stored``: it flattened everything to naive local so the
+    value could be compared against a window built from bare ``datetime.now()``
+    stamps. Both ends are aware now, so the flattening is not just unnecessary
+    -- it was the bug. A naive stamp is in the PROCESS's zone, and reading it
+    as HA-local shifted the intra-day window by the whole UTC offset.
     """
-    if value is None:
+    try:
+        return as_stored_aware(value)
+    except (ValueError, TypeError):
         return None
-    if isinstance(value, str):
-        try:
-            value = datetime.datetime.fromisoformat(value)
-        except ValueError:
-            return None
-    if isinstance(value, datetime.datetime):
-        if value.tzinfo is not None:
-            return dt_util.as_local(value).replace(tzinfo=None)
-        return value
-    return None
 
 
 def _window_anchor(zone):
@@ -172,10 +162,10 @@ def _window_anchor(zone):
 
     None for a never-calculated zone: there is no window to measure.
     """
-    last_calc = _parse_local_naive(zone.get(const.ZONE_LAST_CALCULATED))
+    last_calc = _parse_stored(zone.get(const.ZONE_LAST_CALCULATED))
     if last_calc is None:
         return None
-    last_consumed = _parse_local_naive(zone.get(const.ZONE_LAST_CONSUMED))
+    last_consumed = _parse_stored(zone.get(const.ZONE_LAST_CONSUMED))
     return max(last_calc, last_consumed) if last_consumed else last_calc
 
 
@@ -201,7 +191,7 @@ class LiveEstimateMixin:
             # boundary and carry-forward boundary have to agree, and re-reading
             # the clock per zone lets one zone's partial hour close while the
             # next zone's has not.
-            "now": now.replace(tzinfo=None),
+            "now": now,
             "tz_offset_h": offset.total_seconds() / 3600.0 if offset else 0.0,
             # Carried alongside the offset it was measured from, so the hourly
             # rows can resolve a per-row offset across a DST transition without
@@ -263,7 +253,7 @@ class LiveEstimateMixin:
             if when is None or rate is None:
                 continue
             if when.tzinfo is not None:
-                when = dt_util.as_local(when).replace(tzinfo=None)
+                when = dt_util.as_local(when)
             out.append((when, float(rate)))
         return out or None
 
@@ -298,7 +288,7 @@ class LiveEstimateMixin:
             if when is None or temp is None:
                 continue
             if when.tzinfo is not None:
-                when = dt_util.as_local(when).replace(tzinfo=None)
+                when = dt_util.as_local(when)
             out.append((when, float(temp)))
         return out or None
 
@@ -877,7 +867,7 @@ class LiveEstimateMixin:
 
         Both ``rows`` (their ``time``) and ``last_calc_local`` are local clock
         time, so they compare directly — no tz offset is applied (the anchor is
-        already local; see :func:`_parse_local_naive`).
+        already local; see :func:`_parse_stored`).
         """
         if not last_calc_local:
             return rows
@@ -977,7 +967,11 @@ class LiveEstimateMixin:
                 result["unavailable_reason"] = REASON_NEVER_CALCULATED
                 return result
 
-            now_local = inputs.get("now") or dt_util.now().replace(tzinfo=None)
+            # Normalised, not merely defaulted: the rows this is compared
+            # against are aware, and _intraday_for_zone swallows every
+            # exception -- so a naive "now" would not crash here, it would
+            # silently turn the whole estimate unavailable.
+            now_local = as_stored_aware(inputs.get("now")) or dt_util.now()
             tz_offset_h = inputs.get("tz_offset_h")
             site_tz = inputs.get("site_tz")
             if tz_offset_h is None:
@@ -1111,7 +1105,7 @@ class LiveEstimateMixin:
             # and precip deltas cover — so any surplus above field capacity is
             # drained over exactly that window (mirrors the daily calc's
             # capacity cap + drainage, integrated analytically). Compared in
-            # local time since the anchor is naive local (see _parse_local_naive).
+            # local time since the anchor is naive local (see _parse_stored).
             # Used by the LUMPED balance only; the replay takes each step's own
             # dt_hours, which is the whole point of it.
             elapsed_hours = max(0.0, (now_local - anchor).total_seconds() / 3600.0)
@@ -1355,7 +1349,7 @@ class LiveEstimateMixin:
         zones = await self.store.async_get_zones()
         inputs = await self._fetch_intraday_inputs()
         inputs["modules"] = await self._resolve_zone_modules(zones)
-        until_local = dt_util.as_local(until).replace(tzinfo=None)
+        until_local = dt_util.as_local(until)
         out = {}
         for zone in zones:
             key = str(zone.get(const.ZONE_ID))
@@ -1397,7 +1391,11 @@ class LiveEstimateMixin:
             "carried_to_decision": False,
         }
         try:
-            now_local = inputs.get("now") or dt_util.now().replace(tzinfo=None)
+            # Normalised, not merely defaulted: the rows this is compared
+            # against are aware, and _intraday_for_zone swallows every
+            # exception -- so a naive "now" would not crash here, it would
+            # silently turn the whole estimate unavailable.
+            now_local = as_stored_aware(inputs.get("now")) or dt_util.now()
             if until_local <= now_local:
                 # At or past the decision point the live bucket IS the
                 # decision-point bucket; there is no remainder to charge.
