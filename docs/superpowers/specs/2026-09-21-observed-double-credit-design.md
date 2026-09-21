@@ -64,9 +64,12 @@ hours old").
 
 ### 1.1 Wie scharf das ist
 
-- **Zone ohne Flusssensor** (HA-Prod: Beet): voll scharf. `_sc_finish_run` schreibt den Eimer nur, wenn
-  `measured is not None` (`self_closing.py:409-425`) — es gibt also nichts, was die Observed-Gutschrift
-  überschriebe.
+- **Service-/Self-Closing-Zone ohne Flusssensor** (HA-Prod: Beet): voll scharf, auch im Eimer.
+  `_sc_finish_run` schreibt den Eimer nur, wenn `measured is not None` (`self_closing.py:409-425`) — es
+  landet also nichts nach der Observed-Gutschrift, das sie überschriebe. **Wichtig:** das gilt nicht für
+  eine KLASSISCHE Zone ohne Sensor; dort schreibt `_commit_run_progress` den Eimer absolut und überschreibt
+  sie doch (am 21.09. gemessen, Abschnitt 9.1). Der Verbrauchszähler und der Verlauf tragen die
+  Doppelgutschrift in beiden Bauformen.
 - **Zone mit Flusssensor**: heute **manchmal zufällig maskiert**. `_sc_finish_run` schreibt den Eimer absolut
   aus `RUN_PRE_BUCKET` (`self_closing.py:414-421`), und bei `T2 == T3` sorgt die 5-s-Entprellung des Watchers
   dafür, dass SI zuletzt schreibt und die Observed-Gutschrift still überschreibt. Sobald der SI-Lauf zuerst
@@ -301,3 +304,72 @@ auf Prod scharf.
   `uvx ruff check custom_components/irrigation_plus/`.
 - Design-Historie nach Regel P1 auf `archive/design-history`, **vor** dem PR und außerhalb des PR-Diffs.
   `docs/superpowers/` ist nicht gitignored — gezielt stagen, nie `git add .`.
+
+---
+
+## 9. Feldmessung HA-Test, 2026-09-21 — der Fehler ist auf der laufenden Anlage reproduziert
+
+Gefahren auf **HA-Test** (HA 2026.9.3) gegen den dort installierten, **ungefixten** Stand vom 2026-09-20
+(`_note_si_valve` endet nach dem Fenster; `_observed_on_since` und `_observed_cancel_meter` kommen in der
+installierten `irrigation.py` nicht vor). Zone 1 „Beet": klassisch, `linked_entity:
+input_boolean.test_ventil3`, 4 L/min auf 5 m², **kein** Flusssensor, `maximum_duration` 3600.
+
+**Warum überhaupt fahrbar.** Ein *geplanter* Lauf war dort doppelt blockiert — Eimer 0 (kein Defizit) und
+die letzten vier Zeitplanläufe stehen als `"result": "skipped", "detail": "precipitation"` im Verlauf. Der
+Dienst `irrigation_plus.run_zone` umgeht beides: er überschreibt `ZONE_DURATION` auf einer Kopie der Zone
+mit der übergebenen Minutenzahl (`irrigation.py:3454-3461`), und sein Docstring nennt das ausdrücklich
+(„Bypasses skip conditions, the deficit gate and the rain-delay hold"). Der Panel-Knopf „Jetzt bewässern"
+(`irrigate_now`) taugt dafür **nicht**: er filtert vorher auf `ZONE_DURATION > 0` (`irrigation.py:3362-3369`),
+und genau dieses Feld setzt die wetterabhängige Rechnung.
+
+**Ablauf.**
+
+```
+12:33:52,62   input_boolean.test_ventil3 von Hand AN   -> Observer armiert
+12:36:0x      irrigation_plus.run_zone, duration 1     -> Dispatch auf das OFFENE Ventil
+12:37:26,76   Ventil AUS (vom Läufer geschaltet)       -> Schließen-Flanke
+              Fenster = 214,14 s
+```
+
+**Befund, vier unabhängige Belege.**
+
+1. **Verbrauchszähler** `sensor.irrigation_plus_beet_water_used`: 33,0 → **51,27598833 L**, also
+   **+18,27598833 L**. Echtes Wasser: 214,14 s × 4 L/min = **14,27598833 L**. Differenz **exakt 4,000000 L**
+   — die 60 s des SI-Laufs, ein zweites Mal gebucht. Die Rechnung geht bis auf acht Nachkommastellen auf.
+2. **Verlauf: zwei Einträge für ein Ventilfenster.**
+   ```
+   12:37:26.788  trigger: manual    planned_s: 60    actual_s: 60   volume_l: 4      result: completed
+   12:37:26.762  trigger: observed  planned_s: null  actual_s: 214  volume_l: 14.28  result: observed
+   ```
+   Der `observed`-Eintrag spannt 214 s, **einschließlich** der 60 s des Läufers.
+3. **Logzeile des Observers** (INFO):
+   `Observed watering: zone 1 ran 214s externally -> +2.86 mm, bucket 0.800 -> 3.655`.
+   Er liest 0,800 — die Gutschrift des Läufers steht bereits im Eimer — und schreibt 3,655 obendrauf.
+4. **Eimer-Ledger** `pending_bucket_events`: `+0,8000` / `+2,8552` / `−2,8552` in 81 ms.
+
+### 9.1 Die Maskierung aus Abschnitt 1.1 ist eingetreten — und hätte die Messung ruiniert
+
+Der Eimer stand am Ende auf **0,8**, also genau auf der Gutschrift des Läufers. Grund ist
+`async_write_watered_bucket` (`irrigation.py:2822-2857`): jeder Gutschriftpfad schreibt den Eimer
+**absolut** und bucht die Differenz zum gespeicherten Stand aufs Ledger. Der Läufer schrieb 8 ms nach dem
+Observer seinen absoluten `pre_bucket + delivered` = 0,8 zurück und löschte dessen Gutschrift damit wieder.
+
+**Wäre nur der Eimer gemessen worden, hätte die Messung „keine Doppelgutschrift" gemeldet.** Der
+Verbrauchszähler rettet sie, weil er additiv und ungeklemmt ist (`irrigation.py:3011-3014`, kein `min()`,
+kein Ceiling — anders als der Eimer, der gegen `maximum_bucket` läuft).
+
+Die Maskierung ist **Zufall der Schreibreihenfolge, kein Schutz**, und sie gilt nicht überall: auf einer
+Service-/Self-Closing-Zone **ohne** Flusssensor — die Bauform des Beets auf HA-Prod — schreibt
+`_sc_finish_run` den Eimer nur `if measured is not None` (`self_closing.py:409`). Dort gibt es keinen
+absoluten Rückschreiber, der die Observed-Gutschrift überschreibt; sie bliebe im Eimer stehen. Das ist die
+in Abschnitt 1.1 beschriebene Richtung, jetzt mit der Gegenprobe daneben.
+
+### 9.2 Offen: die Nachher-Messung
+
+Der Fix liegt nur auf dem PR-Branch. HA-Test lässt sich per MCP **nicht** patchen — `custom_components/**`
+steht dort auf der Lese-, nicht auf der Schreibliste. Die Nachher-Hälfte braucht ein Pre-Release oder eine
+Dateikopie plus Neustart, beides freigabepflichtig. Erwartung dann: `water_used_total` **+14,28 L** statt
++18,28 L und **ein** Verlaufseintrag statt zwei.
+
+Zustand hinterlassen: Ventil aus, Master-Pumpe aus, Log-Pegel zurück auf `warning`,
+`observed_watering_enabled` bleibt **an** (für die Nachher-Messung).
