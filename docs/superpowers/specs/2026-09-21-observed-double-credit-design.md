@@ -364,12 +364,36 @@ Service-/Self-Closing-Zone **ohne** Flusssensor — die Bauform des Beets auf HA
 absoluten Rückschreiber, der die Observed-Gutschrift überschreibt; sie bliebe im Eimer stehen. Das ist die
 in Abschnitt 1.1 beschriebene Richtung, jetzt mit der Gegenprobe daneben.
 
-### 9.2 Offen: die Nachher-Messung
+### 9.2 Nachher-Messung, 2026-09-21 — der Fix wirkt auf der Anlage
 
-Der Fix liegt nur auf dem PR-Branch. HA-Test lässt sich per MCP **nicht** patchen — `custom_components/**`
-steht dort auf der Lese-, nicht auf der Schreibliste. Die Nachher-Hälfte braucht ein Pre-Release oder eine
-Dateikopie plus Neustart, beides freigabepflichtig. Erwartung dann: `water_used_total` **+14,28 L** statt
-+18,28 L und **ein** Verlaufseintrag statt zwei.
+Ausgeliefert als Pre-Release **v2026.09.21b1** (`production` = `7ba872af`, 0 behind upstream, Branding +
+die vier Fix-Commits), per HACS auf HA-Test gezogen, Neustart. Verifiziert vor der Messung: installierte
+`irrigation.py` enthält `_observed_on_since` und `_observed_cancel_meter(zid)`, Manifest `v2026.09.21b1`,
+Config-Entry `loaded`, `observed_watering_enabled` weiterhin an.
+
+Identischer Ablauf. Ventil offen **15:29:52,07 --> 15:33:21,10 = 209,02 s**.
+
+| | vorher (v2026.09.18b2) | nachher (v2026.09.21b1) |
+|---|---|---|
+| Fenster | 214,14 s | 209,02 s |
+| echtes Wasser | 14,276 L | 13,935 L |
+| **gebucht** | **18,276 L** | **4,000 L** |
+| Überschuss | **+4,000 L** | **±0,000 L** |
+| Verlaufseinträge | zwei (`manual` + `observed`) | **einer** (`manual`) |
+| Eimer-Ledger | `+0,8` / `+2,8552` / `−2,8552` | nur `+0,8` |
+
+`water_used_total` 51,27598833 --> **55,27598833 L** = exakt **+4,000000 L**, also der SI-Lauf und sonst
+nichts. Eimer 0,8 --> 1,6 = die 0,8 mm des Laufs.
+
+**Der tragende Beleg ist die fehlende Zeile.** Im DEBUG-Log steht um 15:29:52 weiterhin
+`Observed watering: zone 1 valve opened (external)` — der Beobachter hat sich **scharfgestellt**, das
+Feature lief und sah das externe Öffnen. Beim Schließen um 15:33:21 folgt aber **keine** Gutschriftzeile;
+die einzige INFO-Zeile im Fenster ist die alte von 12:37 aus der Vorher-Messung. Das unterscheidet „der
+Fix wirkt" von „das Feature war zufällig aus": ein abgeschaltetes Feature hätte auch das Öffnen nicht
+protokolliert.
+
+Die 9,93 L extern geflossenes Wasser vor der Übernahme sind nicht gutgeschrieben — die in Abschnitt 5
+benannte, bewusste Unter-Gutschrift, hier erstmals beziffert.
 
 Zustand hinterlassen: Ventil aus, Master-Pumpe aus, Log-Pegel zurück auf `warning`,
-`observed_watering_enabled` bleibt **an** (für die Nachher-Messung).
+`observed_watering_enabled` bleibt an, HA-Test läuft auf v2026.09.21b1.
