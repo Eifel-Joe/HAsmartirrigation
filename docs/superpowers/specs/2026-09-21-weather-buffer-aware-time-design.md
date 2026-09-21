@@ -58,6 +58,59 @@ dieser Datei ist deshalb korrekt — auch auf einem falsch gestellten Container.
 umgestellt (D2), weil JustChr die Konvention entschieden hat und weil ein aware Stempel seinen
 Offset selbst trägt, womit die Fehlerklasse strukturell verschwindet statt nur verschoben zu werden.
 
+## Revision 2 (2026-09-21, nach dem Umsetzungsversuch)
+
+Die Umsetzung hat zwei Annahmen dieses Specs widerlegt. Beide stehen hier, weil der Spec sonst
+eine Historie behauptet, die es nicht gab.
+
+### R2-1 — Es gibt ZWEI naive Herkünfte, nicht eine
+
+Der Spec unten kennt nur gespeicherte Stempel. Tatsächlich sind es zwei Klassen mit
+**entgegengesetzter** richtiger Deutung:
+
+| Herkunft | Beispiele | naiv bedeutet |
+|---|---|---|
+| Store-Stempel | `RETRIEVED_AT`, `last_consumed_at`, `last_calculated`, `last_updated` | **prozess-lokal** — `datetime.now()` hat sie geschrieben |
+| Wetter-Client / Forecast | `r["time"]` in `_rows_since` (`live_estimate.py:880`), `forecast_remainder` über `_projected_extremes` (`:599`) | **HA-lokal** — Site-Ortszeit aus einer API, nie von `datetime.now()` geschrieben |
+
+Ein flaches „naiv = prozess-lokal" ist für die zweite Klasse falsch, ein flaches
+„naiv = HA-lokal" für die erste. D1 unten ist damit **unvollständig**: `as_stored_aware` ist für
+Store-Stempel richtig und für Client-Zeilen falsch. Die Client-Pfade brauchen ihre eigene
+Coercion gegen `dt_util.DEFAULT_TIME_ZONE`.
+
+### R2-2 — Der pauschale `except` macht die Naht unsichtbar
+
+`_intraday_for_zone` endet in `except Exception` mit DEBUG-Log und `REASON_FAILED`
+(`live_estimate.py:1213-1218`). Eine naiv/aware-Mischung ist dort **kein Absturz**, sondern die
+stille Abschaltung der Live-Schätzung — bei weiter plausibler „Letzte Berechnung"-Anzeige.
+Gemessen: **222 verschluckte `TypeError` in einer einzigen Testdatei**, gemeldet als gewöhnliche
+Assertion-Fehler. Ohne `exc_info=True` auf dieser Zeile ist der Fehler praktisch nicht
+diagnostizierbar.
+
+### R2-3 — Messwerte
+
+Lokale Env ist Windows mit vorbestehenden Sammelfehlern; nur die **Differenz** trägt.
+
+| Stand | failed | passed |
+|---|---|---|
+| `upstream/master` Baseline | 7 | 3191 |
+| nach dem Flip, Prozess auf UTC+2 | 200 | 3004 |
+| nach dem Flip, Prozess auf UTC gezwungen | 105 | 3099 |
+
+Rund die Hälfte der zunächst gemessenen 193 war die **Zeitzone des Entwicklungsrechners**, nicht
+echte Arbeit. Es bleiben ~98, davon 72 in drei `live_estimate`-Dateien — Klasse zwei aus R2-1.
+
+### R2-4 — Vorgeschlagener Schnitt, JustChr gefragt
+
+Statt eines Gesamt-PRs: zuerst ein **verhaltensneutraler** PR, der die Eingänge total macht
+(`select_window`, `aggregate_window`, `build_hourly_rows`, `build_substeps`, `now_local` der
+Live-Schätzung — jede Herkunft mit ihrer eigenen Deutung). Danach ist der Flip klein und sein
+Testumbau ehrlich statt beiläufig. Gefragt auf
+[`JustChr#160`](https://github.com/JustChr/HAsmartirrigation/issues/160#issuecomment-5766722593),
+Antwort steht aus.
+
+---
+
 ## Entscheidung
 
 ### D1 — Ein gemeinsamer Coerce-Helfer, nicht vier Annahmen
