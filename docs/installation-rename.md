@@ -245,7 +245,7 @@ If you install the upstream `smart_irrigation` integration as well:
 - **The panel is empty after importing.** Do not remove the old integration.
   Check the log for a line naming
   `.storage/smart_irrigation.storage.pre-irrigation_plus.bak` and
-  [open an issue](https://github.com/JustChr/HAsmartirrigation/issues) with your
+  [open an issue](https://github.com/Eifel-Joe/HAsmartirrigation/issues) with your
   diagnostics file — the backup still holds your configuration.
 - **Two of every sensor.** The old `custom_components/smart_irrigation/` folder
   is still there. Delete it and restart — and treat it as urgent rather than
