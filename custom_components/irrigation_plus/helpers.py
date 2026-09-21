@@ -997,6 +997,45 @@ def as_datetime(value) -> datetime | None:
     return parse_datetime(value)
 
 
+def _process_timezone():
+    """The zone a bare ``datetime.now()`` writes in — the PROCESS's, not HA's.
+
+    Its own function for one reason: the suite has to be able to substitute it.
+    ``time.tzset()`` does not exist on Windows, so a test cannot set the real
+    process zone, and a test that only runs on CI is one we never watch go from
+    red to green ourselves.
+    """
+    return datetime.now().astimezone().tzinfo
+
+
+def as_stored_aware(value) -> datetime | None:
+    """Coerce a stored timestamp to an AWARE datetime.
+
+    A naive stored stamp was written by a bare ``datetime.now()`` and is
+    therefore in the PROCESS's zone. That is NOT HA's configured zone: on
+    Docker/Core without ``TZ=`` the container runs UTC while the user
+    configured, say, Europe/Berlin, and the two differ by the whole offset.
+
+    Reading such a stamp as HA-local is the defect this replaces. It was in
+    ``sensor._to_aware_datetime`` (``replace(tzinfo=DEFAULT_TIME_ZONE)``), in
+    ``live_estimate._parse_local_naive`` and — most expensively — in the
+    solar-time correction, whose own comment says the stamps are "naive LOCAL
+    times" while handing them HA's offset. Rso is a denominator there, so the
+    error reaches +23.5% / -16% on the radiation the clearness-ratio hold
+    refills.
+
+    An aware value is returned untouched: an offset on disk is self-describing
+    and nothing here may second-guess it. That is also what makes the store
+    migration idempotent.
+    """
+    parsed = as_datetime(value)
+    if parsed is None:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=_process_timezone())
+    return parsed
+
+
 class CannotConnect(exceptions.HomeAssistantError):
     """Error to indicate we cannot connect."""
 
