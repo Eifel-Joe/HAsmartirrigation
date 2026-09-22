@@ -399,10 +399,62 @@ class RunChainMixin:
                 # is still finishing.
                 self._drop_live_run_marker(zid)
 
+    def _chain_forfeit_queue(self, mode, why: str) -> None:
+        """Report the zones a cycle is abandoning and hand back what they hold.
+
+        A service chain never reaches ``async_abort_opensprinkler_runs`` — that
+        path filters on the station mode and has no service twin — so this is the
+        only place a shutdown mid-cycle can account for its queue. Silent on an
+        idle chain, because unload runs for every install whether a cycle was up
+        or not.
+
+        A rotation's currently-dispatched zone can appear here too, alongside the
+        zones that never started: ``rotation.remaining`` is deducted at dispatch,
+        not on the way back (see ``_chain_rotation_advance``), so a zone whose
+        slot is still running already shows only what is left of it AFTER that
+        slot. That is correct, not a bug — the slot in flight is not this
+        method's business, either the hardware finishes it or the caller stops
+        it, but the slots still to come are exactly as abandoned as a zone that
+        never got one.
+        """
+        state = self._chain_state(mode)
+        waiting = [int(z) for z in state.zones]
+        if state.rotation is not None:
+            # Both can be populated at once, despite the Chain docstring's
+            # "only one of the two is ever set": zone_sequencing lives in the
+            # store, so flipping it mid-cycle writes through without a reload
+            # (async_update_config only dispatches _config_updated), and the
+            # new geometry's dispatch does not clear the old one's state.
+            # Without the guard below a zone still held by both would be
+            # named twice.
+            waiting += [
+                int(zid)
+                for zid, left in state.rotation.remaining.items()
+                if left > 0 and int(zid) not in waiting
+            ]
+        if not waiting:
+            return
+        policy = chain_policy_for(mode)
+        _LOGGER.info(
+            "%s: abandoning the rest of the cycle for %s %s — %s",
+            policy.label if policy else mode,
+            "zone" if len(waiting) == 1 else "zones",
+            ", ".join(str(zid) for zid in waiting),
+            why,
+        )
+        for zid in waiting:
+            self._drop_live_run_marker(zid)
+
     async def _chain_release(self, mode) -> None:
-        """Drop this chain and its master hold."""
+        """Drop this chain and its master hold.
+
+        Also names whatever the cycle still had queued or mid-rotation and
+        hands back any live-estimate marker those zones hold — see
+        :meth:`_chain_forfeit_queue`.
+        """
         state = self._chain_state(mode)
         self._chain_cancel_absorption(mode)
+        self._chain_forfeit_queue(mode, "the cycle was stopped")
         state.zones, state.trigger, state.rotation = [], None, None
         state.planned = {}
         token, state.token = state.token, None
@@ -414,9 +466,13 @@ class RunChainMixin:
 
         The chains live in memory only, so unload ends them. Each master hold
         goes with the coordinator; there is nothing left that could release it.
+        Before dropping a chain it also names the queue it is abandoning and
+        hands back any live-estimate marker those zones hold — see
+        :meth:`_chain_forfeit_queue`.
         """
         for mode, state in list(self._chains().items()):
             self._chain_cancel_absorption(mode)
+            self._chain_forfeit_queue(mode, "the integration is unloading")
             state.zones, state.trigger, state.token = [], None, None
             state.rotation = None
             state.planned = {}

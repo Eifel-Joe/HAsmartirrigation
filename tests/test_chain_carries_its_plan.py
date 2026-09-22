@@ -59,6 +59,13 @@ def _ceiling_seen(c):
     return seen
 
 
+def _abandon_message(caplog):
+    """The one line _chain_forfeit_queue writes, or raise if it wrote none."""
+    return next(
+        r.getMessage() for r in caplog.records if "abandoning" in r.getMessage()
+    )
+
+
 class TestTheQueueRemembersWhatTheCycleDecided:
     async def test_a_queued_zone_waters_the_live_duration_not_the_stored_one(
         self, hass
@@ -427,3 +434,75 @@ class TestTheRotationNarratesItsWriteOffs:
         assert "300s slot" in message, message
         assert "remaining 600s" in message, message
         assert 2 not in c._live_run_zones
+
+
+class TestAnAbandonedQueueIsReported:
+    async def test_teardown_names_the_zones_it_abandons(self, hass, caplog):
+        c = _coord(hass, SEQUENTIAL)
+        zones = _register(c, _zone(1), _zone(2), _zone(3))
+        c._live_run_zones = {1, 2, 3}
+        await _dispatch(c, zones)
+        caplog.clear()
+        c._chain_teardown()
+        message = _abandon_message(caplog)
+        # Zone 1 was dispatched, not queued -- the rest of ITS cycle is
+        # nothing, and it must not be named. Ids render as a bare comma list
+        # ("zones 2, 3"), so neither "1" nor "zone 1" (singular) is a safe
+        # check: both would still pass against a buggy "zones 1, 2, 3", since
+        # that reads "zones 1..." not "zone 1...". Anchoring the exact
+        # rendered list, both ends at once, is what actually proves zone 1's
+        # absence as well as the right ids being present.
+        assert "cycle for zones 2, 3 —" in message, caplog.text
+        # and the allowances go back with them
+        assert c._live_run_zones == set()
+
+    async def test_teardown_of_an_idle_chain_says_nothing(self, hass, caplog):
+        """Unload runs for every install, cycle or no cycle."""
+        c = _coord(hass, SEQUENTIAL)
+        _register(c, _zone(1))
+        c._chain_state(const.WATERING_MODE_SERVICE)  # exists but never dispatched
+        caplog.clear()
+        c._chain_teardown()
+        assert caplog.records == [], caplog.text
+
+    async def test_a_release_that_abandons_a_queue_reports_it(self, hass, caplog):
+        """The engine is shared with OpenSprinkler's own abort, which is pinned
+        to the station mode -- the very reason the service chain has no abort
+        path of its own to reach this from (see the commit this test belongs
+        to). This pins the same behaviour on the service fixture instead, the
+        only route left that ever exercises it.
+        """
+        c = _coord(hass, SEQUENTIAL)
+        zones = _register(c, _zone(1), _zone(2), _zone(3))
+        await _dispatch(c, zones)
+        caplog.clear()
+        await c._chain_release(const.WATERING_MODE_SERVICE)
+        message = _abandon_message(caplog)
+        assert "cycle for zones 2, 3 —" in message, caplog.text
+
+    async def test_a_release_at_the_end_of_a_cycle_says_nothing(self, hass, caplog):
+        """The ordinary path: the loop drained the queue before releasing."""
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1), _zone(2))
+        await _dispatch(c, [z1, z2])
+        await _finish(c, 1)
+        caplog.clear()
+        await _finish(c, 2)  # drains the queue, then releases
+        assert not any(
+            "abandoning" in r.getMessage() for r in caplog.records
+        ), caplog.text
+
+    async def test_a_rotating_cycle_names_the_zones_it_gives_up(self, hass, caplog):
+        c = _coord(hass, ROTATING, slot=5, absorb=0)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        await _dispatch(c, [z1, z2])
+        caplog.clear()
+        c._chain_teardown()
+        message = _abandon_message(caplog)
+        # Zone 1 is mid-slot, not queued -- and belongs here anyway: its
+        # remaining rotation credit is exactly as abandoned as zone 2's, which
+        # never got a slot at all. The seconds are not repeated here; the
+        # per-slot write-off already carries them.
+        assert "cycle for zones 1, 2 —" in message, caplog.text
+        assert c._live_run_zones == set()
