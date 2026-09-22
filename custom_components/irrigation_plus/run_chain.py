@@ -76,14 +76,20 @@ class ZonePlan:
     that into a COPY (``irrigation.py:2316``) that nothing stores, so without this
     the copy dies at the queue and the zone waters its stale daily duration.
 
-    ``live`` is captured here and not yet read. It has to be captured at dispatch
-    because that is the only moment it exists: ``_apply_live_durations`` rebinds
-    ``_live_run_zones`` wholesale on every scheduled call (``irrigation.py:2296``)
-    and ``_run_ceiling`` consumes entries out of it one at a time
-    (``irrigation.py:2745``), so a later task cannot reconstruct it. Consuming it
-    is Task 3 of this plan, and note the shape mismatch that task has to bridge:
-    ``_run_ceiling`` tests membership of the instance set by zone id, it does not
-    read a field off the zone dict.
+    ``live`` is captured here because that is the only moment it exists:
+    ``_apply_live_durations`` rebinds ``_live_run_zones`` wholesale on every
+    scheduled call, on both its early-return and its main path
+    (``irrigation.py:2292``, ``:2296``), so a zone still waiting its turn when
+    the next call lands would otherwise lose the membership its own cycle
+    granted it. ``_chain_advance`` calls ``_mark_live_run`` to put the id back
+    into ``_live_run_zones`` immediately before the dispatch that consumes it —
+    never earlier, or a check that still drops the zone (``zone_run_in_flight``)
+    would leak the marker into that zone's next, unrelated run — so
+    ``_run_ceiling`` finds and consumes it there (``irrigation.py:2745``)
+    exactly as it would have on the first pass. The detour through a set is not
+    incidental: ``_run_ceiling`` tests membership of that instance set by zone
+    id, it does not read a field off the zone dict, so a flag on the plan has to
+    be translated back rather than handed straight to the run.
     """
 
     seconds: float
@@ -299,6 +305,13 @@ class RunChainMixin:
                 continue
             if self.zone_run_in_flight(zone_id):
                 continue
+            if plan is not None and plan.live:
+                # _apply_live_durations rebinds the whole set on every scheduled
+                # call (irrigation.py:2292, :2296), so a zone queued across one
+                # loses the allowance its own cycle granted it. Put it back for
+                # the dispatch; _run_ceiling consumes it there as it would have
+                # on the first pass.
+                self._mark_live_run(zone_id)
             if await self.async_run_self_closing(zone, trigger=state.trigger):
                 return
             # Refused: fall through to the next rather than stalling the chain.

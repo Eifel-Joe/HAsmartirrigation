@@ -27,6 +27,25 @@ def _live(zone, duration):
     return {**zone, const.ZONE_DURATION: duration}
 
 
+def _ceiling_seen(c):
+    """Record the ceiling _run_ceiling grants each dispatch, in order.
+
+    _run_ceiling consumes the live marker as it answers, so asking it afterwards
+    answers the wrong question; the only honest place to observe it is at
+    dispatch time.
+    """
+    seen = []
+    real = c._run_ceiling
+
+    def _spy(zone, *args, **kwargs):
+        value = real(zone, *args, **kwargs)
+        seen.append((int(zone[const.ZONE_ID]), value))
+        return value
+
+    c._run_ceiling = _spy
+    return seen
+
+
 class TestTheQueueRemembersWhatTheCycleDecided:
     async def test_a_queued_zone_waters_the_live_duration_not_the_stored_one(
         self, hass
@@ -50,9 +69,7 @@ class TestTheQueueRemembersWhatTheCycleDecided:
         await _finish(c, 1)
         assert c._dispatched == [(1, 600.0), (2, 300.0)]
 
-    async def test_the_plan_records_whether_the_cycle_sized_the_zone_live(
-        self, hass
-    ):
+    async def test_the_plan_records_whether_the_cycle_sized_the_zone_live(self, hass):
         c = _coord(hass, SEQUENTIAL)
         z1, z2, z3 = _register(
             c, _zone(1, duration=600), _zone(2, duration=600), _zone(3, duration=600)
@@ -136,3 +153,31 @@ class TestThePlanIsDroppedWithTheQueue:
             trigger="schedule",
         )
         assert c._chain_state(const.WATERING_MODE_SERVICE).planned == {}
+
+
+class TestTheLiveMarkerSurvivesTheQueue:
+    async def test_a_queued_live_zone_keeps_its_ceiling_allowance(self, hass):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        ceilings = _ceiling_seen(c)
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        c._live_run_zones = set()  # a second scheduled pass rebinds the set
+        await _finish(c, 1)
+        # 50.0 is _zone()'s ZONE_MAXIMUM_BUCKET: the live allowance, not the
+        # max(target, pre_bucket) an ordinary run would be clamped to.
+        assert ceilings == [(1, 50.0), (2, 50.0)]
+
+    async def test_a_zone_the_cycle_did_not_mark_is_not_marked_later(self, hass):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = set()
+        ceilings = _ceiling_seen(c)
+        await _dispatch(c, [z1, z2])
+        await _finish(c, 1)
+        # Asserting the ceiling, not the empty set, is what gives this test its
+        # power — a marker wrongly re-armed here would be consumed by its own
+        # dispatch and leave the set empty either way. 0.0 is the ordinary clamp
+        # max(target 0.0, pre_bucket -20.0); 50.0 would be the live allowance.
+        assert ceilings == [(1, 0.0), (2, 0.0)]
+        assert c._live_run_zones == set()

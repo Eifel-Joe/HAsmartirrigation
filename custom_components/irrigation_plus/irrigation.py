@@ -189,14 +189,24 @@ class IrrigationRunnerMixin:
         as ``duration_override`` and needs neither.
         """
         zid = int(zone_id)
-        live = getattr(self, "_live_run_zones", None)
-        if live is None:
-            live = self._live_run_zones = set()
-        live.add(zid)
+        self._mark_live_run(zid)
         manual = getattr(self, "_manual_run_zones", None)
         if manual is None:
             manual = self._manual_run_zones = set()
         manual.add(zid)
+
+    def _mark_live_run(self, zone_id) -> None:
+        """Grant a zone's imminent run the live-estimate credit ceiling.
+
+        The twin of :meth:`_drop_live_run_marker`. ``_run_ceiling`` consumes the
+        marker as it credits, so it belongs immediately before a dispatch that
+        will consume it — never before a check that can still drop the zone, or
+        the allowance is inherited by that zone's NEXT run.
+        """
+        live = getattr(self, "_live_run_zones", None)
+        if live is None:
+            live = self._live_run_zones = set()
+        live.add(int(zone_id))
 
     def _drop_live_run_marker(self, zone_id) -> None:
         """Hand back the live marker for a run that is not going to happen.
