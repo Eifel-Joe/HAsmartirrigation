@@ -528,11 +528,37 @@ class RunChainMixin:
                 return
             index, zone_id = candidate
             zone = self.store.get_zone(zone_id) or {}
-            if self._chain_zone_mode(zone) != mode or self.zone_run_in_flight(zone_id):
-                # Reconfigured or being run by something else while the rotation
-                # was waiting. Drop its remainder rather than come back to it
-                # every turn for the rest of the cycle.
+            if self._chain_zone_mode(zone) != mode:
+                # Reconfigured or gone while the rotation was waiting. Drop its
+                # remainder rather than come back to it every turn for the rest
+                # of the cycle.
+                _LOGGER.info(
+                    "%s rotation: writing off zone %s and its remaining %.0fs, "
+                    "its watering mode changed or the zone is gone",
+                    label,
+                    zone_id,
+                    rotation.remaining[zone_id],
+                )
                 rotation.remaining[zone_id] = 0.0
+                self._drop_live_run_marker(zone_id)
+                continue
+            if self.zone_run_in_flight(zone_id):
+                # Something else took the zone while the rotation was waiting, so
+                # its remainder is written off the same way a reconfigured zone's
+                # is. Handing the live marker back is safe even though that other
+                # run is still going: a run's ceiling is decided once, at its own
+                # dispatch, and frozen into its record (``run_watch``'s
+                # ``run_credit_ceiling``). The marker it used is long consumed;
+                # what this hands back is the rotation's own leftover.
+                _LOGGER.info(
+                    "%s rotation: writing off zone %s and its remaining %.0fs, "
+                    "another run took it over while it waited",
+                    label,
+                    zone_id,
+                    rotation.remaining[zone_id],
+                )
+                rotation.remaining[zone_id] = 0.0
+                self._drop_live_run_marker(zone_id)
                 continue
             slot = min(rotation.slot, rotation.remaining[zone_id])
             rotation.cursor = index
@@ -558,8 +584,19 @@ class RunChainMixin:
             ):
                 return
             # Refused. Abandon the zone rather than retry it on every turn until
-            # the rotation ends.
+            # the rotation ends. Both numbers are named because the remainder
+            # alone understates it: the slot was deducted before the dispatch was
+            # attempted, so it is lost as well.
+            _LOGGER.warning(
+                "%s rotation: zone %s refused its %.0fs slot, writing off its "
+                "remaining %.0fs too",
+                label,
+                zone_id,
+                slot,
+                rotation.remaining[zone_id],
+            )
             rotation.remaining[zone_id] = 0.0
+            self._drop_live_run_marker(zone_id)
         await self._chain_release(mode)
 
     def _chain_cancel_absorption(self, mode) -> None:

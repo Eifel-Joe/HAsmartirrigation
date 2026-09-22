@@ -13,6 +13,7 @@ The fixtures come from test_service_chain.py, whose ``_coord`` spy records
 from custom_components.irrigation_plus import const
 
 from .test_service_chain import (
+    ROTATING,
     SEQUENTIAL,
     _coord,
     _dispatch,
@@ -359,3 +360,70 @@ class TestEveryDropIsNarrated:
         assert refusals[0].levelname == "WARNING"
         # and the cycle moves on to zone 2 rather than stalling
         assert c._dispatched == [(2, 600.0)]
+
+
+class TestTheRotationNarratesItsWriteOffs:
+    async def test_a_rotating_zone_whose_mode_changed_says_so(self, hass, caplog):
+        c = _coord(hass, ROTATING, slot=5, absorb=0)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        await _dispatch(c, [z1, z2])
+        c._zones[2] = {
+            **c._zones[2],
+            const.ZONE_WATERING_MODE: const.WATERING_MODE_OPENSPRINKLER,
+        }
+        caplog.clear()
+        await _finish(c, 1)
+        assert any(
+            "zone 2" in r.getMessage() and "watering mode" in r.getMessage()
+            for r in caplog.records
+        ), caplog.text
+        assert 2 not in c._live_run_zones
+
+    async def test_a_rotating_zone_taken_over_says_which_reason_fired(
+        self, hass, caplog
+    ):
+        """The two reasons were one merged condition, so the log could not name
+        which of them applied. They read identically to whoever is debugging.
+        """
+        c = _coord(hass, ROTATING, slot=5, absorb=0)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        await _dispatch(c, [z1, z2])
+        c.zone_run_in_flight = lambda zid: int(zid) == 2
+        caplog.clear()
+        await _finish(c, 1)
+        messages = [
+            r.getMessage() for r in caplog.records if "zone 2" in r.getMessage()
+        ]
+        assert any("took it over" in m for m in messages), messages
+        assert not any("watering mode" in m for m in messages), messages
+        assert 2 not in c._live_run_zones
+
+    async def test_a_refused_rotating_zone_says_how_much_it_lost(self, hass, caplog):
+        """900s zone, 300s slot: the two numbers differ on purpose, so the
+        assertion can tell them apart. The zone loses both — the refused slot
+        delivered nothing and the remainder is abandoned — and a warning-only
+        log view shows this line and not the slot line above it.
+        """
+        c = _coord(hass, ROTATING, slot=5, absorb=0)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=900))
+        c._live_run_zones = {1, 2}
+        _refuse(c, 2)
+        await _dispatch(c, [z1, z2])
+        caplog.clear()
+        await _finish(c, 1)
+        refusals = [
+            r
+            for r in caplog.records
+            if "zone 2" in r.getMessage() and "refused" in r.getMessage()
+        ]
+        assert refusals, caplog.text
+        assert refusals[0].levelname == "WARNING"
+        message = refusals[0].getMessage()
+        # Verified empirically against the real code path, not assumed: the
+        # first slot is min(300s, 900s) = 300s, and rotation.remaining[2] is
+        # already decremented to 600s by the time this refusal fires.
+        assert "300s slot" in message, message
+        assert "remaining 600s" in message, message
+        assert 2 not in c._live_run_zones
