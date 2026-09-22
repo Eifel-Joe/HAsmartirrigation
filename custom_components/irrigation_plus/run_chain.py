@@ -71,25 +71,25 @@ class ZonePlan:
     The queue holds ids and the advance re-reads the store, which is right for
     everything that can legitimately change while a zone waits — its valve, its
     confirm entity, and above all its bucket, which is the absolute anchor the run
-    reconciles from (``self_closing.py:657``). It is wrong for the one thing the
-    cycle itself decided: how long this run is. ``_apply_live_durations`` prices
-    that into a COPY (``irrigation.py:2316``) that nothing stores, so without this
-    the copy dies at the queue and the zone waters its stale daily duration.
+    reconciles from (``self_closing.async_run_self_closing``'s ``pre_bucket``). It
+    is wrong for the one thing the cycle itself decided: how long this run is.
+    ``_apply_live_durations`` prices that into a COPY that nothing stores, so
+    without this the copy dies at the queue and the zone waters its stale daily
+    duration.
 
     ``live`` is captured here because that is the only moment it exists:
     ``_apply_live_durations`` rebinds ``_live_run_zones`` wholesale on every
-    scheduled call, on both its early-return and its main path
-    (``irrigation.py:2292``, ``:2296``), so a zone still waiting its turn when
-    the next call lands would otherwise lose the membership its own cycle
-    granted it. ``_chain_advance`` calls ``_mark_live_run`` to put the id back
-    into ``_live_run_zones`` immediately before the dispatch that consumes it —
-    never earlier, or a check that still drops the zone (``zone_run_in_flight``)
-    would leak the marker into that zone's next, unrelated run — so
-    ``_run_ceiling`` finds and consumes it there (``irrigation.py:2745``)
-    exactly as it would have on the first pass. The detour through a set is not
-    incidental: ``_run_ceiling`` tests membership of that instance set by zone
-    id, it does not read a field off the zone dict, so a flag on the plan has to
-    be translated back rather than handed straight to the run.
+    scheduled call, on both its early-return and its main path, so a zone still
+    waiting its turn when the next call lands would otherwise lose the membership
+    its own cycle granted it. ``_chain_advance`` calls ``_mark_live_run`` to put
+    the id back into ``_live_run_zones`` immediately before the dispatch that
+    consumes it — never earlier, or a check that still drops the zone
+    (``zone_run_in_flight``) would leak the marker into that zone's next,
+    unrelated run — so ``_run_ceiling`` finds and consumes it there exactly as it
+    would have on the first pass. The detour through a set is not incidental:
+    ``_run_ceiling`` tests membership of that instance set by zone id, it does
+    not read a field off the zone dict, so a flag on the plan has to be
+    translated back rather than handed straight to the run.
     """
 
     seconds: float
@@ -295,6 +295,11 @@ class RunChainMixin:
             plan = state.planned.pop(zone_id, None)
             zone = self.store.get_zone(zone_id) or {}
             if self._chain_zone_mode(zone) != mode:
+                # Hand back a marker this loop never set: _apply_live_durations
+                # placed it before the cycle began and it has sat in
+                # _live_run_zones since. Unconditional on purpose — the drop is
+                # a discard, so a zone with no marker is left untouched.
+                self._drop_live_run_marker(zone_id)
                 continue
             if plan is not None:
                 # One field, not a snapshot. Everything else is re-read on purpose:
@@ -302,19 +307,22 @@ class RunChainMixin:
                 # current, not as it stood when the cycle began.
                 zone = dict(zone, **{const.ZONE_DURATION: plan.seconds})
             if (zone.get(const.ZONE_DURATION) or 0) <= 0:
+                self._drop_live_run_marker(zone_id)
                 continue
             if self.zone_run_in_flight(zone_id):
+                self._drop_live_run_marker(zone_id)
                 continue
             if plan is not None and plan.live:
                 # _apply_live_durations rebinds the whole set on every scheduled
-                # call (irrigation.py:2292, :2296), so a zone queued across one
-                # loses the allowance its own cycle granted it. Put it back for
-                # the dispatch; _run_ceiling consumes it there as it would have
-                # on the first pass.
+                # call, so a zone queued across one loses the allowance its own
+                # cycle granted it. Put it back for the dispatch; _run_ceiling
+                # consumes it there as it would have on the first pass.
                 self._mark_live_run(zone_id)
             if await self.async_run_self_closing(zone, trigger=state.trigger):
                 return
-            # Refused: fall through to the next rather than stalling the chain.
+            # Refused: nothing consumed the marker armed above, so hand it back,
+            # and fall through to the next rather than stalling the chain.
+            self._drop_live_run_marker(zone_id)
         await self._chain_release(mode)
 
     async def _chain_advance_for_run(self, zone_id, run: dict) -> None:
@@ -342,10 +350,21 @@ class RunChainMixin:
         zid = int(zone_id)
         for state in self._chains().values():
             rotation = state.rotation
+            held = False
             if rotation is not None and zid in rotation.remaining:
                 rotation.remaining[zid] = 0.0
+                held = True
+            if any(int(z) == zid for z in state.zones):
+                held = True
             state.zones = [z for z in state.zones if int(z) != zid]
             state.planned.pop(zid, None)
+            if held:
+                # It was waiting in this cycle and now never will water, so hand
+                # back the credit ceiling the cycle granted it. Gated on having
+                # actually held it: this runs for EVERY stop, including classic
+                # zones no chain ever queued, whose marker belongs to a run that
+                # is still finishing.
+                self._drop_live_run_marker(zid)
 
     async def _chain_release(self, mode) -> None:
         """Drop this chain and its master hold."""

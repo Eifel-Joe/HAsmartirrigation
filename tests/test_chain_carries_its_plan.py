@@ -27,6 +27,18 @@ def _live(zone, duration):
     return {**zone, const.ZONE_DURATION: duration}
 
 
+def _refuse(c, zone_id):
+    """Make this one zone's dispatch return False, as a station refusal would."""
+    spy = c.async_run_self_closing
+
+    async def _maybe(zone, **kw):
+        if int(zone[const.ZONE_ID]) == int(zone_id):
+            return False
+        return await spy(zone, **kw)
+
+    c.async_run_self_closing = _maybe
+
+
 def _ceiling_seen(c):
     """Record the ceiling _run_ceiling grants each dispatch, in order.
 
@@ -59,9 +71,10 @@ class TestTheQueueRemembersWhatTheCycleDecided:
     async def test_a_zone_stored_at_zero_still_waters_its_live_duration(self, hass):
         """The severe case: the daily calc said 0, the live estimate said 300.
 
-        Reachable because the live gate drops the stored-duration pre-filter
-        (irrigation.py:851), so "stored 0, live 300" is an ordinary state. Before
-        the plan existed, the re-read saw 0 and the zone was skipped in silence.
+        Reachable because the live gate drops the stored-duration pre-filter in
+        ``_irrigate_linked_entities``' selection, so "stored 0, live 300" is an
+        ordinary state. Before the plan existed, the re-read saw 0 and the zone
+        was skipped in silence.
         """
         c = _coord(hass, SEQUENTIAL)
         z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=0))
@@ -181,3 +194,87 @@ class TestTheLiveMarkerSurvivesTheQueue:
         # max(target 0.0, pre_bucket -20.0); 50.0 would be the live allowance.
         assert ceilings == [(1, 0.0), (2, 0.0)]
         assert c._live_run_zones == set()
+
+
+class TestADroppedZoneHandsBackWhatItHolds:
+    async def test_a_zone_dropped_for_a_mode_change_releases_its_marker(self, hass):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        # The user moves zone 2 to another watering mode while it waits.
+        c._zones[2] = {
+            **c._zones[2],
+            const.ZONE_WATERING_MODE: const.WATERING_MODE_OPENSPRINKLER,
+        }
+        await _finish(c, 1)
+        assert c._dispatched == [(1, 300.0)]
+        # No leftover allowance for the next run of zone 2.
+        assert 2 not in c._live_run_zones
+
+    async def test_a_zone_dropped_for_a_zero_duration_releases_its_marker(self, hass):
+        """A plan of zero is not reachable from _apply_live_durations today —
+        _zone_run_decision's own zero-duration guard returns None before it —
+        so the state is built by hand to exercise the branch the guard protects.
+        """
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        await _dispatch(c, [_live(z1, 300), _live(z2, 0)])
+        await _finish(c, 1)
+        assert c._dispatched == [(1, 300.0)]
+        assert 2 not in c._live_run_zones
+
+    async def test_a_zone_taken_over_while_it_waited_releases_its_marker(self, hass):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        # Something else is watering zone 2 by the time its turn comes.
+        c.zone_run_in_flight = lambda zid: int(zid) == 2
+        await _finish(c, 1)
+        assert c._dispatched == [(1, 300.0)]
+        assert 2 not in c._live_run_zones
+
+    async def test_a_refused_zone_releases_the_marker_it_was_just_given(self, hass):
+        """The refusal path is the one that MUST drop: _mark_live_run armed the
+        zone immediately before the dispatch, and nothing consumed it.
+        """
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2, z3 = _register(
+            c, _zone(1, duration=600), _zone(2, duration=600), _zone(3, duration=600)
+        )
+        c._live_run_zones = {1, 2, 3}
+        _refuse(c, 2)
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300), _live(z3, 300)])
+        await _finish(c, 1)
+        assert c._dispatched == [(1, 300.0), (3, 300.0)]
+        assert 2 not in c._live_run_zones
+
+    async def test_stopping_a_queued_zone_releases_its_marker(self, hass):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        c._chain_drop_zone(2)
+        assert 2 not in c._live_run_zones
+
+    async def test_stopping_a_zone_no_chain_queued_leaves_its_marker_alone(self, hass):
+        """This method runs for every stop, including classic zones no chain
+        ever queued. Their marker belongs to a run that is still finishing and
+        is not ours to take.
+
+        Zone 1 — the dispatched head — is not a usable stand-in here: its own
+        marker is consumed by _run_ceiling at dispatch, the same instant this
+        cycle starts (see TestTheLiveMarkerSurvivesTheQueue), so by the time
+        _chain_drop_zone runs there is nothing left to prove the gate did the
+        protecting. Zone 3 is never part of this dispatch at all — no chain's
+        state.zones or rotation.remaining ever names it — so its marker can
+        only survive because _chain_drop_zone found it unheld.
+        """
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {2, 3}
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        c._chain_drop_zone(3)
+        assert 3 in c._live_run_zones

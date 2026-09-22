@@ -213,7 +213,8 @@ class IrrigationRunnerMixin:
 
         A live marker left behind is not inert: the next run of that zone consumes
         it and is handed a ceiling meant for a run that never watered — the same
-        leak ``_reprice_before_turn`` guards against on the rotation path.
+        leak ``_resize_queued_zone`` guards against in ``_irrigate_zones_rotating``
+        and ``_irrigate_zones_sequential``.
         """
         live = getattr(self, "_live_run_zones", None)
         if live:
