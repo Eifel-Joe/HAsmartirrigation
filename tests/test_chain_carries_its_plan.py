@@ -259,6 +259,21 @@ class TestADroppedZoneHandsBackWhatItHolds:
         assert c._dispatched == [(1, 300.0), (3, 300.0)]
         assert 2 not in c._live_run_zones
 
+    async def test_the_cycles_first_zone_hands_its_marker_back_when_refused(
+        self, hass
+    ):
+        """async_run_self_closing only self-cleans on its confirm-false path, so
+        a head zone refused for an unresolvable station or a zero window keeps
+        its allowance unless the dispatcher takes it back. Every zone behind it
+        already gets this from _chain_advance.
+        """
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        _refuse(c, 1)
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        assert 1 not in c._live_run_zones
+
     async def test_stopping_a_queued_zone_releases_its_marker(self, hass):
         c = _coord(hass, SEQUENTIAL)
         z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))

@@ -253,6 +253,14 @@ class RunChainMixin:
                 policy.label,
                 zones[0].get(const.ZONE_ID),
             )
+            # async_run_self_closing self-cleans the marker on only one of its
+            # four return-False paths (a confirm that came back false); a zero
+            # window, an unresolvable OpenSprinkler station or an already
+            # in-flight zone all leave it set. _chain_advance hands it back for
+            # every zone behind this one on the same refusal — this call site
+            # dispatches the cycle's first zone on its own, outside that loop,
+            # so it needs the same hand-back.
+            self._drop_live_run_marker(zones[0].get(const.ZONE_ID))
             # Refused; the chain must not stall on it.
             await self._chain_advance(mode)
 
