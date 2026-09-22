@@ -259,9 +259,7 @@ class TestADroppedZoneHandsBackWhatItHolds:
         assert c._dispatched == [(1, 300.0), (3, 300.0)]
         assert 2 not in c._live_run_zones
 
-    async def test_the_cycles_first_zone_hands_its_marker_back_when_refused(
-        self, hass
-    ):
+    async def test_the_cycles_first_zone_hands_its_marker_back_when_refused(self, hass):
         """async_run_self_closing only self-cleans on its confirm-false path, so
         a head zone refused for an unresolvable station or a zero window keeps
         its allowance unless the dispatcher takes it back. Every zone behind it
@@ -315,7 +313,8 @@ class TestEveryDropIsNarrated:
         caplog.clear()
         await _finish(c, 1)
         assert any(
-            "zone 2" in r.getMessage() and "watering mode" in r.getMessage()
+            "dropping zone 2 from the cycle" in r.getMessage()
+            and "watering mode" in r.getMessage()
             for r in caplog.records
         ), caplog.text
 
@@ -326,7 +325,8 @@ class TestEveryDropIsNarrated:
         caplog.clear()
         await _finish(c, 1)
         assert any(
-            "zone 2" in r.getMessage() and "nothing left to water" in r.getMessage()
+            "dropping zone 2 from the cycle" in r.getMessage()
+            and "nothing left to water" in r.getMessage()
             for r in caplog.records
         ), caplog.text
 
@@ -338,7 +338,8 @@ class TestEveryDropIsNarrated:
         caplog.clear()
         await _finish(c, 1)
         assert any(
-            "zone 2" in r.getMessage() and "took it over" in r.getMessage()
+            "dropping zone 2 from the cycle" in r.getMessage()
+            and "took it over" in r.getMessage()
             for r in caplog.records
         ), caplog.text
 
@@ -352,9 +353,7 @@ class TestEveryDropIsNarrated:
         caplog.clear()
         await _finish(c, 1)
         refusals = [
-            r
-            for r in caplog.records
-            if "zone 2" in r.getMessage() and "refused" in r.getMessage()
+            r for r in caplog.records if "zone 2 refused its dispatch" in r.getMessage()
         ]
         assert refusals, caplog.text
         # A refusal is the one outcome here that is not an ordinary consequence
@@ -374,9 +373,7 @@ class TestEveryDropIsNarrated:
         caplog.clear()
         await _dispatch(c, [z1, z2])
         refusals = [
-            r
-            for r in caplog.records
-            if "zone 1" in r.getMessage() and "refused" in r.getMessage()
+            r for r in caplog.records if "zone 1 refused its dispatch" in r.getMessage()
         ]
         assert refusals, caplog.text
         assert refusals[0].levelname == "WARNING"
@@ -397,7 +394,8 @@ class TestTheRotationNarratesItsWriteOffs:
         caplog.clear()
         await _finish(c, 1)
         assert any(
-            "zone 2" in r.getMessage() and "watering mode" in r.getMessage()
+            "writing off zone 2 and its remaining" in r.getMessage()
+            and "watering mode" in r.getMessage()
             for r in caplog.records
         ), caplog.text
         assert 2 not in c._live_run_zones
@@ -416,7 +414,9 @@ class TestTheRotationNarratesItsWriteOffs:
         caplog.clear()
         await _finish(c, 1)
         messages = [
-            r.getMessage() for r in caplog.records if "zone 2" in r.getMessage()
+            r.getMessage()
+            for r in caplog.records
+            if "writing off zone 2 and its remaining" in r.getMessage()
         ]
         assert any("took it over" in m for m in messages), messages
         assert not any("watering mode" in m for m in messages), messages
@@ -435,11 +435,7 @@ class TestTheRotationNarratesItsWriteOffs:
         await _dispatch(c, [z1, z2])
         caplog.clear()
         await _finish(c, 1)
-        refusals = [
-            r
-            for r in caplog.records
-            if "zone 2" in r.getMessage() and "refused" in r.getMessage()
-        ]
+        refusals = [r for r in caplog.records if "zone 2 refused its" in r.getMessage()]
         assert refusals, caplog.text
         assert refusals[0].levelname == "WARNING"
         message = refusals[0].getMessage()
@@ -541,7 +537,8 @@ class TestAZoneWateredWhileQueuedIsNotWateredAgain:
         # THE FIX: watered once by the manual run, not a second time by the chain.
         assert c._dispatched == [(1, 600.0), (2, 600.0)]
         assert any(
-            "zone 2" in r.getMessage() and "already watered" in r.getMessage()
+            "taking zone 2 out of the cycle" in r.getMessage()
+            and "already watered" in r.getMessage()
             for r in caplog.records
         ), caplog.text
 
@@ -557,8 +554,13 @@ class TestAZoneWateredWhileQueuedIsNotWateredAgain:
         assert c._dispatched == [(1, 600.0), (2, 600.0), (3, 600.0)]
 
     async def test_a_rotating_cycle_is_untouched(self, hass):
-        """A rotation keeps state.zones empty, so this cannot reach it — and
-        must not, because a rotating zone's turns legitimately recur.
+        """A rotation keeps state.zones empty, so this fix cannot reach it.
+
+        That is right for the rotation's OWN turns — they legitimately recur,
+        so nothing here should write one off. It says nothing about a rotating
+        zone taken over by something else (e.g. Irrigate-now) between its own
+        turns: that case is left untouched because it is a separate, unfixed
+        defect, not because it was considered and ruled safe.
         """
         c = _coord(hass, ROTATING, slot=5, absorb=0)
         z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
@@ -595,3 +597,16 @@ class TestAZoneWateredWhileQueuedIsNotWateredAgain:
         state = c._chain_state(const.WATERING_MODE_SERVICE)
         assert state.zones == []
         assert state.planned == {}
+
+    async def test_forgetting_a_finished_zone_hands_its_marker_back(self, hass):
+        """A direct pin: the staged manual run in the test above consumes the
+        marker at its own dispatch, so that test cannot see this line at all.
+        """
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        # Queued and still marked: whatever took the zone over refused before
+        # _run_ceiling, or never reached it.
+        c._live_run_zones = {2}
+        c._chain_forget_finished(const.WATERING_MODE_SERVICE, 2)
+        assert 2 not in c._live_run_zones

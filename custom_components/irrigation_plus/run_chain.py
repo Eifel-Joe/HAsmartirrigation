@@ -102,7 +102,10 @@ class Chain:
 
     ``zones`` carries the sequential chain (one dispatch per zone, in order);
     ``rotation`` carries the rotating one (many slot-sized dispatches per zone).
-    Only one of the two is ever set. ``absorb`` is the pending absorption timer.
+    Normally only one of the two is set — except across a mid-cycle
+    ``zone_sequencing`` flip, which writes through without a reload and can
+    leave the old geometry's state sitting behind the new one's; see
+    ``_chain_forfeit_queue``. ``absorb`` is the pending absorption timer.
 
     ``planned`` maps a queued zone's id to its :class:`ZonePlan`. It is a sibling of
     ``zones`` rather than its element type because ``_chain_drop_zone`` compares
