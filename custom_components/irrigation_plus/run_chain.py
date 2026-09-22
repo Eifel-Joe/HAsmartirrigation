@@ -64,6 +64,32 @@ class Rotation:
     cursor: int = -1
 
 
+@dataclass(frozen=True)
+class ZonePlan:
+    """What the dispatching cycle decided for a zone still waiting its turn.
+
+    The queue holds ids and the advance re-reads the store, which is right for
+    everything that can legitimately change while a zone waits — its valve, its
+    confirm entity, and above all its bucket, which is the absolute anchor the run
+    reconciles from (``self_closing.py:657``). It is wrong for the one thing the
+    cycle itself decided: how long this run is. ``_apply_live_durations`` prices
+    that into a COPY (``irrigation.py:2316``) that nothing stores, so without this
+    the copy dies at the queue and the zone waters its stale daily duration.
+
+    ``live`` is captured here and not yet read. It has to be captured at dispatch
+    because that is the only moment it exists: ``_apply_live_durations`` rebinds
+    ``_live_run_zones`` wholesale on every scheduled call (``irrigation.py:2296``)
+    and ``_run_ceiling`` consumes entries out of it one at a time
+    (``irrigation.py:2745``), so a later task cannot reconstruct it. Consuming it
+    is Task 3 of this plan, and note the shape mismatch that task has to bridge:
+    ``_run_ceiling`` tests membership of the instance set by zone id, it does not
+    read a field off the zone dict.
+    """
+
+    seconds: float
+    live: bool = False
+
+
 @dataclass
 class Chain:
     """The in-memory dispatch cycle and its master hold.
@@ -71,9 +97,17 @@ class Chain:
     ``zones`` carries the sequential chain (one dispatch per zone, in order);
     ``rotation`` carries the rotating one (many slot-sized dispatches per zone).
     Only one of the two is ever set. ``absorb`` is the pending absorption timer.
+
+    ``planned`` maps a queued zone's id to its :class:`ZonePlan`. It is a sibling of
+    ``zones`` rather than its element type because ``_chain_drop_zone`` compares
+    ``int(z)`` against a zone id and that method is the first thing
+    ``async_stop_zone`` calls. A missing entry means "use the stored duration", so
+    the two structures drifting apart degrades to the old behaviour instead of
+    dropping a run.
     """
 
     zones: list = field(default_factory=list)
+    planned: dict = field(default_factory=dict)
     trigger: object | None = None
     token: str | None = None
     rotation: Rotation | None = None
@@ -186,7 +220,19 @@ class RunChainMixin:
             return
 
         state = self._chain_state(mode)
-        state.zones = [int(z.get(const.ZONE_ID)) for z in zones[1:]]
+        live_now = getattr(self, "_live_run_zones", None) or set()
+        # Replaces both structures wholesale, in lockstep off one bound id per
+        # zone — merging into what a previous cycle left behind is a later PR's
+        # behaviour, not this one's.
+        state.zones = []
+        state.planned = {}
+        for zone in zones[1:]:
+            zid = int(zone.get(const.ZONE_ID))
+            state.zones.append(zid)
+            state.planned[zid] = ZonePlan(
+                seconds=float(zone.get(const.ZONE_DURATION) or 0),
+                live=zid in live_now,
+            )
         state.trigger = trigger
         await self._chain_take_hold(state, policy)
         _LOGGER.info(
@@ -240,9 +286,15 @@ class RunChainMixin:
             return
         while state.zones:
             zone_id = state.zones.pop(0)
+            plan = state.planned.pop(zone_id, None)
             zone = self.store.get_zone(zone_id) or {}
             if self._chain_zone_mode(zone) != mode:
                 continue
+            if plan is not None:
+                # One field, not a snapshot. Everything else is re-read on purpose:
+                # ZONE_BUCKET is the run's absolute reconcile anchor and must be
+                # current, not as it stood when the cycle began.
+                zone = dict(zone, **{const.ZONE_DURATION: plan.seconds})
             if (zone.get(const.ZONE_DURATION) or 0) <= 0:
                 continue
             if self.zone_run_in_flight(zone_id):
