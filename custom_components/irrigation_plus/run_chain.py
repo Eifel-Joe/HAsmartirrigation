@@ -332,12 +332,14 @@ class RunChainMixin:
             if rotation is not None and zid in rotation.remaining:
                 rotation.remaining[zid] = 0.0
             state.zones = [z for z in state.zones if int(z) != zid]
+            state.planned.pop(zid, None)
 
     async def _chain_release(self, mode) -> None:
         """Drop this chain and its master hold."""
         state = self._chain_state(mode)
         self._chain_cancel_absorption(mode)
         state.zones, state.trigger, state.rotation = [], None, None
+        state.planned = {}
         token, state.token = state.token, None
         if token:
             await self.async_master_release(token)
@@ -352,6 +354,7 @@ class RunChainMixin:
             self._chain_cancel_absorption(mode)
             state.zones, state.trigger, state.token = [], None, None
             state.rotation = None
+            state.planned = {}
 
     # --- rotating -----------------------------------------------------------
 
@@ -395,6 +398,9 @@ class RunChainMixin:
 
         state.rotation = rotation
         state.zones = []
+        # The two geometries are exclusive (see the Chain docstring); a sequential
+        # plan left over from a cycle this one replaces must not outlive it.
+        state.planned = {}
         state.trigger = trigger
         await self._chain_take_hold(state, policy)
         _LOGGER.info(

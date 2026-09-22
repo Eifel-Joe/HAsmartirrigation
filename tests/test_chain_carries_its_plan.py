@@ -99,3 +99,40 @@ class TestTheQueueRemembersWhatTheCycleDecided:
         c._zones[2] = {**c._zones[2], const.ZONE_DURATION: 0}
         await _finish(c, 1)
         assert c._dispatched == [(1, 600.0), (2, 600.0)]
+
+
+class TestThePlanIsDroppedWithTheQueue:
+    async def test_stopping_a_queued_zone_drops_its_plan_too(self, hass):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        c._chain_drop_zone(2)
+        state = c._chain_state(const.WATERING_MODE_SERVICE)
+        assert state.zones == []
+        assert state.planned == {}
+
+    async def test_releasing_the_chain_clears_the_plan(self, hass):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        await c._chain_release(const.WATERING_MODE_SERVICE)
+        assert c._chain_state(const.WATERING_MODE_SERVICE).planned == {}
+
+    async def test_teardown_clears_the_plan(self, hass):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        c._chain_teardown()
+        assert c._chain_state(const.WATERING_MODE_SERVICE).planned == {}
+
+    async def test_starting_a_rotation_clears_a_sequential_plan(self, hass):
+        """The two geometries are exclusive; a leftover plan must not survive."""
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        await c._chain_start_rotation(
+            [c._zones[1], c._zones[2]],
+            mode=const.WATERING_MODE_SERVICE,
+            trigger="schedule",
+        )
+        assert c._chain_state(const.WATERING_MODE_SERVICE).planned == {}
