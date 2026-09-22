@@ -506,3 +506,77 @@ class TestAnAbandonedQueueIsReported:
         # per-slot write-off already carries them.
         assert "cycle for zones 1, 2 —" in message, caplog.text
         assert c._live_run_zones == set()
+
+
+class TestAZoneWateredWhileQueuedIsNotWateredAgain:
+    async def test_a_manual_run_on_a_queued_zone_takes_it_out_of_the_cycle(
+        self, hass, caplog
+    ):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [z1, z2])
+        # Irrigate-now on a zone that is merely QUEUED: both guards ask
+        # zone_run_in_flight, which cannot see a queued zone, so it is accepted
+        # and the valve opens next to zone 1's.
+        await c.async_run_self_closing(z2, trigger="manual")
+        assert c._dispatched == [(1, 600.0), (2, 600.0)]
+        caplog.clear()
+        await _finish(c, 2)
+        await _finish(c, 1)
+        # THE FIX: watered once by the manual run, not a second time by the chain.
+        assert c._dispatched == [(1, 600.0), (2, 600.0)]
+        assert any(
+            "zone 2" in r.getMessage() and "already watered" in r.getMessage()
+            for r in caplog.records
+        ), caplog.text
+
+    async def test_the_cycles_own_zone_still_advances_normally(self, hass):
+        """The zone the chain dispatched is already popped, so nothing changes."""
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2, z3 = _register(
+            c, _zone(1, duration=600), _zone(2, duration=600), _zone(3, duration=600)
+        )
+        await _dispatch(c, [z1, z2, z3])
+        await _finish(c, 1)
+        await _finish(c, 2)
+        assert c._dispatched == [(1, 600.0), (2, 600.0), (3, 600.0)]
+
+    async def test_a_rotating_cycle_is_untouched(self, hass):
+        """A rotation keeps state.zones empty, so this cannot reach it — and
+        must not, because a rotating zone's turns legitimately recur.
+        """
+        c = _coord(hass, ROTATING, slot=5, absorb=0)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [z1, z2])
+        before = dict(c._chain_state(const.WATERING_MODE_SERVICE).rotation.remaining)
+        await _finish(c, 1)
+        after = c._chain_state(const.WATERING_MODE_SERVICE).rotation.remaining
+        assert set(before) == set(after), "no zone was written off by the drop"
+
+    async def test_a_rotating_cycles_ordinary_turn_is_not_reported_as_a_takeover(
+        self, hass, caplog
+    ):
+        """Guards the early return itself: without it, ``_chain_forget_finished``
+        runs unconditionally and — because it does not know rotation never
+        populates ``state.zones`` — logs zone 2's perfectly ordinary next slot
+        as though something else had already watered it.
+        """
+        c = _coord(hass, ROTATING, slot=5, absorb=0)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [z1, z2])
+        caplog.clear()
+        await _finish(c, 1)
+        assert not any(
+            "already watered" in r.getMessage() for r in caplog.records
+        ), caplog.text
+
+    async def test_the_zone_also_loses_its_plan_and_its_marker(self, hass):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        await c.async_run_self_closing(z2, trigger="manual")
+        await _finish(c, 2)
+        state = c._chain_state(const.WATERING_MODE_SERVICE)
+        assert state.zones == []
+        assert state.planned == {}

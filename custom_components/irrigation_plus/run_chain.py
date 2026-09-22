@@ -370,7 +370,46 @@ class RunChainMixin:
         mode = (run or {}).get(const.RUN_MODE)
         if mode is None or mode not in self._chains():
             return
+        self._chain_forget_finished(mode, zone_id)
         await self._chain_advance(mode, zone_id)
+
+    def _chain_forget_finished(self, mode, zone_id) -> None:
+        """Take a zone the chain still holds out of the queue once it has watered.
+
+        A sequential cycle pops a zone BEFORE dispatching it, so a zone that is
+        still queued when a run of it finalises was watered by something else —
+        Irrigate-now, a service call, a run_zone. Neither that caller's guard nor
+        this chain's could see it: both ask ``zone_run_in_flight``, and a merely
+        queued zone answers False.
+
+        Without this the chain pops it one finalisation later and waters it a
+        second time, seconds after it stopped, crediting the bucket twice. The
+        guard at the pop cannot catch that, because the finaliser removes the run
+        record BEFORE advancing and that record is precisely what
+        ``zone_run_in_flight`` reads. The ordering is deliberate — it exists so
+        the deferred calculation no longer sees a run — so the fix belongs at
+        this end instead.
+
+        A rotation keeps ``zones`` empty, so it is unaffected; a rotating zone's
+        turns are governed by ``remaining`` and may legitimately recur.
+        """
+        try:
+            zid = int(zone_id)
+        except (TypeError, ValueError):
+            return
+        state = self._chain_state(mode)
+        if zid not in state.zones:
+            return
+        policy = chain_policy_for(mode)
+        _LOGGER.info(
+            "%s: taking zone %s out of the cycle, it was already watered by "
+            "another run while it waited",
+            policy.label if policy else mode,
+            zid,
+        )
+        state.zones = [z for z in state.zones if int(z) != zid]
+        state.planned.pop(zid, None)
+        self._drop_live_run_marker(zid)
 
     def _chain_drop_zone(self, zone_id) -> None:
         """Take one zone out of whatever cycle holds it, leaving the rest alone.
