@@ -248,6 +248,11 @@ class RunChainMixin:
             len(state.zones),
         )
         if not await self.async_run_self_closing(zones[0], trigger=trigger):
+            _LOGGER.warning(
+                "%s: zone %s refused its dispatch, the cycle continues without it",
+                policy.label,
+                zones[0].get(const.ZONE_ID),
+            )
             # Refused; the chain must not stall on it.
             await self._chain_advance(mode)
 
@@ -290,11 +295,19 @@ class RunChainMixin:
         if rotation is not None:
             await self._chain_rotation_advance(mode)
             return
+        policy = chain_policy_for(mode)
+        label = policy.label if policy else mode
         while state.zones:
             zone_id = state.zones.pop(0)
             plan = state.planned.pop(zone_id, None)
             zone = self.store.get_zone(zone_id) or {}
             if self._chain_zone_mode(zone) != mode:
+                _LOGGER.info(
+                    "%s: dropping zone %s from the cycle, its watering mode "
+                    "changed or the zone is gone",
+                    label,
+                    zone_id,
+                )
                 # Hand back a marker this loop never set: _apply_live_durations
                 # placed it before the cycle began and it has sat in
                 # _live_run_zones since. Unconditional on purpose — the drop is
@@ -307,9 +320,20 @@ class RunChainMixin:
                 # current, not as it stood when the cycle began.
                 zone = dict(zone, **{const.ZONE_DURATION: plan.seconds})
             if (zone.get(const.ZONE_DURATION) or 0) <= 0:
+                _LOGGER.info(
+                    "%s: dropping zone %s from the cycle, nothing left to water",
+                    label,
+                    zone_id,
+                )
                 self._drop_live_run_marker(zone_id)
                 continue
             if self.zone_run_in_flight(zone_id):
+                _LOGGER.info(
+                    "%s: dropping zone %s from the cycle, another run took it "
+                    "over while it waited",
+                    label,
+                    zone_id,
+                )
                 self._drop_live_run_marker(zone_id)
                 continue
             if plan is not None and plan.live:
@@ -320,6 +344,15 @@ class RunChainMixin:
                 self._mark_live_run(zone_id)
             if await self.async_run_self_closing(zone, trigger=state.trigger):
                 return
+            # A refusal is a warning, not an info line like the three drops
+            # above: those are ordinary consequences of the configuration
+            # moving under a running cycle, but a refusal means something the
+            # user set up did not work.
+            _LOGGER.warning(
+                "%s: zone %s refused its dispatch, the cycle continues without it",
+                label,
+                zone_id,
+            )
             # Refused: nothing consumed the marker armed above, so hand it back,
             # and fall through to the next rather than stalling the chain.
             self._drop_live_run_marker(zone_id)

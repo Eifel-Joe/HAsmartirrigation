@@ -278,3 +278,84 @@ class TestADroppedZoneHandsBackWhatItHolds:
         await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
         c._chain_drop_zone(3)
         assert 3 in c._live_run_zones
+
+
+class TestEveryDropIsNarrated:
+    async def test_a_zone_dropped_for_its_mode_says_so(self, hass, caplog):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [z1, z2])
+        c._zones[2] = {
+            **c._zones[2],
+            const.ZONE_WATERING_MODE: const.WATERING_MODE_OPENSPRINKLER,
+        }
+        caplog.clear()
+        await _finish(c, 1)
+        assert any(
+            "zone 2" in r.getMessage() and "watering mode" in r.getMessage()
+            for r in caplog.records
+        ), caplog.text
+
+    async def test_a_zone_dropped_for_zero_duration_says_so(self, hass, caplog):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [_live(z1, 600), _live(z2, 0)])
+        caplog.clear()
+        await _finish(c, 1)
+        assert any(
+            "zone 2" in r.getMessage() and "nothing left to water" in r.getMessage()
+            for r in caplog.records
+        ), caplog.text
+
+    async def test_a_zone_taken_over_says_so(self, hass, caplog):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [z1, z2])
+        c.zone_run_in_flight = lambda zid: int(zid) == 2
+        caplog.clear()
+        await _finish(c, 1)
+        assert any(
+            "zone 2" in r.getMessage() and "took it over" in r.getMessage()
+            for r in caplog.records
+        ), caplog.text
+
+    async def test_a_refused_zone_says_so_as_a_warning(self, hass, caplog):
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2, z3 = _register(
+            c, _zone(1, duration=600), _zone(2, duration=600), _zone(3, duration=600)
+        )
+        _refuse(c, 2)
+        await _dispatch(c, [z1, z2, z3])
+        caplog.clear()
+        await _finish(c, 1)
+        refusals = [
+            r
+            for r in caplog.records
+            if "zone 2" in r.getMessage() and "refused" in r.getMessage()
+        ]
+        assert refusals, caplog.text
+        # A refusal is the one outcome here that is not an ordinary consequence
+        # of the configuration moving under a running cycle.
+        assert refusals[0].levelname == "WARNING"
+        # and the cycle carries on rather than stopping at it
+        assert c._dispatched == [(1, 600.0), (3, 600.0)]
+
+    async def test_the_cycles_first_zone_says_so_when_it_refuses(self, hass, caplog):
+        """The head zone is dispatched by async_dispatch_chained_zones, not by
+        the advance loop, so it needs its own line — otherwise the one refusal
+        cause that has no other signal anywhere is invisible for zone 1.
+        """
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        _refuse(c, 1)
+        caplog.clear()
+        await _dispatch(c, [z1, z2])
+        refusals = [
+            r
+            for r in caplog.records
+            if "zone 1" in r.getMessage() and "refused" in r.getMessage()
+        ]
+        assert refusals, caplog.text
+        assert refusals[0].levelname == "WARNING"
+        # and the cycle moves on to zone 2 rather than stalling
+        assert c._dispatched == [(2, 600.0)]
