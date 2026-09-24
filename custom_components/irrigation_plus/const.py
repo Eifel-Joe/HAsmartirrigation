@@ -90,6 +90,12 @@ CONF_DEFAULT_OBSERVED_WATERING_ENABLED = False
 # ET. Trigger gate honours each zone's bucket threshold (minimum deficit).
 CONF_LIVE_ESTIMATE_ENABLED = "live_estimate_enabled"
 CONF_DEFAULT_LIVE_ESTIMATE_ENABLED = False
+# A Home Assistant weather entity the live bucket's projection reads an hourly
+# forecast from: tier 2 of the fixed order (the configured weather service, then
+# this, then the site's own history). Opt-in: left None, no entity is read and
+# the tier is skipped.
+CONF_FORECAST_WEATHER_ENTITY = "forecast_weather_entity"
+CONF_DEFAULT_FORECAST_WEATHER_ENTITY = None
 # Mechanical water distributors (Gardena-style indexing distributor): opt-in,
 # experimental. Off by default. UI-visibility gate only — the distributor engine
 # is already inert unless distributors are configured, so this flag never stops an

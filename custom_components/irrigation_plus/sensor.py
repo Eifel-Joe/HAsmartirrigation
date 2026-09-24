@@ -795,12 +795,15 @@ class SmartIrrigationZoneLiveDeficitSensor(SmartIrrigationZoneChildSensor):
             "balance_form": est.get("balance_form"),
             # Which source filled in the hours this window has not reached, for a
             # zone whose evapotranspiration comes from the commit's own daily
-            # equation: the configured weather service, the site's own solar
-            # geometry, or nothing at all. None on the other sources, which need
-            # no projection. Measured over a year the tiers differ by a factor of
-            # three on the temperature range they supply, so the live figure
-            # alone never says which one produced it.
+            # equation: the configured weather service, a Home Assistant weather
+            # entity, the site's own solar geometry, or nothing at all. None on
+            # the other sources, which need no projection. Measured over a year
+            # the tiers differ by a factor of three on the temperature range they
+            # supply, so the live figure alone never says which one produced it.
             "forecast_tier": est.get("forecast_tier"),
+            # The pinned weather entity the entity tier read; None on every
+            # other tier.
+            "forecast_entity_id": est.get("forecast_entity_id"),
             # Why this sensor has no value, for the zones that have none: which
             # of the preconditions is missing, rather than an empty state and a
             # guess. None whenever there is a value. An operator who turned

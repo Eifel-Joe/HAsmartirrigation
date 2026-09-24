@@ -804,6 +804,13 @@
         "label": "Spustiť a nadimenzovať každý beh podľa živého deficitu",
         "note": "Týka sa len naplánovaných behov a môže spustiť taký, ktorý denný výpočet neschválil. Pri častom zavlažovaní ponechajte rozumný minimálny deficit a maximálne vedro aspoň na úroveň dennej ET."
       },
+      "forecast_entity": {
+        "title": "Zdroj predpovede pre živé vedro",
+        "description": "Zóna, ktorej modul odhaduje slnečné žiarenie z dennej teplotnej amplitúdy, potrebuje maximum a minimum dňa ešte pred jeho koncom, takže hodiny, ktoré okno zatiaľ nedosiahlo, sa doplnia z predpovede. Nakonfigurovaná poveternostná služba tieto hodiny dodá sama. Bez nej ich dodá poveternostná entita zvolená tu; ak chýba aj tá, použije sa náhrada zostavená len z minulých dní tejto lokality. Kým tu nie je zvolená žiadna entita, žiadna sa nenačíta; bez poveternostnej služby zvolenie entity zlepší odhad. Senzor „Živé vedro“ cez atribút forecast_tier uvedie, ktorý zdroj hodiny doplnil, a cez forecast_entity_id, ktorá entita sa načítala. Predpoveď entity sa načíta z toho, čo už má jej vlastná integrácia, najviac raz za 15 minút.",
+        "label": "Poveternostná entita (voliteľné)",
+        "suggestion": "Návrh: {entity}",
+        "use_suggestion": "Použiť"
+      },
       "continuous_updates": {
         "title": "Priebežné aktualizácie senzorov",
         "description": "Štandardne sa poveternostné hodnoty zo senzorov načítajú raz za naplánovanú aktualizáciu (predvolene každú hodinu), takže všetko, čo sa stalo medzitým, sa nikdy nezaznamená — denné minimum a maximum teploty vychádzajú z týchto jednotlivých meraní a slnečné žiarenie sa integruje len hrubo. Pri zapnutí sa meranie zaznamená v okamihu, keď sa senzor zmení, čo výrazne spresňuje denné súhrny aj výslednú evapotranspiráciu. Skupiny senzorov, ktoré využívajú aj poveternostnú službu, si pre hodnoty z poveternostnej služby ponechávajú naplánovanú aktualizáciu; priebežnými sa stávajú len hodnoty zo senzorov. Malé zmeny sa ignorujú, takže zašumený senzor nezaplní vyrovnávaciu pamäť.",

@@ -804,6 +804,13 @@
         "label": "Activar y dimensionar cada ejecución según el déficit en vivo",
         "note": "Afecta solo a las ejecuciones programadas y puede iniciar una que el cálculo diario no aprobó. Para riegos frecuentes, mantenga un déficit mínimo razonable y un depósito máximo de al menos la ET de un día."
       },
+      "forecast_entity": {
+        "title": "Fuente de pronóstico para el depósito en vivo",
+        "description": "Una zona cuyo módulo estima la radiación solar a partir del rango de temperatura del día necesita la máxima y la mínima antes de que el día termine, así que las horas que la ventana aún no ha alcanzado se completan con un pronóstico. Un servicio meteorológico configurado aporta esas horas por sí mismo. Sin él, las aporta la entidad meteorológica elegida aquí; si tampoco la hay, se usa un respaldo construido solo con los días pasados de esta ubicación. No se lee ninguna entidad hasta que se elige una aquí; sin servicio meteorológico, elegir una mejora la estimación. El sensor «Depósito en vivo» indica mediante su atributo forecast_tier qué fuente completó las horas y mediante forecast_entity_id qué entidad se leyó. El pronóstico de la entidad se lee de lo que ya tiene su propia integración, como mucho una vez cada 15 minutos.",
+        "label": "Entidad meteorológica (opcional)",
+        "suggestion": "Sugerencia: {entity}",
+        "use_suggestion": "Usarla"
+      },
       "continuous_updates": {
         "title": "Actualizaciones continuas de sensores",
         "description": "De forma predeterminada, los valores meteorológicos basados en sensores se leen una vez por cada actualización programada (cada hora de forma predeterminada), por lo que nunca se registra lo ocurrido entre una y otra — la temperatura mínima y máxima diarias provienen de esas lecturas puntuales, y la radiación solar se integra de forma aproximada. Con esta opción activada, se registra una lectura en el momento en que el sensor cambia, lo que hace que los agregados diarios y la evapotranspiración resultante sean considerablemente más precisos. Los grupos de sensores que además usan un servicio meteorológico mantienen su actualización programada para los valores del servicio meteorológico; solo los valores de sensor se vuelven continuos. Los cambios pequeños se ignoran, de modo que un sensor ruidoso no llena el búfer.",

@@ -804,6 +804,13 @@
         "label": "Utløs og dimensjoner hver kjøring fra sanntidsunderskuddet",
         "note": "Påvirker kun planlagte kjøringer og kan starte en som den daglige beregningen ikke godkjente. For hyppig vanning, behold et fornuftig minimumsunderskudd og en maksbøtte på minst en dags ET."
       },
+      "forecast_entity": {
+        "title": "Værvarselkilde for sanntidsbøtta",
+        "description": "En sone der modulen estimerer solstråling ut fra dagens temperaturspenn, trenger dagens maksimum og minimum før dagen er omme, så timene vinduet ennå ikke har nådd, fylles ut fra et værvarsel. En konfigurert værtjeneste leverer de timene selv. Uten en slik leverer værenheten som er valgt her, dem i stedet; finnes heller ingen slik, brukes en reserve som bygges bare på tidligere døgn på dette stedet. Ingen enhet leses før en er valgt her; uten værtjeneste gir det et bedre anslag å velge en. Sensoren «Sanntidsbøtte» oppgir gjennom attributtet forecast_tier hvilken kilde som fylte timene, og gjennom forecast_entity_id hvilken enhet som ble lest. Værvarselet til enheten leses fra det dens egen integrasjon allerede har, høyst én gang hvert 15. minutt.",
+        "label": "Værenhet (valgfritt)",
+        "suggestion": "Forslag: {entity}",
+        "use_suggestion": "Bruk den"
+      },
       "continuous_updates": {
         "title": "Kontinuerlige sensoroppdateringer",
         "description": "Som standard leses sensorbaserte værverdier én gang per planlagt oppdatering (hver time som standard), så alt som skjer i mellomtiden, blir aldri registrert — den daglige minimums- og maksimumstemperaturen kommer fra disse øyeblikksavlesningene, og solstråling integreres grovt. Med dette på registreres en avlesning i det øyeblikket sensoren endrer seg, noe som gjør de daglige aggregerte verdiene og den resulterende evapotranspirasjonen betydelig mer nøyaktige. Sensorgrupper som også bruker en værtjeneste, beholder den planlagte oppdateringen for værtjenesteverdiene; bare sensorverdiene blir kontinuerlige. Små endringer ignoreres, så en støyende sensor fyller ikke opp bufferen.",
