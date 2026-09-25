@@ -77,6 +77,21 @@ class ZonePlan:
     without this the copy dies at the queue and the zone waters its stale daily
     duration.
 
+    ``seconds`` therefore overrides the store only for a zone the estimate
+    re-sized, i.e. only when ``live`` is set. A zone the estimate passed through
+    follows the store at its turn exactly as it does without this class, because
+    there the re-read is not a lost decision but the daily calculation re-pricing
+    the zone. The consequence is worth stating plainly: a queued zone is deaf to
+    rain falling mid-cycle **only when the live estimate sized it**, and for that
+    zone deliberately so. Re-pricing a queued zone properly means porting
+    ``_resize_queued_zone``, which is a feature and not this class.
+
+    ``live`` carries two jobs, and the second is why it is not merely
+    informational: it gates the duration overlay in ``_chain_advance``, and it
+    restores the credit ceiling for the dispatch that follows. Both rest on the
+    same fact -- that the estimate re-sized this zone -- and that fact cannot be
+    recovered later, which is what the next paragraph is about.
+
     ``live`` is captured here because that is the only moment it exists:
     ``_apply_live_durations`` rebinds ``_live_run_zones`` wholesale on every
     scheduled call, on both its early-return and its main path, so a zone still
@@ -110,9 +125,10 @@ class Chain:
     ``planned`` maps a queued zone's id to its :class:`ZonePlan`. It is a sibling of
     ``zones`` rather than its element type because ``_chain_drop_zone`` compares
     ``int(z)`` against a zone id and that method is the first thing
-    ``async_stop_zone`` calls. A missing entry means "use the stored duration", so
-    the two structures drifting apart degrades to the old behaviour instead of
-    dropping a run.
+    ``async_stop_zone`` calls. A missing entry means "use the stored duration" --
+    and so does an entry whose ``live`` is unset, which is the ordinary case on an
+    install without the live estimate. Both degrade to the old behaviour instead
+    of dropping a run, so the two structures drifting apart cannot cost water.
     """
 
     zones: list = field(default_factory=list)
@@ -325,10 +341,20 @@ class RunChainMixin:
                 # a discard, so a zone with no marker is left untouched.
                 self._drop_live_run_marker(zone_id)
                 continue
-            if plan is not None:
-                # One field, not a snapshot. Everything else is re-read on purpose:
-                # ZONE_BUCKET is the run's absolute reconcile anchor and must be
-                # current, not as it stood when the cycle began.
+            if plan is not None and plan.live:
+                # Gated on ``live``, not on merely having a plan. For a zone the
+                # live estimate re-sized, the cycle made a decision that exists
+                # nowhere else and the store re-read threw it away -- that is the
+                # defect. For every other zone the re-read is the daily
+                # calculation re-pricing the zone at its turn, which is not a lost
+                # decision, so it stays: a mid-chain calculation can realistically
+                # only move a stored duration DOWN, which makes a zone rewritten
+                # while it waited a zone that got rained on. Freezing it would
+                # also leave the run priced against the cycle-start bucket while
+                # ``pre_bucket`` is the fresh one.
+                # One field either way, never a snapshot: ZONE_BUCKET is the run's
+                # absolute reconcile anchor and must be current, not as it stood
+                # when the cycle began.
                 zone = dict(zone, **{const.ZONE_DURATION: plan.seconds})
             if (zone.get(const.ZONE_DURATION) or 0) <= 0:
                 _LOGGER.info(
@@ -348,6 +374,12 @@ class RunChainMixin:
                 self._drop_live_run_marker(zone_id)
                 continue
             if plan is not None and plan.live:
+                # Textually the same test as the overlay above, and deliberately
+                # not merged with it: the overlay has to land before the duration
+                # check that can still drop this zone, while the marker must not be
+                # set until every such check has passed, or it leaks into that
+                # zone's next, unrelated run. Two sites, one condition, opposite
+                # constraints on when they may run.
                 # _apply_live_durations rebinds the whole set on every scheduled
                 # call, so a zone queued across one loses the allowance its own
                 # cycle granted it. Put it back for the dispatch; _run_ceiling

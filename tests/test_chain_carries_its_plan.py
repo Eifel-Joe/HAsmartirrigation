@@ -24,7 +24,17 @@ from .test_service_chain import (
 
 
 def _live(zone, duration):
-    """What irrigation._apply_live_durations hands the dispatcher: a COPY."""
+    """What irrigation._apply_live_durations hands the dispatcher: a COPY.
+
+    It hands the copy and nothing else, so a test that re-sizes a zone must also
+    put the id into ``_live_run_zones`` itself. Those two go together in
+    production and cannot come apart: ``_apply_live_durations`` appends the copy
+    and adds the id on the same branch, the one ``decision.resized`` selects
+    (``irrigation.py``), and a zone it does not re-size is passed through
+    untouched. A copy without the marker is therefore not a state the integration
+    can reach, and since the plan overlay is gated on the marker, a test built
+    that way would assert against a fiction.
+    """
     return {**zone, const.ZONE_DURATION: duration}
 
 
@@ -72,6 +82,7 @@ class TestTheQueueRemembersWhatTheCycleDecided:
     ):
         c = _coord(hass, SEQUENTIAL)
         z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
         await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
         await _finish(c, 1)
         assert c._dispatched == [(1, 300.0), (2, 300.0)]
@@ -86,6 +97,7 @@ class TestTheQueueRemembersWhatTheCycleDecided:
         """
         c = _coord(hass, SEQUENTIAL)
         z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=0))
+        c._live_run_zones = {1, 2}
         await _dispatch(c, [_live(z1, 600), _live(z2, 300)])
         await _finish(c, 1)
         assert c._dispatched == [(1, 600.0), (2, 300.0)]
@@ -123,20 +135,60 @@ class TestTheQueueRemembersWhatTheCycleDecided:
         z1, z2, z3 = _register(
             c, _zone(1, duration=600), _zone(2, duration=600), _zone(3, duration=600)
         )
+        c._live_run_zones = {1, 2, 3}
         await _dispatch(c, [_live(z1, 300), _live(z2, 300), _live(z3, 300)])
         c._chain_state(const.WATERING_MODE_SERVICE).planned.pop(3)
         await _finish(c, 1)
         await _finish(c, 2)
         assert c._dispatched == [(1, 300.0), (2, 300.0), (3, 600.0)]
 
-    async def test_the_stored_duration_no_longer_decides_a_planned_zone(self, hass):
-        """A calculation landing mid-chain cannot shorten or delete the run."""
+    async def test_a_live_sized_queued_zone_keeps_its_plan_against_the_store(
+        self, hass
+    ):
+        """A calculation landing mid-chain cannot shorten or delete a LIVE run.
+
+        The live estimate made a decision that exists nowhere else, so the plan
+        outranks whatever the store says by the time the turn comes -- here the
+        severest form of it, a store rewritten to 0.
+        """
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        c._live_run_zones = {1, 2}
+        await _dispatch(c, [_live(z1, 300), _live(z2, 300)])
+        c._zones[2] = {**c._zones[2], const.ZONE_DURATION: 0}
+        await _finish(c, 1)
+        assert c._dispatched == [(1, 300.0), (2, 300.0)]
+
+    async def test_a_non_live_queued_zone_follows_a_shortened_store(self, hass):
+        """Without the live estimate the store re-read is not a lost decision.
+
+        It is the daily calculation re-pricing the zone at its turn, which is
+        master's behaviour and stays master's behaviour: a mid-chain calculation
+        can realistically only move a stored duration DOWN, so a zone rewritten
+        while it waited is a zone that got rained on. Freezing it would water
+        against a cycle-start bucket while ``pre_bucket`` is the fresh one.
+        """
+        c = _coord(hass, SEQUENTIAL)
+        z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
+        await _dispatch(c, [z1, z2])
+        c._zones[2] = {**c._zones[2], const.ZONE_DURATION: 120}
+        await _finish(c, 1)
+        assert c._dispatched == [(1, 600.0), (2, 120.0)]
+
+    async def test_a_non_live_zone_the_store_zeroed_is_dropped(self, hass):
+        """Following the store includes following it to zero: the zone is dropped.
+
+        Master dropped such a zone too, and silently. It is named now --
+        ``TestEveryDropIsNarrated.test_a_zone_dropped_for_zero_duration_says_so``
+        owns that wording, so this one only pins that the frozen 600 does not
+        water.
+        """
         c = _coord(hass, SEQUENTIAL)
         z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
         await _dispatch(c, [z1, z2])
         c._zones[2] = {**c._zones[2], const.ZONE_DURATION: 0}
         await _finish(c, 1)
-        assert c._dispatched == [(1, 600.0), (2, 600.0)]
+        assert c._dispatched == [(1, 600.0)]
 
 
 class TestThePlanIsDroppedWithTheQueue:
@@ -319,9 +371,18 @@ class TestEveryDropIsNarrated:
         ), caplog.text
 
     async def test_a_zone_dropped_for_zero_duration_says_so(self, hass, caplog):
+        """Reached through the store, because a live plan of 0 does not exist.
+
+        ``_zone_run_decision`` returns None at ``live <= 0``, so a zone the
+        estimate prices at nothing never enters the queue at all and cannot be
+        dropped out of it later. The reachable route is the other one: a zone
+        queued at a real duration whose stored duration is rewritten to 0 while it
+        waits, which after the live gating is what the advance actually reads.
+        """
         c = _coord(hass, SEQUENTIAL)
         z1, z2 = _register(c, _zone(1, duration=600), _zone(2, duration=600))
-        await _dispatch(c, [_live(z1, 600), _live(z2, 0)])
+        await _dispatch(c, [z1, z2])
+        c._zones[2] = {**c._zones[2], const.ZONE_DURATION: 0}
         caplog.clear()
         await _finish(c, 1)
         assert any(
