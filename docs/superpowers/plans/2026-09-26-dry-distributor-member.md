@@ -32,9 +32,11 @@ Full suite on `418ab8a0` in its own worktree (`D:/Entwicklung/HASI/issue53-work/
 grep -E "^(FAILED|ERROR) tests[/\\]" <run-output> | sed 's/ - .*$//' | sort -u
 ```
 
-**Expected end state: 3254 + 10 new tests = 3264 passed, and the 356 names
+**Expected end state: 3254 + 17 new tests = 3271 passed, and the 356 names
 `diff`-identical.** Task 1 inverts an existing test in place, so it adds no name. The
-ten: two in Task 2/3, two in Task 4, two in Task 6, three in Task 7, one in Task 8.
+seventeen: two in Tasks 2/3, two in Task 4, **seven in Task 4b** (four in
+`test_distributor.py`, three in `test_flow_meter.py`), two in Task 6, three in Task 7,
+one in Task 8.
 
 ## Measured FlowMeter behaviour (do not re-derive)
 
@@ -76,6 +78,8 @@ the sweep's `dry = measured <= 0`, which is what stops a live `-0.2` from reachi
 | File | Responsibility | Change |
 |---|---|---|
 | `custom_components/irrigation_plus/distributor.py` | outlet-ring cycle engine | Modify: `import math`; `_dist_read_flow` (~643); `_dist_measure_window` (~665, ~743-749); `_dist_credit_zone` (~977); the sweep (~1504-1552) |
+| `custom_components/irrigation_plus/flow_metering.py` | the shared `FlowMeter` engine | Modify (Task 4b): one flag in `__init__`, set at the two credit sites in `_sample_rate` / `_sample_totalizer`, plus the `priced_anything()` accessor |
+| `tests/test_flow_meter.py` | `FlowMeter` unit level | Modify (Task 4b): add 3 |
 | `tests/test_distributor.py` | `_dist_measure_window` / `_dist_read_flow` unit level | Modify: invert 1 test (~741), add 4 |
 | `tests/test_distributor_dispatch.py` | the sweep, with `_dist_measure_window` mocked | Modify: widen 8 stub signatures, add 3 |
 
@@ -505,6 +509,343 @@ FlowMeter rejected the same value — a nan sensor read as a dry run.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
+
+---
+
+---
+
+### Task 4b: The witness comes from inside the meter
+
+**Why this task exists:** Tasks 2–4 built the witness from `last_live`, the elapsed
+time of the most recent poll that returned a tuple. The review measured that as a
+**regression**, not an approximation — three inputs return `0.0` for a run that
+delivered water, where `418ab8a0` returned `None`:
+
+| input | real water | `418ab8a0` | after Tasks 1–4 |
+|---|---|---|---|
+| rate 12 L/min, live only every 5th poll (gap 25 s > `max_gap_s` 20 s) | whole window | `None` | **`0.0`** |
+| totalizer `100 → 60, 70, 80, 90` | 30 L | `None` | **`0.0`** |
+| totalizer `45 → 8, 20, 30, 40` | 32 L | `None` | **`0.0`** |
+
+All three are `FlowMeter` accepting a value and then declining to price it:
+`_sample_rate` refuses to integrate across a gap wider than `max_gap_s`;
+`_sample_totalizer`'s drop branch keeps its baseline and credits nothing; and that
+branch's `near_zero` floor (`max(1.0, 0.1 × last)`) misses a per-run reset whose
+first post-reset read clears it. `_have_reading` cannot tell any of them apart, and
+neither can a witness built from reading *timings*. See spec §4.
+
+Once Task 7 lands, each becomes `RUN_RESULT_FAILED` on a run that watered — the
+same defect class as the critical `JustChr#174`'s first review missed.
+
+**Files:**
+- Modify: `custom_components/irrigation_plus/flow_metering.py` (init flag, two credit sites, one accessor)
+- Modify: `custom_components/irrigation_plus/distributor.py` (the guard + two comment blocks)
+- Test: `tests/test_distributor.py`, `tests/test_flow_meter.py`
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `tests/test_distributor.py`, after `test_read_flow_rejects_non_finite`:
+
+```python
+async def test_measure_window_rate_gap_wider_than_max_gap_is_not_dry():
+    # Eifel-Joe#53, spec 4.1 case 1 — the flapping sensor. _sample_rate refuses to
+    # integrate when dt exceeds max_gap_s (4 polls = 20 s), because bridging dropped
+    # samples with a recovered rate would over-credit. The poll loop still saw a live
+    # reading, so a timings-based witness is satisfied while the meter priced NOTHING.
+    # 12 L/min flowed the whole window; measured against the real FlowMeter, the old
+    # last_live witness returned 0.0 here and 418ab8a0 returned None.
+    c, d = _flow_host()
+    seq = [12.0] + [None, None, None, None, 12.0] * 2 + [None, None]
+    it = iter(seq)
+    c.hass.states.get = Mock(
+        side_effect=lambda s: (lambda v: None if v is None else _state(v, "L/min"))(
+            next(it, None)
+        )
+    )
+    measured, actual, stopped = await c._dist_measure_window(d, 60)
+    assert measured is None
+    assert stopped is False
+
+
+async def test_measure_window_totalizer_below_retained_baseline_is_not_dry():
+    # Eifel-Joe#53, spec 4.1 case 2. near_zero = max(1.0, 0.1*100) = 10, so the drop to
+    # 60 is a glitch and not a reset: saw_reset() stays False, the baseline 100 is kept,
+    # and the 60 -> 90 climb (30 L of real water) never passes it. delivered() is 0.0
+    # with every read live, so neither the timings witness nor saw_reset() catches it.
+    c, d = _flow_host()
+    vals = iter([100.0, 60.0, 70.0, 80.0, 90.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 90.0), "L"))
+    measured, actual, stopped = await c._dist_measure_window(d, 20)
+    assert measured is None
+    assert stopped is False
+
+
+async def test_measure_window_per_run_reset_above_near_zero_is_not_dry():
+    # Eifel-Joe#53, spec 4.1 case 3. near_zero = max(1.0, 0.1*45) = 4.5, and the first
+    # read after the reset is 8 — ABOVE the floor, so the reset saw_reset() exists for
+    # is invisible. 32 L really flowed (8 -> 40) below the retained baseline of 45.
+    c, d = _flow_host()
+    vals = iter([45.0, 8.0, 20.0, 30.0, 40.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 40.0), "L"))
+    measured, actual, stopped = await c._dist_measure_window(d, 20)
+    assert measured is None
+    assert stopped is False
+
+
+async def test_measure_window_a_priced_zero_is_still_dry():
+    # Eifel-Joe#53, the CONTROL for the three tests above: tightening the witness must
+    # not disable the feature. An interval credited at 0 L counts as priced, and that is
+    # how a genuinely dry run is recognised — priced_anything() is not "delivered > 0".
+    # Three shapes, all dry, all must stay 0.0:
+    #   a rate sensor reading 0 every poll,
+    #   a totalizer holding its value (100, 100, ...),
+    #   a pressure surge at the open then nothing — the surge is the SEED, which prices
+    #   nothing, and every interval after it is credited at 0. This last one is the
+    #   issue's leading case, an empty cistern behind a valve that still thumps.
+    c, d = _flow_host()
+    c.hass.states.get = Mock(return_value=_state(0.0, "L/min"))
+    assert (await c._dist_measure_window(d, 30))[0] == 0.0
+
+    c, d = _flow_host()
+    c.hass.states.get = Mock(side_effect=lambda s: _state(100.0, "L"))
+    assert (await c._dist_measure_window(d, 20))[0] == 0.0
+
+    c, d = _flow_host()
+    surge = iter([12.0])
+    c.hass.states.get = Mock(
+        side_effect=lambda s: _state(next(surge, 0.0), "L/min")
+    )
+    assert (await c._dist_measure_window(d, 30))[0] == 0.0
+```
+
+And append to `tests/test_flow_meter.py`, which unit-tests `FlowMeter` directly (match
+that file's existing construction style for the meter):
+
+```python
+def test_priced_anything_separates_accepted_from_credited():
+    # Eifel-Joe#53: delivered() gates on _have_reading, which a single valve-open seed
+    # already satisfies — so a 0.0 cannot be read as "measured dry" without knowing
+    # whether anything was ever CREDITED. The two states are different, and only this
+    # accessor exposes the second one.
+    m = FlowMeter("lifetime", max_gap_s=20)
+    assert m.priced_anything() is False  # nothing sampled yet
+    m.sample(12.0, "L/min", None, 0.0)  # the valve-open seed prices nothing
+    assert m.delivered() == 0.0  # _have_reading is already true
+    assert m.priced_anything() is False
+    m.sample(12.0, "L/min", None, 100.0)  # gap 100 s > max_gap_s -> not integrated
+    assert m.priced_anything() is False
+    m.sample(12.0, "L/min", None, 105.0)  # gap 5 s -> integrated
+    assert m.priced_anything() is True
+
+
+def test_priced_anything_counts_an_interval_credited_at_zero():
+    # A rate of 0 across a live interval IS a measurement — it is what a genuinely dry
+    # run looks like, and the guard must be able to write that run off.
+    m = FlowMeter("lifetime", max_gap_s=20)
+    m.sample(0.0, "L/min", None, 0.0)
+    m.sample(0.0, "L/min", None, 5.0)
+    assert m.delivered() == 0.0
+    assert m.priced_anything() is True
+
+
+def test_priced_anything_is_false_for_a_totalizer_below_its_baseline():
+    # A counter that fell below its retained baseline and climbed back part of the way
+    # has its climb credited NOWHERE, so the run was not priced.
+    m = FlowMeter("lifetime")
+    for i, v in enumerate([100.0, 60.0, 70.0, 80.0, 90.0]):
+        m.sample(v, "L", "total_increasing", i * 5.0)
+    assert m.delivered() == 0.0
+    assert m.priced_anything() is False
+    # ... while a totalizer that merely holds its value HAS been priced, at 0 L.
+    m2 = FlowMeter("lifetime")
+    for i in range(4):
+        m2.sample(100.0, "L", "total_increasing", i * 5.0)
+    assert m2.delivered() == 0.0
+    assert m2.priced_anything() is True
+```
+
+- [ ] **Step 2: Run them and watch them fail**
+
+```bash
+/d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py tests/test_flow_meter.py -p _local_socket_unblock -q
+```
+
+Expected: the three `..._is_not_dry` tests FAIL with `assert 0.0 is None`; the three
+`test_priced_anything_*` tests FAIL with `AttributeError: 'FlowMeter' object has no
+attribute 'priced_anything'`. `test_measure_window_a_priced_zero_is_still_dry` **passes
+already** — it is a control, and it must still pass at the end.
+
+- [ ] **Step 3: Give `FlowMeter` the accessor**
+
+In `flow_metering.py`'s `__init__`, after the `_saw_reset` line:
+
+```python
+        self._saw_reset = False  # a totalizer near-zero drop was observed this run
+        # Wurzel: `_have_reading` (which delivered() gates on) is satisfied by the
+        #   valve-open seed alone, so a 0.0 could not be told apart from a meter that
+        #   ACCEPTED readings and priced none of them — a rate whose gap exceeded
+        #   max_gap_s, a totalizer that fell below its retained baseline. A caller that
+        #   wrote a run off on a 0.0 therefore wrote off runs that really watered:
+        #   measured, 12 L/min across a window whose sensor flapped every 5th poll.
+        # Fix: latch this wherever a reading is actually CREDITED, and expose it
+        #   separately (see priced_anything). Never set on the seed path or on a drop
+        #   the meter declines to price.
+        # NOT-TO-DO: do not make delivered() return None in those cases instead. Its
+        #   0.0 contract is what the crediting callers price a genuinely dry run with.
+        # siehe test_flow_meter.py::test_priced_anything_separates_accepted_from_credited
+        self._priced = False  # at least one reading was credited this run
+```
+
+In `_sample_rate`, inside the branch that credits:
+
+```python
+            if self._max_gap_s is None or dt <= self._max_gap_s:
+                self._delivered += rate * dt / 60.0
+                self._priced = True
+```
+
+In `_sample_totalizer`, inside the rising branch:
+
+```python
+        if litres >= self._last:  # rising: credit the true climb
+            self._delivered += litres - self._last
+            self._last = litres
+            self._priced = True
+            return
+```
+
+And the accessor, directly above `saw_reset`:
+
+```python
+    def priced_anything(self) -> bool:
+        """True iff at least one reading was actually CREDITED this run.
+
+        Distinct from the reading that ``delivered()`` gates on: a single
+        valve-open seed satisfies that one and prices nothing. A meter can accept
+        readings and credit none of them — a rate whose inter-sample gap exceeded
+        ``max_gap_s``, a totalizer that fell below its retained baseline and
+        climbed back part of the way. Only a caller that writes a run OFF on the
+        strength of a ``0.0`` needs that difference.
+
+        An interval credited at 0 L DOES count: that is what a genuinely dry run
+        looks like, and the caller has to be able to recognise it.
+        """
+        return self._priced
+```
+
+- [ ] **Step 4: Switch the guard, and rewrite both comment blocks**
+
+In `_dist_measure_window`, change the condition's third term from
+`(last_live <= 0.0 or meter.saw_reset())` to
+`(not meter.priced_anything() or meter.saw_reset())`.
+
+**Then rewrite the comment block above it.** Its current `Wurzel`/`Fix` describe
+`last_live` as the witness, and that description is now false — this project treats a
+comment whose root cause no longer matches as worse than none. Replace the block with:
+
+```python
+        # Wurzel: a 0.0 is only an ANSWER when the meter priced something. The
+        #   valve-open seed above (meter.sample(..., 0.0)) makes the meter's
+        #   have-a-reading state true from the first second, so delivered() never
+        #   returns None again whatever the sensor does next — and a meter can accept
+        #   readings and credit NONE of them. Measured against the real FlowMeter, all
+        #   three of these return 0.0 for a run that delivered water, and all three
+        #   returned None before this change:
+        #     rate 12 L/min, live only every 5th poll -> _sample_rate will not
+        #       integrate across a gap wider than max_gap_s;
+        #     totalizer 100 -> 60,70,80,90 -> the drop is not near-zero, so the
+        #       baseline is kept and 30 L of climb is credited nowhere;
+        #     totalizer 45 -> 8,20,30,40 -> a per-run reset whose first post-reset
+        #       read clears near_zero (4.5), so saw_reset() never trips either.
+        # Fix: ask the meter what it CREDITED, not when it last answered.
+        #   priced_anything() is false for every case above and true for a dry run
+        #   that was really measured (an interval credited at 0 L counts). saw_reset()
+        #   stays beside it and is NOT redundant: a totalizer reading 100,100,5,7
+        #   prices the flat interval at 0 L, so only saw_reset() catches the reset
+        #   after it. The classic runner makes the same diversion before its own dry
+        #   branch (irrigation.py:1536).
+        # NOT-TO-DO: do not derive this from the poll loop's own timings. That was the
+        #   first design (a `last_live <= 0.0` test) and it is what the three inputs
+        #   above defeat: the loop sees a live tuple, the meter throws the value away.
+        # NOT-TO-DO: do not fold either term into FlowMeter.delivered(). Its 0.0
+        #   contract is what the crediting callers price a genuinely dry run with.
+        # siehe tests/test_distributor.py::
+        #   test_measure_window_sensor_dead_after_open_read_is_not_dry
+        #   test_measure_window_totalizer_reset_is_not_dry
+        #   test_measure_window_rate_gap_wider_than_max_gap_is_not_dry
+        #   test_measure_window_totalizer_below_retained_baseline_is_not_dry
+        #   test_measure_window_per_run_reset_above_near_zero_is_not_dry
+        #   test_measure_window_a_priced_zero_is_still_dry
+```
+
+**And rewrite `_dist_read_flow`'s block**, whose `Wurzel` currently says the nan hole
+matters because it misleads `last_live`. It no longer does — `FlowMeter.sample()`
+rejects a nan before either pricing path, so `priced_anything()` cannot be fooled by
+one. The guard stays for two other reasons; replace that block with:
+
+```python
+        # Wurzel: float("nan") and float("inf") PARSE, so a sensor reporting either
+        #   returned a tuple from a function whose docstring promises None for
+        #   "non-numeric". FlowMeter.sample() rejects the same value anyway
+        #   (flow_metering.py, `if not math.isfinite(raw)`), so nothing was
+        #   mis-credited — but the poll loop reads these tuples for a second purpose.
+        # Fix: reject here, so the function keeps its own contract and every caller
+        #   can treat a tuple as a reading the meter will accept.
+        # Beleg: the dead-meter extend guard keys on the gap since the last tuple, so
+        #   a nan sensor used to look alive and hold the shared inlet open for the
+        #   whole extend cap. Measured, window 30 / cap 600: 600 s without this guard,
+        #   30 s with it.
+        # NOT-TO-DO: do not special-case it in the window's poll loop instead — the
+        #   extend guard would still have to repeat the test, and a nan sensor IS dead
+        #   for metering on every path that reads it.
+        # siehe tests/test_distributor.py::test_read_flow_rejects_non_finite
+```
+
+- [ ] **Step 5: Run both files, then the three distributor files**
+
+```bash
+/d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py tests/test_distributor_dispatch.py tests/test_flow_meter.py -p _local_socket_unblock -q
+```
+
+Expected: **all pass.** `tests/test_flow_meter.py` is 45 tests before this task and 48
+after; `tests/test_distributor.py` is 56 before and 60 after. If anything in
+`test_flow_meter.py` went red, the `_priced` flag was latched in the wrong place —
+report it rather than adjusting the test.
+
+Then check the other consumers of `FlowMeter`, which this task did not intend to
+change (the flag is additive, nothing reads it yet except the distributor):
+
+```bash
+/d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_self_closing.py tests/test_flow_calibration.py tests/test_flow_units.py tests/test_observed_watering.py -p _local_socket_unblock -q
+```
+
+Expected: unchanged from before this task. Note the count before you start.
+
+- [ ] **Step 6: Lint and commit**
+
+```bash
+uvx black custom_components/irrigation_plus/
+uvx ruff check custom_components/irrigation_plus/
+git add custom_components/irrigation_plus/flow_metering.py custom_components/irrigation_plus/distributor.py tests/test_distributor.py tests/test_flow_meter.py
+git commit -F - <<'EOF'
+fix(flow): ask the meter what it credited, not when it last answered
+
+Eifel-Joe#53. A witness built from the poll loop's timings is not sound: three
+measured inputs have FlowMeter accept a reading and price none of it, and all
+three then look identical to a dry cistern -- a rate whose gap exceeds
+max_gap_s, a totalizer below its retained baseline, and a per-run reset whose
+first post-reset read clears near_zero.
+
+FlowMeter latches whether a reading was ever CREDITED and exposes it as
+priced_anything(). An interval credited at 0 L counts, so a genuinely dry run is
+still recognised. saw_reset() stays: 100,100,5,7 prices the flat interval, so
+only it catches the reset that follows.
+
+<ATTRIBUTION>
+EOF
+```
+
+Then tick Task 4b's six checkboxes and `git commit --amend --no-edit`.
 
 ---
 
@@ -1016,8 +1357,8 @@ TMP=/d/Entwicklung/HASI/issue53-work/tmp TEMP=/d/Entwicklung/HASI/issue53-work/t
   > /d/Entwicklung/HASI/issue53-work/after-full.txt 2>&1; tail -3 /d/Entwicklung/HASI/issue53-work/after-full.txt
 ```
 
-Expected: `7 failed, 3264 passed, 9 skipped, … 349 errors` — baseline `3254` plus the
-**10** new tests (Task 1 inverts one in place, so it is not a new name). Any other
+Expected: `7 failed, 3271 passed, 9 skipped, … 349 errors` — baseline `3254` plus the
+**17** new tests (Task 1 inverts one in place, so it is not a new name). Any other
 number means read the diff in Step 2 before touching code.
 
 - [ ] **Step 2: Diff the non-passing names against the baseline**
@@ -1070,9 +1411,12 @@ behaviour at all, before suspecting the test.
 
 | # | Mutation | Must kill |
 |---|---|---|
-| M1 | `if delivered is not None and delivered <= 0 and (last_live <= 0.0 or meter.saw_reset()):` → drop `last_live <= 0.0 or ` | `test_measure_window_sensor_dead_after_open_read_is_not_dry`, `test_measure_window_nan_after_open_read_is_not_dry` |
-| M2 | same line → drop ` or meter.saw_reset()` | `test_measure_window_totalizer_reset_is_not_dry` |
+| M1 | the guard → drop `not meter.priced_anything() or ` | `test_measure_window_sensor_dead_after_open_read_is_not_dry`, `..._nan_after_open_read_is_not_dry`, `..._rate_gap_wider_than_max_gap_is_not_dry`, `..._totalizer_below_retained_baseline_is_not_dry`, `..._per_run_reset_above_near_zero_is_not_dry` |
+| M2 | same line → drop ` or meter.saw_reset()` | `test_measure_window_totalizer_reset_is_not_dry` — **the pin that proves `priced_anything()` does not subsume it** (`100,100,5,7` prices the flat interval) |
+| M2a | drop `self._priced = True` from `_sample_rate` | `test_measure_window_a_priced_zero_is_still_dry`, `test_priced_anything_counts_an_interval_credited_at_zero` — a dry rate run would stop being written off, i.e. the feature silently disables |
+| M2b | drop `self._priced = True` from `_sample_totalizer` | `test_measure_window_a_priced_zero_is_still_dry`, `test_priced_anything_is_false_for_a_totalizer_below_its_baseline` |
 | M3a | same line → `delivered == 0` instead of `delivered <= 0` | **nothing — and that is the correct outcome.** See Step 2. |
+| M3c | `priced_anything()` returns `self._delivered > 0` instead of `self._priced` | `test_measure_window_a_priced_zero_is_still_dry`, `test_priced_anything_counts_an_interval_credited_at_zero` — guards the one misreading that would look like a simplification and would disable the whole feature |
 | M3b | the sweep's `dry = measured is not None and measured <= 0` → `== 0` | `test_sweep_treats_a_negative_measurement_as_dry` |
 | M4 | `dry = …` moved AFTER the `run_result` block, and `RUN_RESULT_FAILED if dry` dropped from the ternary | `test_sweep_records_a_dry_member_run_as_failed`, `…_without_a_target` |
 | M5 | drop `and not dry` from the calibration gate | `test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample` |
@@ -1092,11 +1436,12 @@ git diff --stat   # MUST be empty before the next mutation
 - [ ] **Step 2: M3a survives, and it must — do not go hunting for a test**
 
 M3a kills nothing, and the reason is measured rather than assumed. The guard it mutates
-fires **only when the after-open witness has already failed**, which means the meter
-holds exactly one sample, the valve-open seed. A rate sensor then has no interval to
-integrate over and a totalizer no climb above its own baseline, so `delivered()` is
-*exactly* `0.0` — for every input tried: `-0.4`, `-99`, `0`, `12` L/min and `-5`, `100`
-L all return `0.0`. `<= 0` and `== 0` are therefore indistinguishable at that line.
+fires only when the meter priced nothing, and a meter that priced nothing has a
+`_delivered` of *exactly* `0.0` — every increment to it happens at one of the two sites
+that also latch `_priced`. A negative `delivered` therefore always comes with
+`priced_anything() == True`, so `<= 0` and `== 0` are indistinguishable at that line.
+(Measured on the earlier design for the same reason: a seed-only meter returns `0.0`
+for every input tried — `-0.4`, `-99`, `0`, `12` L/min and `-5`, `100` L.)
 
 **This is the "a mutation that kills nothing may be the wrong mutation" case.** The
 comparison is kept `<= 0` for consistency with the sweep's and with the self-closing
