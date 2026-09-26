@@ -24,7 +24,7 @@ eine Datei, +113/−21).
 Merge wartet auf die Nachmessung beider Zonen (E10).
 
 **Quellen:** Karte des Codes Workflow `wf_6e62f6f5-88b` (7 Code-Leser, 5 Gegenprüfer, Vollständigkeitsprüfung,
-Recorder-Leser auf HA-Prod, nur lesend). Umfangsprüfung nach JustChrs Regel: `D:/Entwicklung/HASI/pr139-work/wf-scope-answer.json`
+Recorder-Leser auf HA-Prod, nur lesend). Umfangsprüfung nach JustChrs Regel: a local workflow output that was **not kept** (a 249 KB agent dump; its conclusions are in this spec and in the plan, which is what survives)
 (`result.impact.map.changes`, `result.impact.critic`, Schwester-Pfad-Befunde `result.sister` SP-1 bis SP-10 mit je zwei
 Gegenprüfungen). Probelauf der Entscheidungen: `wf-dry3.json`, Protokolle `dry3-logs/` (T5.md, T7.md, T8.md, T9.md, final.md).
 Kommentare auf #139: `issue139-comments.md`.
