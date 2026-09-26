@@ -671,8 +671,11 @@ class DistributorMixin:
         per its unit/state_class); no feature flag. Returns a tuple
         ``(delivered, actual_seconds, stopped_early)``:
 
-        - ``delivered`` — measured litres, or None to fall back to time-based crediting
-          (no sensor / dead meter / unreliable reading).
+        - ``delivered`` — measured litres, or None to fall back to time-based
+          crediting. ``0.0`` is a MEASUREMENT (a live meter that integrated nothing:
+          the dry-cistern case) and the caller writes the run off on it. None means
+          nothing was measured: no sensor, a meter that never read, a meter that read
+          ONLY at the valve-open seed, or a totalizer reset it cannot price.
         - ``actual_seconds`` — time actually elapsed (== ``window`` on any non-metering
           path; < ``cap`` when a ``target`` is hit; == ``cap`` at the safety cap).
         - ``stopped_early`` — True iff ``target`` was reached before ``cap`` elapsed.
@@ -741,13 +744,14 @@ class DistributorMixin:
                 # already are, if the extend had run beyond it before the sensor died).
                 eff_cap = min(cap, max(window, elapsed))
         delivered = meter.delivered()
+        # Bound from the RAW value, before the evidence test below, so its behaviour
+        # is unchanged. (The two cannot co-occur anyway: `target` is bound only under
+        # `tv > 0`, so this needs delivered >= target > 0. The order keeps that true
+        # without leaning on the argument.)
         stopped_early = (
             target is not None and (delivered or 0.0) >= target and elapsed < cap
         )
-        # Part B fail-safe: a live-but-dry meter delivered 0 L -> unreliable so the caller
-        # falls back to time-based crediting (spec: delivered <= 0 -> None).
-        reliable = delivered is not None and delivered > 0
-        return (delivered if reliable else None), elapsed, stopped_early
+        return delivered, elapsed, stopped_early
 
     async def _dist_members(self, distributor_id) -> list:
         """This distributor's member zones (dicts), ordered by outlet 1..n."""

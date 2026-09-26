@@ -90,7 +90,7 @@ already has a label in all eight `frontend/localize/languages/*.json`.
 - Modify: `custom_components/irrigation_plus/distributor.py:665-749`
 - Test: `tests/test_distributor.py:741-749`
 
-- [ ] **Step 1: Invert the test that pins the collapse**
+- [x] **Step 1: Invert the test that pins the collapse**
 
 Replace the whole existing test at `tests/test_distributor.py:741`:
 
@@ -124,7 +124,7 @@ async def test_measure_window_zero_flow_live_meter_measures_zero():
     assert stopped is False
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py::test_measure_window_zero_flow_live_meter_measures_zero -p _local_socket_unblock -v
@@ -136,7 +136,7 @@ This is the only existing test that goes red. The three neighbours asserting
 `measured is None` (`:609` no sensor, `:619` unavailable-from-start, `:711` dead
 sensor) all return before the meter exists and are untouched — confirm in Step 4.
 
-- [ ] **Step 3: Delete the collapse**
+- [x] **Step 3: Delete the collapse**
 
 In `_dist_measure_window`, replace:
 
@@ -183,7 +183,7 @@ becomes:
           ONLY at the valve-open seed, or a totalizer reset it cannot price.
 ```
 
-- [ ] **Step 4: Run the test and its neighbours**
+- [x] **Step 4: Run the test and its neighbours**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py -p _local_socket_unblock -q
@@ -195,7 +195,7 @@ Expected: **all pass.** Specifically `test_measure_window_no_sensor_returns_none
 `test_measure_window_sensor_dies_mid_extend_stops_before_cap` are still green — if any
 went red, the collapse was doing work beyond the dry case and this plan is wrong.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/distributor.py tests/test_distributor.py

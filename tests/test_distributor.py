@@ -738,13 +738,17 @@ async def test_measure_window_sensor_dies_mid_extend_stops_before_cap():
     assert actual < 1200
 
 
-async def test_measure_window_zero_flow_healthy_sensor_is_unreliable():
-    # A live meter reading 0 the whole window (dry pipe / stuck valve) is unreliable
-    # -> None (fall back to time-based crediting), NOT a credited 0 L. Part B fail-safe.
+async def test_measure_window_zero_flow_live_meter_measures_zero():
+    # Eifel-Joe#53: a meter that watched the whole window and integrated nothing has
+    # ANSWERED — 0.0, not "no measurement". Collapsed to None (the old Part B
+    # fail-safe) the caller fell back to the planned-window credit, so a member zone
+    # behind an empty cistern was credited in full and logged as completed.
+    # The two states that produce a 0.0 WITHOUT having measured the run stay None and
+    # have their own tests below.
     c, d = _flow_host()
     c.hass.states.get = Mock(return_value=_state(0.0, "L/min"))
     measured, actual, stopped = await c._dist_measure_window(d, 30)
-    assert measured is None
+    assert measured == 0.0
     assert actual == 30
     assert stopped is False
 
