@@ -1160,17 +1160,35 @@ class CalculationMixin:
                 # and is the seam Eifel-Joe#22 is about to move. expected_rain
                 # compares aware instants either way, so taking the moment from
                 # dt_util keeps this independent of how that lands.
-                rain = (
-                    expected_rain(
+                if run_start is None:
+                    # Abstaining waters the full amount, which is the safe
+                    # direction for a feature whose whole job is to water less.
+                    _LOGGER.debug(
+                        "[calculate-module]: no scheduled run resolves for zone "
+                        "%s, so the forecast weighting has no window to price",
+                        zone.get(const.ZONE_ID),
+                    )
+                    rain = None
+                else:
+                    rain = expected_rain(
                         run_start=run_start,
                         evaluated_at=dt_util.utcnow(),
                         days=days,
                         hourly=await self._weighting_hourly(run_start, days),
                         daily=fd,
                     )
-                    if run_start is not None
-                    else None
-                )
+                    if not rain.first_24h_covered:
+                        # The same refusal the skip guard makes: a forecast that
+                        # does not reach the run's first 24 hours says nothing
+                        # about them, and a partial sum reads as "little rain",
+                        # which waters MORE than it should.
+                        _LOGGER.debug(
+                            "[calculate-module]: the forecast does not cover the "
+                            "first 24 hours from zone %s's run, so it is not "
+                            "weighted",
+                            zone.get(const.ZONE_ID),
+                        )
+                        rain = None
                 forecast_precip = rain.mm if rain is not None else 0.0
                 if rain is not None and forecast_precip > 0:
                     effective_bucket = min(0.0, newbucket + forecast_precip)
