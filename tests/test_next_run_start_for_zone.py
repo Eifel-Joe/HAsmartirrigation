@@ -181,3 +181,29 @@ async def test_a_schedule_that_resolves_nothing_does_not_hide_one_that_does():
     manager._advance_past_fired_occurrence = _advance
 
     assert await manager.async_next_run_start_for_zone(1) == TARGET
+
+
+@pytest.mark.asyncio
+async def test_the_resolver_never_prices_a_zone():
+    """The cycle pin, and the reason this method exists at all.
+
+    calculate_module calls this while computing the very bucket that
+    get_total_irrigation_duration reads. Any path from here to that call is a
+    loop, so it is made to raise: the resolver still has to answer.
+    """
+    manager, coordinator = _make_manager()
+    manager._schedules = [_schedule()]
+    _fixed_target(manager)
+
+    def _explode(*args, **kwargs):
+        raise AssertionError(
+            "the resolver reached a zone duration, which closes the cycle "
+            "calculate_module calls it from"
+        )
+
+    coordinator.get_total_irrigation_duration = _explode
+    manager._estimate_duration = _explode
+    manager._duration_bound = _explode
+    manager._decision_point = _explode
+
+    assert await manager.async_next_run_start_for_zone(1) == TARGET
