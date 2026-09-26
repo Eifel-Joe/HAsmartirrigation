@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from typing import NamedTuple
 
 from homeassistant.core import callback
@@ -655,6 +656,21 @@ class DistributorMixin:
         try:
             value = float(state.state)
         except (ValueError, TypeError):
+            return None
+        # Wurzel: float("nan") and float("inf") PARSE, so a sensor reporting either
+        #   returned a tuple from a function whose docstring promises None for
+        #   "non-numeric" — while FlowMeter.sample() rejected the very same value
+        #   (flow_metering.py, `if not math.isfinite(raw)`). Harmless until
+        #   _dist_measure_window started reading `last_live` as evidence that the meter
+        #   had read after the valve-open seed: a nan set the witness without the meter
+        #   accepting anything, and the run was written off as dry.
+        # Fix: reject here, so a caller can trust that a tuple reached the meter.
+        # NOT-TO-DO: do not special-case it in the window's loop instead. The
+        #   dead-meter extend guard reads the same `last_live`, and a nan sensor IS
+        #   dead for metering — it must stop holding the shared inlet open, which only
+        #   happens if the read returns None here.
+        # siehe tests/test_distributor.py::test_read_flow_rejects_non_finite
+        if not math.isfinite(value):
             return None
         unit = (
             state.attributes.get("unit_of_measurement", "") if state.attributes else ""

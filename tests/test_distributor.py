@@ -791,6 +791,41 @@ async def test_measure_window_totalizer_reset_is_not_dry():
     assert stopped is False
 
 
+async def test_measure_window_nan_after_open_read_is_not_dry():
+    # Eifel-Joe#53, the precondition of Task 2's witness: _dist_read_flow promises
+    # "None when unavailable/non-numeric", but float("nan") parses, so a nan sensor
+    # returned a tuple and set `last_live` — while FlowMeter.sample() silently REJECTED
+    # the same value (flow_metering.py, `if not math.isfinite(raw)`). The witness then
+    # said "the meter read after the open" about a reading the meter threw away, and a
+    # sensor stuck at nan had its run written off as dry. The sister-path check carried
+    # down to the precondition, which is the level Eifel-Joe#4's review found missing.
+    c, d = _flow_host()
+    calls = {"n": 0}
+
+    def _drive(_sensor):
+        calls["n"] += 1
+        return _state(12.0, "L/min") if calls["n"] == 1 else _state(float("nan"), "L/min")
+
+    c.hass.states.get = Mock(side_effect=_drive)
+    measured, actual, stopped = await c._dist_measure_window(d, 30)
+    assert measured is None
+    assert stopped is False
+
+
+def test_read_flow_rejects_non_finite():
+    # Same root, at the unit: nan and inf are not numbers, and the docstring already
+    # said so. FlowMeter would drop them anyway; the tuple is what misleads `last_live`.
+    c, d = _flow_host()
+    for bad in ("nan", "inf", "-inf"):
+        s = Mock()
+        s.state = bad
+        s.attributes = {"unit_of_measurement": "L/min"}
+        c.hass.states.get = Mock(return_value=s)
+        assert c._dist_read_flow("sensor.inlet_flow") is None, bad
+    c.hass.states.get = Mock(return_value=_state(3.5, "L/min"))
+    assert c._dist_read_flow("sensor.inlet_flow") == (3.5, "L/min", None)
+
+
 # --- Phase 4 Part A: crediting the measured flow volume ---------------------
 
 

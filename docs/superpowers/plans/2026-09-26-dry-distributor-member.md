@@ -397,7 +397,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `custom_components/irrigation_plus/distributor.py:14-20` (`import math`), `:643-664`
 - Test: `tests/test_distributor.py` (append after the Task 3 test)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 async def test_measure_window_nan_after_open_read_is_not_dry():
@@ -435,7 +435,7 @@ def test_read_flow_rejects_non_finite():
     assert c._dist_read_flow("sensor.inlet_flow") == (3.5, "L/min", None)
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest "tests/test_distributor.py::test_measure_window_nan_after_open_read_is_not_dry" "tests/test_distributor.py::test_read_flow_rejects_non_finite" -p _local_socket_unblock -v
@@ -445,7 +445,7 @@ Expected: **both FAIL.** The first `assert 0.0 is None` (the nan reads set
 `last_live` to 30.0 while contributing nothing), the second
 `assert (nan, 'L/min', None) is None`.
 
-- [ ] **Step 3: Reject non-finite readings**
+- [x] **Step 3: Reject non-finite readings**
 
 Add to the import block at the top of `distributor.py`, alphabetically after `logging`:
 
@@ -486,7 +486,7 @@ with:
             return None
 ```
 
-- [ ] **Step 4: Run the file**
+- [x] **Step 4: Run the file**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py -p _local_socket_unblock -q
@@ -494,7 +494,7 @@ with:
 
 Expected: **all pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/distributor.py tests/test_distributor.py
