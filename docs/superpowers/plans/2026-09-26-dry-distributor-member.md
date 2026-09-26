@@ -1011,7 +1011,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `custom_components/irrigation_plus/distributor.py:1506-1530`
 - Test: `tests/test_distributor_dispatch.py` (append at end of file)
 
-- [ ] **Step 1: Write the two failing tests**
+- [x] **Step 1: Write the two failing tests**
 
 ```python
 async def test_sweep_records_a_dry_member_run_as_failed():
@@ -1125,7 +1125,7 @@ async def test_sweep_treats_a_negative_measurement_as_dry():
     assert credited["measured"] == 0.0  # the -0.2 never reaches the credit
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor_dispatch.py -k "dry_member_run or negative_measurement" -p _local_socket_unblock -v
@@ -1137,7 +1137,7 @@ it was: that depends on whether `_metered_target_volume` bound a target in the m
 and the point of the tests is only that it is not `FAILED`. The third also shows
 `measured == -0.2` reaching the credit.
 
-- [ ] **Step 3: Branch the sweep**
+- [x] **Step 3: Branch the sweep**
 
 Replace the `run_result` block and the credit call (`distributor.py:1508-1528`):
 
@@ -1219,7 +1219,7 @@ with:
                     detail=const.FAULT_FLOW_NEVER_STARTED if dry else None,
 ```
 
-- [ ] **Step 4: Run the tests and the whole file**
+- [x] **Step 4: Run the tests and the whole file**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor_dispatch.py -p _local_socket_unblock -q
@@ -1231,7 +1231,7 @@ Expected: **all pass**, including the three Review-M-1 tests
 `test_sweep_logs_completed_when_target_reached` measure above their targets — none is
 dry, so `run_result` is unchanged for all three).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/distributor.py tests/test_distributor_dispatch.py

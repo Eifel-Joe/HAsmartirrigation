@@ -1257,7 +1257,7 @@ async def test_manual_run_waters_non_due_member():
     c.store.async_get_zones = AsyncMock(return_value=members)
     credited = []
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, w, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.append(
+        side_effect=lambda z, w, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.append(
             z["id"]
         )
     )
@@ -1999,3 +1999,114 @@ async def test_a_classic_sweep_still_runs_its_priced_windows():
     await c.async_run_distributor_cycle(d)
     assert timed == [263.0]
     assert credited == {"seconds": 263.0, "planned": 263.0}
+
+
+async def test_sweep_records_a_dry_member_run_as_failed():
+    """Eifel-Joe#53: a live meter that measured 0.0 across the window means no water
+    reached the member zone. The run must be logged FAILED with flow_never_started and
+    credited NOTHING — before the fix the 0.0 was collapsed to None and the sweep
+    credited the whole planned window, so an empty cistern read as a full delivery."""
+    c = _host()
+    c._dist_uses_master = Mock(return_value=False)
+    _cycle_mocks(c)
+    c._dist_needs_water = Mock(return_value=True)
+    c._zone_target_bucket = Mock(return_value=0.0)
+    c._dist_measure_window = AsyncMock(return_value=(0.0, 60, False))
+    credited = {}
+    c._dist_credit_zone = AsyncMock(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, detail=None, **_kw: credited.update(
+            measured=measured_l, result=result, detail=detail
+        )
+    )
+    c.store.async_get_zones = AsyncMock(
+        return_value=[
+            {
+                "id": 7,
+                "distributor_id": 0,
+                "outlet_number": 1,
+                "duration": 60,
+                "bucket": -3,
+                "bucket_threshold": 0,
+                "state": "automatic",
+            }
+        ]
+    )
+    await c.async_run_distributor_cycle(_dist(id=0, current_outlet=1))
+    assert credited["result"] == const.RUN_RESULT_FAILED
+    assert credited["detail"] == const.FAULT_FLOW_NEVER_STARTED
+    # A hard 0.0, never the measured value: a rate sensor's negative resting offset
+    # measures -0.2 over a dry run, and a negative depth would write the bucket BELOW
+    # the level the run started from.
+    assert credited["measured"] == 0.0
+
+
+async def test_sweep_records_a_dry_member_run_as_failed_without_a_target():
+    """Eifel-Joe#53: the dry test must not be gated on a volume target. A member with
+    no target — a can't-stop member, or one whose target volume is 0 — is the majority
+    of the Part A configuration, and keying the failure on `measured < target` would
+    log it COMPLETED."""
+    c = _host()
+    c._dist_uses_master = Mock(return_value=False)
+    _cycle_mocks(c)
+    c._dist_needs_water = Mock(return_value=True)
+    c._zone_target_bucket = Mock(return_value=0.0)
+    c._metered_target_volume = Mock(return_value=0.0)  # no target
+    c._dist_measure_window = AsyncMock(return_value=(0.0, 60, False))
+    credited = {}
+    c._dist_credit_zone = AsyncMock(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, detail=None, **_kw: credited.update(
+            result=result, detail=detail
+        )
+    )
+    c.store.async_get_zones = AsyncMock(
+        return_value=[
+            {
+                "id": 7,
+                "distributor_id": 0,
+                "outlet_number": 1,
+                "duration": 60,
+                "bucket": -3,
+                "bucket_threshold": 0,
+                "state": "automatic",
+            }
+        ]
+    )
+    await c.async_run_distributor_cycle(_dist(id=0, current_outlet=1))
+    assert credited["result"] == const.RUN_RESULT_FAILED
+    assert credited["detail"] == const.FAULT_FLOW_NEVER_STARTED
+
+
+async def test_sweep_treats_a_negative_measurement_as_dry():
+    """Eifel-Joe#53 / spec 10.3: a rate sensor with a negative resting offset integrates
+    BELOW zero across a dry run -- -0.4 L/min over 30 s measures -0.2, measured on the
+    real FlowMeter. `dry = measured == 0` would miss it, and the negative depth would
+    reach _dist_credit_zone and write the bucket BELOW the level the run started from,
+    turning a failed run into a withdrawal. This is the test that kills M3b."""
+    c = _host()
+    c._dist_uses_master = Mock(return_value=False)
+    _cycle_mocks(c)
+    c._dist_needs_water = Mock(return_value=True)
+    c._zone_target_bucket = Mock(return_value=0.0)
+    c._dist_measure_window = AsyncMock(return_value=(-0.2, 60, False))
+    credited = {}
+    c._dist_credit_zone = AsyncMock(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, detail=None, **_kw: credited.update(
+            measured=measured_l, result=result
+        )
+    )
+    c.store.async_get_zones = AsyncMock(
+        return_value=[
+            {
+                "id": 7,
+                "distributor_id": 0,
+                "outlet_number": 1,
+                "duration": 60,
+                "bucket": -3,
+                "bucket_threshold": 0,
+                "state": "automatic",
+            }
+        ]
+    )
+    await c.async_run_distributor_cycle(_dist(id=0, current_outlet=1))
+    assert credited["result"] == const.RUN_RESULT_FAILED
+    assert credited["measured"] == 0.0  # the -0.2 never reaches the credit
