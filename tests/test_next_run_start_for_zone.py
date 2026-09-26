@@ -144,3 +144,40 @@ async def test_an_arm_without_a_start_falls_back_to_the_target():
     manager._armed_runs = {"s1": {"target": TARGET, "start_utc": None}}
 
     assert await manager.async_next_run_start_for_zone(1) == TARGET
+
+
+@pytest.mark.asyncio
+async def test_the_earliest_of_several_schedules_wins():
+    """Two schedules name the zone; the sooner run is the one being priced."""
+    manager, _ = _make_manager()
+    manager._schedules = [_schedule("late", zones=[1]), _schedule("soon", zones=[1])]
+    later = TARGET + datetime.timedelta(hours=8)
+
+    async def _governing(schedule, end, reference_utc=None):
+        return TARGET if schedule[const.SCHEDULE_CONF_ID] == "soon" else later
+
+    async def _advance(schedule, end, t, *, quiet=False):
+        return t
+
+    manager._next_governing_time = _governing
+    manager._advance_past_fired_occurrence = _advance
+
+    assert await manager.async_next_run_start_for_zone(1) == TARGET
+
+
+@pytest.mark.asyncio
+async def test_a_schedule_that_resolves_nothing_does_not_hide_one_that_does():
+    """The unresolvable one is listed first, so a short-circuit would lose the other."""
+    manager, _ = _make_manager()
+    manager._schedules = [_schedule("dead", zones=[1]), _schedule("live", zones=[1])]
+
+    async def _governing(schedule, end, reference_utc=None):
+        return None if schedule[const.SCHEDULE_CONF_ID] == "dead" else TARGET
+
+    async def _advance(schedule, end, t, *, quiet=False):
+        return t
+
+    manager._next_governing_time = _governing
+    manager._advance_past_fired_occurrence = _advance
+
+    assert await manager.async_next_run_start_for_zone(1) == TARGET
