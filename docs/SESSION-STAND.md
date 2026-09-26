@@ -1,5 +1,355 @@
 # HASI — Session-Stand
 
+> ⚠️ **2026-09-26: Diese Datei hat einen Datenverlust.** Ein fehlgeschlagenes
+> Schreib-Skript (Claude) hat sie geleert; sie lag zu dem Zeitpunkt nicht in Git.
+> Wiederhergestellt wurden: der Stand bis **2026-09-21 (4)** aus dem Git-Commit
+> `f459ff21`, und die Einträge ab **2026-09-25** aus dem Kontext der laufenden
+> Sitzung. **Es fehlt der Schluss des 2026-09-25-Eintrags und alles zwischen
+> 2026-09-22 und 2026-09-24** (~250 Zeilen) — siehe die Lückenmarkierung weiter
+> unten. Die betroffenen Fakten stehen zum Teil noch in den Memories, den Issues
+> und `archive/design-history`.
+>
+> **Wenn diese Datei wieder einmal leer oder beschädigt ist — zwei Quellen:**
+> 1. `D:\Entwicklung\HASI\.session-stand-backups\` — rotierende Kopien, angelegt
+>    von einem `PreToolUse`-Hook vor jedem Bash-Aufruf (nur bei Inhaltsänderung,
+>    zehn Stände). Der jüngste Stand, minutengenau.
+> 2. `git show archive/design-history:docs/SESSION-STAND.md` — der Sitzungsstand
+>    wird auf diesem Branch versioniert (er liegt außerhalb der PR-Linie, Regel P1).
+>    Älter, dafür verlässlich und auch remote.
+>
+> **Und die Ursache, damit sie sich nicht wiederholt:** `pathlib.write_text` und
+> jedes `open(…, "w")` LEEREN die Datei, bevor sie schreiben. Bricht das Kodieren
+> danach ab, bleibt nichts übrig. Nie in place über eine Datei schreiben, die
+> nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
+> darüberlegen, oder das Write-Tool nehmen.
+
+## 2026-09-26 (2) — Eifel-Joe#3 + #4: Spec, zwei Pläne, UMGESETZT und reviewt
+
+### Stand (verifiziert)
+- **BEIDE PLÄNE UMGESETZT + Review eingearbeitet.** Branch
+  `fix/self-closing-fault-lifecycle`, Worktree `D:/Entwicklung/HASI/issue3-work/wt`,
+  Basis `418ab8a0`. Kopf **`4880aa99`**, **nicht gepusht**.
+  - Voll-Suite **7 failed / 3266 passed / 9 skipped / 349 errors**, 356 Namen
+    `diff`-IDENTISCH zur Baseline auf DEMSELBEN Basis-Commit
+    (`issue3-work/baseline-names.txt`). Rechnung: 3254 + 4 (Plan 1) + 7 (Plan 2)
+    + 2 (C-1) − 1 (gestrichener Test) = 3266.
+  - `uvx black --check` 69 Dateien unverändert, `uvx ruff check` sauber,
+    **629 Frontend-Tests** grün (vitest).
+  - **13 Mutanten in den Plan-Matrizen, alle getroffen** (5 Plan 1, 8 Plan 2),
+    Treiber `issue3-work/matrix1.py` / `matrix2.py`.
+  - Diff: `self_closing.py +191`, `flow_metering.py +27`, 8 Sprachdateien je +1,
+    2 dist-Bundles, `docs/usage-events.md`, 3 Testdateien. **`distributor.py`
+    unberührt** (Schwester-Pfad bewusst vertagt).
+- Dokumente (Regel P1, noch NICHT archiviert):
+  `docs/superpowers/specs/2026-09-26-self-closing-fault-lifecycle-design.md`,
+  `docs/superpowers/plans/2026-09-26-fault-pairing-and-clearing.md`,
+  `docs/superpowers/plans/2026-09-26-dry-run-is-not-a-success.md`.
+  Beide Pläne tragen die **gemessenen** Zahlen samt der Vorhersagen, die danebenlagen.
+- **🔴 Der Review fand einen Critical, der `#4` ins Gegenteil verkehrt hätte** —
+  `_flow_build_meter` füttert den Ventil-Öffnungs-Read IN den Meter, also ist
+  `_have_reading` ab Sekunde 0 wahr und `delivered()` gibt nie mehr `None`.
+  **Gemessen: 45 L real geliefert, `delivered() == 0.0`, `saw_reset() == True`**
+  — der Lauf wäre als FAILED verbucht und die Gutschrift zurückgedreht worden.
+  Der klassische Läufer leitet genau das vorher ab (`irrigation.py:1536`) und
+  pinnt es mit `test_metered_zone_auto_hold_until_reset_credits_timed_not_fault`.
+  **Ich hatte seinen Dry-Zweig gespiegelt, aber nicht seine Vorbedingung** — der
+  Schwester-Pfad-Check eine Ebene zu früh abgebrochen.
+  Fix: `FlowMeter.saw_reading_after_open()` + `saw_reset`-Guard in
+  `_sc_finish_flow`. `delivered()` blieb unangetastet.
+- **Drei weitere Review-Befunde eingearbeitet:** der `no_anchor`-Zweig ist
+  **gestrichen** (unerreichbar — beide Record-Schreiber setzen `RUN_PRE_BUCKET` —
+  und wo er zündete inkohärent: `_stamp_run_finalized` nullte die Dauer auf der
+  nicht zurückgedrehten Gutschrift); `valve_did_not_open` in **allen 8 Sprachen**
+  nachgetragen (fehlte komplett, Chip fiel auf `generic`); zwei Event-Verträge in
+  `docs/usage-events.md` nachgezogen.
+- **Spec §10 trägt den ganzen Review-Durchgang**, samt der zwei Punkte, in denen
+  ich dem Reviewer mit Beleg widersprochen habe (`<= 0` statt `== 0` ist richtig;
+  die Früh-Stopp-Insulation kann keinen Volllauf verschlucken).
+- **HA-Test ist für den Live-Test bereit:** Irrigation Plus läuft dort (145
+  Entitäten, u.a. `binary_sensor.irrigation_plus_beet_problem` — der Sensor aus
+  dem `#3`-Kriterium), drei numerische Flusssensoren `sensor.wasser_*_flow` stehen
+  auf 0 (der `#4`-Leitfall, nicht simuliert sondern vorhanden), Sonoff-Emulator
+  vollständig. **OFFEN: wie der Build nach HA-Test kommt** — `custom_components/**`
+  ist per MCP nur lesbar.
+- **🔴 Die Basis ist WEITERGEWANDERT: `upstream/master` = `418ab8a0` (v2026.09.23)**,
+  nicht mehr `10bb8077`. Dazwischen zwei Commits von JustChr selbst:
+  `90187eed` (valve.\* per `open_valve` statt `turn_on`, **neues Modul `actuate.py`**)
+  und `c70a8438` (metered run schließt sein Ventil, was auch immer nach dem Open wirft).
+  Beide **nicht** in unseren Dateien. Kollisionsfrei.
+- **Doppelarbeits-Check über alle vier Achsen durch**, nichts kollidiert: offene PRs bei
+  JustChr sind `#172`/`#171` (unsere) und `#169`/`#168` (clarejor); **master trägt beide
+  Defekte noch** — am Code belegt.
+
+### Verworfen
+- **Ein drittes `dry`-Element im Rückgabe-Tupel von `_sc_finish_flow`** (erster Entwurf).
+  Gemessen: **22 Test-Stellen in 9 Dateien** stubben die Methode als 2-Tupel, und
+  **kein Test pinnt den Kollaps**. Ersetzt durch: den Kollaps ersatzlos streichen.
+- **Zentrales Löschen in `_record_run`** — hätte auch bei `OBSERVED` und `SKIPPED` gefeuert.
+- **Die Sampler-Markierung aus `Eifel-Joe#4`s Body.** Statt Markierung: Pin-Test
+  (Plan 2 Task 5), der bei `dry = not measured` rot wird.
+- **Der `no_anchor`-Zweig** (war in der Spec, gebaut, nach Review gestrichen).
+
+### Fallen
+- **🔴 Fehlerzahlen hängen an der TEST-AUSWAHL, nicht nur am Code.** Dieselben drei
+  Dateien geben 51 Fehler als Teilmenge und 13 im Voll-Lauf — auf dem unveränderten
+  Basis-Commit identisch reproduziert. **Nur der Voll-Lauf mit Namens-`diff`
+  entscheidet** — er fand `test_master.py::..._does_not_strand_the_pump`, das keine
+  Teilmenge der vier Tasks enthielt.
+- **Mutationen NIE per Rück-Ersetzung zurücknehmen, immer `git checkout -- <datei>`.**
+  M1s Anker (`self._fire_zone_problem(`) kommt zweimal in der Datei vor; der Revert
+  lehnte korrekt ab — aber M1 blieb aktiv und verfälschte M2 und M3 still.
+- **Eine Mutation, die nichts tötet, kann die FALSCHE Mutation sein.** Plan 1 Task 4
+  wollte das Löschen innerhalb von `async_stop_self_closing` verschieben; das kann
+  die Reihenfolge gegenüber einem späteren Aufrufer prinzipiell nicht ändern. Erst
+  die Mutation in `run_watch.py` traf.
+- **`_flow_build_meter` impft den Meter beim Ventil-Öffnen.** Wer `delivered() == 0.0`
+  als „trocken" liest, liest auch „Sensor nach dem Open-Read gestorben" und
+  „Totalizer-Reset, den der Meter nicht bepreisen kann" als trocken.
+- **Der i18n-Katalog für Fault-Gründe liegt in
+  `frontend/localize/languages/*.json`, NICHT in `custom_components/*/translations/`.**
+  Nur `en.json` wird gebündelt (Rest zur Laufzeit geladen) → `en`-Änderungen
+  brauchen `npm run build` + `git add -f` der betroffenen dist-Bundles.
+- **🔴 `pathlib.write_text` leert die Datei, BEVOR es kodiert.** Ein Surrogat im
+  Python-Quelltext (`\ud83d\udd34` statt `\U0001F534`) hat so diese Datei
+  vernichtet. Für nicht versionierte Dateien: in eine Temp-Datei schreiben und
+  umbenennen, oder das Write-Tool nehmen — nie direkt über das Original.
+- **Die MSYS-Heredoc-Falle** (`"""` im Python-Text bricht `python - <<'EOF'`):
+  Skript mit dem Write-Tool nach `D:/Entwicklung/HASI/issue3-work/*.py` schreiben
+  und per absolutem `D:`-Pfad aufrufen. Dasselbe für mehrzeilige Commit-Messages.
+
+### Nächste Schritte
+1. **Live-Test auf HA-Test** nach Spec §8. Vorher klären, wie der Build dorthin
+   kommt (per MCP nicht schreibbar). HA-Prod nur mit eigener Freigabe.
+2. Dann die **zwei Upstream-PRs** trennen (`#3` steht allein, `#4` stapelt) —
+   **Text-Freigabe im Chat vor jedem `gh`-Aufruf.** Rezept: Memory
+   `hasi-pr-build-recipe`. dist pro PR-Branch neu bauen.
+3. **DREI Folge-Issues anlegen** (Texte vorher im Chat freigeben):
+   - derselbe `0.0`-Kollaps in `distributor.py:747-749` für Member-Zonen (Spec §6);
+   - Ketten-Abbruch bei trockener Zisterne — eine leere Zisterne trifft ALLE Zonen
+     (Spec §6, D4); berührt `run_chain.py`, also erst nach `JustChr#165`;
+   - **NEU aus dem Review:** der klassische Läufer hat denselben blinden Fleck wie
+     C-1 für einen Sensor, der nach dem Open-Read stirbt (`irrigation.py`,
+     Dry-Zweig bei `:1580`). Bestandsdefekt, nicht von uns — Repro in Spec §10.1.
+4. Regel P1: Spec + Pläne auf `archive/design-history`, VOR dem Löschen des Branches.
+
+### Empfohlene Skills
+`superpowers:verification-before-completion` vor jedem „fertig", `pr-workflow` für
+die PRs.
+
+---
+
+## 2026-09-26 — clarejor deckt unser #6 ab, #52 ist upstream
+
+### Stand (verifiziert)
+- **`Eifel-Joe#6` auf `beobachten`** (bleibt offen, schließt mit dem PR): clarejors
+  **`JustChr#169`** deckt den Befund vollständig ab und findet **zusätzlich** den
+  Spitzen-statt-Mittelwind, den wir nicht hatten (Open-Meteo war der einzige Client,
+  der PyETO eine Spitze lieferte). Kommentar + Label gesetzt,
+  [issuecomment-5845498055](https://github.com/Eifel-Joe/HAsmartirrigation/issues/6#issuecomment-5845498055).
+- **Wir haben `JustChr#169` reviewt statt nachgebaut** (User-Entscheidung),
+  [issuecomment-5845398134](https://github.com/JustChr/HAsmartirrigation/pull/169#issuecomment-5845398134).
+  **Kein Defekt.** Drei Dinge gegen die **Live-API** geprüft, die seine Tests nicht
+  erreichen können, weil sie die Antwort mocken:
+  1. Der Abruf mit seiner neuen `daily=`-Liste antwortet **200**, alle drei Variablen
+     gefüllt. Ein falscher Variablenname wäre durch jeden Mock gerutscht und hätte jede
+     Open-Meteo-Installation beim ersten echten Abruf zerlegt.
+  2. Die **API-Tagesmittel SIND die Mittel der eigenen Stundenreihe** — größte Abweichung
+     über 7 Tage 0,05 °C / 0,05 hPa / 0,005 m/s, also Rundung. Damit ist **unsere
+     `#6`-Fixform überholt**: wir wollten aus der Stundenreihe mitteln
+     (`MetOfficeClient` als Vorbild), seine Variante nimmt die Aggregate — gleiche Zahl,
+     weniger Code.
+  3. **Keine Nulls** in `wind_speed_10m_mean`/`_max`, `dew_point_2m_mean`,
+     `pressure_msl_mean` über 16 Tage an vier bewusst verschiedenen Orten
+     (Berlin, Sydney, Reykjavík, Singapur).
+  Punkt 3 **widerlegt** den Befund, den ich gesucht hatte (Null beim Mittelwind verwirft
+  den Tag samt Regen, weil Wind im harten `continue` steckt, Taupunkt und Druck aber
+  optional gesetzt werden). Als Frage gepostet, nicht als Befund — die Asymmetrie ist
+  nirgends begründet, schadet aber nachweislich nicht.
+- **`Eifel-Joe#52` gebaut und upstream: [`JustChr#171`](https://github.com/JustChr/HAsmartirrigation/pull/171)**
+  (`1ddab319`, Branch `fix/intraday-estimate-leaves-a-traceback` von `10bb8077`).
+  `exc_info=True` auf `_intraday_for_zone`s DEBUG-Zeile. Gates: RED belegt, Mutation
+  (`exc_info` weg → nur der neue Test rot), Voll-Suite 7/3236/349, Lint grün.
+  Label `upstream:gemeldet` neben `freigegeben`.
+  **Teil 2 bleibt offen** (erster Fehlschlag pro Refresh auf WARNING): der Reset-Umfang
+  ist zu entscheiden — pro Refresh, pro Zone, pro Prozess. Steht so im PR-Text.
+- **`Eifel-Joe#22` PR 1 WARTET** (User-Entscheidung): clarejors **`JustChr#168`**
+  schreibt `live_estimate.py` mit +499/−34 um, also genau die Einstiegspunkte, die PR 1
+  herkunfts-total machen soll. Vorher bauen heißt, PR 1 darauf zu rebasen.
+- `Eifel-Joe#42` in beiden Sprachhälften nachgezogen (Positionen 7, 24, 39).
+- **PR 2 (Task 11) unverändert fertig und ungepusht** — siehe Eintrag vom 25.09.
+
+### Eifel-Joe#21: UMGESETZT, upstream als `JustChr#172`
+- Worktree `D:/Entwicklung/HASI/issue21-work/wt`, Branch
+  `fix/forecast-weighting-from-run-start` von `10bb8077`.
+  **Spec `c755813f`, Plan `e74ce7e4`** — kein Produktionscode.
+  Spec: `docs/superpowers/specs/2026-09-26-forecast-weighting-from-run-start-design.md`,
+  Plan: `docs/superpowers/plans/2026-09-26-forecast-weighting-from-run-start.md` (9 Tasks).
+- **Gemessen vor jedem Entwurf** (Wegwerf-Repro `tests/test_zz_repro_issue21.py`, grün
+  auf `10bb8077`): Zone 10 mm Defizit, Vorausschau 1 Tag, morgen trocken, übermorgen 8 mm,
+  Lauf übermorgen 06:00 → master wässert **10,00 mm**, das Fenster ab Laufbeginn würde
+  **4,00 mm** wässern. **6 mm zu viel**, in der Nacht vor 8 mm Regen.
+- **Drei Entscheidungen des Users (26.09.):** schmaler eimer-freier Resolver im Scheduler
+  statt der Projektion; armierter `start_utc` zuerst, sonst der maßgebliche Zeitpunkt;
+  kein auflösbarer Laufbeginn heißt nicht gewichten.
+- **Warum die Projektion nicht geht:** `async_get_next_run_projection` dimensioniert
+  „from each zone's bucket AT THE DECISION POINT" — Zyklus. Und bei Ende-Verankerung ist
+  selbst der Start nicht eimer-frei (`target − _estimate_duration` →
+  `get_total_irrigation_duration`). Daher Task 4: Zyklus-Pin als Test.
+- **Befund gegen den eigenen Entwurf, rechtzeitig:** ein Repro mit zwei Vorhersagetagen
+  lässt `first_24h_covered` `False` werden, der Fix hätte sich im eigenen Zielfall
+  enthalten. Ab 3 Tagen deckt es, echte Clients liefern 7+. Steht als Falle in Spec §7 und
+  im Plan-Vorspann.
+- **Umsetzung durch, PR offen: [`JustChr#172`](https://github.com/JustChr/HAsmartirrigation/pull/172).**
+  PR-Kandidat isoliert auf `fix-forecast-weighting-from-run-start` von `10bb8077`
+  (Worktree `issue21-work/pr`), 8 Commits, **5 Dateien, keine `docs/`**. Voll-Suite
+  7 failed / **3251** passed / 349 errors, 356 Fehlernamen `diff`-identisch zur auf
+  DEMSELBEN Basis-Commit gemessenen Baseline; `+16` = genau die 16 neuen Tests.
+  Lint grün. **5 Mutanten, jeder tötet genau seine Tests.** Wächter unberührt
+  (`skip_conditions.py`/`forecast_window.py` nicht im Diff, 56 Tests grün).
+- **Spec + Plan archiviert:** `archive/design-history` = **`33072668`**, gepusht,
+  byte-identisch geprüft. Regel P1 erfüllt. Arbeitsbranch und sein Worktree danach
+  entfernt — nur Spec und Plan waren dort einmalig, und beide liegen im Archiv.
+- `Eifel-Joe#21` kommentiert (issuecomment-5846331687), Label `upstream:gemeldet`
+  gesetzt, `Eifel-Joe#42` Position 23 nachgezogen. Issue bleibt **offen**: die
+  Live-Pfad-Hälfte ist noch nicht entschieden.
+- **Drei Plan-Korrekturen gegen die Messung**, im archivierten Plan nachgetragen:
+  die „frühester gewinnt"-Mutation tötete EINEN Test statt zwei (sie kürzt nur bei
+  einem Nicht-`None`-Ergebnis ab — eine zweite Mutation deckt beide Pins); der
+  Fixture-Laufbeginn auf 06:00 brach DREI der vier Bestandstests statt einem
+  (18/24 + 6/24 über zwei Einträge, Mitternacht deckt sie); und eine vorhergesagte
+  Fehlerzahl war falsch gerechnet.
+- `calculate_module`s `now` ist ein **nacktes naives** `datetime.now()` (`calculation.py:883`)
+  — die `#22`-Naht. Die Gewichtung nimmt `dt_util.utcnow()`, damit `#21` und `#22`
+  einander nicht blockieren.
+
+### Aufgeraeumt (2026-09-26, Ende)
+- **Drei PRs warten auf JustChr:** `JustChr#165` (Einengung geliefert, Re-Review offen),
+  `JustChr#171` (`exc_info`-Einzeiler), `JustChr#172` (`Eifel-Joe#21`).
+  **PR 2 zu Task 11** liegt fertig und **ungepusht** in `issue2-work/pr2` (`1b3cc7d5`),
+  bis `#165` mergt — JustChr squasht, der Basis-Commit wird umgeschrieben.
+- **Worktrees entfernt:** `issue21-work/wt` samt Branch (nur Spec+Plan waren dort
+  einmalig, beide byte-identisch im Archiv), und `pr139-work/dry2` samt Branch
+  `dry7/backstop-grace`. Letzterer war am **Inhalt** geprüft, nicht an der Ahnenreihe:
+  14 Commits fehlen upstream als Vorfahren, weil JustChr squasht, aber
+  `run_finish_grace_seconds` und `latency_margin_help` stehen in master.
+- **`pr139-work` von 156 MB auf 2,5 MB**, nur `archive-wt` bleibt. Dabei zwei nicht
+  reproduzierbare Live-Test-Protokolle (HA-Test + HA-Prod, 20.09.) gerettet nach
+  `docs/superpowers/reconstructed/2026-09-20-backstop-grace-live-results.md` und ein
+  hängender absoluter Pfad in der `#139`-Spec entschärft. Lehre als Memory
+  `scratch-dirs-hold-irreproducible-evidence`.
+- **`archive/design-history` = `e1d6fdf7` GEPUSHT** (Fern-Stand geprüft, gleich dem lokalen).
+  Nichts mehr offen, das nur im Chat lag.
+- `befunde-work/base` ist ein Worktree auf detached HEAD `c9e84d72` ohne erkennbaren
+  Zweck — absichtlich liegen gelassen, Herkunft unklar.
+
+### Frei und unblockiert (nach Schwere, alle prod-scharf)
+Keiner berührt `run_chain.py` (PR 2), `live_estimate.py` (`#22`/clarejors `#168`) oder
+`calculation.py` (`#172`):
+- **`Eifel-Joe#3`** (hoch, S) Ventil-Sicherheit 1 — **ERLEDIGT, siehe 2026-09-26 (2)**
+- **`Eifel-Joe#4`** (hoch, M) Ventil-Sicherheit 2 — **ERLEDIGT, siehe 2026-09-26 (2)**
+- **`Eifel-Joe#5`** (hoch, M) veralteter Panel-Speichern dreht Eimer-Gutschrift zurück,
+  Denylist gegen Allowlist tauschen — `websockets.py`
+`Eifel-Joe#45` ist durch PR 2 blockiert (`run_chain.py`), `#6` ist `beobachten`.
+
+### Fallen
+- **`reviewDecision` leer heißt NICHT „kein Review".** Ein `COMMENTED`-Review setzt das
+  Feld nicht, und Inline-Kommentare am Diff sind keine Issue-Kommentare. Vor jedem
+  Review/Nachbau **drei Achsen** prüfen: `pulls/N/reviews`, `pulls/N/comments`,
+  `issues/N/comments`. Und die vierte: **trägt master den Defekt überhaupt noch** —
+  JustChr fixte bei `#134` die Hälfte parallel selbst. Memory
+  `check-before-duplicating-work`.
+- **🔴 Die alte Baseline gilt nicht, wenn sich der Basis-Commit bewegt hat.** Die Suite
+  meldete **349** Errors, wo `baseline-names.txt` (auf `965a4f9d`) 320 hat — die 29 mehr
+  bringt clarejors `#167` mit. Statt die Lücke wegzuerklären: zweiter Worktree auf dem
+  unveränderten Basis-Commit, dort durchlaufen, DANN vergleichen. Memory
+  `rebaseline-when-the-base-moves`.
+- **Heredocs mit `'''` und `"""` im Python-Text zerbrechen unter MSYS** („unexpected EOF
+  while looking for matching `''"). Skript mit dem Write-Tool in den Scratchpad schreiben
+  und per Pfad aufrufen.
+- **MSYS-`/tmp` ist für Windows-Python nicht sichtbar.** `curl -o /tmp/x.json` plus
+  `python -c "open('/tmp/x.json')"` gibt `FileNotFoundError`. Ausgabedatei unter `D:` ablegen.
+- **`subprocess` in Windows-Python nimmt keinen MSYS-Pfad** (`/d/...`) als Executable →
+  `WinError 2`. `D:/...` schreiben.
+
+### Nächste Schritte (offen)
+1. `JustChr#165` Re-Review abwarten → dann PR 2 rebasen, Zahlen neu messen, Body entwerfen.
+2. `JustChr#171` Review abwarten.
+3. `Eifel-Joe#21` (Vorhersage-Gewichtung) — erledigt, siehe oben.
+4. `Eifel-Joe#22` PR 1 erst nach `JustChr#168`.
+5. `Eifel-Joe#52` Teil 2 entscheiden (Reset-Umfang der WARNING-Drosselung).
+
+---
+
+## 2026-09-25 — JustChrs Reviews eingearbeitet, Issue-Liste nachgezogen
+
+> ⚠️ **Dieser Eintrag ist UNVOLLSTÄNDIG** (Datenverlust 2026-09-26, siehe Kopf der
+> Datei). Erhalten ist, was in der Sitzung vom 26.09. gelesen worden war; der Rest
+> des Eintrags fehlt.
+
+### Stand (verifiziert, alles am 23./24.09. von JustChr)
+- **Drei PRs GEMERGT**, alle in der Beta
+  [v2026.09.22](https://github.com/JustChr/HAsmartirrigation/releases/tag/v2026.09.22):
+  `JustChr#162` (`244a8425`) → unser `Eifel-Joe#1`; `JustChr#163` (`11f19689`) →
+  unser `Eifel-Joe#23`; `JustChr#164` (`8d50194a`) = Doku-Hälfte von `Eifel-Joe#22`.
+  Er hat jeweils selbst nachgemessen und die Mutation gefahren.
+- **`JustChr#165` = CHANGES_REQUESTED.** Suite bei ihm 3236 (mit #161–#164 getrimmergt
+  3248), Mutation bestätigt. Er akzeptiert alles bis auf **einen** Punkt, ausdrücklich
+  „about scope rather than correctness": **das Überlagern der geplanten Dauer nur noch
+  bei `plan.live`**. Begründung: eine Nachrechnung mitten in der Kette kann eine
+  gespeicherte Dauer realistisch nur senken, also ist eine auf 120 s/0 s umgeschriebene
+  wartende Zone in der Praxis eine beregnete; und die eingefrorene Dauer wäre gegen den
+  Zyklus-Start-Eimer gepreist, während `pre_bucket` der frische ist.
+- **Entscheidung des Users (2026-09-24): Einengung annehmen.** Beide gemessenen Defekte
+  sind `live=True`, der Fix übersteht es unversehrt; Installationen ohne Live-Estimate
+  bleiben bei der Dauer byte-identisch zu master. Das volle Einfrieren bleibt als eigene
+  Entscheidung verfügbar, wir haben keinen Fall dafür.
+- **`JustChr#160` beantwortet: zwei PRs** in der von uns vorgeschlagenen Reihenfolge.
+  Neue verbindliche Auflage: die **zwei Herkünfte im Code benennen** (ein Helfer je
+  Herkunft, oder einer mit Pflicht-Argument) — PR 1 trägt das Vokabular, PR 2 benutzt es
+  nur. `exc_info=True` auf `_intraday_for_zone` als eigener Einzeiler freigegeben.
+  **Basis verschoben:** clarejors `JustChr#167` ist gemergt (`10bb8077`), PR 1 muss auf
+  aktuellem master aufsetzen — die neue Zeilenquelle (`_resolve_hourly_forecast`,
+  `_read_hourly_forecast`) ist naive HA-local, also zweite Herkunft.
+
+### Einengung von `JustChr#165` gebaut (2026-09-25)
+- **`f1c8c937`** auf `fix/chain-carries-zone-snapshots`, **gepusht**; Kommentar auf
+  `JustChr#165` ([issuecomment-5827760976](https://github.com/JustChr/HAsmartirrigation/pull/165#issuecomment-5827760976))
+  und auf `Eifel-Joe#2` ([issuecomment-5827777112](https://github.com/Eifel-Joe/HAsmartirrigation/issues/2#issuecomment-5827777112)).
+  Eine Bedingung (`if plan is not None` --> `... and plan.live`), drei Docstrings,
+  vier Tests. PR wartet auf Re-Review.
+- **Gates:** RED 2 failed (beide Nicht-live-Tests gaben `(2, 600.0)` statt 120/0);
+  Voll-Suite **7 failed / 3231 passed / 9 skipped / 320 errors**, 327 Fehlernamen
+  `diff`-identisch zur Baseline, `+40` = 38 (PR 1) + 2 neue; black 68 unverändert,
+  ruff sauber; **5 Mutanten alle gefangen** (Einengung zurück --> 3, Overlay weg --> 6,
+  `live=True` --> 5, `live=False` --> 8, Marker-Restore weg --> 1).
+- **Der eine dünne Pin wurde gegengeprüft, nicht vermutet:** dieselbe Mutation auf dem
+  Vorgänger-Commit machte ebenfalls genau 1 rot. Nicht von uns geschwächt.
+- **Vier eigene Fixtures modellierten Unerreichbares** — drei bauten die live-Kopie ohne
+  `_live_run_zones` (`_apply_live_durations` setzt beides im selben Zweig,
+  `irrigation.py:2315`/`:2327`), eine behauptete einen live-Plan von 0, den
+  `_zone_run_decision` bei `live <= 0` verhindert (`:2404`). JustChr hatte zwei
+  betroffene Tests vorhergesagt. Lehre als Memory
+  `narrowing-exposes-impossible-fixtures` festgehalten.
+- **Nebenbefund im Code vermerkt:** Overlay-Bedingung und Marker-Wiederherstellung sind
+  jetzt textgleich, dürfen aber NICHT zusammengefasst werden — das Overlay muss vor die
+  Dauerprüfung, die Markierung erst dahinter. Kommentar an der zweiten Stelle.
+
+### Issue-Liste (ausgeführt)
+- `Eifel-Joe#1` und `Eifel-Joe#23` **geschlossen** mit Kommentar (Regel P2).
+- Kommentar auf `Eifel-Joe#2`, `#43`, `#22` — sein Einwand jeweils **in seinen Worten**
+  […] *(hier bricht die gerettete Fassung ab)*
+
+---
+
+> ⚠️ **LÜCKE: hier fehlen rund 250 Zeilen** — der Schluss des 2026-09-25-Eintrags
+> und sämtliche Einträge vom **2026-09-22 bis 2026-09-24**. Vernichtet am 2026-09-26
+> durch ein fehlgeschlagenes Schreib-Skript; nicht in Git und nicht aus
+> Sitzungs-Transkripten rekonstruierbar. Was dort stand, lässt sich zum Teil aus den
+> Memories, aus `Eifel-Joe#42` und aus der Commit-Historie von
+> `archive/design-history` zurückholen, falls es gebraucht wird.
+
+---
+
 ## 2026-09-21 (4) — Eifel-Joe#22 Wetterpuffer-Zeitzone: Spec + Plan, Doku-PR raus
 
 ### Stand (verifiziert)
