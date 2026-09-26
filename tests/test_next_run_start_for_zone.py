@@ -99,3 +99,48 @@ async def test_a_non_numeric_zone_id_answers_nothing():
     _fixed_target(manager)
 
     assert await manager.async_next_run_start_for_zone(None) is None
+
+
+ARMED_START = datetime.datetime(2026, 9, 28, 5, 30, tzinfo=UTC)
+
+
+@pytest.mark.asyncio
+async def test_an_armed_run_supplies_the_exact_start():
+    """The arm computed the real start earlier, and reading it costs nothing.
+
+    For a Finish-anchored schedule the start is otherwise the target minus an
+    estimated duration, and that estimate reads every zone's bucket -- the one
+    call this resolver must not make.
+    """
+    manager, _ = _make_manager()
+    manager._schedules = [_schedule()]
+    _fixed_target(manager)
+    manager._armed_runs = {"s1": {"target": TARGET, "start_utc": ARMED_START}}
+
+    assert await manager.async_next_run_start_for_zone(1) == ARMED_START
+
+
+@pytest.mark.asyncio
+async def test_an_arm_for_another_occurrence_is_ignored():
+    """Proximity, not equality: a solar bound answers seconds apart each time."""
+    manager, _ = _make_manager()
+    manager._schedules = [_schedule()]
+    _fixed_target(manager)
+    manager._armed_runs = {
+        "s1": {
+            "target": TARGET + datetime.timedelta(days=1),
+            "start_utc": ARMED_START,
+        }
+    }
+
+    assert await manager.async_next_run_start_for_zone(1) == TARGET
+
+
+@pytest.mark.asyncio
+async def test_an_arm_without_a_start_falls_back_to_the_target():
+    manager, _ = _make_manager()
+    manager._schedules = [_schedule()]
+    _fixed_target(manager)
+    manager._armed_runs = {"s1": {"target": TARGET, "start_utc": None}}
+
+    assert await manager.async_next_run_start_for_zone(1) == TARGET

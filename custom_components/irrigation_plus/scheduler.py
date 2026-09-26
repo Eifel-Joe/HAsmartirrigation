@@ -1206,6 +1206,25 @@ class RecurringScheduleManager:
                 target = await self._advance_past_fired_occurrence(
                     schedule, governing, target, quiet=True
                 )
+        if target is None:
+            return None
+        armed = self._armed_runs.get(schedule.get(const.SCHEDULE_CONF_ID))
+        if (
+            armed is not None
+            and armed.get("start_utc") is not None
+            and abs(armed["target"] - target) < SAME_OCCURRENCE
+        ):
+            # The arm's own start, computed when it armed. Exact even for a
+            # Finish-anchored schedule, whose start is otherwise the target minus
+            # an estimated duration -- and that estimate is the bucket-reading
+            # call this resolver exists to avoid. Proximity rather than equality
+            # for the reason _advance_past_fired_occurrence gives: a solar bound
+            # answers a second or two later every time it is asked.
+            return armed["start_utc"]
+        # No arm: the governing target stands in. For a Finish-anchored schedule
+        # that anchors the window at the run's END rather than its start, which is
+        # at most one run length out against a 24-hour block. Stated in the spec
+        # as accepted, not fixed.
         return target
 
     async def async_get_next_run_projection(self) -> list[dict[str, Any]]:
