@@ -23,12 +23,26 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
-## 2026-09-26 (2) — Eifel-Joe#3 + #4: Spec, zwei Pläne, UMGESETZT und reviewt
+## 2026-09-26 (2) — Eifel-Joe#3 + #4: gebaut, reviewt, LIVE BELEGT, als JustChr#173/#174 upstream
 
 ### Stand (verifiziert)
-- **BEIDE PLÄNE UMGESETZT + Review eingearbeitet.** Branch
-  `fix/self-closing-fault-lifecycle`, Worktree `D:/Entwicklung/HASI/issue3-work/wt`,
-  Basis `418ab8a0`. Kopf **`4880aa99`**, **nicht gepusht**.
+- **FERTIG BIS UPSTREAM.** Zwei PRs offen, beide live belegt, Historie archiviert,
+  drei Folge-Issues angelegt, `Eifel-Joe#42` nachgezogen. Nichts hängt im Chat.
+  - **[`JustChr#173`](https://github.com/JustChr/HAsmartirrigation/pull/173)**
+    (`Eifel-Joe#3`) — Branch `fix-zone-fault-is-paired-and-cleared`, Kopf
+    `b549de3f`, +152/−2 in 14 Dateien. Suite isoliert 3258 passed (Baseline +4),
+    356 Namen `diff`-identisch, Lint grün, 5 Mutanten getroffen.
+  - **[`JustChr#174`](https://github.com/JustChr/HAsmartirrigation/pull/174)**
+    (`Eifel-Joe#4`) — Branch `fix-a-run-that-delivered-nothing-is-not-a-success`,
+    Kopf `c9619727`, gestapelt auf #173. Suite isoliert 3266 passed (Baseline +12),
+    356 Namen identisch, Lint grün, 8 Mutanten getroffen.
+  - **Beweis der Zusammensetzung:** PR1 + PR2 ergeben einen **leeren Diff** gegen
+    `4880aa99`, den live getesteten Stand. Was JustChr bekommt, ist genau das, was
+    auf HA-Test lief.
+  - Beide Issues kommentiert (Regel P2) und auf `upstream:gemeldet`.
+- **Arbeitsbranch** `fix/self-closing-fault-lifecycle`, Worktree
+  `D:/Entwicklung/HASI/issue3-work/wt`, Basis `418ab8a0`, Kopf **`4880aa99`**,
+  **nicht gepusht** — er trägt die Entwicklungshistorie samt `docs/superpowers`.
   - Voll-Suite **7 failed / 3266 passed / 9 skipped / 349 errors**, 356 Namen
     `diff`-IDENTISCH zur Baseline auf DEMSELBEN Basis-Commit
     (`issue3-work/baseline-names.txt`). Rechnung: 3254 + 4 (Plan 1) + 7 (Plan 2)
@@ -65,7 +79,29 @@
 - **Spec §10 trägt den ganzen Review-Durchgang**, samt der zwei Punkte, in denen
   ich dem Reviewer mit Beleg widersprochen habe (`<= 0` statt `== 0` ist richtig;
   die Früh-Stopp-Insulation kann keinen Volllauf verschlucken).
-- **HA-Test ist für den Live-Test bereit:** Irrigation Plus läuft dort (145
+- **🧪 LIVE-TEST AUF HA-TEST: BEIDE BESTANDEN.** Pre-Release
+  [`v2026.09.22b1`](https://github.com/Eifel-Joe/HAsmartirrigation/releases/tag/v2026.09.22b1)
+  (Commit `45682c0b`, Branch `prerelease/v2026.09.22b1`) gebaut, per HACS installiert,
+  HA-Test neu gestartet; geladene Integration meldet `v2026.09.22b1`.
+  **`production` wurde NICHT angefasst** — bewusster Wegwerf-Testbau, damit ein
+  Befund nur von den zwei Fixes kommen kann.
+  - **`#3`:** Fehler gesetzt 22:43:32 (`valve_did_not_open`, Hub-Sensor an), guter
+    60-s-Lauf löschte ihn 22:45:54. Auf master passiert beides nicht.
+  - **`#4`:** Protokoll `failed`/`flow_never_started`, Eimer von −2,32 zurück auf
+    −2,72, `water_used_total` unberührt bei 0,0, `last_irrigation` nicht gestempelt.
+    Eimer-Buchführung zeigt beide Richtungen: `+0,4 mm` / `−0,4 mm`.
+  - Volles Protokoll: `archive/design-history`,
+    `docs/superpowers/reconstructed/2026-09-26-valve-safety-live-*.md`.
+  - **Offen auf HA-Test:** Grace Test trägt weiter `flow_sensor` + `throughput 4` und
+    steht auf Fehler. Jeder Lauf dort bleibt trocken, solange der Sensor 0 meldet —
+    Flusssensor-Feld im Panel leeren, dann löscht der nächste gute Lauf den Fehler.
+- **Drei Folge-Issues angelegt:** `Eifel-Joe#53` (derselbe `0.0`-Kollaps in
+  `distributor.py`, hoch/prod-scharf), `Eifel-Joe#54` (klassischer Läufer,
+  blinder Fleck nach dem Open-Read, Bestandsdefekt), `Eifel-Joe#55` (Zyklus-Abbruch
+  bei trockener Zisterne, Produktentscheidung, durch `run_chain.py` blockiert).
+- **Regel P1 erfüllt:** Spec, beide Pläne und die zwei Live-Protokolle auf
+  `archive/design-history` = **`ccde19f6`, gepusht**.
+- **HA-Test-Kontext:** Irrigation Plus läuft dort (145
   Entitäten, u.a. `binary_sensor.irrigation_plus_beet_problem` — der Sensor aus
   dem `#3`-Kriterium), drei numerische Flusssensoren `sensor.wasser_*_flow` stehen
   auf 0 (der `#4`-Leitfall, nicht simuliert sondern vorhanden), Sonoff-Emulator
@@ -118,19 +154,20 @@
   und per absolutem `D:`-Pfad aufrufen. Dasselbe für mehrzeilige Commit-Messages.
 
 ### Nächste Schritte
-1. **Live-Test auf HA-Test** nach Spec §8. Vorher klären, wie der Build dorthin
-   kommt (per MCP nicht schreibbar). HA-Prod nur mit eigener Freigabe.
-2. Dann die **zwei Upstream-PRs** trennen (`#3` steht allein, `#4` stapelt) —
-   **Text-Freigabe im Chat vor jedem `gh`-Aufruf.** Rezept: Memory
-   `hasi-pr-build-recipe`. dist pro PR-Branch neu bauen.
-3. **DREI Folge-Issues anlegen** (Texte vorher im Chat freigeben):
-   - derselbe `0.0`-Kollaps in `distributor.py:747-749` für Member-Zonen (Spec §6);
-   - Ketten-Abbruch bei trockener Zisterne — eine leere Zisterne trifft ALLE Zonen
-     (Spec §6, D4); berührt `run_chain.py`, also erst nach `JustChr#165`;
-   - **NEU aus dem Review:** der klassische Läufer hat denselben blinden Fleck wie
-     C-1 für einen Sensor, der nach dem Open-Read stirbt (`irrigation.py`,
-     Dry-Zweig bei `:1580`). Bestandsdefekt, nicht von uns — Repro in Spec §10.1.
-4. Regel P1: Spec + Pläne auf `archive/design-history`, VOR dem Löschen des Branches.
+1. **`JustChr#173` und `#174` Review abwarten.** Bei Änderungswünschen: neuer Commit
+   auf denselben Branch, kein amend, kein Force-Push (pr-workflow §6).
+2. **Aufräumen, wenn die PRs durch sind:** Worktrees `issue3-work/{base,wt}`,
+   `pr34-work/{pr1,pr2}`, `prerelease-work/wt` und ihre Branches. Vorher prüfen, ob
+   in den `*-work/`-Ordnern noch etwas Einmaliges liegt (Memory
+   `scratch-dirs-hold-irreproducible-evidence`) — die Live-Protokolle sind bereits
+   im Archiv, die Suite-Ausgaben und `baseline-names.txt` sind reproduzierbar.
+3. **HA-Test säubern:** Flusssensor-Feld an Grace Test leeren, dann guter Lauf.
+4. **Frei und unblockiert:** `Eifel-Joe#5` (hoch, M, prod-scharf, `websockets.py`,
+   Denylist gegen Allowlist) und `Eifel-Joe#53` (hoch, M, prod-scharf, Verteiler).
+   `#54` und `#55` danach.
+5. Weiter offen und unverändert: `JustChr#165` Re-Review → dann PR 2 / Task 11
+   rebasen; `JustChr#171`, `JustChr#172`; `Eifel-Joe#22` nach `JustChr#168`;
+   `Eifel-Joe#52` Teil 2 entscheiden.
 
 ### Empfohlene Skills
 `superpowers:verification-before-completion` vor jedem „fertig", `pr-workflow` für
