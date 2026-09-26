@@ -903,7 +903,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `custom_components/irrigation_plus/distributor.py:977-1045`
 - Test: `tests/test_distributor.py` (append after the Task 4 tests)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 async def test_credit_zone_passes_detail_to_record_run():
@@ -952,7 +952,7 @@ async def test_credit_zone_dry_leaves_the_bucket_and_the_total_alone():
     assert c._record_run.await_args.kwargs["volume_l"] == 0.0  # nothing to the total
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py -k "credit_zone_passes_detail or credit_zone_dry_leaves" -p _local_socket_unblock -v
@@ -961,7 +961,7 @@ async def test_credit_zone_dry_leaves_the_bucket_and_the_total_alone():
 Expected: **both FAIL**, `TypeError: _dist_credit_zone() got an unexpected keyword
 argument 'detail'`.
 
-- [ ] **Step 3: Add the parameter**
+- [x] **Step 3: Add the parameter**
 
 In the signature, after `result`:
 
@@ -984,7 +984,7 @@ Add one line to the docstring, after the `planned_seconds` sentence:
         constant); None for every ordinary credit.
 ```
 
-- [ ] **Step 4: Run the test and both distributor files**
+- [x] **Step 4: Run the test and both distributor files**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py tests/test_distributor_dispatch.py tests/test_distributor_cycle.py tests/test_credit_ceiling.py -p _local_socket_unblock -q
@@ -992,7 +992,7 @@ Add one line to the docstring, after the `planned_seconds` sentence:
 
 Expected: **all pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/distributor.py tests/test_distributor.py

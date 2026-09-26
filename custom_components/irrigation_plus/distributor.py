@@ -1042,6 +1042,7 @@ class DistributorMixin:
         planned_seconds: float | None = None,
         *,
         result: str = const.RUN_RESULT_COMPLETED,
+        detail: str | None = None,
         trigger: str = const.RUN_TRIGGER_DISTRIBUTOR,
         ceiling: float | None = None,
     ) -> None:
@@ -1054,6 +1055,8 @@ class DistributorMixin:
         timed duration). ``seconds`` is the ACTUAL elapsed watering time (a Part B early
         stop can run less than the window, or a classic extend more); ``planned_seconds``
         (defaults to ``seconds``) is the originally planned window for the run log.
+        ``detail`` is the run-log reason a non-completion carries (the dry-run fault
+        constant); None for every ordinary credit.
         """
         zone_id = zone.get(const.ZONE_ID)
         if measured_l is not None:
@@ -1096,6 +1099,7 @@ class DistributorMixin:
         await self._record_run(
             zone_id,
             result=result,
+            detail=detail,
             volume_l=volume_l,
             planned_s=planned_seconds if planned_seconds is not None else seconds,
             actual_s=seconds,
