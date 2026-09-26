@@ -131,6 +131,11 @@ class FlowMeter:
         self._last: float | None = None  # totalizer: previous litres baseline
         self._delivered = 0.0
         self._have_reading = False
+        # Whether any reading arrived AFTER the valve-open seed. _have_reading
+        # alone cannot say: the seed sets it, so a sensor that answered once at
+        # the open and then died looks identical to one that watched the whole
+        # run. See saw_reading_after_open.
+        self._saw_reading_after_open = False
         self._reset_done = False  # per_run: the one-time open reset already consumed
         self._saw_reset = False  # a totalizer near-zero drop was observed this run
         # Rate sensors: one mark per sample that advanced the clock (its time, the
@@ -150,6 +155,10 @@ class FlowMeter:
         if not math.isfinite(raw):
             return  # NaN/inf: treat like an unavailable tick (ignore, don't poison)
         self._have_reading = True
+        # _flow_build_meter feeds the valve-open read in at at=0; every later
+        # sample is the meter actually watching the run.
+        if at > 0:
+            self._saw_reading_after_open = True
         if self._is_totalizer is None:
             self._is_totalizer = flow_is_totalizer(unit, state_class)
         if self._is_totalizer:
@@ -257,6 +266,24 @@ class FlowMeter:
         """The last totalizer litres seen (the run's end value, for cross-run learning),
         or None for a rate sensor / no totalizer reading."""
         return self._last if self._is_totalizer else None
+
+    def saw_reading_after_open(self) -> bool:
+        """True iff the sensor was read at least once AFTER the valve-open seed.
+
+        Wurzel: ``_flow_build_meter`` feeds the open read into the meter, so
+          ``_have_reading`` is true from the first second and ``delivered()``
+          never returns None again, whatever the sensor does next. A sensor that
+          answered once at the open and then went unavailable therefore reports
+          ``0.0`` - byte-identical to a meter that watched the whole run and saw
+          no water.
+        Only a caller that writes a run OFF on the strength of a ``0.0`` needs
+        that difference, so it is exposed here rather than folded into
+        ``delivered()``, whose contract (0.0 = live-but-dry) the crediting
+        callers depend on.
+        siehe test_self_closing.py::
+        test_a_sensor_that_died_after_the_open_read_is_not_a_dry_run
+        """
+        return self._saw_reading_after_open
 
     def saw_reset(self) -> bool:
         """True iff a totalizer near-zero drop was observed this run — cross-run evidence
