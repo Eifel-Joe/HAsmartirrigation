@@ -758,10 +758,19 @@ class DistributorMixin:
         #   meter that watched the run and saw no water. Measured: a rate sensor
         #   showing 12 L/min at the seed and then unavailable measures 0.0, because a
         #   single sample has no interval to integrate over.
+        #   A second state does the same: a totalizer reset this meter cannot price.
+        #   flow_learn_resolve sends an unlearned `auto` to the over-credit-safe
+        #   `lifetime`, which KEEPS the pre-reset baseline, so a per-run counter's
+        #   post-reset climb never rises above it. Measured on the self-closing path:
+        #   45 L really delivered, delivered() == 0.0, saw_reset() == True. The classic
+        #   runner diverts this to a time-based credit BEFORE its dry branch
+        #   (irrigation.py:1536).
         # Fix: `last_live` already records the elapsed time of the most recent LIVE
         #   read and is seeded to 0.0, so `last_live <= 0.0` IS "never read after the
-        #   open". Without evidence the value goes back to None and the caller keeps
-        #   its time-based credit, exactly as before this change.
+        #   open"; `meter.saw_reset()` is the second witness, catching a totalizer
+        #   whose post-reset climb never clears the retained baseline. Without either
+        #   witness the value goes back to None and the caller keeps its time-based
+        #   credit, exactly as before this change.
         # NOT-TO-DO: do not fold this into FlowMeter.delivered(). Its 0.0 contract is
         #   what the crediting callers price a genuinely dry run with; only the caller
         #   that writes a run OFF needs the stricter evidence. (The self-closing path
@@ -769,7 +778,12 @@ class DistributorMixin:
         #   locally here so this fix does not depend on that unmerged change.)
         # siehe tests/test_distributor.py::
         #   test_measure_window_sensor_dead_after_open_read_is_not_dry
-        if delivered is not None and delivered <= 0 and last_live <= 0.0:
+        # siehe tests/test_distributor.py::test_measure_window_totalizer_reset_is_not_dry
+        if (
+            delivered is not None
+            and delivered <= 0
+            and (last_live <= 0.0 or meter.saw_reset())
+        ):
             delivered = None
         return delivered, elapsed, stopped_early
 

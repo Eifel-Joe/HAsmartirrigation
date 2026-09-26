@@ -775,6 +775,22 @@ async def test_measure_window_sensor_dead_after_open_read_is_not_dry():
     assert stopped is False
 
 
+async def test_measure_window_totalizer_reset_is_not_dry():
+    # Eifel-Joe#53 / spec 10.1's second case: the distributor resolves its counter type
+    # read-only, so an unlearned `auto` becomes the over-credit-safe `lifetime`, which
+    # KEEPS the pre-reset baseline. A per-run counter that resets mid-run therefore
+    # climbs back from 0 without ever passing the baseline and measures 0.0 while real
+    # water flowed — Eifel-Joe#4 measured 45 L delivered against a delivered() of 0.0.
+    # The sister case (100 -> 102 -> 5 -> 7, above) measures 2.0 and is unaffected:
+    # only a reset that leaves NOTHING credited looks dry.
+    c, d = _flow_host()
+    vals = iter([100.0, 100.0, 5.0, 7.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 7.0), "L"))
+    measured, actual, stopped = await c._dist_measure_window(d, 15)
+    assert measured is None  # saw_reset() -> no evidence -> time-based
+    assert stopped is False
+
+
 # --- Phase 4 Part A: crediting the measured flow volume ---------------------
 
 

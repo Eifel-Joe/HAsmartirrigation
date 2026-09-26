@@ -309,7 +309,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `custom_components/irrigation_plus/distributor.py:~743`
 - Test: `tests/test_distributor.py` (append after the Task 2 test)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 async def test_measure_window_totalizer_reset_is_not_dry():
@@ -328,7 +328,7 @@ async def test_measure_window_totalizer_reset_is_not_dry():
     assert stopped is False
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py::test_measure_window_totalizer_reset_is_not_dry -p _local_socket_unblock -v
@@ -337,7 +337,7 @@ async def test_measure_window_totalizer_reset_is_not_dry():
 Expected: **FAIL**, `assert 0.0 is None`. The reads are live, so Task 2's
 `last_live` witness is satisfied and does not catch this.
 
-- [ ] **Step 3: Add the reset term**
+- [x] **Step 3: Add the reset term**
 
 Change the condition added in Task 2 from:
 
@@ -367,7 +367,7 @@ second block on top — the block documents one condition):
         # siehe tests/test_distributor.py::test_measure_window_totalizer_reset_is_not_dry
 ```
 
-- [ ] **Step 4: Run the file**
+- [x] **Step 4: Run the file**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py -p _local_socket_unblock -q
@@ -377,7 +377,7 @@ Expected: **all pass**, including `test_measure_window_counter_drop_keeps_baseli
 (measures `2.0`, so `delivered <= 0` is false and the term never fires) and
 `test_dist_measure_window_per_run_counter` (measures `8.0`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/distributor.py tests/test_distributor.py
