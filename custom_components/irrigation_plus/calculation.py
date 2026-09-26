@@ -7,6 +7,7 @@ calculation module, and computing the ET delta / bucket / duration per zone.
 Protected by tests/test_calculate_module.py (calculate_module characterization).
 """
 
+import functools
 import logging
 from datetime import datetime, timedelta
 
@@ -18,6 +19,7 @@ from homeassistant.util.unit_system import METRIC_SYSTEM
 from . import const
 from .calcmodules.pyeto import SOLRAD_behavior
 from .duration_math import duration_from_deficit, zone_run_duration  # noqa: F401
+from .forecast_window import expected_rain
 from .et_estimate import (
     SiteGeometry,
     hourly_eto_priced,
@@ -853,6 +855,25 @@ class CalculationMixin:
             return None
         return steps
 
+    async def _weighting_hourly(self, run_start, days):
+        """The hourly precipitation series covering the weighting's window.
+
+        Same plumbing as the skip guard's: the far end is the RUN's start plus the
+        whole look-ahead, not the evaluation's, so a client holding two products of
+        different reach can pick the one that gets there. Only Met Office acts on
+        it; the others hand back the one document they have. None where the client
+        has no hourly accessor at all, which expected_rain takes.
+        """
+        client = self._WeatherServiceClient
+        if client is None or not hasattr(client, "get_hourly_precipitation_forecast"):
+            return None
+        return await self.hass.async_add_executor_job(
+            functools.partial(
+                client.get_hourly_precipitation_forecast,
+                covering_until=run_start + timedelta(hours=24 * days),
+            )
+        )
+
     async def calculate_module(self, zone, weatherdata, forecastdata, *, now=None):
         """Calculate irrigation values for a zone using the specified weather and forecast data.
 
@@ -1121,11 +1142,37 @@ class CalculationMixin:
                         const.CONF_DEFAULT_PRECIPITATION_FORECAST_DAYS,
                     ),
                 )
-                forecast_precip = sum(
-                    day_data.get(const.MAPPING_PRECIPITATION, 0.0)
-                    for day_data in fd[:days]
+                # Wurzel: the window used to be fd[:days], a positional slice of a
+                #   list that starts TOMORROW by contract -- so it priced calendar
+                #   days from tomorrow whatever day the run fell on. The skip
+                #   guard, the other half of this same setting, had the defect and
+                #   lost it in #146; forecast_window is the module that fixed it
+                #   and is reused here rather than copied, so the two halves of one
+                #   dropdown cannot diverge again.
+                # siehe tests/test_forecast_weighting_window.py
+                run_start = (
+                    await self.recurring_schedule_manager.async_next_run_start_for_zone(
+                        zone.get(const.ZONE_ID)
+                    )
                 )
-                if forecast_precip > 0:
+                # dt_util, deliberately not this method's own `now`: that parameter
+                # defaults to a bare datetime.now(), which is naive process-local
+                # and is the seam Eifel-Joe#22 is about to move. expected_rain
+                # compares aware instants either way, so taking the moment from
+                # dt_util keeps this independent of how that lands.
+                rain = (
+                    expected_rain(
+                        run_start=run_start,
+                        evaluated_at=dt_util.utcnow(),
+                        days=days,
+                        hourly=await self._weighting_hourly(run_start, days),
+                        daily=fd,
+                    )
+                    if run_start is not None
+                    else None
+                )
+                forecast_precip = rain.mm if rain is not None else 0.0
+                if rain is not None and forecast_precip > 0:
                     effective_bucket = min(0.0, newbucket + forecast_precip)
                     _LOGGER.debug(
                         "[calculate-module]: forecast weighting %.2f mm rain → "

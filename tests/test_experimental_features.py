@@ -58,9 +58,13 @@ def _calc_coordinator(*, forecast_weighting=False, use_weather_service=False, da
 
 
 UTC = datetime.timezone.utc
-# get_forecast_data starts TOMORROW by contract (forecast_window's docstring), so
-# the first entry is the day after the run's own date here.
-RUN_START = datetime.datetime(2026, 9, 27, 6, 0, tzinfo=UTC)
+# Midnight of the first forecast day, so each 24-hour block from the run lines up
+# with exactly one dated entry and these tests keep testing the weighting's
+# ARITHMETIC rather than partial-day overlap. A run at 06:00 would make every
+# block 18/24 of one entry plus 6/24 of the next, which is real behaviour and is
+# tested in test_forecast_weighting_window.py -- but it would silently rewrite the
+# numbers four tests here were written to assert.
+RUN_START = datetime.datetime(2026, 9, 27, tzinfo=UTC)
 
 
 def _days(*mm):
