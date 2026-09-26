@@ -133,6 +133,19 @@ class FlowMeter:
         self._have_reading = False
         self._reset_done = False  # per_run: the one-time open reset already consumed
         self._saw_reset = False  # a totalizer near-zero drop was observed this run
+        # Wurzel: `_have_reading` (which delivered() gates on) is satisfied by the
+        #   valve-open seed alone, so a 0.0 could not be told apart from a meter that
+        #   ACCEPTED readings and priced none of them — a rate whose gap exceeded
+        #   max_gap_s, a totalizer that fell below its retained baseline. A caller that
+        #   wrote a run off on a 0.0 therefore wrote off runs that really watered:
+        #   measured, 12 L/min across a window whose sensor flapped every 5th poll.
+        # Fix: latch this wherever a reading is actually CREDITED, and expose it
+        #   separately (see priced_anything). Never set on the seed path or on a drop
+        #   the meter declines to price.
+        # NOT-TO-DO: do not make delivered() return None in those cases instead. Its
+        #   0.0 contract is what the crediting callers price a genuinely dry run with.
+        # siehe test_flow_meter.py::test_priced_anything_separates_accepted_from_credited
+        self._priced = False  # at least one reading was credited this run
         # Rate sensors: one mark per sample that advanced the clock (its time, the
         # litres credited through it, the L/min it read), so end_rate_at can end the
         # integration at an instant later samples have already passed.
@@ -163,6 +176,7 @@ class FlowMeter:
             dt = at - self._last_at
             if self._max_gap_s is None or dt <= self._max_gap_s:
                 self._delivered += rate * dt / 60.0
+                self._priced = True
             # else: gap too large (dropped/unavailable samples) — do not credit the
             # recovered rate across it (would over-credit); just advance the clock.
         if self._last_at is None or at > self._last_at:
@@ -177,6 +191,7 @@ class FlowMeter:
         if litres >= self._last:  # rising: credit the true climb
             self._delivered += litres - self._last
             self._last = litres
+            self._priced = True
             return
         # a drop: the one-time per-run open reset, else a glitch (keep baseline). The
         # open reset only ever happens BEFORE the counter accumulates any volume (a
@@ -257,6 +272,21 @@ class FlowMeter:
         """The last totalizer litres seen (the run's end value, for cross-run learning),
         or None for a rate sensor / no totalizer reading."""
         return self._last if self._is_totalizer else None
+
+    def priced_anything(self) -> bool:
+        """True iff at least one reading was actually CREDITED this run.
+
+        Distinct from the reading that ``delivered()`` gates on: a single
+        valve-open seed satisfies that one and prices nothing. A meter can accept
+        readings and credit none of them — a rate whose inter-sample gap exceeded
+        ``max_gap_s``, a totalizer that fell below its retained baseline and
+        climbed back part of the way. Only a caller that writes a run OFF on the
+        strength of a ``0.0`` needs that difference.
+
+        An interval credited at 0 L DOES count: that is what a genuinely dry run
+        looks like, and the caller has to be able to recognise it.
+        """
+        return self._priced
 
     def saw_reset(self) -> bool:
         """True iff a totalizer near-zero drop was observed this run — cross-run evidence

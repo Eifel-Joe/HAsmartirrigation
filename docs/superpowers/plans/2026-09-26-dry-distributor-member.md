@@ -542,7 +542,7 @@ same defect class as the critical `JustChr#174`'s first review missed.
 - Modify: `custom_components/irrigation_plus/distributor.py` (the guard + two comment blocks)
 - Test: `tests/test_distributor.py`, `tests/test_flow_meter.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_distributor.py`, after `test_read_flow_rejects_non_finite`:
 
@@ -664,7 +664,7 @@ def test_priced_anything_is_false_for_a_totalizer_below_its_baseline():
     assert m2.priced_anything() is True
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py tests/test_flow_meter.py -p _local_socket_unblock -q
@@ -675,7 +675,7 @@ Expected: the three `..._is_not_dry` tests FAIL with `assert 0.0 is None`; the t
 attribute 'priced_anything'`. `test_measure_window_a_priced_zero_is_still_dry` **passes
 already** — it is a control, and it must still pass at the end.
 
-- [ ] **Step 3: Give `FlowMeter` the accessor**
+- [x] **Step 3: Give `FlowMeter` the accessor**
 
 In `flow_metering.py`'s `__init__`, after the `_saw_reset` line:
 
@@ -733,7 +733,7 @@ And the accessor, directly above `saw_reset`:
         return self._priced
 ```
 
-- [ ] **Step 4: Switch the guard, and rewrite both comment blocks**
+- [x] **Step 4: Switch the guard, and rewrite both comment blocks**
 
 In `_dist_measure_window`, change the condition's third term from
 `(last_live <= 0.0 or meter.saw_reset())` to
@@ -801,7 +801,7 @@ one. The guard stays for two other reasons; replace that block with:
         # siehe tests/test_distributor.py::test_read_flow_rejects_non_finite
 ```
 
-- [ ] **Step 5: Run both files, then the three distributor files**
+- [x] **Step 5: Run both files, then the three distributor files**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py tests/test_distributor_dispatch.py tests/test_flow_meter.py -p _local_socket_unblock -q
@@ -821,7 +821,7 @@ change (the flag is additive, nothing reads it yet except the distributor):
 
 Expected: unchanged from before this task. Note the count before you start.
 
-- [ ] **Step 6: Lint and commit**
+- [x] **Step 6: Lint and commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/

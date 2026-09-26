@@ -464,3 +464,45 @@ def test_end_rate_at_leaves_a_totalizer_alone():
     )
     m.end_rate_at(10.0)
     assert m.delivered() == 10.0
+
+
+def test_priced_anything_separates_accepted_from_credited():
+    # Eifel-Joe#53: delivered() gates on _have_reading, which a single valve-open seed
+    # already satisfies — so a 0.0 cannot be read as "measured dry" without knowing
+    # whether anything was ever CREDITED. The two states are different, and only this
+    # accessor exposes the second one.
+    m = FlowMeter("lifetime", max_gap_s=20)
+    assert m.priced_anything() is False  # nothing sampled yet
+    m.sample(12.0, "L/min", None, 0.0)  # the valve-open seed prices nothing
+    assert m.delivered() == 0.0  # _have_reading is already true
+    assert m.priced_anything() is False
+    m.sample(12.0, "L/min", None, 100.0)  # gap 100 s > max_gap_s -> not integrated
+    assert m.priced_anything() is False
+    m.sample(12.0, "L/min", None, 105.0)  # gap 5 s -> integrated
+    assert m.priced_anything() is True
+
+
+def test_priced_anything_counts_an_interval_credited_at_zero():
+    # A rate of 0 across a live interval IS a measurement — it is what a genuinely dry
+    # run looks like, and the guard must be able to write that run off.
+    m = FlowMeter("lifetime", max_gap_s=20)
+    m.sample(0.0, "L/min", None, 0.0)
+    m.sample(0.0, "L/min", None, 5.0)
+    assert m.delivered() == 0.0
+    assert m.priced_anything() is True
+
+
+def test_priced_anything_is_false_for_a_totalizer_below_its_baseline():
+    # A counter that fell below its retained baseline and climbed back part of the way
+    # has its climb credited NOWHERE, so the run was not priced.
+    m = FlowMeter("lifetime")
+    for i, v in enumerate([100.0, 60.0, 70.0, 80.0, 90.0]):
+        m.sample(v, "L", "total_increasing", i * 5.0)
+    assert m.delivered() == 0.0
+    assert m.priced_anything() is False
+    # ... while a totalizer that merely holds its value HAS been priced, at 0 L.
+    m2 = FlowMeter("lifetime")
+    for i in range(4):
+        m2.sample(100.0, "L", "total_increasing", i * 5.0)
+    assert m2.delivered() == 0.0
+    assert m2.priced_anything() is True

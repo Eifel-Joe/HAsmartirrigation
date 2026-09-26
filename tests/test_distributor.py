@@ -826,6 +826,77 @@ def test_read_flow_rejects_non_finite():
     assert c._dist_read_flow("sensor.inlet_flow") == (3.5, "L/min", None)
 
 
+async def test_measure_window_rate_gap_wider_than_max_gap_is_not_dry():
+    # Eifel-Joe#53, spec 4.1 case 1 — the flapping sensor. _sample_rate refuses to
+    # integrate when dt exceeds max_gap_s (4 polls = 20 s), because bridging dropped
+    # samples with a recovered rate would over-credit. The poll loop still saw a live
+    # reading, so a timings-based witness is satisfied while the meter priced NOTHING.
+    # 12 L/min flowed the whole window; measured against the real FlowMeter, the old
+    # last_live witness returned 0.0 here and 418ab8a0 returned None.
+    c, d = _flow_host()
+    seq = [12.0] + [None, None, None, None, 12.0] * 2 + [None, None]
+    it = iter(seq)
+    c.hass.states.get = Mock(
+        side_effect=lambda s: (lambda v: None if v is None else _state(v, "L/min"))(
+            next(it, None)
+        )
+    )
+    measured, actual, stopped = await c._dist_measure_window(d, 60)
+    assert measured is None
+    assert stopped is False
+
+
+async def test_measure_window_totalizer_below_retained_baseline_is_not_dry():
+    # Eifel-Joe#53, spec 4.1 case 2. near_zero = max(1.0, 0.1*100) = 10, so the drop to
+    # 60 is a glitch and not a reset: saw_reset() stays False, the baseline 100 is kept,
+    # and the 60 -> 90 climb (30 L of real water) never passes it. delivered() is 0.0
+    # with every read live, so neither the timings witness nor saw_reset() catches it.
+    c, d = _flow_host()
+    vals = iter([100.0, 60.0, 70.0, 80.0, 90.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 90.0), "L"))
+    measured, actual, stopped = await c._dist_measure_window(d, 20)
+    assert measured is None
+    assert stopped is False
+
+
+async def test_measure_window_per_run_reset_above_near_zero_is_not_dry():
+    # Eifel-Joe#53, spec 4.1 case 3. near_zero = max(1.0, 0.1*45) = 4.5, and the first
+    # read after the reset is 8 — ABOVE the floor, so the reset saw_reset() exists for
+    # is invisible. 32 L really flowed (8 -> 40) below the retained baseline of 45.
+    c, d = _flow_host()
+    vals = iter([45.0, 8.0, 20.0, 30.0, 40.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 40.0), "L"))
+    measured, actual, stopped = await c._dist_measure_window(d, 20)
+    assert measured is None
+    assert stopped is False
+
+
+async def test_measure_window_a_priced_zero_is_still_dry():
+    # Eifel-Joe#53, the CONTROL for the three tests above: tightening the witness must
+    # not disable the feature. An interval credited at 0 L counts as priced, and that is
+    # how a genuinely dry run is recognised — priced_anything() is not "delivered > 0".
+    # Three shapes, all dry, all must stay 0.0:
+    #   a rate sensor reading 0 every poll,
+    #   a totalizer holding its value (100, 100, ...),
+    #   a pressure surge at the open then nothing — the surge is the SEED, which prices
+    #   nothing, and every interval after it is credited at 0. This last one is the
+    #   issue's leading case, an empty cistern behind a valve that still thumps.
+    c, d = _flow_host()
+    c.hass.states.get = Mock(return_value=_state(0.0, "L/min"))
+    assert (await c._dist_measure_window(d, 30))[0] == 0.0
+
+    c, d = _flow_host()
+    c.hass.states.get = Mock(side_effect=lambda s: _state(100.0, "L"))
+    assert (await c._dist_measure_window(d, 20))[0] == 0.0
+
+    c, d = _flow_host()
+    surge = iter([12.0])
+    c.hass.states.get = Mock(
+        side_effect=lambda s: _state(next(surge, 0.0), "L/min")
+    )
+    assert (await c._dist_measure_window(d, 30))[0] == 0.0
+
+
 # --- Phase 4 Part A: crediting the measured flow volume ---------------------
 
 

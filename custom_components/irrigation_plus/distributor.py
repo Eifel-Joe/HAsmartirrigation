@@ -659,16 +659,18 @@ class DistributorMixin:
             return None
         # Wurzel: float("nan") and float("inf") PARSE, so a sensor reporting either
         #   returned a tuple from a function whose docstring promises None for
-        #   "non-numeric" — while FlowMeter.sample() rejected the very same value
-        #   (flow_metering.py, `if not math.isfinite(raw)`). Harmless until
-        #   _dist_measure_window started reading `last_live` as evidence that the meter
-        #   had read after the valve-open seed: a nan set the witness without the meter
-        #   accepting anything, and the run was written off as dry.
-        # Fix: reject here, so a caller can trust that a tuple reached the meter.
-        # NOT-TO-DO: do not special-case it in the window's loop instead. The
-        #   dead-meter extend guard reads the same `last_live`, and a nan sensor IS
-        #   dead for metering — it must stop holding the shared inlet open, which only
-        #   happens if the read returns None here.
+        #   "non-numeric". FlowMeter.sample() rejects the same value anyway
+        #   (flow_metering.py, `if not math.isfinite(raw)`), so nothing was
+        #   mis-credited — but the poll loop reads these tuples for a second purpose.
+        # Fix: reject here, so the function keeps its own contract and every caller
+        #   can treat a tuple as a reading the meter will accept.
+        # Beleg: the dead-meter extend guard keys on the gap since the last tuple, so
+        #   a nan sensor used to look alive and hold the shared inlet open for the
+        #   whole extend cap. Measured, window 30 / cap 600: 600 s without this guard,
+        #   30 s with it.
+        # NOT-TO-DO: do not special-case it in the window's poll loop instead — the
+        #   extend guard would still have to repeat the test, and a nan sensor IS dead
+        #   for metering on every path that reads it.
         # siehe tests/test_distributor.py::test_read_flow_rejects_non_finite
         if not math.isfinite(value):
             return None
@@ -767,38 +769,42 @@ class DistributorMixin:
         stopped_early = (
             target is not None and (delivered or 0.0) >= target and elapsed < cap
         )
-        # Wurzel: a 0.0 is only an ANSWER when the meter was in a position to answer.
-        #   The valve-open seed above (meter.sample(..., 0.0)) makes _have_reading true
-        #   from the first second, so delivered() never returns None again — a sensor
-        #   that answered once at the open and then died reports 0.0 exactly like a
-        #   meter that watched the run and saw no water. Measured: a rate sensor
-        #   showing 12 L/min at the seed and then unavailable measures 0.0, because a
-        #   single sample has no interval to integrate over.
-        #   A second state does the same: a totalizer reset this meter cannot price.
-        #   flow_learn_resolve sends an unlearned `auto` to the over-credit-safe
-        #   `lifetime`, which KEEPS the pre-reset baseline, so a per-run counter's
-        #   post-reset climb never rises above it. Measured on the self-closing path:
-        #   45 L really delivered, delivered() == 0.0, saw_reset() == True. The classic
-        #   runner diverts this to a time-based credit BEFORE its dry branch
-        #   (irrigation.py:1536).
-        # Fix: `last_live` already records the elapsed time of the most recent LIVE
-        #   read and is seeded to 0.0, so `last_live <= 0.0` IS "never read after the
-        #   open"; `meter.saw_reset()` is the second witness, catching a totalizer
-        #   whose post-reset climb never clears the retained baseline. Without either
-        #   witness the value goes back to None and the caller keeps its time-based
-        #   credit, exactly as before this change.
-        # NOT-TO-DO: do not fold this into FlowMeter.delivered(). Its 0.0 contract is
-        #   what the crediting callers price a genuinely dry run with; only the caller
-        #   that writes a run OFF needs the stricter evidence. (The self-closing path
-        #   exposes the same test as FlowMeter.saw_reading_after_open(); it is derived
-        #   locally here so this fix does not depend on that unmerged change.)
+        # Wurzel: a 0.0 is only an ANSWER when the meter priced something. The
+        #   valve-open seed above (meter.sample(..., 0.0)) makes the meter's
+        #   have-a-reading state true from the first second, so delivered() never
+        #   returns None again whatever the sensor does next — and a meter can accept
+        #   readings and credit NONE of them. Measured against the real FlowMeter, all
+        #   three of these return 0.0 for a run that delivered water, and all three
+        #   returned None before this change:
+        #     rate 12 L/min, live only every 5th poll -> _sample_rate will not
+        #       integrate across a gap wider than max_gap_s;
+        #     totalizer 100 -> 60,70,80,90 -> the drop is not near-zero, so the
+        #       baseline is kept and 30 L of climb is credited nowhere;
+        #     totalizer 45 -> 8,20,30,40 -> a per-run reset whose first post-reset
+        #       read clears near_zero (4.5), so saw_reset() never trips either.
+        # Fix: ask the meter what it CREDITED, not when it last answered.
+        #   priced_anything() is false for every case above and true for a dry run
+        #   that was really measured (an interval credited at 0 L counts). saw_reset()
+        #   stays beside it and is NOT redundant: a totalizer reading 100,100,5,7
+        #   prices the flat interval at 0 L, so only saw_reset() catches the reset
+        #   after it. The classic runner makes the same diversion before its own dry
+        #   branch (irrigation.py:1536).
+        # NOT-TO-DO: do not derive this from the poll loop's own timings. That was the
+        #   first design (a `last_live <= 0.0` test) and it is what the three inputs
+        #   above defeat: the loop sees a live tuple, the meter throws the value away.
+        # NOT-TO-DO: do not fold either term into FlowMeter.delivered(). Its 0.0
+        #   contract is what the crediting callers price a genuinely dry run with.
         # siehe tests/test_distributor.py::
         #   test_measure_window_sensor_dead_after_open_read_is_not_dry
-        # siehe tests/test_distributor.py::test_measure_window_totalizer_reset_is_not_dry
+        #   test_measure_window_totalizer_reset_is_not_dry
+        #   test_measure_window_rate_gap_wider_than_max_gap_is_not_dry
+        #   test_measure_window_totalizer_below_retained_baseline_is_not_dry
+        #   test_measure_window_per_run_reset_above_near_zero_is_not_dry
+        #   test_measure_window_a_priced_zero_is_still_dry
         if (
             delivered is not None
             and delivered <= 0
-            and (last_live <= 0.0 or meter.saw_reset())
+            and (not meter.priced_anything() or meter.saw_reset())
         ):
             delivered = None
         return delivered, elapsed, stopped_early
