@@ -753,6 +753,28 @@ async def test_measure_window_zero_flow_live_meter_measures_zero():
     assert stopped is False
 
 
+async def test_measure_window_sensor_dead_after_open_read_is_not_dry():
+    # Eifel-Joe#53 / the review finding on Eifel-Joe#4 (spec 10.1): the window feeds the
+    # valve-open reading into the meter at at=0.0, so _have_reading is true from the
+    # first second and delivered() never returns None again whatever the sensor does
+    # next. A RATE sensor showing 12 L/min at the open and then going unavailable has
+    # no second sample to integrate against, so it measures exactly 0.0 — measured,
+    # byte-identical to the dry cistern above. `last_live` is the only thing that
+    # separates them, and it stays at its 0.0 seed value.
+    c, d = _flow_host()
+    calls = {"n": 0}
+
+    def _drive(_sensor):
+        calls["n"] += 1
+        return _state(12.0, "L/min") if calls["n"] == 1 else None  # seed, then dead
+
+    c.hass.states.get = Mock(side_effect=_drive)
+    measured, actual, stopped = await c._dist_measure_window(d, 30)
+    assert measured is None  # no evidence -> time-based, as before the fix
+    assert actual == 30
+    assert stopped is False
+
+
 # --- Phase 4 Part A: crediting the measured flow volume ---------------------
 
 

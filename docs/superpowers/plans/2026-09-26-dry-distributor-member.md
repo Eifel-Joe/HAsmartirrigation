@@ -215,7 +215,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `custom_components/irrigation_plus/distributor.py:~743`
 - Test: `tests/test_distributor.py` (append after the Task 1 test)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 async def test_measure_window_sensor_dead_after_open_read_is_not_dry():
@@ -240,7 +240,7 @@ async def test_measure_window_sensor_dead_after_open_read_is_not_dry():
     assert stopped is False
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py::test_measure_window_sensor_dead_after_open_read_is_not_dry -p _local_socket_unblock -v
@@ -248,7 +248,7 @@ async def test_measure_window_sensor_dead_after_open_read_is_not_dry():
 
 Expected: **FAIL**, `assert 0.0 is None` — Task 1 deleted the collapse that used to hide this.
 
-- [ ] **Step 3: Add the witness**
+- [x] **Step 3: Add the witness**
 
 In `_dist_measure_window`, insert between `stopped_early` and the `return`:
 
@@ -280,7 +280,7 @@ In `_dist_measure_window`, insert between `stopped_early` and the `return`:
 zero — `-0.4 L/min` across 30 s measures `-0.2`, and `== 0` would let it reach the
 credit branch.
 
-- [ ] **Step 4: Run the test and the file**
+- [x] **Step 4: Run the test and the file**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py -p _local_socket_unblock -q
@@ -289,7 +289,7 @@ credit branch.
 Expected: **all pass**, including the Task 1 test (its sensor is live on every poll,
 so `last_live == 30.0`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/distributor.py tests/test_distributor.py

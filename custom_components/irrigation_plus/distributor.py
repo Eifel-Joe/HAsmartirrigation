@@ -751,6 +751,26 @@ class DistributorMixin:
         stopped_early = (
             target is not None and (delivered or 0.0) >= target and elapsed < cap
         )
+        # Wurzel: a 0.0 is only an ANSWER when the meter was in a position to answer.
+        #   The valve-open seed above (meter.sample(..., 0.0)) makes _have_reading true
+        #   from the first second, so delivered() never returns None again — a sensor
+        #   that answered once at the open and then died reports 0.0 exactly like a
+        #   meter that watched the run and saw no water. Measured: a rate sensor
+        #   showing 12 L/min at the seed and then unavailable measures 0.0, because a
+        #   single sample has no interval to integrate over.
+        # Fix: `last_live` already records the elapsed time of the most recent LIVE
+        #   read and is seeded to 0.0, so `last_live <= 0.0` IS "never read after the
+        #   open". Without evidence the value goes back to None and the caller keeps
+        #   its time-based credit, exactly as before this change.
+        # NOT-TO-DO: do not fold this into FlowMeter.delivered(). Its 0.0 contract is
+        #   what the crediting callers price a genuinely dry run with; only the caller
+        #   that writes a run OFF needs the stricter evidence. (The self-closing path
+        #   exposes the same test as FlowMeter.saw_reading_after_open(); it is derived
+        #   locally here so this fix does not depend on that unmerged change.)
+        # siehe tests/test_distributor.py::
+        #   test_measure_window_sensor_dead_after_open_read_is_not_dry
+        if delivered is not None and delivered <= 0 and last_live <= 0.0:
+            delivered = None
         return delivered, elapsed, stopped_early
 
     async def _dist_members(self, distributor_id) -> list:
