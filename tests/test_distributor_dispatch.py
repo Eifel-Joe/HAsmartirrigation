@@ -1324,7 +1324,7 @@ async def test_sweep_credits_measured_flow_volume():
     c._dist_measure_window = AsyncMock(return_value=(9.0, 60, False))
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             v=measured_l
         )
     )
@@ -1368,7 +1368,7 @@ async def test_sweep_classic_passes_target_and_extend_cap():
     c._dist_measure_window = _fake_measure
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             seconds=s, measured=measured_l, planned=planned_seconds
         )
     )
@@ -1504,7 +1504,7 @@ async def test_sweep_logs_partial_when_cap_hit_without_target():
     c._dist_measure_window = AsyncMock(return_value=(5.0, 900, False))
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             result=result
         )
     )
@@ -1548,7 +1548,7 @@ async def test_sweep_logs_completed_when_target_reached_at_cap():
     c._dist_measure_window = AsyncMock(return_value=(12.0, 900, False))
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             result=result
         )
     )
@@ -1590,7 +1590,7 @@ async def test_sweep_logs_completed_when_target_reached():
     c._dist_measure_window = AsyncMock(return_value=(12.0, 120, True))
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             result=result
         )
     )
@@ -1821,7 +1821,7 @@ async def test_the_cycle_books_the_window_the_inlet_runs_not_the_priced_one():
     c._apply_soil_moisture_veto = AsyncMock(side_effect=lambda z: z)
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             seconds=s, planned=planned_seconds
         )
     )
@@ -1914,7 +1914,7 @@ async def test_a_flow_metered_outlet_is_metered_for_the_window_the_inlet_runs():
     c._dist_read_flow = Mock(return_value=(0.0, "L/min", "measurement"))
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             seconds=s, planned=planned_seconds
         )
     )
@@ -1992,7 +1992,7 @@ async def test_a_classic_sweep_still_runs_its_priced_windows():
     c._dist_uses_master = Mock(return_value=False)
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             seconds=s, planned=planned_seconds
         )
     )

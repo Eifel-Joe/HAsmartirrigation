@@ -860,13 +860,13 @@ signature exhaustively and would raise `TypeError: unexpected keyword argument
 substitution applied eight times. Do it **before** Task 6, or the suite breaks between
 two commits.
 
-- [ ] **Step 1: Substitute**
+- [x] **Step 1: Substitute**
 
 ```bash
 sed -i 's/lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None:/lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw:/g' tests/test_distributor_dispatch.py
 ```
 
-- [ ] **Step 2: Verify exactly eight sites changed and nothing else**
+- [x] **Step 2: Verify exactly eight sites changed and nothing else**
 
 ```bash
 git diff --numstat tests/test_distributor_dispatch.py
@@ -875,7 +875,7 @@ grep -c "ceiling=None, \*\*_kw:" tests/test_distributor_dispatch.py
 
 Expected: `8	8	tests/test_distributor_dispatch.py` and a count of `8`.
 
-- [ ] **Step 3: Run the file**
+- [x] **Step 3: Run the file**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor_dispatch.py -p _local_socket_unblock -q
@@ -883,7 +883,7 @@ Expected: `8	8	tests/test_distributor_dispatch.py` and a count of `8`.
 
 Expected: **all pass**, unchanged — `**_kw` only widens what the stubs accept.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tests/test_distributor_dispatch.py
