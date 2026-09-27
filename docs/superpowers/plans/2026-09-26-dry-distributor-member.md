@@ -1347,7 +1347,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 **Files:** none modified.
 
-- [ ] **Step 1: Run the FULL suite — a subset does not count**
+- [x] **Step 1: Run the FULL suite — a subset does not count**
 
 ```bash
 cd /d/Entwicklung/HASI/issue53-work/wt
@@ -1361,7 +1361,7 @@ Expected: `7 failed, 3271 passed, 9 skipped, … 349 errors` — baseline `3254`
 **17** new tests (Task 1 inverts one in place, so it is not a new name). Any other
 number means read the diff in Step 2 before touching code.
 
-- [ ] **Step 2: Diff the non-passing names against the baseline**
+- [x] **Step 2: Diff the non-passing names against the baseline**
 
 ```bash
 cd /d/Entwicklung/HASI/issue53-work
@@ -1373,7 +1373,7 @@ Expected: **no output from `diff`.** A single added name is a regression; the fa
 count alone cannot show it, because the same three files give 51 errors as a subset and
 13 in a full run.
 
-- [ ] **Step 3: Lint — the two that gate CI, on the component only**
+- [x] **Step 3: Lint — the two that gate CI, on the component only**
 
 ```bash
 cd /d/Entwicklung/HASI/issue53-work/wt
@@ -1384,7 +1384,7 @@ uvx ruff check custom_components/irrigation_plus/
 Expected: `… files left unchanged` (or reformatted — then re-run the affected test
 file) and `All checks passed!`.
 
-- [ ] **Step 4: Commit any reformat, then record the numbers in this plan**
+- [x] **Step 4: Commit any reformat, then record the numbers in this plan**
 
 Append the measured totals under "Measured baseline". Commit:
 
@@ -1407,7 +1407,7 @@ ambiguous anchor once left M1 live and silently corrupted M2 and M3. And a mutat
 that kills nothing may be the WRONG mutation: check first whether it can reach the
 behaviour at all, before suspecting the test.
 
-- [ ] **Step 1: Run each mutation, record which test dies**
+- [x] **Step 1: Run each mutation, record which test dies**
 
 | # | Mutation | Must kill |
 |---|---|---|
@@ -1433,7 +1433,7 @@ git checkout -- custom_components/irrigation_plus/distributor.py
 git diff --stat   # MUST be empty before the next mutation
 ```
 
-- [ ] **Step 2: M3a survives, and it must — do not go hunting for a test**
+- [x] **Step 2: M3a survives, and it must — do not go hunting for a test**
 
 M3a kills nothing, and the reason is measured rather than assumed. The guard it mutates
 fires only when the meter priced nothing, and a meter that priced nothing has a
@@ -1451,7 +1451,7 @@ level up, where a *live* negative measurement really does reach the credit.
 Record M3a in the matrix as **survives, unreachable, with this reasoning** — not as a
 coverage gap, and not as a reason to add a test that cannot distinguish the two.
 
-- [ ] **Step 3: Commit the matrix result into this plan**
+- [x] **Step 3: Commit the matrix result into this plan**
 
 Write the six outcomes (killed / survived, and which test) into a `## Mutation matrix`
 section at the end of this file, then:
@@ -1463,6 +1463,66 @@ git commit -m "docs(plan): record the mutation matrix results
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
 
+---
+
+## Measured results
+
+### Suite, on the finished branch
+
+```
+7 failed, 3271 passed, 9 skipped, 10 warnings, 349 errors in 337.29s
+```
+
+Baseline was `3254` passed on `418ab8a0`, so **+17**, exactly as predicted. The 356
+non-passing names are **`diff`-identical** to `baseline-names.txt`:
+
+```
+$ diff baseline-names.txt after-names.txt && echo IDENTISCH
+IDENTISCH
+```
+
+`uvx black --check` -> 69 files unchanged. `uvx ruff check` -> All checks passed!
+
+### Mutation matrix
+
+Driver: `D:/Entwicklung/HASI/issue53-work/mutate.py`. Every mutation reverted with
+`git checkout -- <file>`, and the tree asserted clean before the next one (the driver
+exits on a dirty tree, so a silently failed revert cannot corrupt the next row).
+
+| # | mutation | outcome | killed by |
+|---|---|---|---|
+| M1 | drop `not meter.priced_anything() or ` | **KILLED (5)** | `..._sensor_dead_after_open_read_is_not_dry`, `..._nan_after_open_read_is_not_dry`, `..._rate_gap_wider_than_max_gap_is_not_dry`, `..._totalizer_below_retained_baseline_is_not_dry`, `..._per_run_reset_above_near_zero_is_not_dry` |
+| M2 | drop ` or meter.saw_reset()` | **KILLED (1)** | `test_measure_window_totalizer_reset_is_not_dry` |
+| M2a | drop `_priced = True` from `_sample_rate` | **KILLED (3)** | `..._a_priced_zero_is_still_dry`, `test_priced_anything_counts_an_interval_credited_at_zero`, `test_priced_anything_separates_accepted_from_credited` — **plus** `test_measure_window_zero_flow_live_meter_measures_zero` |
+| M2b | drop `_priced = True` from `_sample_totalizer` | **KILLED (2)** | `..._a_priced_zero_is_still_dry`, `test_priced_anything_is_false_for_a_totalizer_below_its_baseline` |
+| M3a | guard's `<= 0` -> `== 0` | **SURVIVED, as predicted** | — unreachable: every increment to `_delivered` happens at a site that also latches `_priced`, so a meter that priced nothing has delivered *exactly* `0.0` |
+| M3b | sweep's `dry` `<= 0` -> `== 0` | **KILLED (1)** | `test_sweep_treats_a_negative_measurement_as_dry` |
+| M3c | `priced_anything()` returns `_delivered > 0` | **KILLED (2)** | `..._a_priced_zero_is_still_dry`, `test_priced_anything_counts_an_interval_credited_at_zero` — **plus** `test_measure_window_zero_flow_live_meter_measures_zero` |
+| M4 | drop `RUN_RESULT_FAILED if dry` from the ternary | **KILLED (3)** | all three Task 7 tests |
+| M5 | drop `and not dry` from the calibration gate | **KILLED (1)** | `test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample` |
+| M6 | drop `if not math.isfinite(value): return None` | **KILLED (1)** | `test_read_flow_rejects_non_finite` |
+| M7 | `measured_l=measured` instead of `0.0 if dry` | **KILLED (1)** | `test_sweep_treats_a_negative_measurement_as_dry` |
+
+**Ten killed, one survived by construction.** The two `plus` rows are worth reading:
+misplacing the `_priced` flag, or reading it as `_delivered > 0`, also kills the
+inverted Task 1 test — i.e. it silently switches dry detection back off, and the
+issue's own leading case is the first thing to fall.
+
+### Defects this plan itself carried, found during execution
+
+1. **Task 5's `sed` was incomplete.** Its pattern required the second parameter to be
+   named `s`; three further stubs use `w` (one in `test_distributor_dispatch.py`, two in
+   `test_distributor_cycle.py`) and were missed. The `8	8` numstat and the grep count of
+   `8` both confirmed the substitution did what it claimed — they could not show that
+   the pattern was too narrow. Fixed while Task 7 exposed it.
+2. **Task 8's test was vacuous as written.** It used `_dist(id=0, current_outlet=1)`,
+   whose default `watering_mode` is `CLASSIC`, which makes `can_stop` unconditionally
+   true — so the `not can_stop` gate short-circuits and the calibration check is never
+   reached, dry or not. The test passed before the fix. Corrected to
+   `watering_mode=const.WATERING_MODE_SERVICE`, matching the test's own comment, and
+   genuine RED confirmed before implementing.
+3. **Tasks 2–4's witness was unsound** — the largest one, replaced by Task 4b. See
+   spec §4.
 ---
 
 ## After the plan: what still has to happen
