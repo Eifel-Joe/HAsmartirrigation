@@ -1251,7 +1251,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `custom_components/irrigation_plus/distributor.py:~1545`
 - Test: `tests/test_distributor_dispatch.py` (append at end of file)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 async def test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample():
@@ -1286,7 +1286,7 @@ async def test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample():
     c._dist_flow_calibration_check.assert_not_awaited()
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor_dispatch.py::test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample -p _local_socket_unblock -v
@@ -1295,7 +1295,7 @@ async def test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample():
 Expected: **FAIL** — `Expected '_dist_flow_calibration_check' to not have been awaited.
 Awaited 1 times.` The gate is `measured is not None`, and a dry run's `0.0` passes it.
 
-- [ ] **Step 3: Add `not dry` to the gate**
+- [x] **Step 3: Add `not dry` to the gate**
 
 Replace:
 
@@ -1321,7 +1321,7 @@ with:
                 ):
 ```
 
-- [ ] **Step 4: Run the file**
+- [x] **Step 4: Run the file**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor_dispatch.py -p _local_socket_unblock -q
@@ -1329,7 +1329,7 @@ with:
 
 Expected: **all pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/distributor.py tests/test_distributor_dispatch.py

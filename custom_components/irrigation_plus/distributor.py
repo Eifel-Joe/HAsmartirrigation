@@ -1645,7 +1645,19 @@ class DistributorMixin:
                 # (duration_override): a user-set window is not a scheduled sample of the
                 # valve's real rate. can_stop is bound in the earlier `if water:` block
                 # (same `water`), so it is always in scope on this path.
-                if not can_stop and measured is not None and not duration_override:
+                # `not dry` (Eifel-Joe#53): a run that delivered nothing is not a
+                # sample of the valve's rate, and a caller that KNOWS that should not
+                # offer it. The advisory's own floor already refuses a 0.0
+                # (irrigation.py:1285, FLOW_CAL_MIN_SAMPLE_L ~6.7 L) — this is defence
+                # against a future tuning of the two constants that floor derives from.
+                # siehe tests/test_distributor_dispatch.py::
+                #   test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample
+                if (
+                    not can_stop
+                    and measured is not None
+                    and not dry
+                    and not duration_override
+                ):
                     await self._dist_flow_calibration_check(
                         zone, measured_l=measured, seconds=actual_seconds
                     )

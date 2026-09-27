@@ -2110,3 +2110,37 @@ async def test_sweep_treats_a_negative_measurement_as_dry():
     await c.async_run_distributor_cycle(_dist(id=0, current_outlet=1))
     assert credited["result"] == const.RUN_RESULT_FAILED
     assert credited["measured"] == 0.0  # the -0.2 never reaches the credit
+
+
+async def test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample():
+    """Eifel-Joe#53: a run that delivered nothing says nothing about the hardware's
+    throughput. The advisory's own floor (FLOW_CAL_MIN_SAMPLE_L, ~6.7 L) already
+    refuses a 0.0, so this is defence — but that floor is derived from two tuning
+    constants, and a future tuning that lowered it would make this the caller that
+    feeds 0 L over a full window in as a real observed rate."""
+    c = _host()
+    c._dist_uses_master = Mock(return_value=False)
+    _cycle_mocks(c)
+    c._dist_needs_water = Mock(return_value=True)
+    c._zone_target_bucket = Mock(return_value=0.0)
+    c._metered_target_volume = Mock(return_value=0.0)  # can't-stop member, no target
+    c._dist_measure_window = AsyncMock(return_value=(0.0, 60, False))
+    c._dist_credit_zone = AsyncMock()
+    c._dist_flow_calibration_check = AsyncMock()
+    c.store.async_get_zones = AsyncMock(
+        return_value=[
+            {
+                "id": 7,
+                "distributor_id": 0,
+                "outlet_number": 1,
+                "duration": 60,
+                "bucket": -3,
+                "bucket_threshold": 0,
+                "state": "automatic",
+            }
+        ]
+    )
+    await c.async_run_distributor_cycle(
+        _dist(id=0, current_outlet=1, watering_mode=const.WATERING_MODE_SERVICE)
+    )
+    c._dist_flow_calibration_check.assert_not_awaited()
