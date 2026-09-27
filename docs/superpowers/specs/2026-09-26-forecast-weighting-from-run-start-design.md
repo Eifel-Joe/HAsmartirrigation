@@ -1,6 +1,6 @@
 # Forecast weighting measures its window from the run, not from the calculation
 
-`Eifel-Joe#21` · upstream report `JustChr#159` · base `upstream/master` = `10bb8077`
+`Eifel-Joe#21` · upstream report `JustChr#159` · base `upstream/master` = **`fa863aa9`** (was `10bb8077`, then `c5330c7f`; see §9.6 and §9.11)
 
 **Former designations:** `S` (work order of 2026-09-21).
 
@@ -240,3 +240,286 @@ surprise to be discovered during implementation.
 | The earliest of several schedules wins | This analysis, §3.3 |
 | The live-path half stays a separate product decision | JustChr, `JustChr#159`, 2026-09-21 |
 | Reuse `forecast_window`, do not add a second windowing rule | JustChr, `JustChr#159`, 2026-09-21 |
+
+---
+
+## 9. What the maintainer's review changed (2026-09-27, `CHANGES_REQUESTED`)
+
+Two findings, each handed over with a failing test, and one question. All three
+are confirmed against the code and the clock rather than taken on trust — and one
+of them is **one call site wider** than the review says.
+
+### 9.1 The tests were dated, not pinned, and they failed the next day
+
+`RUN_START` is `2026-09-27 00:00 UTC` and the new file uses `2026-09-28 06:00` /
+`2026-09-29 06:00`, while the production path takes `evaluated_at=dt_util.utcnow()`
+— which nothing pins. `expected_rain` treats a block already past at evaluation as
+uncovered, so the verdict rides the real calendar.
+
+Reproduced on the branch as submitted, with no clock patching at all, on
+2026-09-27:
+
+| test | expected | got |
+| --- | --- | --- |
+| `test_forecast_weighting_reduces_duration_and_sets_target` | `360` | **`490`** |
+| `test_forecast_covering_deficit_skips_run` | `0` | **`269`** |
+| `test_forecast_weighting_sums_lookahead_days` | `300` | **`365`** |
+
+`3 failed, 35 passed`, and exactly the three names the review predicted. Every
+actual is **above** its expectation, which is the tell: a partially covered window
+sums part of the rain, a smaller reduction survives, and the zone waters *more*.
+The same direction the whole change exists to remove.
+
+The worse half is the one that does not show up as red. Past those dates
+`test_rain_outside_the_runs_window_is_not_weighted` and both abstention tests keep
+passing **for the wrong reason** — the window has moved into the past, so the
+weighting abstains and the assertions hold without exercising anything. That is
+the `JustChr#141` class: a green test pinned to the clock instead of to the
+behaviour.
+
+**Fix:** an autouse fixture pinning `calculation.dt_util.utcnow` to a moment
+before the run, in both files. Targeted rather than `freezegun`: `expected_rain`
+already takes `evaluated_at` as a parameter, so the single read in
+`calculation.py` is the whole clock surface, and freezing the world tends to take
+Home Assistant's own internals with it. Each pinned test is then re-checked by
+moving the pin, so it still fails for its own reason.
+
+### 9.2 Under "before each irrigation run" the resolver prices the next run
+
+With `autocalcmode: before_run` the calculation that runs the weighting is
+`async_commit_pre_run_calculation`, reached **from inside the run's own dispatch**.
+The resolver then answers for the run *after* the one being dispatched. Two
+independent mechanisms produce it:
+
+- **(A) the fired-occurrence guard.** `finish_callback` (`scheduler.py:1656-1658`)
+  writes `_finish_last_target[sid]` and pops `_armed_runs[sid]` *before* calling
+  `_execute_schedule`. `_advance_past_fired_occurrence` then sees this run's own
+  target as already fired and moves past it, and the popped arm can no longer
+  supply `start_utc`.
+- **(B) strictly-after-now.** `_next_governing_time`'s own contract is "the moment
+  the next occurrence must fall strictly after; defaults to now". At dispatch
+  *now* **is** the occurrence, so the bound resolves to the following one. This
+  one needs no `_finish_last_target` at all.
+
+Measured with the **real** `_next_governing_time` and the **real**
+`_advance_past_fired_occurrence`, standing in only for the clock/sun layer
+(`_resolve_bound`) with a plain daily 06:00 UTC bound. Probe, archived beside this document as
+`docs/superpowers/probes/2026-09-27-before-run-anchor.py` (it ran from
+`D:\Entwicklung\HASI\issue21-work\probe_before_run_anchor.py`, which is scratch and
+will not survive a cleanup).
+
+| situation | the run really starts | the resolver says | |
+| --- | --- | --- | --- |
+| calculation **ahead** of the run (a fixed-time autocalc at 03:00) | `2026-09-28 06:00` | `2026-09-28 06:00` | correct |
+| dispatch, finish callback — mechanism (A) | `2026-09-28 06:00` | `2026-09-29 06:00` | **+1 day** |
+| dispatch, plain start-time schedule — mechanism (B) | `2026-09-28 06:00` | `2026-09-29 06:00` | **+1 day** |
+
+So a daily schedule prices tomorrow's window and a weekly one next week's: the
+same day offset this change exists to remove, in a different setting.
+
+**Why the existing tests cannot see it.** `test_next_run_start_for_zone.py`'s
+`_fixed_target` replaces `_next_governing_time` *and*
+`_advance_past_fired_occurrence` (lines 47-48, 162-163, 180-181). It was written
+to test the resolver's own decisions rather than re-test recurrence maths, and it
+bought that isolation by stubbing out both places the defect lives.
+
+#### 9.2.1 It is two commit sites, not one
+
+The review sorts `_decide_and_run_start_pinned` under "the two `pre_committed=True`
+paths [that] commit at the decision point, before the fire, so they are fine". It
+does not commit at a decision point. Its own docstring:
+
+> The Start bound already fixed the fire time […] so there is no separate
+> decision point to read the demand ahead of the run — this runs the same
+> rank/select sequence `_decide_and_arm` applies at ITS decision point, **but at
+> the moment the schedule actually fires**.
+
+`run_callback` (`:1731`) sets `_finish_last_target[sid]` and then hands off to it,
+and its commit sits at `:1820`. It does *not* pop `_armed_runs`, so mechanism (A)
+is partly defused — but the arm it finds carries **today's** target while the
+resolver has already advanced to tomorrow's, `abs(armed["target"] - target)` is
+about 24 h, and the `SAME_OCCURRENCE` proximity test rejects it. Mechanism (B)
+then stands alone and the site is wrong too.
+
+The three commit sites, settled:
+
+| site | when it commits | affected |
+| --- | --- | --- |
+| `_perform_scheduled_irrigation` `:2332` (`pre_committed=False`) | at dispatch — plain start-time, interval, one-shot, finish callback | **yes** |
+| `_decide_and_run_start_pinned` `:1820` | at the fire, by its own docstring | **yes** |
+| `_decide_and_arm(commit=True)` `:1962`, via the `decide_callback` registered only when `decision_point > now_utc` `:1889-1894` | genuinely ahead of the run | no, by design |
+
+This is the sister-path check paying for itself: fixing only the site the review
+named would have left the start-pinned anchor mode with the defect and a green
+suite.
+
+### 9.3 The anchor: the caller that knows the run start says so
+
+The review offers two shapes. They are not equivalent.
+
+| shape | verdict |
+| --- | --- |
+| **Pass the run start through the pre-run commit** | **Chosen.** The dispatch moment *is* the run start — exact, no resolution, no heuristic — and it covers (A) and (B) and all three schedule kinds at once, because they funnel through the same two commits. |
+| Have the resolver return an occurrence fired within `SAME_OCCURRENCE` of now | Rejected: **it does not cover mechanism (B).** A plain start-time schedule never records a fired occurrence, so there is nothing within `SAME_OCCURRENCE` to return — row 3 of §9.2's table is reached with `_finish_last_target` empty. It would also change the answer for callers that are *not* in a dispatch: a fixed-time calculation running within the hour after a run would price the run that already happened. |
+
+`run_start` becomes a keyword-only parameter with a `None` default, threaded from
+the commit to the weighting:
+
+```
+async_commit_pre_run_calculation(zones, *, run_start=None)
+  ├─ selection is None -> _async_calculate_all(run_start=run_start)
+  └─ else              -> async_update_zone_config(zone_id, {ATTR_CALCULATE: True},
+                                                   run_start=run_start)
+                            -> async_calculate_zone(zone_id, ..., run_start=run_start)
+                                 -> calculate_module(..., run_start=run_start)
+```
+
+and the weighting resolves in three steps, each separately observable:
+
+1. a `run_start` given by the caller wins — this is a dispatch, the run is now;
+2. otherwise the resolver answers — the calculation is ahead of a scheduled run;
+3. otherwise `evaluated_at` (§9.4).
+
+**A dict key was the wrong seam and was rejected.** The zone branch reaches the
+calculation through `async_update_zone_config(zone_id, {ATTR_CALCULATE: True})`,
+and `ATTR_CALCULATE` is schema-validated as a websocket field
+(`websockets.py:295`). A run start carried in that dict would become part of an
+external API. A keyword-only parameter *beside* the dict is invisible to all eight
+existing callers — `websockets.py:384` passes `(zone, data)` positionally — and
+adds no surface at all.
+
+**NOT-TO-DO:** do not carry the run start on the coordinator as transient state
+for the duration of the commit. It reads as the smaller change and is not: the
+commit awaits throughout, so a fixed-time calculation interleaving at any `await`
+would read another run's anchor.
+
+### 9.4 A zone no schedule names falls back to the calculation
+
+This **reverses requirement 3 of §2 and the third row of §8**, which said an
+unresolvable run start means no weighting with a `debug` line. Recorded as a
+reversal rather than edited into §2, because the reason it changed is the
+interesting part.
+
+The review's objection: someone who irrigates from their own automations turns on
+an experimental feature and it silently does nothing.
+
+What settles it is not the objection but the sister half. The precipitation skip
+guard — the *other* half of this same `Precipitation forecast days` setting, and
+the module this change reuses — already does exactly what is being asked for:
+
+```python
+# skip_conditions.py:235
+start = dt_util.as_utc(run_start) if run_start is not None else now
+```
+
+with its docstring: *"without `run_start` it starts now, which is dispatch —
+every preview names a start"*. The whole thesis of this change is that the two
+halves of one dropdown had diverged. Abstaining where the guard anchors would
+leave them diverged in a second place, by our own hand.
+
+**The cost, stated:** someone who calculates at 03:00 and waters from an
+automation at 20:00 gets a window anchored 17 h early. Bounded by one day against
+a 24-hour block, and the same trade the guard already makes. Rain inside the
+anchored window that falls before the run has landed on the soil before the run
+anyway, so counting it is not simply wrong; rain past the anchored window is
+missed, which waters *more* — the safe direction, and what abstaining did in every
+case.
+
+Decided by the user, 2026-09-27, on that evidence.
+
+### 9.5 The references come out, and his go in
+
+Three added lines in the diff name our own tracker: a `calculation.py` comment
+citing `Eifel-Joe#22` and the module docstrings of both new test files citing
+`Eifel-Joe#21`. Nobody reading the upstream repository can resolve those.
+
+Unlike `JustChr#174`, substituting numbers is right here rather than evasive:
+`JustChr#159` and `JustChr#160` already exist in his repository as bug reports we
+filed, and their titles are the same defects — so the replacement cites *his*
+issues, which is what he asked for. No issue is opened anywhere in order to be
+citable. `JustChr#159` is already named in the pull request body.
+
+**And the rewrite has to reach the commits, not sit on top of them.** Checked per
+commit: the eight commit messages are clean, but `21aa6f4e` and `677b9bfc`
+introduce the three lines as **added** content, so a correcting commit on top
+leaves `git show <sha> | grep -E 'Eifel-Joe'` matching on those two. That is what
+cost `JustChr#174` a branch reshape. The branch is rebased onto `c5330c7f` and
+needs real changes anyway, so the history is rebuilt with the references never
+present. Only the author line may match.
+
+### 9.6 The baseline moved with the base
+
+`10bb8077` is 8 commits behind; the review asks for a rebase onto current master.
+On `c5330c7f` the suite measures **7 failed / 3322 passed / 9 skipped / 367
+errors — 374 non-green names**, already captured at
+`D:\Entwicklung\HASI\pr174-work\baseline-names.txt`. §6's figures (349 errors,
+356 names) are void. Only a full run with a name diff decides; a subset does not.
+
+### 9.7 What this adds to the end-to-end criterion
+
+Beyond §6, unchanged:
+
+7. **The dispatch anchor, through the real advance.** A test that drives
+   `_advance_past_fired_occurrence` and `_next_governing_time` for real — stubbing
+   only the clock/sun layer — and pins that a commit made from inside a dispatch
+   prices the window from *now*, in both mechanism (A) and mechanism (B) shapes.
+   The §9.2 probe becomes that test.
+8. **The start-pinned site.** The same pin for `_decide_and_run_start_pinned`, the
+   site the review did not name.
+9. **The clock pins hold when the clock moves.** Each pinned test still fails for
+   its own reason with the pin shifted, so §9.1's silent-green class cannot return.
+10. **A zone no schedule names is weighted from `evaluated_at`**, and a zone whose
+    resolver answers is weighted from that answer — three distinct paths, three
+    tests.
+11. Three reference checks before the push — diff, commit messages, **and the
+    content of every individual commit** — all empty but the author line.
+
+### 9.11 The base moved twice, and the second time mid-verification
+
+`JustChr#174` was merged while this phase was being verified (2026-09-27 14:17 UTC,
+squashed to `d1f3c292`), and a release commit followed, so `upstream/master` went
+`c5330c7f` --> **`fa863aa9`**. §9.6's figures for `c5330c7f` are therefore void in
+turn, and `pr174-work/baseline-names.txt` with them. Re-measured on `fa863aa9` in
+its own worktree (`issue21-work/base`).
+
+Two things checked before the rebase rather than after:
+
+- **The merge is byte-identical to what was submitted.** `git diff 3e372042
+  d1f3c292` is empty across every file. The maintainer changed nothing on the way
+  in -- worth confirming rather than assuming, because he has amended a merge
+  before (a `_dist_uses_master` gate on `JustChr#70`). So the witness form on
+  master is exactly
+  `_saw_report_after_open and _priced and not _declined`.
+- **The two changes are disjoint.** `JustChr#174` touched `flow_metering.py`,
+  `irrigation.py`, `self_closing.py`, `distributor.py`, `docs/usage-events.md` and
+  three test files; this one touches `calculation.py`, `scheduler.py`,
+  `auto_calc.py`, `__init__.py` and five different test files. `comm -12` over the
+  two name lists is empty, which is why the rebase carried all three commits with
+  no conflict.
+
+### 9.12 The measured result on `fa863aa9`
+
+| | failed | passed | skipped | errors | non-green names |
+| --- | --- | --- | --- | --- | --- |
+| `fa863aa9` clean (`issue21-work/base`) | 7 | 3344 | 9 | 367 | **374** |
+| this branch (`341fa1e7`) | 7 | **3366** | 9 | 367 | **374** |
+
+**Name `diff` between the two runs: empty.** `+22` passed is exactly the 22 tests
+this change adds -- 12 in `test_next_run_start_for_zone.py`, 6 in
+`test_forecast_weighting_window.py`, 3 in `test_before_run_anchor.py`, 1 in
+`test_auto_calc_mode.py`, counted by definition rather than inferred from the
+delta. Files: `issue21-work/{baseline-fa863aa9,branch-names-fa863aa9}.txt`.
+
+One thing the two baselines settle in passing: `c5330c7f` and `fa863aa9` carry the
+**same 374 non-green names** (`diff` empty). The merged sister fix added 22 passing
+tests and no new failure, so nothing here is inherited breakage.
+
+`black --check` 69 files unchanged, `ruff check` clean. Three reference checks
+re-run after the rebase: diff and commit messages empty, and one match per commit,
+each the `Author:` line.
+
+**What it means for `Eifel-Joe#53`,** which was deferred for exactly this event: the
+condition it waited on is met. It can now rebase onto master, **drop its
+`flow_metering.py` change entirely** (+41 lines, superseded by the three-condition
+form), and its two `distributor.py` `at=` conversions are already there. The
+textual conflict its own §4.3 accepted as the lesser evil no longer exists.

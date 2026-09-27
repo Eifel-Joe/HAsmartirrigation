@@ -464,3 +464,64 @@ exactly `0.0`, never a negative) — recorded as surviving, with the reason. The
 matrix is what found the redundant `saw_reset()` term: its mutation killed
 nothing, and the term was removed rather than a test invented for it.
 **Revert every mutation with `git checkout -- <file>`.**
+
+---
+
+## 10. What the merge of the sister fix changed (2026-09-27)
+
+`JustChr#174` was merged (squashed to `d1f3c292`, master now `fa863aa9`) **byte-identical
+to what was submitted** -- checked with `git diff 3e372042 d1f3c292`, empty across every
+file. So master now carries, and this design inherits:
+
+- `FlowMeter.metered_the_run()` in the **three**-condition form
+  `_saw_report_after_open and _priced and not _declined`, not the two-condition form
+  §4.2 of this document specified;
+- `FlowMeter.sample(value, unit, state_class, reported_at=None, *, at)`;
+- both `distributor.py` `at=` conversions (lines 714 and 737).
+
+**§4.3's accepted cost is gone.** The textual conflict in `sample()`'s neighbourhood
+no longer exists because this change no longer touches `flow_metering.py` at all --
+its +41 lines come out whole.
+
+### 10.1 And the inheritance is NOT free: the witness is starved on this path
+
+Inheriting the accessor is not the same as inheriting the evidence that feeds it, and
+on this path it is not fed.
+
+`_saw_report_after_open` is set only when `sample()` is handed a `reported_at` newer
+than the first one it saw. On master `irrigation.py::_read_flow_sample` supplies it as
+a fourth element -- but **`distributor.py::_dist_read_flow` still returns a
+three-tuple** (`distributor.py:643-663`) and its two `sample()` calls pass no report
+at all. So `reported_at` is always `None` here, `_saw_report_after_open` never
+becomes `True`, and `metered_the_run()` is **constant `False`** on the distributor
+path.
+
+Fed the real `FlowMeter` from master exactly as `_dist_measure_window` feeds it, with
+this path's own constants (`max_gap_s = DISTRIBUTOR_FLOW_POLL_SECONDS * 4 = 20`) and a
+genuinely dry run -- a live sensor reading `0` on all seven polls. Probe, archived beside this document as
+`docs/superpowers/probes/2026-09-27-distributor-witness.py` (it ran from
+`D:\Entwicklung\HASI\issue53-work\probe_distributor_witness.py`, which is scratch).
+
+| how the meter is fed | `delivered()` | `metered_the_run()` | §3.1's guard |
+|---|---|---|---|
+| as `distributor.py` does today (three values + `at`) | `0.0` | **`False`** | **fires -> time-based credit** |
+| with a report on every live poll | `0.0` | `True` | does not fire -> dry verdict stands |
+
+Row 1 is the whole fix turning into a **no-op**: `not meter.metered_the_run()` is
+always true, so §3.1's condition collapses to `delivered <= 0`, which is what
+`master` already does. The dry member run would be credited in full exactly as
+before, and the suite would agree, because a test that does not issue reports sees
+the same `False`.
+
+**So this design gains a step it did not have:** `_dist_read_flow` grows a fourth
+element, `state.last_reported`, and both `sample()` call sites pass it -- mirroring
+what the sister fix did to `_read_flow_sample`. Its docstring promise ("(value, unit,
+state_class)") changes with it.
+
+**And every dry-verdict test on this path has to issue advancing reports**, or it
+pins the starved witness instead of the behaviour -- the same trap the sister design
+names at its §11.4, one path over.
+
+**NOT-TO-DO:** do not reach for `metered_the_run()` on any *other* metered path
+without checking what feeds that path's `sample()` first. Two of the four paths carry
+a report today; this was the second, and it did not.

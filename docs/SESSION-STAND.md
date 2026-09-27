@@ -23,6 +23,157 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-27 (3) — JustChr#172 nachgebessert, GEPUSHT + kommentiert; JustChr#174 gemergt; Eifel-Joe#53 entblockt und teurer
+
+### Stand (verifiziert)
+- **`Eifel-Joe#53` ist vertagt, bewusst.** Drei Wege standen zur Wahl (auf `#174`s Branch
+  stapeln / auf master mit mitgebrachtem `flow_metering` / warten). **User-Entscheidung:
+  warten, bis `JustChr#174` gemergt ist**, dann erbt `#53` die Zeugen-Form aus master und
+  der `flow_metering.py`-Teil entfällt ganz. Nichts an `#53` angefasst — Branch
+  `fix-a-dry-member-run-is-not-a-delivery`, Worktree `issue53-work/wt`, Kopf `dc56b1fb`,
+  Basis weiter das veraltete `418ab8a0`.
+  **Neu gemessen und für `#53` relevant:** `#174` trägt die zwei `distributor.py`-`at=`-
+  Umstellungen (Z. 714/737) **schon**; das ist nicht mehr `#53`s Arbeit.
+- **`JustChr#174` IST GEMERGT** (27.09. 14:17 UTC, gesquasht zu `d1f3c292`; master jetzt
+  **`fa863aa9`** + Release v2026.09.24). `git diff 3e372042 d1f3c292` ist **leer** — JustChr
+  hat nichts geändert. Die Zeugen-Form auf master ist wörtlich unsere.
+- **`JustChr#172` Phase R ist GEPUSHT, PR-Body aktualisiert, Review beantwortet.** Branch
+  `fix-forecast-weighting-from-run-start`, Worktree `D:/Entwicklung/HASI/issue21-work/pr`,
+  Kopf **`341fa1e7`**, Basis **`fa863aa9`**, **0 hinter upstream**. Drei Commits.
+  **CI 4 passing / 0 failing**, `MERGEABLE`/`CLEAN`; `reviewDecision` bleibt
+  `CHANGES_REQUESTED`, bis JustChr neu reviewt.
+  [Kommentar](https://github.com/JustChr/HAsmartirrigation/pull/172#issuecomment-5857410010).
+- **Acht Mutationen, alle auf `fa863aa9` gemessen, alle getötet** (je `git checkout --`
+  zurück, Baum vorher sauber): vier neue für Anker und Fallback, vier alte **neu gefahren
+  statt übernommen** — zwei Zeilen der alten Tabelle mutierten Code, der sich bewegt hat,
+  darunter die Abstinenz, die jetzt ein Fallback ist.
+  ⚠️ **Regelverstoß, offengelegt:** der neue PR-Body ging raus, bevor der User die neue
+  Mutations-Tabelle gesehen hatte — seine Freigabe lag VOR dem Fund. Text-Freigabe gilt
+  auch für Korrekturen. Der Kommentar wurde daraufhin zurückgehalten und erst nach
+  erneuter Freigabe gesendet.
+  - **Voll-Lauf auf `fa863aa9`: 7 failed / 3366 passed / 9 skipped / 367 errors.
+    Namens-Diff gegen die NEUE Baseline LEER** (374 = 374). Dateien:
+    `issue21-work/{baseline-fa863aa9,branch-names-fa863aa9,base-run,branch-run}.txt`.
+    Baseline selbst: 7 / **3344** / 9 / 367. `+22` = die 22 hinzugefügten Tests, **nach
+    Definition gezählt** (12+6+3+1), nicht aus der Differenz geschlossen.
+    Lint: `black` 69 Dateien unverändert, `ruff` clean.
+  - **Nebenbefund:** `c5330c7f` und `fa863aa9` tragen dieselben 374 nicht-grünen Namen.
+    `#174` brachte 22 grüne Tests und keinen neuen Fehler — nichts hier ist geerbter Schaden.
+    ⛔ `pr174-work/baseline-names.txt` gilt nur noch für `c5330c7f`; maßgeblich ist
+    `issue21-work/baseline-fa863aa9.txt`.
+  - **Umform-Diff gegen `issue21-prereshape` LEER** — die drei Commits sind inhaltsgleich
+    mit der granularen Historie.
+  - **Drei Referenz-Prüfungen bestanden**, inkl. der pro-Commit-Inhaltsprüfung: genau
+    **1 Treffer je Commit, und das ist die Author-Zeile**.
+- **Was JustChrs Review verlangte, und was daraus wurde** (voller Argumentationsgang:
+  Spec §9, **nicht hier doppeln**):
+  - **Befund 1 (Uhr nicht gepinnt) bestätigt, reproduziert:** 3 Tests rot am 27.09.,
+    Ist-Werte 490/269/365 gegen 360/0/300 — alle **über** dem Soll, also wässert es
+    *mehr*. Gefixt durch `NOW` als einzige Literale, alles andere davon abgeleitet.
+    **Der Pin ist als tragend belegt:** Auswertung 3 Tage hinter den Lauf geschoben -->
+    4 Tests fallen, alle auf `600` (= Abstinenz). Die zwei Abstinenz-Tests bleiben dabei
+    grün — genau die stille-Grün-Klasse, weshalb die Arithmetik-Tests die Unterscheider
+    sind.
+  - **Befund 2 (`before_run`-Anker) bestätigt und gemessen**, Probe
+    `issue21-work/probe_before_run_anchor.py`: **+1 Tag** in beiden Mechanismen (A:
+    fired-occurrence-Guard, B: strikt-nach-jetzt). Gefixt durch einen keyword-only
+    `run_start` von `_execute_schedule` bis `calculate_module`.
+  - **🔴 Sein Vorschlag (ii) ist nachweislich unzureichend** („Resolver gibt eine
+    innerhalb `SAME_OCCURRENCE` gefeuerte Gelegenheit zurück"): bei einem einfachen
+    Startzeit-Plan vermerkt **niemand** eine gefeuerte Gelegenheit, es gibt also nichts
+    zurückzugeben — Mechanismus B allein, Zeile B2 der Probe. Nur (i) trägt beide.
+    **Muss in die Antwort, mit der Probe-Zeile als Beleg.**
+  - **🔴 Der Defekt ist eine Stelle breiter als seine Review sagt.**
+    `_decide_and_run_start_pinned` (`scheduler.py:1820`) committet laut **eigenem
+    Docstring** „at the moment the schedule actually fires", nicht am Entscheidungspunkt;
+    er hatte sie unter die unbedenklichen `pre_committed=True`-Pfade sortiert. Gefunden
+    durch den Schwester-Pfad-Check. Die dritte Stelle (`_decide_and_arm(commit=True)`,
+    `:1969`) ist **belegt unangetastet** — echter Entscheidungspunkt.
+  - **Frage 3 (Zonen ohne Zeitplan): Fallback angenommen** (User, 27.09.). Beleg war
+    nicht sein Einwand, sondern die Schwesterhälfte: `skip_conditions.py:235` ankert
+    schon bei `now`, wenn kein Lauf-Start genannt ist. **Grenze mitgeliefert und
+    getestet:** ohne Stundenreihe bleibt `first_24h_covered` falsch, der Fallback erreicht
+    also nur Zonen, deren Client eine Stundenreihe liefert.
+  - **Referenzen:** `Eifel-Joe#21`/`#22` --> `#159`/`#160` (seine eigenen Issues, von uns
+    dort gemeldet — Titel deckungsgleich), plus Branch-SHA `10bb8077` aus einem Docstring
+    raus.
+- **Design-Historie:** Spec §9 und Plan Phase R (Tasks 10–17, 52 Checkboxen abgehakt)
+  liegen in `issue21-work/pr/docs/superpowers/` — **noch NICHT archiviert**, Regel P1
+  offen.
+
+### Verworfen
+- **Die Referenzen mit einem Commit obendrauf zu reparieren.** Sie steckten als
+  *hinzugefügte* Zeilen im Inhalt von zwei Commits, `git show <sha> | grep` hätte weiter
+  getroffen. Historie neu entstehen lassen war nötig — dieselbe Lehre wie bei `#174`.
+- **Den Lauf-Start als Dict-Schlüssel durch `ATTR_CALCULATE` zu führen.** Dessen Schlüssel
+  sind als Websocket-Felder schema-validiert (`websockets.py:295-296`); er wäre Teil einer
+  externen API geworden. Keyword-only *neben* dem Dict ist für alle acht Aufrufer unsichtbar.
+- **Eine transiente Coordinator-Eigenschaft für die Dauer des Commits.** Der Commit
+  awaitet durchgehend, eine dazwischenliegende Fixzeit-Berechnung hätte den fremden Anker
+  gelesen.
+- **`run_start` verpflichtend zu machen**, um Vergessen unmöglich zu machen: ein
+  Produktiv-Aufrufer, aber zwölf Test-Aufrufstellen in fünf Dateien. `_execute_schedule`s
+  `now` ist schon Pflicht, der Produktivpfad kann es also nicht vergessen.
+- **`freezegun`** für den Uhr-Pin: ersetzt die ganze Prozess-Uhr. Nur `dt_util.utcnow`
+  umbiegen ist die einzige Uhr-Lesung auf dem Pfad.
+
+### Fallen
+- **`grep -E '^(FAILED|ERROR)'` ist zu weit für den Namens-Diff.** `batch.py`s eigene
+  Log-Zeilen beginnen mit `ERROR` und zogen sechs Zeilen mit; ein korrekter Lauf sah wie
+  neun neue Fehler aus. Die Baseline enthält **nur** `^(FAILED|ERROR) tests/` (geprüft,
+  null Ausnahmen) — der Filter muss darauf ankern. Steht jetzt im Plan.
+- **`_perform_scheduled_irrigation` hat kein `now`.** Nur `_execute_schedule` trägt es und
+  ruft ohne es nach unten; `run_start=now` an der Commit-Stelle wäre ein `NameError`
+  gewesen. Beim Plan-Schreiben gefunden, nicht beim Bauen.
+- **`_entries_behind` verwirft eine Tagesspalte, die GENAU am Ende der Stundenreihe
+  beginnt** (eigener Docstring). Ein Fixture, das Stundenreihe und Tagesspalten aneinander
+  stößt, lässt den Block unbedeckt und die Gewichtung enthalten — es sieht wie ein
+  Design-Fehler aus. Die Stundenreihe muss den ersten Block **ganz** decken (24 Stempel).
+- **`git diff c5330c7f..HEAD` sieht uncommittete Referenz-Fixes nicht.** Für die
+  Zwischenprüfung `git diff c5330c7f` ohne `..HEAD` nehmen.
+- **`grep -c` mit null Treffern liefert Exit 1** und bricht eine `&&`-Kette ab. Prüfungen
+  mit `;` verketten, nicht mit `&&`.
+- **Eine Plan-Erwartung war falsch:** der Test, der die *Grenze* des Fallbacks pinnt,
+  konnte nicht vorab grün sein — der alte Code erreicht die `first_24h_covered`-Prüfung bei
+  `run_start is None` nie. Der Test war richtig, die Erwartung nicht.
+
+### Nächste Schritte
+1. **Freigabe einholen und `#172` pushen** (`--force-with-lease`, die Historie wurde
+   umgeschrieben), PR-Body auf Basis `c5330c7f` und die neuen Zahlen aktualisieren, und
+   die Antwort an JustChr formulieren: Entschuldigung für die Referenzen **zuerst**, dann
+   (ii) mit Messung abgelehnt, dann die vierte Commit-Stelle, dann der angenommene Fallback
+   samt seiner Grenze.
+2. **Regel P2 nachziehen:** `Eifel-Joe#21` kommentieren (JustChrs Einwände in *seinen*
+   Worten + was daraus wurde), Labels im selben Zug.
+3. **Regel P1:** Spec §9 + Plan Phase R auf `archive/design-history` schieben, vor jeder
+   Branch-Löschung.
+4. **`Eifel-Joe#53`** aufnehmen, sobald `#174` gemergt ist — dann auf master rebasen,
+   `flow_metering.py`-Teil streichen, Live-Test auf dem VERTEILER-Pfad mit *meldendem*
+   Sensor (`Gardena1` trägt den stummen `sensor.wasser_3_flow`; Umstellen geht nur im
+   Panel, der User muss es tun).
+5. **`Eifel-Joe#57`/`#58`** triagieren (Schwere/Größe/`prod-scharf` fehlen noch).
+6. **Aufräumen** nach dem Push: Branches `issue21-granular`, `issue21-prereshape`,
+   `issue21-resolver-only` (nur Hilfsmarken) — vorher `issue21-work/` ansehen, dort liegen
+   Probe, Baselines und der Voll-Lauf.
+
+### Live-Test — bewusst NICHT gemacht, mit Grund
+Die Gewichtung läuft nur, wenn der Wetterdienst antwortet, und **PirateWeather antwortet
+auf HA-Test mit 429**. `calculate_zone` liefert dort nichts, und `run_zone duration:` —
+der wetterunabhängige Weg, mit dem `#174` live belegt wurde — **rechnet nicht neu** und
+kann diesen Pfad gar nicht auslösen. Das `#174`-Rezept ist also nicht übertragbar.
+Verifiziert wurde stattdessen an: leerem Namens-Diff, vier Tests durch das **echte**
+`_advance_past_fired_occurrence`/`_next_governing_time`, und dem als tragend belegten
+Uhr-Pin. **Wenn ein Live-Lauf gewünscht ist, braucht er einen antwortenden Client**
+(Open-Meteo kommt ohne Schlüssel) — eigene Aufgabe, eigene Entscheidung.
+HA-Test läuft unverändert `v2026.09.27b2`, nichts angefasst. HA-Prod nicht berührt.
+
+### Empfohlene Skills
+`superpowers:verification-before-completion` vor jedem „fertig"; `pr-workflow` für Push
+und PR-Text; `superpowers:receiving-code-review` erneut, wenn JustChr auf `#172` oder
+`#174` antwortet.
+
+---
+
 ## 2026-09-27 (2) — JustChr#174 nachgebessert, live belegt, gepusht; zwei Geschwister-Pfade als Issues
 
 ### Stand (verifiziert)
