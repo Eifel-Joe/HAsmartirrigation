@@ -56,7 +56,7 @@ is credited in full on the way past.
 
 | # | Decision | Alternative rejected |
 |---|---|---|
-| D1 | The witness comes from **inside `FlowMeter`**, as a new `priced_anything()` accessor. | Deriving it locally from `_dist_measure_window`'s existing `last_live`, to keep `flow_metering.py` untouched while `JustChr#174` has it open. **That was the first design and the review measured it as a regression** — see §4.1's three inputs. The information the guard needs exists only inside the meter, so no local approximation is sound. |
+| D1 | The witness comes from **inside `FlowMeter`**, as a new `metered_the_run()` accessor (credited a reading and declined none). | Deriving it locally from `_dist_measure_window`'s existing `last_live`, to keep `flow_metering.py` untouched while `JustChr#174` has it open. **That was the first design and the review measured it as a regression** — see §4.1's three inputs. The information the guard needs exists only inside the meter, so no local approximation is sound. |
 | D2 | A dry member run is recorded `RUN_RESULT_FAILED` with `detail=FAULT_FLOW_NEVER_STARTED`. **No zone fault is raised.** | Raising `_set_zone_fault` + `_fire_zone_problem` like `#4` does. On the distributor path **nothing clears a zone fault** — all five `_clear_zone_fault` callers on `master` sit in the classic runner's own machinery (`irrigation.py:1601`, `:1777`, `:1953`, `:2131`, `:2239`) and `JustChr#173` adds two more, both in `self_closing.py`. A fault raised here would never end. Pairing it would make this PR carry `#3`'s finding as well as `#4`'s. |
 | D3 | The dry branch passes a hard `0.0` to `_dist_credit_zone`, not the measured value. | Passing `measured` through. A rate sensor with a negative resting offset measures below zero (−0.2 L over a 600 s dry run, measured for `#4` §10.3); `depth_from_volume_native(-0.2)` would write the bucket **below** the level the run started from. |
 | D4 | `_dist_read_flow` rejects non-finite values. | Leaving it. §4.4 — it keeps the function's own docstring true, and it stops a `nan` sensor holding the shared inlet open for the full extend cap (measured: 600 s -> 30 s). |
@@ -75,9 +75,7 @@ delivered = meter.delivered()
 stopped_early = (
     target is not None and (delivered or 0.0) >= target and elapsed < cap
 )
-if delivered is not None and delivered <= 0 and (
-    not meter.priced_anything() or meter.saw_reset()
-):
+if delivered is not None and delivered <= 0 and not meter.metered_the_run():
     delivered = None
 return delivered, elapsed, stopped_early
 ```
@@ -90,39 +88,44 @@ Three properties this ordering has to keep:
    can_stop`, so `stopped_early` requires `delivered >= target > 0`. The order
    is kept so that stays true without depending on that argument.)
 2. **`<= 0`, not `== 0`** — `#4` §10.3, measured: a rate sensor's negative
-   resting offset reads below zero on a dry run, and `== 0` would let it into
-   the credit branch.
+   resting offset reads below zero on a dry run (`-0.4 L/min` across 30 s
+   measures `-0.2`), and `== 0` would let it into the credit branch. On this
+   guard the two are indistinguishable, because a meter that accounted for
+   nothing has delivered exactly `0.0`; the comparison earns its keep one level
+   up, in §3.2's `dry`.
 3. **`delivered is None` stays `None`.** `None == 0.0` is `False`, so a meter
    that never read at all is untouched and still degrades to time-based.
 
-**Why the two exceptions:**
+**Why one term and not two.** The condition is `not meter.metered_the_run()`:
+the meter credited at least one reading **and** declined none. `FlowMeter` holds
+three distinguishable states and only the weakest was readable from outside —
+"a numeric value arrived" (`_have_reading`, which `delivered()` gates on, and
+which the valve-open seed satisfies on its own), "a reading was credited", and
+"a reading was seen and refused". §4 is the whole argument, with the six measured
+inputs that defeated the two weaker formulations this design went through.
 
-- `not meter.priced_anything()` — **the meter never credited anything, so its
-  `0.0` is a refusal and not a measurement.** `FlowMeter` carries two distinct
-  states and only one of them was readable from outside: `_have_reading` ("a
-  numeric value arrived"), which is what `delivered()` gates on, and "at least
-  one reading was actually credited", which had no accessor at all.
-  `_dist_measure_window` feeds the valve-open reading in at `at=0.0`, so
-  `_have_reading` is true from the first second and `delivered()` never returns
-  `None` again whatever the sensor does next. `priced_anything()` closes that
-  gap; §4 is the whole argument, including the three measured inputs that a
-  witness built from reading *timings* gets wrong.
-- `meter.saw_reset()` — **a totalizer reset the meter cannot price.** The
-  distributor resolves its counter type read-only through
-  `flow_learn_resolve(...)`, which sends an unlearned `auto` to the
-  over-credit-safe `lifetime`. That KEEPS the pre-reset baseline, so a per-run
-  counter's post-reset climb never rises above it and measures `0.0` while real
-  water flowed. `#4` measured this case: **45 L really delivered,
-  `delivered() == 0.0`, `saw_reset() == True`.** The classic runner diverts it to
-  a time-based credit *before* its dry branch (`irrigation.py:1536`).
+**A `meter.saw_reset()` term stood beside it and was removed, because the
+mutation that drops it kills nothing.** That is structural rather than a coverage
+gap: `_saw_reset` is assigned in exactly one place, inside `_sample_totalizer`'s
+near-zero branch, and `_declined` is set unconditionally just above the `if` that
+guards it — so `saw_reset()` implies `not metered_the_run()`. A `NOT-TO-DO` at
+the `_declined` assignment records that a caller depends on the two staying
+together.
 
-**Both terms are load-bearing — measured, not assumed.** `priced_anything()`
-does not subsume `saw_reset()`: a totalizer reading `100, 100, 5, 7` prices the
-flat `100 -> 100` interval at 0 L, so `priced_anything()` is `True`, and only
-`saw_reset()` catches the reset that followed. With that input the guard returns
-`None`; with `saw_reset()` removed it returns `0.0`.
+The classic runner reaches the same diversion from the other side
+(`irrigation.py:1535`): it has no declined flag, so there `saw_reset()` is the
+test rather than a redundant one.
 
-**NOT-TO-DO:** do not fold either condition into `FlowMeter.delivered()`. Its
+**What this costs, measured:** a per-run counter whose reset falls inside the
+window reads as declined, so its `0.0` degrades to the time-based credit and
+never gets a dry verdict. That is correct rather than a gap — after a reset a
+`0.0` cannot be told apart from a post-reset climb the retained baseline
+swallowed, which is the 45 L case (`#4` measured: **45 L really delivered,
+`delivered() == 0.0`, `saw_reset() == True`**) this guard exists for. A per-run
+counter that *does* deliver is unaffected: its `delivered` is positive, so the
+guard never looks.
+
+**NOT-TO-DO:** do not fold this condition into `FlowMeter.delivered()`. Its
 `0.0` contract is what the crediting callers price a genuinely dry run with;
 only a caller that writes a run OFF needs the stricter evidence.
 
@@ -238,25 +241,29 @@ here turned out to be one level below the one the first attempt hardened.
 points where a reading is credited:
 
 ```python
-    def priced_anything(self) -> bool:
-        """True iff at least one reading was actually CREDITED this run.
-
-        Distinct from ``_have_reading``, which ``delivered()`` gates on and which
-        a single valve-open seed already satisfies: a meter can accept readings
-        and price none of them — a rate whose gap exceeds ``max_gap_s``, a
-        totalizer that fell below its retained baseline and climbed back part of
-        the way. Only a caller that writes a run OFF on the strength of a ``0.0``
-        needs that difference, so it is exposed here rather than folded into
-        ``delivered()``, whose ``0.0`` contract the crediting callers depend on.
+    def metered_the_run(self) -> bool:
+        """True iff this meter accounted for the whole run: it credited at
+        least one reading and declined none.
+        …
+        Read it before ``end_rate_at`` — that method rewrites ``_delivered``
+        afterwards and deliberately touches neither flag.
         """
-        return self._priced
+        return self._priced and not self._declined
 ```
 
-- `_sample_rate`: set inside the `if self._max_gap_s is None or dt <= self._max_gap_s:`
-  branch, beside the `_delivered` increment.
-- `_sample_totalizer`: set inside the `if litres >= self._last:` branch.
-- **Not** in the seed path (`if self._last is None`), which prices nothing, and
-  **not** in the drop/glitch path, which credits nothing.
+**Two flags, because "credited something" is not enough.** The first design
+exposed only `_priced`, and the review measured that one credited interval
+latches it for the whole run: two ordinary reads in front of any of the three
+inputs above mask the rest of the window, so a pump that takes a poll to build
+pressure behind a flapping sensor reports `0.0` across 10 L. `_declined` is the
+other half — a post-seed reading the meter saw and refused to credit.
+
+- `_priced` in `_sample_rate`'s in-gap branch, beside the `_delivered` increment,
+  and in `_sample_totalizer`'s rising branch.
+- `_declined` in `_sample_rate`'s `else` (the gap the meter will not integrate
+  across) and unconditionally on `_sample_totalizer`'s drop, **above** the
+  near-zero branch — a caller depends on that placement, see §3.1.
+- Neither in the seed path (`if self._last is None`), which accounts for nothing.
 
 An interval credited at 0 L counts as priced, and that is the point: a rate
 sensor reading 0 every poll, or a totalizer holding its value, has *measured* the
@@ -283,7 +290,7 @@ not change it. **It is reported, not fixed.**
 ### 4.4 `_dist_read_flow` still rejects non-finite values
 
 The `math.isfinite` guard stays, but its justification changed with the witness.
-It is no longer needed to keep a witness honest — `priced_anything()` cannot be
+It is no longer needed to keep a witness honest — `metered_the_run()` cannot be
 misled by a `nan`, because `FlowMeter.sample()` rejects the value before either
 pricing path. Two independent reasons keep it:
 
@@ -364,7 +371,10 @@ With `measured_l=0.0`:
   `stopped_early` cannot be true on a dry run. Verified at the call site
   (`distributor.py:1457-1466`), not assumed.
 - **An interval credited at 0 L counts as priced, and must.** It is how a
-  genuinely dry run is recognised. `priced_anything()` is not "delivered > 0".
+  genuinely dry run is recognised. `metered_the_run()` is not "delivered > 0".
+- **One credited interval does not vouch for the rest of the window.** The first
+  accessor latched on the first credit and was defeated by two ordinary reads in
+  front of any failing input — hence the second flag.
 - **22 test sites stub `_sc_finish_flow` as a 2-tuple** — that was `#4`'s
   constraint. `_dist_measure_window` returns a 3-tuple and keeps returning one;
   the shape does not change, so the stubs are irrelevant here. Do not "improve"
@@ -402,7 +412,7 @@ already sit at `0` — the case is present, not simulated.
   the `target`-independence of the dry test).
 - **T3** a sensor that read only at the valve-open seed still credits
   time-based — the `#4` §10.1 case, on this path. The seed prices nothing, so
-  `priced_anything()` is false.
+  `metered_the_run()` is false.
 - **T4** a totalizer that reset mid-run still credits time-based
   (`saw_reset()`). Input `100, 100, 5, 7`: this one has PRICED an interval, so
   it is the pin that keeps `saw_reset()` from being dropped as redundant.
@@ -443,11 +453,14 @@ uvx ruff check custom_components/irrigation_plus/
 ```
 
 Plus a mutation matrix over the new guards — at minimum: drop the
-`not meter.priced_anything()` term, drop the `saw_reset()` term, drop the
-`_priced` flag from `_sample_rate`, drop it from `_sample_totalizer`, flip the
-sweep's `<= 0` to `== 0`, move the dry test after the `PARTIAL` test, drop
-`not dry` from the calibration gate, remove the `isfinite` guard. Each must kill
-at least one named test, **except** the guard's own `<= 0`, which is provably
-unreachable there (a meter that has priced nothing has delivered exactly `0.0`,
-never a negative) — that one is recorded as surviving, with the reason.
+whole guard, drop `_priced` from either credit site, drop `_declined` from either
+refusal site, reduce `metered_the_run()` to `self._priced` alone, reduce it to
+`self._delivered > 0`, flip the sweep's `<= 0` to `== 0`, move the dry test after
+the `PARTIAL` test, drop `not dry` from the calibration gate, pass `measured`
+instead of a hard `0.0`, remove the `isfinite` guard, downgrade the dry warning.
+Each must kill at least one named test, **except** the guard's own `<= 0`, which
+is provably unreachable there (a meter that accounted for nothing has delivered
+exactly `0.0`, never a negative) — recorded as surviving, with the reason. The
+matrix is what found the redundant `saw_reset()` term: its mutation killed
+nothing, and the term was removed rather than a test invented for it.
 **Revert every mutation with `git checkout -- <file>`.**

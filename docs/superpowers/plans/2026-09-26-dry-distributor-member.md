@@ -32,7 +32,7 @@ Full suite on `418ab8a0` in its own worktree (`D:/Entwicklung/HASI/issue53-work/
 grep -E "^(FAILED|ERROR) tests[/\\]" <run-output> | sed 's/ - .*$//' | sort -u
 ```
 
-**Expected end state: 3254 + 17 new tests = 3271 passed, and the 356 names
+**Expected end state: 3254 + 20 new tests = 3274 passed, and the 356 names
 `diff`-identical.** Task 1 inverts an existing test in place, so it adds no name. The
 seventeen: two in Tasks 2/3, two in Task 4, **seven in Task 4b** (four in
 `test_distributor.py`, three in `test_flow_meter.py`), two in Task 6, three in Task 7,
@@ -78,7 +78,7 @@ the sweep's `dry = measured <= 0`, which is what stops a live `-0.2` from reachi
 | File | Responsibility | Change |
 |---|---|---|
 | `custom_components/irrigation_plus/distributor.py` | outlet-ring cycle engine | Modify: `import math`; `_dist_read_flow` (~643); `_dist_measure_window` (~665, ~743-749); `_dist_credit_zone` (~977); the sweep (~1504-1552) |
-| `custom_components/irrigation_plus/flow_metering.py` | the shared `FlowMeter` engine | Modify (Task 4b): one flag in `__init__`, set at the two credit sites in `_sample_rate` / `_sample_totalizer`, plus the `priced_anything()` accessor |
+| `custom_components/irrigation_plus/flow_metering.py` | the shared `FlowMeter` engine | Modify (Task 4b, superseded by 4c): two flags in `__init__` — `_priced` at the two credit sites, `_declined` at the two refusal sites — plus the `metered_the_run()` accessor |
 | `tests/test_flow_meter.py` | `FlowMeter` unit level | Modify (Task 4b): add 3 |
 | `tests/test_distributor.py` | `_dist_measure_window` / `_dist_read_flow` unit level | Modify: invert 1 test (~741), add 4 |
 | `tests/test_distributor_dispatch.py` | the sweep, with `_dist_measure_window` mocked | Modify: widen 8 stub signatures, add 3 |
@@ -1871,11 +1871,13 @@ Then tick Task 11's five checkboxes and `git commit --amend --no-edit`.
 ### Suite, on the finished branch
 
 ```
-7 failed, 3271 passed, 9 skipped, 10 warnings, 349 errors in 337.29s
+7 failed, 3274 passed, 9 skipped, 10 warnings, 349 errors in 331.13s
 ```
 
-Baseline was `3254` passed on `418ab8a0`, so **+17**, exactly as predicted. The 356
-non-passing names are **`diff`-identical** to `baseline-names.txt`:
+Baseline was `3254` passed on `418ab8a0`, so **+20**: `test_distributor.py` 52 -> 63,
+`test_distributor_dispatch.py` 76 -> 81, `test_flow_meter.py` 45 -> 49. (One existing
+test was inverted in place rather than added, and Task 4c rewrote three of Task 4b's.)
+The 356 non-passing names are **`diff`-identical** to `baseline-names.txt`:
 
 ```
 $ diff baseline-names.txt after-names.txt && echo IDENTISCH
@@ -1884,46 +1886,72 @@ IDENTISCH
 
 `uvx black --check` -> 69 files unchanged. `uvx ruff check` -> All checks passed!
 
-### Mutation matrix
+### Mutation matrix — final guard
 
-Driver: `D:/Entwicklung/HASI/issue53-work/mutate.py`. Every mutation reverted with
-`git checkout -- <file>`, and the tree asserted clean before the next one (the driver
-exits on a dirty tree, so a silently failed revert cannot corrupt the next row).
+Driver: `D:/Entwicklung/HASI/issue53-work/mutate3.py`. Every mutation reverted with
+`git checkout -- <file>`; the driver asserts a clean tree before each row and **exits**
+if one is dirty, so a silently failed revert cannot corrupt the next mutation. It did
+refuse once, correctly, when a change was still uncommitted.
 
-| # | mutation | outcome | killed by |
-|---|---|---|---|
-| M1 | drop `not meter.priced_anything() or ` | **KILLED (5)** | `..._sensor_dead_after_open_read_is_not_dry`, `..._nan_after_open_read_is_not_dry`, `..._rate_gap_wider_than_max_gap_is_not_dry`, `..._totalizer_below_retained_baseline_is_not_dry`, `..._per_run_reset_above_near_zero_is_not_dry` |
-| M2 | drop ` or meter.saw_reset()` | **KILLED (1)** | `test_measure_window_totalizer_reset_is_not_dry` |
-| M2a | drop `_priced = True` from `_sample_rate` | **KILLED (3)** | `..._a_priced_zero_is_still_dry`, `test_priced_anything_counts_an_interval_credited_at_zero`, `test_priced_anything_separates_accepted_from_credited` — **plus** `test_measure_window_zero_flow_live_meter_measures_zero` |
-| M2b | drop `_priced = True` from `_sample_totalizer` | **KILLED (2)** | `..._a_priced_zero_is_still_dry`, `test_priced_anything_is_false_for_a_totalizer_below_its_baseline` |
-| M3a | guard's `<= 0` -> `== 0` | **SURVIVED, as predicted** | — unreachable **on this path**: `_delivered` has five write sites, and the two in `end_rate_at` latch neither flag, but the distributor never calls it (`self_closing.py:350` is its only caller). So here a meter that did not account for the run has delivered *exactly* `0.0`. Do not carry the invariant to the self-closing path without re-checking it — see `metered_the_run()`'s docstring. |
-| M3b | sweep's `dry` `<= 0` -> `== 0` | **KILLED (1)** | `test_sweep_treats_a_negative_measurement_as_dry` |
-| M3c | `priced_anything()` returns `_delivered > 0` | **KILLED (2)** | `..._a_priced_zero_is_still_dry`, `test_priced_anything_counts_an_interval_credited_at_zero` — **plus** `test_measure_window_zero_flow_live_meter_measures_zero` |
-| M4 | drop `RUN_RESULT_FAILED if dry` from the ternary | **KILLED (3)** | all three Task 7 tests |
-| M5 | drop `and not dry` from the calibration gate | **KILLED (1)** | `test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample` |
-| M6 | drop `if not math.isfinite(value): return None` | **KILLED (1)** | `test_read_flow_rejects_non_finite` |
-| M7 | `measured_l=measured` instead of `0.0 if dry` | **KILLED (1)** | `test_sweep_treats_a_negative_measurement_as_dry` |
+| # | mutation | outcome |
+|---|---|---|
+| M1 | remove the guard entirely | **KILLED (7)** — all seven `..._is_not_dry` / `..._does_not_excuse_the_window` tests |
+| M2a | drop `_priced` from `_sample_rate` | **KILLED (3)** |
+| M2b | drop `_priced` from `_sample_totalizer` | **KILLED (3)** |
+| M2c | drop `_declined` from `_sample_rate` | **KILLED (3)** |
+| M2d | drop `_declined` from `_sample_totalizer` | **KILLED (3)** |
+| M3a | guard's `<= 0` → `== 0` | **SURVIVED, as predicted** — unreachable: a meter that accounted for nothing has delivered exactly `0.0` |
+| M3b | sweep's `dry` `<= 0` → `== 0` | **KILLED (1)** `test_sweep_treats_a_negative_measurement_as_dry` |
+| M3c | `metered_the_run()` → `_delivered > 0` | **KILLED (6)** |
+| M3d | `metered_the_run()` → `self._priced` alone | **KILLED (4)** — this is exactly the Task 4b defect, now pinned |
+| M4 | drop `RUN_RESULT_FAILED if dry` | **KILLED (3)** |
+| M5 | drop `and not dry` from the calibration gate | **KILLED (1)** |
+| M6 | drop the `isfinite` guard | **KILLED (1)** |
+| M7 | `measured_l=measured` instead of `0.0 if dry` | **KILLED (1)** |
+| M8 | downgrade the dry warning to `debug` | **KILLED (1)** |
 
-**Ten killed, one survived by construction.** The two `plus` rows are worth reading:
-misplacing the `_priced` flag, or reading it as `_delivered > 0`, also kills the
-inverted Task 1 test — i.e. it silently switches dry detection back off, and the
-issue's own leading case is the first thing to fall.
+**Thirteen killed, one survived by construction.**
+
+### What the matrix found: a redundant term
+
+An earlier round had a second guard term, `or meter.saw_reset()`, and **its mutation
+killed nothing.** That was not a missing test but a structural fact: `_saw_reset` is
+assigned in exactly one place, inside `_sample_totalizer`'s near-zero branch, and
+`_declined` is set unconditionally just above the `if` that guards it — so
+`saw_reset()` implies `not metered_the_run()`. The term was **removed** rather than a
+test invented to justify it, and a `NOT-TO-DO` at the `_declined` assignment records
+that a caller depends on the two staying together (`bd7930f6`).
+
+This is the recorded trap working as intended: *a mutation that kills nothing may be the
+wrong mutation — check whether it can reach the behaviour at all before suspecting the
+test.* Here it could not, and the code was what needed changing.
 
 ### Defects this plan itself carried, found during execution
 
-1. **Task 5's `sed` was incomplete.** Its pattern required the second parameter to be
-   named `s`; three further stubs use `w` (one in `test_distributor_dispatch.py`, two in
-   `test_distributor_cycle.py`) and were missed. The `8	8` numstat and the grep count of
-   `8` both confirmed the substitution did what it claimed — they could not show that
-   the pattern was too narrow. Fixed while Task 7 exposed it.
-2. **Task 8's test was vacuous as written.** It used `_dist(id=0, current_outlet=1)`,
+1. **Tasks 2–4's witness was unsound.** `last_live` records that `_dist_read_flow`
+   returned a tuple, not that the meter credited anything. Three measured inputs
+   regressed against the base commit. Replaced in Task 4b (spec §4.1).
+2. **Task 4b's replacement was still too weak.** `priced_anything()` latched on the
+   first credited reading, so two ordinary reads in front of any of those three inputs
+   masked the rest of the window. Replaced in Task 4c by `metered_the_run()`.
+3. **Task 5's `sed` was incomplete.** Its pattern required the second lambda parameter to
+   be named `s`; three further stubs use `w` (one in `test_distributor_dispatch.py`, two
+   in `test_distributor_cycle.py`). The `8	8` numstat and the grep count of `8` both
+   confirmed the substitution did what it claimed — neither could show the pattern was
+   too narrow.
+4. **Task 8's test was vacuous as written.** It used `_dist(id=0, current_outlet=1)`,
    whose default `watering_mode` is `CLASSIC`, which makes `can_stop` unconditionally
    true — so the `not can_stop` gate short-circuits and the calibration check is never
-   reached, dry or not. The test passed before the fix. Corrected to
-   `watering_mode=const.WATERING_MODE_SERVICE`, matching the test's own comment, and
-   genuine RED confirmed before implementing.
-3. **Tasks 2–4's witness was unsound** — the largest one, replaced by Task 4b. See
-   spec §4.
+   reached, dry or not. It passed *before* the fix. Corrected to
+   `watering_mode=const.WATERING_MODE_SERVICE` and genuine RED confirmed first.
+5. **The plan's own next-step instruction was inverted.** It told a future session to
+   write into the PR body that the change avoids `flow_metering.py` — in a diff where
+   that file is visibly modified. Found by the final review.
+6. **M3a's recorded reasoning over-claimed.** `_delivered` has five write sites and the
+   two inside `end_rate_at` latch neither flag, so the invariant holds on this path only
+   (the distributor never calls it; `self_closing.py:350` is its sole caller). Scoped in
+   `metered_the_run()`'s docstring and in the M3a row.
+
 ---
 
 ## After the plan: what still has to happen
