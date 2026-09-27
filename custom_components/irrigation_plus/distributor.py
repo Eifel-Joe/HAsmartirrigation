@@ -1608,25 +1608,61 @@ class DistributorMixin:
                 distributor, window, cap=cap, target=target
             )
             if water:
+                # Wurzel: the metering window collapsed a live-but-dry meter's 0.0 to
+                #   None, and None here means "credit the planned window". A member zone
+                #   behind an empty cistern was therefore credited in full: its litres
+                #   added to water_used_total, last_irrigation stamped, the run logged
+                #   COMPLETED. Nothing said that no water had arrived.
+                # Fix: a measured 0.0 is the answer "no water arrived" -- log the run
+                #   FAILED with its reason and credit nothing. There is no optimistic
+                #   pre-credit to reverse on this path: the sweep writes the bucket only
+                #   in _dist_credit_zone, after measuring, so measured_l=0.0 leaves the
+                #   bucket exactly where the run found it.
+                # `<= 0`, not `== 0`: a rate sensor with a negative resting offset
+                #   integrates below zero on a dry run (-0.4 L/min over 30 s measures
+                #   -0.2, measured), and `== 0` would send that negative depth into the
+                #   credit -- a failed run that writes the bucket DOWN.
+                # NOT-TO-DO: do not gate `dry` on `target`. A can't-stop member, or one
+                #   whose target volume is 0, has target None -- that is most of this
+                #   configuration, and it would log COMPLETED.
+                # NOT-TO-DO: do not raise a zone fault here. Nothing on this path CLEARS
+                #   one -- every _clear_zone_fault caller sits in the classic runner's or
+                #   the self-closing runner's own machinery -- so it would stay red after
+                #   the cistern was refilled and a good sweep had run.
+                # siehe tests/test_distributor_dispatch.py::
+                #   test_sweep_records_a_dry_member_run_as_failed
+                #   test_sweep_records_a_dry_member_run_as_failed_without_a_target
+                #   test_sweep_treats_a_negative_measurement_as_dry
+                dry = measured is not None and measured <= 0
                 # Review-M-1: a metered run that ended BELOW a set target volume is a
                 # partial (under-)delivery, not a completion. Key on the measured volume
                 # directly (not `stopped_early`), so a target reached on the very last
                 # poll — where `elapsed == cap` exits the loop before the early-stop
                 # break — still logs COMPLETED. A time-based fallback (measured is None)
-                # can't tell, so it stays COMPLETED.
+                # can't tell, so it stays COMPLETED. `dry` is tested FIRST: a dry run
+                # with a target set satisfies `measured < target` and would log PARTIAL.
+                # siehe tests/test_distributor_dispatch.py::
+                #   test_sweep_still_logs_partial_below_a_target_and_completed_above
                 run_result = (
-                    const.RUN_RESULT_PARTIAL
-                    if (
-                        measured is not None
-                        and target is not None
-                        and measured < target
+                    const.RUN_RESULT_FAILED
+                    if dry
+                    else (
+                        const.RUN_RESULT_PARTIAL
+                        if (
+                            measured is not None
+                            and target is not None
+                            and measured < target
+                        )
+                        else const.RUN_RESULT_COMPLETED
                     )
-                    else const.RUN_RESULT_COMPLETED
                 )
                 await self._dist_credit_zone(
                     zone,
                     actual_seconds,
-                    measured_l=measured,
+                    # A hard 0.0, not `measured`: see the `<= 0` note above -- a
+                    # negative measurement must not become a negative depth.
+                    measured_l=0.0 if dry else measured,
+                    detail=const.FAULT_FLOW_NEVER_STARTED if dry else None,
                     planned_seconds=window,
                     result=run_result,
                     # A scheduled sweep's window was priced from this zone's daily
