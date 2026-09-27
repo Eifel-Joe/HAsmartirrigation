@@ -650,8 +650,8 @@ class DistributorMixin:
         it: ``hass.states.get`` hands back the same State object for as long as the
         sensor stays quiet, so a caller counting its own polls cannot tell a meter
         that watched a dry run from one whose sensor has said nothing since before
-        the valve opened. The crediting path passes it on without looking at it; only
-        a caller that writes a run OFF needs the difference.
+        the valve opened. Its one consumer hands it straight to the ``FlowMeter`` and
+        reads the meter's verdict back; nothing here interprets the timestamp itself.
         """
         state = self.hass.states.get(sensor)
         if state is None or getattr(state, "state", None) in (
