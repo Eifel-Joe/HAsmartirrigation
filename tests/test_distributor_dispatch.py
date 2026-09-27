@@ -1721,6 +1721,23 @@ async def test_sweep_treats_a_negative_measurement_as_dry():
     assert credited["measured"] == 0.0  # the -0.2 never reaches the credit
 
 
+async def test_sweep_records_a_dry_member_run_as_failed_with_a_target_set():
+    """The ordering pin. A dry run WITH a bound volume target satisfies
+    `measured < target`, so testing the partial branch first would log it PARTIAL --
+    an under-delivery of water that never flowed, with no reason attached.
+
+    This is the only shape in which the sweep binds a target at all, so without this
+    test the ordering is an assertion rather than a measurement.
+    """
+    c = _dry_sweep_host(0.0, target=12.0)
+    credited = {}
+    _capture_credit(c, credited)
+    await c.async_run_distributor_cycle(_targeted_dist())
+    assert credited["result"] == const.RUN_RESULT_FAILED
+    assert credited["detail"] == const.FAULT_FLOW_NEVER_STARTED
+    assert credited["measured"] == 0.0
+
+
 async def test_sweep_still_logs_partial_below_a_target_and_completed_above():
     """The control for the dry branch: it is tested FIRST, so it must not swallow the
     under-delivery case the partial logging exists for, and must not claim a run that

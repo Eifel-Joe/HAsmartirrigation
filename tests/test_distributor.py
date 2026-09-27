@@ -1009,6 +1009,23 @@ async def test_measure_window_a_priced_zero_is_still_dry():
     assert (await c._dist_measure_window(d, 30))[0] == 0.0
 
 
+async def test_measure_window_one_poll_counts_the_seed_report_as_the_baseline():
+    """A window short enough for a single poll is still judgeable, because the
+    valve-open seed carries a report of its own.
+
+    Without it the first readable poll would become the baseline and evidence would
+    need a SECOND report, so a one-poll run could never be written off. That is the
+    conservative direction and it is the right one when the sensor was unavailable at
+    the open -- but when the seed was readable, its report is what makes the single
+    poll a change rather than a first sighting.
+    """
+    c, d = _flow_host()
+    c.hass.states.get = Mock(side_effect=lambda s: _state(0.0, "L/min"))
+    measured, actual, stopped = await c._dist_measure_window(d, 5)
+    assert actual == 5  # exactly one poll at the 5 s cadence
+    assert measured == 0.0
+
+
 async def test_measure_window_an_early_priced_interval_does_not_excuse_the_window():
     """The same three inputs as the three ``..._is_not_dry`` tests, each with two
     ordinary reads in front of it.
