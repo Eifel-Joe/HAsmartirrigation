@@ -1,6 +1,7 @@
 """Plan G: scheduled distributor dispatch + shared-master coordination."""
 
 import datetime
+import logging
 from unittest.mock import AsyncMock, Mock
 
 from custom_components.irrigation_plus import const
@@ -1741,6 +1742,42 @@ async def test_sweep_still_logs_partial_below_a_target_and_completed_above():
     await c.async_run_distributor_cycle(_targeted_dist())
     assert credited["result"] == const.RUN_RESULT_COMPLETED
     assert credited["detail"] is None
+
+async def test_sweep_warns_when_it_writes_a_member_run_off(caplog):
+    """The dry branch raises no zone fault by design -- nothing on this path ever
+    clears one -- so a WARNING is the only thing that reaches a user who is not
+    reading the per-zone history.
+
+    The two sibling paths that cannot raise a fault log one for the weaker case of
+    merely degrading to a time estimate.
+    """
+    c = _dry_sweep_host(0.0)
+    c._dist_credit_zone = AsyncMock()
+    with caplog.at_level(logging.WARNING):
+        await c.async_run_distributor_cycle(_dist(id=0, current_outlet=1))
+    assert any(
+        r.levelname == "WARNING" and "no water" in r.message.lower()
+        for r in caplog.records
+    ), [r.message for r in caplog.records]
+
+
+async def test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample():
+    """A run that delivered nothing says nothing about the hardware's throughput.
+
+    The advisory's own floor (FLOW_CAL_MIN_SAMPLE_L, ~6.7 L) already refuses a 0.0,
+    so this is defence rather than repair -- but that floor is derived from two tuning
+    constants, and a future tuning that lowered it would make this the caller feeding
+    0 L over a full window in as a real observed rate.
+    """
+    c = _dry_sweep_host(0.0, target=0.0)  # can't-stop member, no target
+    c._dist_credit_zone = AsyncMock()
+    c._dist_flow_calibration_check = AsyncMock()
+    await c.async_run_distributor_cycle(
+        _dist(id=0, current_outlet=1, watering_mode=const.WATERING_MODE_SERVICE)
+    )
+    c._dist_flow_calibration_check.assert_not_awaited()
+
+
 
 # --- days-between guard for member zones (#106 follow-up) -------------------
 #

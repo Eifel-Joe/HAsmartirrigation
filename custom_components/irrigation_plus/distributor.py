@@ -1634,6 +1634,25 @@ class DistributorMixin:
                 #   test_sweep_records_a_dry_member_run_as_failed_without_a_target
                 #   test_sweep_treats_a_negative_measurement_as_dry
                 dry = measured is not None and measured <= 0
+                if dry:
+                    # A warning, because no zone fault may be raised here (see above) and
+                    # the run log is the only other place this appears. Someone whose
+                    # cistern ran dry should not have to open a zone's history to find
+                    # out. The two sibling paths that also cannot raise a fault log for
+                    # the weaker case of merely degrading to a time estimate.
+                    # NOT-TO-DO: do not promote this to a zone fault without first adding
+                    #   a clearing site to this path.
+                    # siehe tests/test_distributor_dispatch.py::
+                    #   test_sweep_warns_when_it_writes_a_member_run_off
+                    _LOGGER.warning(
+                        "Distributor '%s' outlet %s (zone %s): the flow meter watched "
+                        "the whole %.0f s window and measured no water; recording the "
+                        "run as failed and crediting nothing",
+                        distributor.get("name"),
+                        current,
+                        zid,
+                        actual_seconds,
+                    )
                 # Review-M-1: a metered run that ended BELOW a set target volume is a
                 # partial (under-)delivery, not a completion. Key on the measured volume
                 # directly (not `stopped_early`), so a target reached on the very last
@@ -1686,7 +1705,20 @@ class DistributorMixin:
                 # (duration_override): a user-set window is not a scheduled sample of the
                 # valve's real rate. can_stop is bound in the earlier `if water:` block
                 # (same `water`), so it is always in scope on this path.
-                if not can_stop and measured is not None and not duration_override:
+                # `not dry`: a run that delivered nothing is not a sample of the valve's
+                # rate, and a caller that KNOWS that should not offer it. The advisory's
+                # own floor already refuses a 0.0 (FLOW_CAL_MIN_SAMPLE_L ~6.7 L), so this
+                # is defence rather than repair -- but that floor is derived from two
+                # tuning constants, and a future tuning that lowered it would make this
+                # the caller feeding 0 L over a full window in as a real observed rate.
+                # siehe tests/test_distributor_dispatch.py::
+                #   test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample
+                if (
+                    not can_stop
+                    and measured is not None
+                    and not dry
+                    and not duration_override
+                ):
                     await self._dist_flow_calibration_check(
                         zone, measured_l=measured, seconds=actual_seconds
                     )
