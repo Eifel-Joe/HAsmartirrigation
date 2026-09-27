@@ -23,7 +23,7 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
-## 2026-09-27 (3) — JustChr#172 nachgebessert, GEPUSHT + kommentiert; JustChr#174 gemergt; Eifel-Joe#53 entblockt und teurer
+## 2026-09-27 (3) — JustChr#174 UND JustChr#172 gemergt; P2 und P1 nachgezogen; Eifel-Joe#53 entblockt und teurer
 
 ### Stand (verifiziert)
 - **`Eifel-Joe#53` ist vertagt, bewusst.** Drei Wege standen zur Wahl (auf `#174`s Branch
@@ -34,6 +34,33 @@
   Basis weiter das veraltete `418ab8a0`.
   **Neu gemessen und für `#53` relevant:** `#174` trägt die zwei `distributor.py`-`at=`-
   Umstellungen (Z. 714/737) **schon**; das ist nicht mehr `#53`s Arbeit.
+- **✅ `JustChr#172` IST GEMERGT** (27.09. 16:02 UTC, gesquasht zu **`5ebffa76`**, jetzt
+  master). `git diff 341fa1e7 5ebffa76` ist **leer** — byte-identisch übernommen. Er mergte
+  **ohne zweite Review**, `reviewDecision` steht deshalb weiter auf `CHANGES_REQUESTED` an
+  einem gemergten PR; das ist sein Zustand, kein Formfehler von uns.
+  CI war 4 passing / 0 failing. [Antwort](https://github.com/JustChr/HAsmartirrigation/pull/172#issuecomment-5857410010).
+- **Beide Stränge dieser Sitzung sind upstream:** `JustChr#174` (`d1f3c292`) und
+  `JustChr#172` (`5ebffa76`), beide byte-identisch, beide geprüft statt angenommen.
+- **Regel P2 vollständig nachgezogen.** `Eifel-Joe#4` kommentiert + **geschlossen**
+  (Upstream-Bezug gemergt), `Eifel-Joe#21` kommentiert + **geschlossen**, `Eifel-Joe#53`
+  kommentiert (entblockt + ausgehungerter Zeuge). Tracking-Issue **`Eifel-Joe#42`**
+  aktualisiert: Einträge 5, 5a und 23 umgeschrieben, 14a/39b/39c ergänzt, beide Sprachen
+  gespiegelt. Labels geprüft und bewusst **nicht** verändert — ein Label für „gemergt"
+  existiert nicht, und ich erfinde keines.
+- **Drei neue Issues für die Reste von `Eifel-Joe#21`** (Regel P2: Rest → neues Issue, kein
+  wiedereröffnetes): **`Eifel-Joe#59`** Live-Pfad (`typ:produktentscheidung`),
+  **`Eifel-Joe#60`** End-Ankerung (`schwere:niedrig`, `typ:fehler`), **`Eifel-Joe#61`**
+  Verifikationslücke (`prod-scharf`, **kein `typ:`** — keiner der vier paßt, das ist eine
+  Verifikationsaufgabe). `JustChr#159` bleibt oben offen, weil der PR nur die Defekt-Hälfte
+  schloss. ⚠️ **`#61` hat keine `schwere:`** — ich hatte keine vorgeschlagen, Triage offen.
+- **Regel P1 erledigt und remote verifiziert:** `archive/design-history` `5459399a`. Darin
+  Spec §9–§9.12, Plan Phase R (52 Checkboxen), `#53`-Spec §10/§10.1, der Sitzungsstand —
+  **und neu die zwei Proben selbst**, unter `docs/superpowers/probes/`. Abweichung von der
+  Konvention, mit Absicht: bisher verweisen Specs nur per absolutem Scratch-Pfad auf ihre
+  Proben, was Memory `scratch-dirs-hold-irreproducible-evidence` genau als Falle benennt
+  (`pr174-work/probe_174_guard.py` und `mutate.py` sind so schon Verweise ins Leere, sobald
+  aufgeräumt wird). Die archivierten Proben nehmen den **Checkout als Argument** und wurden
+  in dieser Form gegen `issue21-work/base` laufen gelassen — sie reproduzieren die Tabelle.
 - **`JustChr#174` IST GEMERGT** (27.09. 14:17 UTC, gesquasht zu `d1f3c292`; master jetzt
   **`fa863aa9`** + Release v2026.09.24). `git diff 3e372042 d1f3c292` ist **leer** — JustChr
   hat nichts geändert. Die Zeugen-Form auf master ist wörtlich unsere.
@@ -138,23 +165,28 @@
   `run_start is None` nie. Der Test war richtig, die Erwartung nicht.
 
 ### Nächste Schritte
-1. **Freigabe einholen und `#172` pushen** (`--force-with-lease`, die Historie wurde
-   umgeschrieben), PR-Body auf Basis `c5330c7f` und die neuen Zahlen aktualisieren, und
-   die Antwort an JustChr formulieren: Entschuldigung für die Referenzen **zuerst**, dann
-   (ii) mit Messung abgelehnt, dann die vierte Commit-Stelle, dann der angenommene Fallback
-   samt seiner Grenze.
-2. **Regel P2 nachziehen:** `Eifel-Joe#21` kommentieren (JustChrs Einwände in *seinen*
-   Worten + was daraus wurde), Labels im selben Zug.
-3. **Regel P1:** Spec §9 + Plan Phase R auf `archive/design-history` schieben, vor jeder
-   Branch-Löschung.
-4. **`Eifel-Joe#53`** aufnehmen, sobald `#174` gemergt ist — dann auf master rebasen,
-   `flow_metering.py`-Teil streichen, Live-Test auf dem VERTEILER-Pfad mit *meldendem*
-   Sensor (`Gardena1` trägt den stummen `sensor.wasser_3_flow`; Umstellen geht nur im
-   Panel, der User muss es tun).
-5. **`Eifel-Joe#57`/`#58`** triagieren (Schwere/Größe/`prod-scharf` fehlen noch).
-6. **Aufräumen** nach dem Push: Branches `issue21-granular`, `issue21-prereshape`,
-   `issue21-resolver-only` (nur Hilfsmarken) — vorher `issue21-work/` ansehen, dort liegen
-   Probe, Baselines und der Voll-Lauf.
+1. **`Eifel-Joe#53`** ist die nächste Aufgabe und **teurer als sein Design sagt**. Auf master
+   (`5ebffa76`) rebasen, `flow_metering.py`-Teil streichen — **und `_dist_read_flow` auf ein
+   4-Tupel ziehen**, sonst ist `metered_the_run()` dort konstant `False` und der Fix ein
+   No-Op (gemessen, Probe im Archiv). Jeder Trocken-Test braucht fortschreitende Reports.
+   Basis `418ab8a0` veraltet, 20 Commit-Messages tragen unsere Nummern → Historie neu.
+   Baseline auf `5ebffa76` **neu messen**; `issue21-work/baseline-fa863aa9.txt` gilt nur für
+   `fa863aa9`.
+2. **Triage:** `Eifel-Joe#57`, `#58` (Schwere/Größe/`prod-scharf` fehlen) und `#61`
+   (`schwere:` fehlt).
+3. **`Eifel-Joe#61` schließen heißt Live-Test** der Gewichtung — braucht einen antwortenden
+   Wetter-Client auf HA-Test (**Open-Meteo ohne Schlüssel**), eine Zone **mit** und eine
+   **ohne** Zeitplan, und eine Berechnung aus einem Dispatch heraus unter `before_run`.
+   Das ist der Punkt, um den JustChrs Review ging, und er ist bisher nur in einer Probe
+   gemessen.
+4. **`Eifel-Joe#59`** braucht eine Produktentscheidung, keinen Fix (drei Formen im Body,
+   Variante 3 widerspricht einer schon getroffenen Entscheidung).
+5. **Aufräumen, jetzt gefahrlos:** Hilfsmarken `issue21-granular`, `issue21-prereshape`,
+   `issue21-resolver-only` und der Worktree `issue21-work/base`. **Vorher** `issue21-work/`
+   ansehen — dort liegen die Baselines, die Voll-Läufe und die PR-Texte; die Proben sind
+   inzwischen im Archiv, die Baselines nicht.
+6. **Produktiv-Rebuild** zieht jetzt beide Fixes mit. `Eifel-Joe#61` sagt, was daran
+   unbeobachtet ist — das vor dem Release lesen, nicht danach.
 
 ### Live-Test — bewusst NICHT gemacht, mit Grund
 Die Gewichtung läuft nur, wenn der Wetterdienst antwortet, und **PirateWeather antwortet
