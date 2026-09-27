@@ -1,6 +1,7 @@
 """Gardena distributor engine primitives (DistributorMixin)."""
 
 import datetime
+import itertools
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -558,10 +559,32 @@ def _flow_host(sensor="sensor.inlet_flow"):
     return c, d
 
 
-def _state(val, unit):
+_REPORT_EPOCH = datetime.datetime(2026, 9, 27, 10, 0, 0, tzinfo=datetime.timezone.utc)
+_report_seq = itertools.count()
+
+
+def _state(val, unit, reported=None):
+    """A fake HA state for a flow sensor: value, unit, and when it last REPORTED.
+
+    ``last_reported`` advances for every state built here, because a sensor
+    sending a value is exactly what makes HA write a new State. Handing ONE
+    object back on every poll models a sensor that has gone QUIET -- a different
+    thing from a sensor reporting zero, and the difference is what decides
+    whether a run may be written off as dry. Pass ``reported`` to model the quiet
+    sensor on purpose.
+
+    Before this, the field was an auto-created Mock attribute: not a datetime, so
+    FlowMeter.sample()'s isinstance check read it as no report at all, and every
+    test here modelled the quiet sensor whether it meant to or not.
+    """
     s = Mock()
     s.state = str(val)
     s.attributes = {"unit_of_measurement": unit}
+    s.last_reported = (
+        _REPORT_EPOCH + datetime.timedelta(seconds=next(_report_seq))
+        if reported is None
+        else reported
+    )
     return s
 
 
