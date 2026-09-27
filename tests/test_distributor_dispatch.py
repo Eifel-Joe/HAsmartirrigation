@@ -1,6 +1,7 @@
 """Plan G: scheduled distributor dispatch + shared-master coordination."""
 
 import datetime
+import logging
 from unittest.mock import AsyncMock, Mock
 
 from custom_components.irrigation_plus import const
@@ -2144,3 +2145,36 @@ async def test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample():
         _dist(id=0, current_outlet=1, watering_mode=const.WATERING_MODE_SERVICE)
     )
     c._dist_flow_calibration_check.assert_not_awaited()
+
+
+async def test_sweep_warns_when_it_writes_a_member_run_off(caplog):
+    """Eifel-Joe#53: the dry branch raises no zone fault (spec D2 — nothing on this path
+    ever clears one), so a WARNING is the only thing that reaches a user who is not
+    reading the per-zone history. The two sibling paths that cannot raise a fault log
+    one for the weaker case of merely degrading to a time estimate."""
+    c = _host()
+    c._dist_uses_master = Mock(return_value=False)
+    _cycle_mocks(c)
+    c._dist_needs_water = Mock(return_value=True)
+    c._zone_target_bucket = Mock(return_value=0.0)
+    c._dist_measure_window = AsyncMock(return_value=(0.0, 60, False))
+    c._dist_credit_zone = AsyncMock()
+    c.store.async_get_zones = AsyncMock(
+        return_value=[
+            {
+                "id": 7,
+                "distributor_id": 0,
+                "outlet_number": 1,
+                "duration": 60,
+                "bucket": -3,
+                "bucket_threshold": 0,
+                "state": "automatic",
+            }
+        ]
+    )
+    with caplog.at_level(logging.WARNING):
+        await c.async_run_distributor_cycle(_dist(id=0, current_outlet=1))
+    assert any(
+        r.levelname == "WARNING" and "no water" in r.message.lower()
+        for r in caplog.records
+    ), [r.message for r in caplog.records]

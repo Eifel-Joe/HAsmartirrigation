@@ -1596,6 +1596,29 @@ class DistributorMixin:
                 # -0.2, measured), and `== 0` would send that negative depth into the
                 # credit — a failed run that writes the bucket DOWN.
                 dry = measured is not None and measured <= 0
+                if dry:
+                    # The run is recorded FAILED and credited nothing, and spec D2
+                    # raises no zone fault here because NOTHING on the distributor path
+                    # clears one (all five _clear_zone_fault callers sit in the classic
+                    # runner's own machinery), so a fault would stay red after the
+                    # cistern was refilled. A warning is therefore the only thing that
+                    # reaches a user who is not reading the per-zone run log.
+                    # NOT-TO-DO: do not promote this to a zone fault without adding a
+                    #   clearing site to this path first — see spec D2.
+                    # The two sibling paths that cannot raise a fault log the same way
+                    # for the weaker case of merely degrading to a time estimate
+                    # (self_closing.py:356, observed_watering's dead-sensor flag).
+                    # siehe tests/test_distributor_dispatch.py::
+                    #   test_sweep_warns_when_it_writes_a_member_run_off
+                    _LOGGER.warning(
+                        "Distributor '%s' outlet %s (zone %s): the flow meter watched "
+                        "the whole %.0f s window and measured no water; recording the "
+                        "run as failed and crediting nothing",
+                        distributor.get("name"),
+                        current,
+                        zid,
+                        actual_seconds,
+                    )
                 # Review-M-1: a metered run that ended BELOW a set target volume is a
                 # partial (under-)delivery, not a completion. Key on the measured volume
                 # directly (not `stopped_early`), so a target reached on the very last

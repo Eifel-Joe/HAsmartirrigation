@@ -1758,7 +1758,7 @@ module.
 - Modify: `custom_components/irrigation_plus/distributor.py` (the dry branch)
 - Test: `tests/test_distributor_dispatch.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 async def test_sweep_warns_when_it_writes_a_member_run_off(caplog):
@@ -1796,7 +1796,7 @@ async def test_sweep_warns_when_it_writes_a_member_run_off(caplog):
 
 `import logging` may already be at the top of the test file — check before adding it.
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor_dispatch.py::test_sweep_warns_when_it_writes_a_member_run_off -p _local_socket_unblock -v
@@ -1804,7 +1804,7 @@ async def test_sweep_warns_when_it_writes_a_member_run_off(caplog):
 
 Expected: **FAIL** — the assertion's list of captured messages contains no such warning.
 
-- [ ] **Step 3: Log it, once, on the dry branch**
+- [x] **Step 3: Log it, once, on the dry branch**
 
 Directly after the `dry = …` assignment:
 
@@ -1837,7 +1837,7 @@ Directly after the `dry = …` assignment:
 Check the surrounding scope for the exact names of the outlet and zone variables
 (`current`, `zid`) before writing them in — use whatever that block already holds.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py tests/test_distributor_dispatch.py -p _local_socket_unblock -q
@@ -1845,7 +1845,7 @@ Check the surrounding scope for the exact names of the outlet and zone variables
 
 Expected: all pass, `test_distributor_dispatch.py` 80 → 81.
 
-- [ ] **Step 5: Lint and commit**
+- [x] **Step 5: Lint and commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/
