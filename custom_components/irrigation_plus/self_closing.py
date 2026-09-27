@@ -424,6 +424,18 @@ class SelfClosingMixin:
         else:
             volume_l = self._timed_volume_l(zone, planned_s)
         await self._stamp_run_finalized(zone_id, volume_l)
+        # A good run ends the zone's fault, exactly as the classic runner ends
+        # it (irrigation.py:1601, and its rotating twins at :1953 / :2239) -
+        # placed before the record there too.
+        # Wurzel: all five _clear_zone_fault callers sat on the classic metered
+        #   and rotating paths, none of which a self-closing, batch or
+        #   OpenSprinkler zone can reach. Those three raise faults at five sites
+        #   and cleared at none, and _zone_faults is in-memory, so the only cure
+        #   was an HA restart.
+        # This one line reaches all three because all three finalise here:
+        #   batch.py:756, run_watch.py:982 / :1012.
+        # siehe test_self_closing.py::test_a_completed_run_clears_the_zone_fault
+        self._clear_zone_fault(zone_id)
         await self._record_run(
             zone_id,
             result=const.RUN_RESULT_COMPLETED,
@@ -643,6 +655,15 @@ class SelfClosingMixin:
                 # Nor the live-run marker: this run credited nothing, so the
                 # ceiling it was granted must not be inherited by the next one.
                 self._drop_live_run_marker(zone_id)
+                # Paired, like the six other sites that announce a zone problem
+                # (self_closing.py:547, batch.py:184/217/297, run_watch.py:1031):
+                # the bus event is what a user automation binds to, the fault is
+                # what the problem binary_sensor and the dashboard chip read.
+                # This one fired the event alone, so a valve that never opened
+                # was invisible to anyone not listening on the bus.
+                # siehe test_self_closing.py::
+                # test_a_valve_that_never_opened_also_raises_the_zone_fault
+                self._set_zone_fault(zone_id, const.PROBLEM_VALVE_DID_NOT_OPEN)
                 self._fire_zone_problem(
                     zone_id, zone, confirm_target, const.PROBLEM_VALVE_DID_NOT_OPEN
                 )
@@ -991,6 +1012,21 @@ class SelfClosingMixin:
             measured if measured is not None else self._timed_volume_l(zone, elapsed)
         )
         await self._stamp_run_finalized(zone_id, delivered_l)
+        # The completion twin's reasoning (_sc_finish_run), and the classic
+        # runner clears on its partials as well: a stopped run still watered.
+        # NOT-TO-DO: do not assume this is the last word on the zone's fault.
+        #   _watch_give_up (run_watch.py:1028) calls this stop and sets
+        #   station_never_ran AFTER it returns, so the clear here runs first and
+        #   the set survives - but only while that order holds. Hoisting its set
+        #   above the stop makes this line swallow it, and measurably nothing
+        #   else notices: that mutation leaves the whole OpenSprinkler suite
+        #   green except the one pin written for it,
+        #   test_opensprinkler.py::
+        #   test_a_station_that_never_ran_stays_faulted_after_the_stop_cleared.
+        #   (Where inside this function the line sits does NOT matter to that
+        #   order - the caller runs after the return either way. It is placed
+        #   before the record only to read like the classic runner's twin.)
+        self._clear_zone_fault(zone_id)
         await self._record_run(
             zone_id,
             result=const.RUN_RESULT_PARTIAL,

@@ -1390,3 +1390,80 @@ async def test_the_flow_sample_divides_by_the_window_the_meter_actually_saw():
     _zone_arg, measured, seconds = c._flow_calibration_check.await_args.args
     assert (measured, seconds) == (6.0, 120.0)
     assert measured / (seconds / 60.0) == 3.0  # not the 5.14 the old window read
+
+
+async def test_a_valve_that_never_opened_also_raises_the_zone_fault():
+    """The confirm poll saw the valve stay off. The bus event was already fired
+    here, the fault was not - the only unpaired site of the seven that announce
+    a zone problem. An automation bound to the bus heard it; the problem sensor
+    and the dashboard chip, which read the fault, stayed dark."""
+    c = _coord()
+    c._set_zone_fault = Mock()
+    c._confirm_valve_running = AsyncMock(return_value=False)  # never opened
+    c._timed_volume_l = Mock(return_value=20.0)
+    c._credited_depth_native = Mock(return_value=4.0)
+    zone = _zone(**{const.ZONE_CONFIRM_ENTITY: "valve.beet"})
+
+    ok = await c.async_run_self_closing(zone, trigger="schedule")
+
+    assert ok is False
+    c._set_zone_fault.assert_called_once_with(2, const.PROBLEM_VALVE_DID_NOT_OPEN)
+
+
+async def test_a_completed_run_clears_the_zone_fault():
+    """_clear_zone_fault had five callers, all of them on the classic metered or
+    rotating path in irrigation.py. A self-closing, batch or OpenSprinkler zone
+    could therefore raise a fault and never end one: _zone_faults lives in
+    memory, so the problem sensor stayed on until HA was restarted."""
+    c = _coord()
+    c._clear_zone_fault = Mock()
+    store_zone = _zone(**{const.ZONE_BUCKET: -2.0, const.ZONE_MAXIMUM_BUCKET: 24.0})
+    c.store.get_zone = Mock(side_effect=lambda zid: store_zone)
+    c.store.async_get_config = AsyncMock(
+        return_value={
+            const.CONF_ACTIVE_VALVE_RUNS: [
+                {
+                    const.RUN_ZONE_ID: 2,
+                    const.RUN_PLANNED_SECONDS: 600.0,
+                    const.RUN_PRE_BUCKET: -2.0,
+                }
+            ]
+        }
+    )
+    c._sc_finish_flow = Mock(return_value=(2.26, {}))
+    c._credited_depth_native = Mock(return_value=2.26)
+    c._flow_calibration_check = AsyncMock()
+
+    await c._sc_finish_run(2)
+
+    c._clear_zone_fault.assert_called_once_with(2)
+
+
+async def test_a_stopped_run_clears_the_zone_fault_as_the_classic_runner_does():
+    """The classic runner clears on a partial as well as a completion
+    (_record_rotating_stop, irrigation.py:1777): a run that was stopped still
+    watered, so it is evidence the valve works."""
+    c = _coord()
+    c._clear_zone_fault = Mock()
+    store_zone = _zone(**{const.ZONE_BUCKET: -1.0})
+    c.store.get_zone = Mock(return_value=store_zone)
+    c.store.async_get_config = AsyncMock(
+        return_value={
+            const.CONF_ACTIVE_VALVE_RUNS: [
+                {
+                    const.RUN_ZONE_ID: 2,
+                    const.RUN_STARTED: "2026-06-30T08:00:00+00:00",
+                    const.RUN_PLANNED_SECONDS: 600.0,
+                    const.RUN_PLANNED_MM: 4.0,
+                    const.RUN_PRE_BUCKET: -5.0,
+                    const.RUN_CREDITED: True,
+                }
+            ]
+        }
+    )
+    c._sc_elapsed = Mock(return_value=300.0)
+    c._timed_volume_l = Mock(return_value=10.0)
+
+    await c.async_stop_self_closing(2)
+
+    c._clear_zone_fault.assert_called_once_with(2)
