@@ -754,13 +754,13 @@ async def test_measure_window_zero_flow_live_meter_measures_zero():
 
 
 async def test_measure_window_sensor_dead_after_open_read_is_not_dry():
-    # Eifel-Joe#53 / the review finding on Eifel-Joe#4 (spec 10.1): the window feeds the
+    # Eifel-Joe#53, and the same blind spot Eifel-Joe#4 was reviewed for: the window feeds the
     # valve-open reading into the meter at at=0.0, so _have_reading is true from the
     # first second and delivered() never returns None again whatever the sensor does
     # next. A RATE sensor showing 12 L/min at the open and then going unavailable has
     # no second sample to integrate against, so it measures exactly 0.0 — measured,
-    # byte-identical to the dry cistern above. `last_live` is the only thing that
-    # separates them, and it stays at its 0.0 seed value.
+    # byte-identical to the dry cistern above. Only asking the meter what it actually
+    # CREDITED separates them: the seed prices nothing, so it accounted for no run.
     c, d = _flow_host()
     calls = {"n": 0}
 
@@ -776,7 +776,7 @@ async def test_measure_window_sensor_dead_after_open_read_is_not_dry():
 
 
 async def test_measure_window_totalizer_reset_is_not_dry():
-    # Eifel-Joe#53 / spec 10.1's second case: the distributor resolves its counter type
+    # Eifel-Joe#53, the second way a 0.0 lies: the distributor resolves its counter type
     # read-only, so an unlearned `auto` becomes the over-credit-safe `lifetime`, which
     # KEEPS the pre-reset baseline. A per-run counter that resets mid-run therefore
     # climbs back from 0 without ever passing the baseline and measures 0.0 while real
@@ -795,13 +795,12 @@ async def test_measure_window_totalizer_reset_is_not_dry():
 
 
 async def test_measure_window_nan_after_open_read_is_not_dry():
-    # Eifel-Joe#53, the precondition of Task 2's witness: _dist_read_flow promises
-    # "None when unavailable/non-numeric", but float("nan") parses, so a nan sensor
-    # returned a tuple and set `last_live` — while FlowMeter.sample() silently REJECTED
-    # the same value (flow_metering.py, `if not math.isfinite(raw)`). The witness then
-    # said "the meter read after the open" about a reading the meter threw away, and a
-    # sensor stuck at nan had its run written off as dry. The sister-path check carried
-    # down to the precondition, which is the level Eifel-Joe#4's review found missing.
+    # Eifel-Joe#53: a sensor stuck at nan after the open read has measured nothing, so
+    # its 0.0 must not be written off as a dry run. FlowMeter.sample() rejects a nan
+    # (flow_metering.py, `if not math.isfinite(raw)`), so nothing is ever credited and
+    # the run is correctly not accounted for. _dist_read_flow rejects it too, one level
+    # earlier, which is what stops the dead-meter extend guard holding the shared inlet
+    # open on it — see that guard's own note.
     c, d = _flow_host()
     calls = {"n": 0}
 
@@ -817,7 +816,8 @@ async def test_measure_window_nan_after_open_read_is_not_dry():
 
 def test_read_flow_rejects_non_finite():
     # Same root, at the unit: nan and inf are not numbers, and the docstring already
-    # said so. FlowMeter would drop them anyway; the tuple is what misleads `last_live`.
+    # said so. FlowMeter drops them anyway; the tuple is what misleads the poll loop,
+    # whose dead-meter extend guard keys on when it last got one.
     c, d = _flow_host()
     for bad in ("nan", "inf", "-inf"):
         s = Mock()
@@ -830,12 +830,11 @@ def test_read_flow_rejects_non_finite():
 
 
 async def test_measure_window_rate_gap_wider_than_max_gap_is_not_dry():
-    # Eifel-Joe#53, spec 4.1 case 1 — the flapping sensor. _sample_rate refuses to
+    # Eifel-Joe#53, the flapping sensor. _sample_rate refuses to
     # integrate when dt exceeds max_gap_s (4 polls = 20 s), because bridging dropped
     # samples with a recovered rate would over-credit. The poll loop still saw a live
     # reading, so a timings-based witness is satisfied while the meter priced NOTHING.
-    # 12 L/min flowed the whole window; measured against the real FlowMeter, the old
-    # last_live witness returned 0.0 here and 418ab8a0 returned None.
+    # 12 L/min flowed the whole window, and none of it was credited anywhere.
     c, d = _flow_host()
     seq = [12.0] + [None, None, None, None, 12.0] * 2 + [None, None]
     it = iter(seq)
@@ -850,7 +849,7 @@ async def test_measure_window_rate_gap_wider_than_max_gap_is_not_dry():
 
 
 async def test_measure_window_totalizer_below_retained_baseline_is_not_dry():
-    # Eifel-Joe#53, spec 4.1 case 2. near_zero = max(1.0, 0.1*100) = 10, so the drop to
+    # Eifel-Joe#53. near_zero = max(1.0, 0.1*100) = 10, so the drop to
     # 60 is a glitch and not a reset: saw_reset() stays False, the baseline 100 is kept,
     # and the 60 -> 90 climb (30 L of real water) never passes it. delivered() is 0.0
     # with every read live, so neither the timings witness nor saw_reset() catches it.
@@ -863,7 +862,7 @@ async def test_measure_window_totalizer_below_retained_baseline_is_not_dry():
 
 
 async def test_measure_window_per_run_reset_above_near_zero_is_not_dry():
-    # Eifel-Joe#53, spec 4.1 case 3. near_zero = max(1.0, 0.1*45) = 4.5, and the first
+    # Eifel-Joe#53. near_zero = max(1.0, 0.1*45) = 4.5, and the first
     # read after the reset is 8 — ABOVE the floor, so the reset saw_reset() exists for
     # is invisible. 32 L really flowed (8 -> 40) below the retained baseline of 45.
     c, d = _flow_host()
@@ -982,8 +981,9 @@ async def test_credit_zone_passes_detail_to_record_run():
 
 
 async def test_credit_zone_dry_leaves_the_bucket_and_the_total_alone():
-    # Eifel-Joe#53, spec 5.1/5.3/5.4 — the three observable values the live test reads,
-    # pinned here through the REAL _dist_credit_zone rather than a mock of it:
+    # Eifel-Joe#53 — the three values a dry run must leave alone, pinned through the
+    # REAL _dist_credit_zone (its collaborators are mocked, so this pins the arguments
+    # handed down; the values themselves are what the live test on hardware reads):
     # a 0.0 credit must leave the bucket exactly where the run found it, add nothing to
     # water_used_total, and not stamp last_irrigation. The ceiling is deliberately set
     # BELOW the pre-run bucket to prove the clamp cannot turn the run into a withdrawal.
@@ -1011,7 +1011,7 @@ async def test_measure_window_an_early_priced_interval_does_not_excuse_the_windo
     # Eifel-Joe#53: the same three inputs as the three ..._is_not_dry tests above, each
     # with two ordinary reads in front of it. A "priced anything" latch is satisfied by
     # those two and writes the rest of the window off; the meter must account for the
-    # WHOLE run. Measured: 418ab8a0 returned None for all three.
+    # WHOLE run — all three of these credited real water nowhere.
     # 1. a pump that takes a poll to build pressure, behind a flapping sensor
     c, d = _flow_host()
     seq = [0.0, 0.0] + [None, None, None, None, 12.0] * 2 + [None, None]

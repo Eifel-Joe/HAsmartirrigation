@@ -2078,11 +2078,11 @@ async def test_sweep_records_a_dry_member_run_as_failed_without_a_target():
 
 
 async def test_sweep_treats_a_negative_measurement_as_dry():
-    """Eifel-Joe#53 / spec 10.3: a rate sensor with a negative resting offset integrates
+    """Eifel-Joe#53: a rate sensor with a negative resting offset integrates
     BELOW zero across a dry run -- -0.4 L/min over 30 s measures -0.2, measured on the
     real FlowMeter. `dry = measured == 0` would miss it, and the negative depth would
     reach _dist_credit_zone and write the bucket BELOW the level the run started from,
-    turning a failed run into a withdrawal. This is the test that kills M3b."""
+    turning a failed run into a withdrawal."""
     c = _host()
     c._dist_uses_master = Mock(return_value=False)
     _cycle_mocks(c)
