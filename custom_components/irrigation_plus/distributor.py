@@ -698,8 +698,11 @@ class DistributorMixin:
         per its unit/state_class); no feature flag. Returns a tuple
         ``(delivered, actual_seconds, stopped_early)``:
 
-        - ``delivered`` — measured litres, or None to fall back to time-based crediting
-          (no sensor / dead meter / unreliable reading).
+        - ``delivered`` — measured litres. ``0.0`` is a MEASUREMENT (a live meter that
+          integrated nothing: the dry-cistern case) and the caller writes the run off
+          on it. None means nothing was measured: no sensor, a meter that never read,
+          a meter that read ONLY at the valve-open seed, a sensor that never reported
+          during the run, or a reading the meter refused to price.
         - ``actual_seconds`` — time actually elapsed (== ``window`` on any non-metering
           path; < ``cap`` when a ``target`` is hit; == ``cap`` at the safety cap).
         - ``stopped_early`` — True iff ``target`` was reached before ``cap`` elapsed.
@@ -789,13 +792,61 @@ class DistributorMixin:
                 # already are, if the extend had run beyond it before the sensor died).
                 eff_cap = min(cap, max(window, elapsed))
         delivered = meter.delivered()
+        # Bound from the RAW value, before the evidence test below, so its behaviour is
+        # unchanged. (The two cannot co-occur anyway: `target` is bound only under
+        # `tv > 0`, so this needs delivered >= target > 0. The order keeps that true
+        # without leaning on the argument.)
         stopped_early = (
             target is not None and (delivered or 0.0) >= target and elapsed < cap
         )
-        # Part B fail-safe: a live-but-dry meter delivered 0 L -> unreliable so the caller
-        # falls back to time-based crediting (spec: delivered <= 0 -> None).
-        reliable = delivered is not None and delivered > 0
-        return (delivered if reliable else None), elapsed, stopped_early
+        # Wurzel: a live-but-dry meter's 0.0 was collapsed to None, which on this path
+        #   means "credit the planned window". A member zone behind an empty cistern was
+        #   therefore credited in full and logged as a completed run. But a 0.0 is only
+        #   an ANSWER when the meter was in a position to answer: the valve-open seed
+        #   above makes the meter's have-a-reading state true from the first second, so
+        #   delivered() never returns None again whatever the sensor does next -- and a
+        #   meter can accept readings and credit NONE of them. Measured against the real
+        #   FlowMeter, each of these returns 0.0 for a run that delivered water:
+        #     a rate sensor live only every 5th poll -> _sample_rate will not integrate
+        #       across a gap wider than max_gap_s (4 polls = 20 s);
+        #     a totalizer 100 -> 60, 70, 80, 90 -> the drop is not near-zero, so the
+        #       baseline is kept and 30 L of climb is credited nowhere;
+        #     a totalizer 45 -> 8, 20, 30, 40 -> a per-run reset whose first post-reset
+        #       read clears near_zero (4.5), so it is not even visible as a reset;
+        #     a sensor that has not REPORTED since before the valve opened -- the same
+        #       State object on every poll, reading 0 without having said anything.
+        # Fix: ask the meter whether it accounted for the RUN. metered_the_run() is
+        #   false for every case above and true for a run that was really measured dry,
+        #   because an interval credited at 0 L counts as priced -- that is how a dry
+        #   cistern is recognised, and why the question is not "delivered > 0".
+        # NOT-TO-DO: do not derive this from the poll loop's own timings. The loop sees
+        #   a live tuple while the meter throws the value away, which is what the first
+        #   three cases above defeat.
+        # NOT-TO-DO: do not add a meter.saw_reset() term beside it. Every totalizer drop
+        #   marks the run declined ABOVE the near-zero branch that is the only place
+        #   saw_reset is set, so saw_reset() already implies not metered_the_run(). The
+        #   classic runner makes the same diversion from the other side
+        #   (irrigation.py): it has no declined flag, so there saw_reset() IS the test.
+        # NOT-TO-DO: do not fold either term into FlowMeter.delivered(). Its 0.0
+        #   contract is what the crediting callers price a genuinely dry run with; only
+        #   a caller that writes a run OFF needs the stricter evidence.
+        # Beleg: the cost is that a per-run counter whose reset falls inside the window
+        #   never earns a dry verdict -- the reset reads as declined, so its 0.0 keeps
+        #   the time-based credit. Correct rather than a gap: after a reset a 0.0 cannot
+        #   be told apart from a post-reset climb the retained baseline swallowed.
+        # siehe tests/test_distributor.py::
+        #   test_measure_window_zero_flow_live_meter_measures_zero
+        #   test_measure_window_a_quiet_sensor_is_not_dry
+        #   test_measure_window_sensor_dead_after_open_read_is_not_dry
+        #   test_measure_window_totalizer_reset_is_not_dry
+        #   test_measure_window_rate_gap_wider_than_max_gap_is_not_dry
+        #   test_measure_window_totalizer_below_retained_baseline_is_not_dry
+        #   test_measure_window_per_run_reset_above_near_zero_is_not_dry
+        #   test_measure_window_a_priced_zero_is_still_dry
+        #   test_measure_window_an_early_priced_interval_does_not_excuse_the_window
+        if delivered is not None and delivered <= 0 and not meter.metered_the_run():
+            delivered = None
+        return delivered, elapsed, stopped_early
 
     async def _dist_members(self, distributor_id) -> list:
         """This distributor's member zones (dicts), ordered by outlet 1..n."""
