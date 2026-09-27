@@ -1903,15 +1903,25 @@ async def test_a_flow_metered_outlet_is_metered_for_the_window_the_inlet_runs():
     ring advanced ~37 s early, and the credit booked actual_seconds 263 against
     planned_seconds 300 for a run that was never cut short.
 
-    The meter reads a live zero, so the metering loop runs (that is what makes
-    `cap` the bound) and the credit still degrades to the time-based fallback,
-    which is what carries actual_seconds.
+    The meter reads a zero, so the metering loop runs (that is what makes `cap`
+    the bound) and the credit still degrades to the time-based fallback, which is
+    what carries actual_seconds. The report is deliberately CONSTANT: a sensor
+    that has not spoken since before the valve opened is not evidence of a dry
+    run, so the fallback is the right outcome here and the test stays about `cap`.
+    The dry verdict has its own tests.
     """
     c, d, timed = await _minutes_service_host(
         [_due_member(7, 1, 263)], flow_sensor="sensor.inlet_flow"
     )
     c._dist_uses_master = Mock(return_value=False)
-    c._dist_read_flow = Mock(return_value=(0.0, "L/min", "measurement"))
+    c._dist_read_flow = Mock(
+        return_value=(
+            0.0,
+            "L/min",
+            "measurement",
+            datetime.datetime(2026, 9, 27, 10, 0, tzinfo=datetime.timezone.utc),
+        )
+    )
     credited = {}
     c._dist_credit_zone = AsyncMock(
         side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(

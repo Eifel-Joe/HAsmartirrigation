@@ -3,9 +3,10 @@
 import datetime
 import itertools
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 from custom_components.irrigation_plus import const
+from custom_components.irrigation_plus import distributor as distributor_module
 from custom_components.irrigation_plus.distributor import DistributorMixin
 from custom_components.irrigation_plus.flow_metering import (
     flow_is_totalizer,
@@ -759,6 +760,52 @@ async def test_measure_window_sensor_dies_mid_extend_stops_before_cap():
     # stopped ~one dead-gap past the last live read (elapsed 55 s), far below the cap
     assert actual == 55
     assert actual < 1200
+
+
+def test_read_flow_reports_when_the_sensor_last_spoke():
+    """The tuple carries ``State.last_reported`` -- when the sensor last SENT this
+    value, not when we read it.
+
+    ``hass.states.get`` hands back the same State object for as long as a sensor
+    stays quiet, so a caller counting its own polls cannot tell a meter watching a
+    dry run from one whose sensor has said nothing since before the valve opened.
+    The classic runner's reader already carries the field; this one is the second
+    of the four metered paths to need it.
+    """
+    c, d = _flow_host()
+    spoke = datetime.datetime(2026, 9, 27, 6, 30, tzinfo=datetime.timezone.utc)
+    c.hass.states.get = Mock(return_value=_state(3.5, "L/min", reported=spoke))
+    assert c._dist_read_flow("sensor.inlet_flow") == (3.5, "L/min", None, spoke)
+
+
+async def test_measure_window_tells_the_meter_when_the_sensor_spoke():
+    """Reading the report is not enough -- the window has to hand it ON.
+
+    FlowMeter.metered_the_run() needs a report NEWER than the first one it saw.
+    While the two sample() calls here passed three values, that never happened and
+    the accessor was constant False on this path: an inherited accessor whose
+    evidence was not inherited with it. Any guard built on it then collapses to
+    plain `delivered <= 0`, which is what this file already did -- a silent no-op,
+    and a test that issues no reports agrees with it.
+
+    So this pins the plumbing directly, one level below the guard, because a
+    regression here would otherwise surface only as "the dry verdict does not
+    fire" -- a symptom two functions away from its cause.
+    """
+    c, d = _flow_host()
+    c.hass.states.get = Mock(side_effect=lambda s: _state(0.0, "L/min"))
+    built = []
+    real = distributor_module.FlowMeter
+
+    def _capture(*a, **kw):
+        meter = real(*a, **kw)
+        built.append(meter)
+        return meter
+
+    with patch.object(distributor_module, "FlowMeter", _capture):
+        await c._dist_measure_window(d, 30)
+    assert len(built) == 1
+    assert built[0].metered_the_run() is True
 
 
 async def test_measure_window_zero_flow_healthy_sensor_is_unreliable():

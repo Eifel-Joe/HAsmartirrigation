@@ -641,9 +641,17 @@ class DistributorMixin:
     # stop by target volume is Part B). ------------------------------------
 
     def _dist_read_flow(self, sensor: str):
-        """Read a flow sensor -> (value, unit, state_class) or None when
+        """Read a flow sensor -> (value, unit, state_class, last_reported) or None when
         unavailable/non-numeric (fail-safe: the caller then degrades to time-based
-        crediting)."""
+        crediting).
+
+        The fourth element is when the sensor last SENT this value, not when we read
+        it: ``hass.states.get`` hands back the same State object for as long as the
+        sensor stays quiet, so a caller counting its own polls cannot tell a meter
+        that watched a dry run from one whose sensor has said nothing since before
+        the valve opened. The crediting path passes it on without looking at it; only
+        a caller that writes a run OFF needs the difference.
+        """
         state = self.hass.states.get(sensor)
         if state is None or getattr(state, "state", None) in (
             "unavailable",
@@ -660,7 +668,7 @@ class DistributorMixin:
             state.attributes.get("unit_of_measurement", "") if state.attributes else ""
         )
         state_class = state.attributes.get("state_class") if state.attributes else None
-        return value, unit, state_class
+        return value, unit, state_class, state.last_reported
 
     async def _dist_measure_window(
         self, distributor: dict, window: float, *, cap=None, target=None
@@ -711,7 +719,28 @@ class DistributorMixin:
             # rate-only path treated as unreliable; don't integrate a rate across it.
             max_gap_s=const.DISTRIBUTOR_FLOW_POLL_SECONDS * 4,
         )
-        meter.sample(reading[0], reading[1], reading[2], at=0.0)  # valve-open seed
+        # Wurzel: FlowMeter.metered_the_run() -- "did this meter measure this run" --
+        #   needs a report NEWER than the first one it saw, and both calls here passed
+        #   three values, so it never saw one. The accessor is inherited on this path;
+        #   the evidence that feeds it was not, which left it constant False. A guard
+        #   built on it then collapses to plain `delivered <= 0`, and a test that
+        #   issues no reports agrees with the collapse.
+        # Fix: carry the sensor's own report through, as the classic runner's reader
+        #   already does. `at` is keyword-only, so a call still passing elapsed seconds
+        #   positionally fails loudly instead of binding them to a report time.
+        # Beleg: fed the real meter a live sensor reading 0 on all seven polls of a dry
+        #   run -- metered_the_run() False the old way, True with a report per poll.
+        # NOT-TO-DO: do not substitute our own poll clock for the report. That is the
+        #   same mistake one level down: it records that WE read, not that the sensor
+        #   SPOKE, and a sensor updating less often than the run lasts (cloud-polled, a
+        #   utility meter, a counter reporting only after the close) reads 0 for the
+        #   whole run without having said anything.
+        # siehe tests/test_distributor.py::
+        #   test_read_flow_reports_when_the_sensor_last_spoke
+        #   test_measure_window_tells_the_meter_when_the_sensor_spoke
+        meter.sample(
+            reading[0], reading[1], reading[2], reading[3], at=0.0
+        )  # valve-open seed
         elapsed = 0.0
         last_live = 0.0  # elapsed at the most recent LIVE read (the seed is live)
         # Dead-meter extend guard (audit H1): a flow sensor that goes unavailable
@@ -734,7 +763,7 @@ class DistributorMixin:
             elapsed += step
             r = self._dist_read_flow(sensor)
             if r is not None:
-                meter.sample(r[0], r[1], r[2], at=elapsed)
+                meter.sample(r[0], r[1], r[2], r[3], at=elapsed)
                 last_live = elapsed
             elif elapsed - last_live >= dead_gap:
                 # Meter dead: never hold past the planned window (nor past where we
