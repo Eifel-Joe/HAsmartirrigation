@@ -146,6 +146,12 @@
 - Grace Test trägt weiter `flow_sensor` + `throughput 4`.
 
 ### Nächste Schritte
+0. **⛔ DER `#53`-BRANCH DARF SO NICHT GEPUSHT WERDEN.** 20 seiner Commit-Messages tragen
+   noch `Eifel-Joe#53` / `Eifel-Joe#4`. Code- und Test-Kommentare sind bereinigt (`dc56b1fb`),
+   die Messages NICHT — derselbe halbe Schritt, für den die Rüge kam. **User-Entscheidung
+   2026-09-27: wird nicht separat repariert, sondern beim Umbau auf die `last_reported`-Form
+   (Schritt 1–2) neu geschrieben.** Vor jedem Push beide Checks aus Memory
+   `no-own-issue-refs-upstream` fahren — Diff **und** Commit-Messages.
 1. **`JustChr#174` zuerst** — er legt die Zeugen-Form fest, die `#53` erbt. Nötig:
    `State.last_reported` als Evidenz, Rebase auf `c5330c7f`, Testkommentare von unseren
    Nummern befreien, **und die Entschuldigung**. Sein sekundärer Punkt (geplantes Volumen
