@@ -808,6 +808,41 @@ async def test_measure_window_tells_the_meter_when_the_sensor_spoke():
     assert built[0].metered_the_run() is True
 
 
+def test_read_flow_rejects_non_finite():
+    """``float("nan")`` and ``float("inf")`` PARSE, so a sensor reporting either got
+    past the try/except and out of a function whose docstring promises None for a
+    non-numeric state.
+
+    FlowMeter.sample() rejects the same value anyway, so nothing was ever
+    mis-credited -- but the poll loop reads these tuples for a SECOND purpose, and
+    that one was misled.
+    """
+    c, d = _flow_host()
+    for bad in ("nan", "inf", "-inf", "NaN", "Infinity"):
+        c.hass.states.get = Mock(return_value=_state(bad, "L/min"))
+        assert c._dist_read_flow("sensor.inlet_flow") is None, bad
+    c.hass.states.get = Mock(return_value=_state(3.5, "L/min"))
+    assert c._dist_read_flow("sensor.inlet_flow")[0] == 3.5
+
+
+async def test_measure_window_nan_reading_does_not_hold_the_inlet_to_the_cap():
+    """The dead-meter extend guard keys on the gap since the last tuple, so while a
+    nan sensor returned one it looked ALIVE -- and a classic-extend outlet held the
+    shared inlet open for the whole cap on a sensor that was dead for metering.
+
+    Measured, window 30 / cap 600: 600 s before, 30 s after. A 20x difference on a
+    valve several zones share.
+    """
+    c, d = _flow_host()
+    c.hass.states.get = Mock(return_value=_state("nan", "L/min"))
+    measured, actual, stopped = await c._dist_measure_window(
+        d, 30, cap=600, target=100.0
+    )
+    assert measured is None
+    assert actual == 30
+    assert stopped is False
+
+
 async def test_measure_window_zero_flow_healthy_sensor_is_unreliable():
     # A live meter reading 0 the whole window (dry pipe / stuck valve) is unreliable
     # -> None (fall back to time-based crediting), NOT a credited 0 L. Part B fail-safe.
