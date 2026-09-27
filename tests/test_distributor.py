@@ -1100,3 +1100,53 @@ async def test_credit_zone_timed_fallback_uses_planned_seconds():
     kw = c._record_run.await_args.kwargs
     assert kw["actual_s"] == 900  # log stays truthful about the real elapsed time
     assert kw["planned_s"] == 60
+
+
+async def test_credit_zone_passes_detail_to_record_run():
+    """The sweep needs to say WHY a run failed, and _record_run already takes a
+    ``detail`` -- this was the only thing in the way."""
+    c = _host()
+    c.store.async_update_zone = AsyncMock()
+    c.async_write_watered_bucket = AsyncMock()
+    c._stamp_run_finalized = AsyncMock()
+    c._record_run = AsyncMock()
+    c._depth_from_volume_native = Mock(return_value=0.0)
+    await c._dist_credit_zone(
+        {const.ZONE_ID: 7, const.ZONE_BUCKET: -3.0},
+        60,
+        measured_l=0.0,
+        result=const.RUN_RESULT_FAILED,
+        detail=const.FAULT_FLOW_NEVER_STARTED,
+    )
+    assert c._record_run.await_args.kwargs["result"] == const.RUN_RESULT_FAILED
+    assert c._record_run.await_args.kwargs["detail"] == const.FAULT_FLOW_NEVER_STARTED
+
+
+async def test_credit_zone_dry_leaves_the_bucket_and_the_total_alone():
+    """The three values a dry run must leave alone, pinned through the REAL
+    _dist_credit_zone.
+
+    Its collaborators are mocked, so this pins the arguments handed down; the values
+    themselves are what the live test on hardware reads. A 0.0 credit must leave the
+    bucket exactly where the run found it, add nothing to water_used_total and not
+    stamp last_irrigation. The ceiling is deliberately set BELOW the pre-run bucket,
+    to prove the clamp cannot turn a failed run into a withdrawal.
+    """
+    c = _host()
+    c.store.async_update_zone = AsyncMock()
+    c.async_write_watered_bucket = AsyncMock()
+    c._stamp_run_finalized = AsyncMock()
+    c._record_run = AsyncMock()
+    c._depth_from_volume_native = Mock(return_value=0.0)
+    await c._dist_credit_zone(
+        {const.ZONE_ID: 7, const.ZONE_BUCKET: -3.0, const.ZONE_STATE: "automatic"},
+        60,
+        measured_l=0.0,
+        planned_seconds=60,
+        result=const.RUN_RESULT_FAILED,
+        detail=const.FAULT_FLOW_NEVER_STARTED,
+        ceiling=-5.0,
+    )
+    c.async_write_watered_bucket.assert_awaited_once_with(7, -3.0)  # unchanged
+    c._stamp_run_finalized.assert_awaited_once_with(7, 0.0)  # 0 L -> no stamp
+    assert c._record_run.await_args.kwargs["volume_l"] == 0.0  # nothing to the total
