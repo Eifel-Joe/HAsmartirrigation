@@ -122,37 +122,33 @@
   `v2026.09.27b1` (upstream ohne den Fix) oder `v2026.09.22b1` (letzter mit der
   Ventil-Sicherheit). Der Build selbst bleibt reproduzierbar: **lokaler** Branch
   `prerelease/v2026.09.27b2` (`2a1ee093`) im Worktree `pr174-work/prerel`.
-- **`Grace Test` trägt `input_number.hasi_flow_probe` als Durchflussmesser-Sensor.**
-  Vorher hatte die Zone **keinen**. Zurücksetzen geht **nur im Panel** — solange das
-  Feld gesetzt ist, darf der Helper nicht gelöscht werden.
-- `Grace Test`s Eimer steht nach drei Testläufen auf **−2,53** (vorher −3,33),
-  `Wasserverbrauch` auf **8,0 L** (vorher 0,0), Fehler-Sensor `off`.
+- **Aufgeräumt:** `Grace Test`s Feld „Durchflussmesser-Sensor (optional)" ist wieder
+  **leer** (war vor dem Test auch leer), `input_number.hasi_flow_probe` ist **gelöscht**.
+  Nachgeprüft: `problem=off`, `watering_now=off`, keine Zone bewässert.
+- `Grace Test`s Eimer steht nach drei Testläufen auf **−2,5317** (vorher −3,3317),
+  `Wasserverbrauch` auf **8,0 L** (vorher 0,0), Fehler-Sensor `off`. Zwei der drei
+  Läufe haben je 4 L gutgeschrieben.
 - `Gardena1` trägt weiter `flow_sensor: sensor.wasser_3_flow` (der stumme Sensor).
 - `Test2`s Eimer steht weiter von Hand auf −5.
 - PirateWeather antwortet auf dieser Instanz mit **429** — `calculate_zone` liefert
   nichts, `run_zone duration:` ist der wetterunabhängige Weg.
 
 ### Nächste Schritte
-1. **Panel:** `Grace Test` → „Durchflussmesser-Sensor (optional)" **leeren**. Danach
-   `input_number.hasi_flow_probe` löschen.
-2. **`archive/design-history` pushen** — Spec §11 (§11.1–§11.10), Plan
-   `2026-09-27-dry-run-witness-rework.md` und das Live-Protokoll liegen im Worktree
-   `pr139-work/archive-wt` **uncommittet**. Regel P1 ist bis dahin NICHT erfüllt.
-3. **Auf JustChrs Re-Review von `#174` warten.** Kommt ein Einwand: als Kommentar in
+1. **Auf JustChrs Re-Review von `#174` warten.** Kommt ein Einwand: als Kommentar in
    `Eifel-Joe#4`, in seinen Worten.
-4. **`Eifel-Joe#53` auf die gelandete Form ziehen** — `metered_the_run()` erbt
+2. **`Eifel-Joe#53` auf die gelandete Form ziehen** — `metered_the_run()` erbt
    `_saw_report_after_open`, der `flow_metering.py`-Teil des Branches entfällt, die zwei
    `distributor.py`-Aufrufe brauchen `at=`. Danach Live-Test **mit meldendem Sensor**
    (`input_number`-Rezept steht im Protokoll). Branch
    `fix-a-dry-member-run-is-not-a-delivery`, Worktree `issue53-work/wt`, Kopf `dc56b1fb`,
    Basis `418ab8a0` — **Basis ist veraltet, neu rebasen und neu baselinen.**
    ⛔ Dessen 20 Commit-Messages tragen weiter `Eifel-Joe#53`/`#4`.
-5. **`JustChr#172`** — Uhr in den Tests pinnen, `before_run`-Anker, seine Frage zu Zonen
+3. **`JustChr#172`** — Uhr in den Tests pinnen, `before_run`-Anker, seine Frage zu Zonen
    ohne Zeitplan.
-6. **PR 2 / Task 11 (`Eifel-Joe#45`)** rebasen; vorher prüfen, ob `c5330c7f` den Defekt
+4. **PR 2 / Task 11 (`Eifel-Joe#45`)** rebasen; vorher prüfen, ob `c5330c7f` den Defekt
    noch trägt.
-7. **`Eifel-Joe#22` PR 1** ist entblockt.
-8. Aufräumen, wenn `#174` durch ist: Worktrees `pr34-work/pr1`, `prerelease-work/wt`,
+5. **`Eifel-Joe#22` PR 1** ist entblockt.
+6. Aufräumen, wenn `#174` durch ist: Worktrees `pr34-work/pr1`, `prerelease-work/wt`,
    `issue53-work/base`, `pr174-work/base`, die Branches `prerelease/v2026.09.22b1` und
    `prerelease/v2026.09.27b1` samt Release. Vorher die kleinen Ordner ansehen
    (Memory `scratch-dirs-hold-irreproducible-evidence`) — in `pr174-work` liegen die

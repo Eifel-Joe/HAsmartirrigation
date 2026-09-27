@@ -100,5 +100,10 @@ the instance works; but to put it back on a build HACS knows, install
 `v2026.09.27b1` (upstream master without this fix) or `v2026.09.22b1` (the last
 build carrying the valve-safety work).
 
-`input_number.hasi_flow_probe` and Grace Test's flow-sensor field: see the
-session handover for which of the two was still outstanding.
+Also removed, after the protocol was first written: Grace Test's flow-sensor
+field is empty again (panel-only, done by the user) and
+`input_number.hasi_flow_probe` is deleted. Verified after both: the zone reads
+`problem=off`, `watering_now=off`, and no zone on the instance was watering.
+
+The zone keeps what the three runs did to it: bucket **−2.5317** (was −3.3317)
+and `water_used` **8.0 L** (was 0.0). Two of the three runs credited 4 L each.
