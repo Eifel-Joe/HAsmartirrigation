@@ -874,7 +874,7 @@ async def test_measure_window_per_run_reset_above_near_zero_is_not_dry():
 async def test_measure_window_a_priced_zero_is_still_dry():
     # Eifel-Joe#53, the CONTROL for the three tests above: tightening the witness must
     # not disable the feature. An interval credited at 0 L counts as priced, and that is
-    # how a genuinely dry run is recognised — priced_anything() is not "delivered > 0".
+    # how a genuinely dry run is recognised — metered_the_run() is not "delivered > 0".
     # Three shapes, all dry, all must stay 0.0:
     #   a rate sensor reading 0 every poll,
     #   a totalizer holding its value (100, 100, ...),
@@ -1002,3 +1002,32 @@ async def test_credit_zone_dry_leaves_the_bucket_and_the_total_alone():
     c.async_write_watered_bucket.assert_awaited_once_with(7, -3.0)  # unchanged
     c._stamp_run_finalized.assert_awaited_once_with(7, 0.0)  # 0 L -> no stamp
     assert c._record_run.await_args.kwargs["volume_l"] == 0.0  # nothing to the total
+
+
+async def test_measure_window_an_early_priced_interval_does_not_excuse_the_window():
+    # Eifel-Joe#53: the same three inputs as the three ..._is_not_dry tests above, each
+    # with two ordinary reads in front of it. A "priced anything" latch is satisfied by
+    # those two and writes the rest of the window off; the meter must account for the
+    # WHOLE run. Measured: 418ab8a0 returned None for all three.
+    # 1. a pump that takes a poll to build pressure, behind a flapping sensor
+    c, d = _flow_host()
+    seq = [0.0, 0.0] + [None, None, None, None, 12.0] * 2 + [None, None]
+    it = iter(seq)
+    c.hass.states.get = Mock(
+        side_effect=lambda s: (lambda v: None if v is None else _state(v, "L/min"))(
+            next(it, None)
+        )
+    )
+    assert (await c._dist_measure_window(d, 70))[0] is None
+
+    # 2. a totalizer that reads flat, then falls below its retained baseline and climbs
+    c, d = _flow_host()
+    vals = iter([100.0, 100.0, 60.0, 70.0, 80.0, 90.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 90.0), "L"))
+    assert (await c._dist_measure_window(d, 50))[0] is None
+
+    # 3. the same, with a per-run reset whose first post-reset read clears near_zero
+    c, d = _flow_host()
+    vals = iter([45.0, 45.0, 8.0, 20.0, 30.0, 40.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 40.0), "L"))
+    assert (await c._dist_measure_window(d, 50))[0] is None

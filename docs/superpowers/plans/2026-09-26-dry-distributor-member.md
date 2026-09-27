@@ -1496,7 +1496,7 @@ and the 266 tests of the five affected files stay green.
 - Modify: `custom_components/irrigation_plus/distributor.py` (the guard + its comment)
 - Test: `tests/test_flow_meter.py`, `tests/test_distributor.py`
 
-- [ ] **Step 1: Rewrite the three `FlowMeter` pins and add the declined ones**
+- [x] **Step 1: Rewrite the three `FlowMeter` pins and add the declined ones**
 
 In `tests/test_flow_meter.py`, **replace** the three `test_priced_anything_*` tests added
 by Task 4b with these four. The concept changed, so they are rewritten, not extended:
@@ -1563,7 +1563,7 @@ def test_one_credited_interval_does_not_excuse_the_rest_of_the_run():
     assert m2.metered_the_run() is False
 ```
 
-- [ ] **Step 2: Add the three composite pins at the distributor level**
+- [x] **Step 2: Add the three composite pins at the distributor level**
 
 Append to `tests/test_distributor.py`:
 
@@ -1597,7 +1597,7 @@ async def test_measure_window_an_early_priced_interval_does_not_excuse_the_windo
     assert (await c._dist_measure_window(d, 50))[0] is None
 ```
 
-- [ ] **Step 3: Run them and watch them fail**
+- [x] **Step 3: Run them and watch them fail**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_flow_meter.py tests/test_distributor.py -p _local_socket_unblock -q
@@ -1608,7 +1608,7 @@ Expected: the four `test_metered_the_run_*` tests fail with
 `test_measure_window_an_early_priced_interval_does_not_excuse_the_window` fails with
 `assert 0.0 is None`.
 
-- [ ] **Step 4: Latch the declined readings and replace the accessor**
+- [x] **Step 4: Latch the declined readings and replace the accessor**
 
 In `flow_metering.py`'s `__init__`, **replace** Task 4b's `_priced` line and its comment
 block with the two flags and a much shorter note — the explanation belongs on the
@@ -1670,7 +1670,7 @@ And replace the `priced_anything()` accessor with:
         return self._priced and not self._declined
 ```
 
-- [ ] **Step 5: Switch the guard and correct its comment**
+- [x] **Step 5: Switch the guard and correct its comment**
 
 In `_dist_measure_window`, change `not meter.priced_anything()` to
 `not meter.metered_the_run()`, and in the comment block above it replace the `Fix:`
@@ -1693,7 +1693,7 @@ Also correct `irrigation.py:1536` to `irrigation.py:1535` wherever the block cit
 `:1535` is the `if measured <= 0 and meter.saw_reset():` itself; `:1536` is its first
 comment line.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 ```bash
 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_flow_meter.py tests/test_distributor.py tests/test_distributor_dispatch.py tests/test_self_closing.py tests/test_observed_watering.py -p _local_socket_unblock -q
@@ -1706,7 +1706,7 @@ with one fewer test than this task adds, so expect **268**: `test_flow_meter.py`
 `grep -rn "priced_anything" custom_components/ tests/` must come back **empty** — the old
 accessor is replaced, not left beside the new one.
 
-- [ ] **Step 7: Lint and commit**
+- [x] **Step 7: Lint and commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/

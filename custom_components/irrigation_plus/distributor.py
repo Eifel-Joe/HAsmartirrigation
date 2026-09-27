@@ -782,13 +782,15 @@ class DistributorMixin:
         #       baseline is kept and 30 L of climb is credited nowhere;
         #     totalizer 45 -> 8,20,30,40 -> a per-run reset whose first post-reset
         #       read clears near_zero (4.5), so saw_reset() never trips either.
-        # Fix: ask the meter what it CREDITED, not when it last answered.
-        #   priced_anything() is false for every case above and true for a dry run
-        #   that was really measured (an interval credited at 0 L counts). saw_reset()
-        #   stays beside it and is NOT redundant: a totalizer reading 100,100,5,7
-        #   prices the flat interval at 0 L, so only saw_reset() catches the reset
-        #   after it. The classic runner makes the same diversion before its own dry
-        #   branch (irrigation.py:1536).
+        # Fix: ask the meter whether it accounted for the RUN, not whether it ever
+        #   priced anything. metered_the_run() is false for every case above and for a
+        #   fourth the first attempt missed — two ordinary reads in front of any of them
+        #   latch a plain "priced" flag and write the rest of the window off. It is true
+        #   for a dry run that was really measured (an interval credited at 0 L counts).
+        #   saw_reset() stays beside it and is NOT redundant: a totalizer reading
+        #   100,100,5,7 credits the flat interval and declines nothing, so only
+        #   saw_reset() catches the reset after it. The classic runner makes the same
+        #   diversion before its own dry branch (irrigation.py:1535).
         # NOT-TO-DO: do not derive this from the poll loop's own timings. That was the
         #   first design (a `last_live <= 0.0` test) and it is what the three inputs
         #   above defeat: the loop sees a live tuple, the meter throws the value away.
@@ -804,7 +806,7 @@ class DistributorMixin:
         if (
             delivered is not None
             and delivered <= 0
-            and (not meter.priced_anything() or meter.saw_reset())
+            and (not meter.metered_the_run() or meter.saw_reset())
         ):
             delivered = None
         return delivered, elapsed, stopped_early
