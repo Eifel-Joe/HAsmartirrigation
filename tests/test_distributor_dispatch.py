@@ -1,6 +1,7 @@
 """Plan G: scheduled distributor dispatch + shared-master coordination."""
 
 import datetime
+import logging
 from unittest.mock import AsyncMock, Mock
 
 from custom_components.irrigation_plus import const
@@ -1257,7 +1258,7 @@ async def test_manual_run_waters_non_due_member():
     c.store.async_get_zones = AsyncMock(return_value=members)
     credited = []
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, w, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.append(
+        side_effect=lambda z, w, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.append(
             z["id"]
         )
     )
@@ -1324,7 +1325,7 @@ async def test_sweep_credits_measured_flow_volume():
     c._dist_measure_window = AsyncMock(return_value=(9.0, 60, False))
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             v=measured_l
         )
     )
@@ -1368,7 +1369,7 @@ async def test_sweep_classic_passes_target_and_extend_cap():
     c._dist_measure_window = _fake_measure
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             seconds=s, measured=measured_l, planned=planned_seconds
         )
     )
@@ -1504,7 +1505,7 @@ async def test_sweep_logs_partial_when_cap_hit_without_target():
     c._dist_measure_window = AsyncMock(return_value=(5.0, 900, False))
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             result=result
         )
     )
@@ -1548,7 +1549,7 @@ async def test_sweep_logs_completed_when_target_reached_at_cap():
     c._dist_measure_window = AsyncMock(return_value=(12.0, 900, False))
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             result=result
         )
     )
@@ -1590,7 +1591,7 @@ async def test_sweep_logs_completed_when_target_reached():
     c._dist_measure_window = AsyncMock(return_value=(12.0, 120, True))
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             result=result
         )
     )
@@ -1617,6 +1618,182 @@ async def test_sweep_logs_completed_when_target_reached():
         )
     )
     assert credited["result"] == const.RUN_RESULT_COMPLETED
+
+
+
+_DRY_MEMBER = [
+    {
+        "id": 7,
+        "distributor_id": 0,
+        "outlet_number": 1,
+        "duration": 60,
+        "bucket": -3,
+        "bucket_threshold": 0,
+        "state": "automatic",
+    }
+]
+
+
+def _dry_sweep_host(measured, *, target=None):
+    """A sweep host with one due member and a metering window that returns
+    ``measured``. ``target`` None means a can't-stop member / target volume 0."""
+    c = _host()
+    c._dist_uses_master = Mock(return_value=False)
+    _cycle_mocks(c)
+    c._dist_needs_water = Mock(return_value=True)
+    c._zone_target_bucket = Mock(return_value=0.0)
+    if target is not None:
+        c._metered_target_volume = Mock(return_value=target)
+    c._dist_measure_window = AsyncMock(return_value=(measured, 60, False))
+    c.store.async_get_zones = AsyncMock(return_value=list(_DRY_MEMBER))
+    return c
+
+
+def _targeted_dist():
+    """The only shape in which the sweep binds a volume target at all: a flow sensor
+    on the distributor and a can-stop (classic) member."""
+    return _dist(
+        id=0,
+        current_outlet=1,
+        watering_mode=const.WATERING_MODE_CLASSIC,
+        flow_sensor="sensor.inlet_flow",
+    )
+
+
+def _capture_credit(c, credited):
+    c._dist_credit_zone = AsyncMock(
+        side_effect=lambda z, s, **kw: credited.update(
+            measured=kw.get("measured_l"),
+            result=kw.get("result"),
+            detail=kw.get("detail"),
+        )
+    )
+
+
+async def test_sweep_records_a_dry_member_run_as_failed():
+    """A live meter that measured 0.0 across the window means no water reached the
+    member zone.
+
+    The run is logged FAILED with flow_never_started and credited NOTHING. Before
+    this, the 0.0 was collapsed to None and the sweep credited the whole planned
+    window, so an empty cistern read as a full delivery.
+    """
+    c = _dry_sweep_host(0.0)
+    credited = {}
+    _capture_credit(c, credited)
+    await c.async_run_distributor_cycle(_dist(id=0, current_outlet=1))
+    assert credited["result"] == const.RUN_RESULT_FAILED
+    assert credited["detail"] == const.FAULT_FLOW_NEVER_STARTED
+    # A hard 0.0, never the measured value: a rate sensor's negative resting offset
+    # measures -0.2 over a dry run, and a negative depth would write the bucket BELOW
+    # the level the run started from.
+    assert credited["measured"] == 0.0
+
+
+async def test_sweep_records_a_dry_member_run_as_failed_without_a_target():
+    """The dry test must not be gated on a volume target.
+
+    A member with no target -- a can't-stop member, or one whose target volume is 0
+    -- is the majority of this configuration, and keying the failure on
+    `measured < target` would log it COMPLETED.
+    """
+    c = _dry_sweep_host(0.0, target=0.0)
+    credited = {}
+    _capture_credit(c, credited)
+    await c.async_run_distributor_cycle(_targeted_dist())
+    assert credited["result"] == const.RUN_RESULT_FAILED
+    assert credited["detail"] == const.FAULT_FLOW_NEVER_STARTED
+
+
+async def test_sweep_treats_a_negative_measurement_as_dry():
+    """A rate sensor with a negative resting offset integrates BELOW zero across a
+    dry run -- -0.4 L/min over 30 s measures -0.2, measured on the real FlowMeter.
+
+    `measured == 0` would miss it, and the negative depth would reach the credit and
+    write the bucket BELOW the level the run started from, turning a failed run into
+    a withdrawal.
+    """
+    c = _dry_sweep_host(-0.2)
+    credited = {}
+    _capture_credit(c, credited)
+    await c.async_run_distributor_cycle(_dist(id=0, current_outlet=1))
+    assert credited["result"] == const.RUN_RESULT_FAILED
+    assert credited["measured"] == 0.0  # the -0.2 never reaches the credit
+
+
+async def test_sweep_records_a_dry_member_run_as_failed_with_a_target_set():
+    """The ordering pin. A dry run WITH a bound volume target satisfies
+    `measured < target`, so testing the partial branch first would log it PARTIAL --
+    an under-delivery of water that never flowed, with no reason attached.
+
+    This is the only shape in which the sweep binds a target at all, so without this
+    test the ordering is an assertion rather than a measurement.
+    """
+    c = _dry_sweep_host(0.0, target=12.0)
+    credited = {}
+    _capture_credit(c, credited)
+    await c.async_run_distributor_cycle(_targeted_dist())
+    assert credited["result"] == const.RUN_RESULT_FAILED
+    assert credited["detail"] == const.FAULT_FLOW_NEVER_STARTED
+    assert credited["measured"] == 0.0
+
+
+async def test_sweep_still_logs_partial_below_a_target_and_completed_above():
+    """The control for the dry branch: it is tested FIRST, so it must not swallow the
+    under-delivery case the partial logging exists for, and must not claim a run that
+    delivered water.
+
+    A dry run WITH a target satisfies `measured < target`, which is exactly why the
+    order matters.
+    """
+    c = _dry_sweep_host(4.0, target=12.0)
+    credited = {}
+    _capture_credit(c, credited)
+    await c.async_run_distributor_cycle(_targeted_dist())
+    assert credited["result"] == const.RUN_RESULT_PARTIAL
+    assert credited["detail"] is None
+
+    c = _dry_sweep_host(12.0, target=12.0)
+    credited = {}
+    _capture_credit(c, credited)
+    await c.async_run_distributor_cycle(_targeted_dist())
+    assert credited["result"] == const.RUN_RESULT_COMPLETED
+    assert credited["detail"] is None
+
+async def test_sweep_warns_when_it_writes_a_member_run_off(caplog):
+    """The dry branch raises no zone fault by design -- nothing on this path ever
+    clears one -- so a WARNING is the only thing that reaches a user who is not
+    reading the per-zone history.
+
+    The two sibling paths that cannot raise a fault log one for the weaker case of
+    merely degrading to a time estimate.
+    """
+    c = _dry_sweep_host(0.0)
+    c._dist_credit_zone = AsyncMock()
+    with caplog.at_level(logging.WARNING):
+        await c.async_run_distributor_cycle(_dist(id=0, current_outlet=1))
+    assert any(
+        r.levelname == "WARNING" and "no water" in r.message.lower()
+        for r in caplog.records
+    ), [r.message for r in caplog.records]
+
+
+async def test_sweep_does_not_offer_a_dry_run_as_a_calibration_sample():
+    """A run that delivered nothing says nothing about the hardware's throughput.
+
+    The advisory's own floor (FLOW_CAL_MIN_SAMPLE_L, ~6.7 L) already refuses a 0.0,
+    so this is defence rather than repair -- but that floor is derived from two tuning
+    constants, and a future tuning that lowered it would make this the caller feeding
+    0 L over a full window in as a real observed rate.
+    """
+    c = _dry_sweep_host(0.0, target=0.0)  # can't-stop member, no target
+    c._dist_credit_zone = AsyncMock()
+    c._dist_flow_calibration_check = AsyncMock()
+    await c.async_run_distributor_cycle(
+        _dist(id=0, current_outlet=1, watering_mode=const.WATERING_MODE_SERVICE)
+    )
+    c._dist_flow_calibration_check.assert_not_awaited()
+
 
 
 # --- days-between guard for member zones (#106 follow-up) -------------------
@@ -1821,7 +1998,7 @@ async def test_the_cycle_books_the_window_the_inlet_runs_not_the_priced_one():
     c._apply_soil_moisture_veto = AsyncMock(side_effect=lambda z: z)
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             seconds=s, planned=planned_seconds
         )
     )
@@ -1903,18 +2080,28 @@ async def test_a_flow_metered_outlet_is_metered_for_the_window_the_inlet_runs():
     ring advanced ~37 s early, and the credit booked actual_seconds 263 against
     planned_seconds 300 for a run that was never cut short.
 
-    The meter reads a live zero, so the metering loop runs (that is what makes
-    `cap` the bound) and the credit still degrades to the time-based fallback,
-    which is what carries actual_seconds.
+    The meter reads a zero, so the metering loop runs (that is what makes `cap`
+    the bound) and the credit still degrades to the time-based fallback, which is
+    what carries actual_seconds. The report is deliberately CONSTANT: a sensor
+    that has not spoken since before the valve opened is not evidence of a dry
+    run, so the fallback is the right outcome here and the test stays about `cap`.
+    The dry verdict has its own tests.
     """
     c, d, timed = await _minutes_service_host(
         [_due_member(7, 1, 263)], flow_sensor="sensor.inlet_flow"
     )
     c._dist_uses_master = Mock(return_value=False)
-    c._dist_read_flow = Mock(return_value=(0.0, "L/min", "measurement"))
+    c._dist_read_flow = Mock(
+        return_value=(
+            0.0,
+            "L/min",
+            "measurement",
+            datetime.datetime(2026, 9, 27, 10, 0, tzinfo=datetime.timezone.utc),
+        )
+    )
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             seconds=s, planned=planned_seconds
         )
     )
@@ -1992,7 +2179,7 @@ async def test_a_classic_sweep_still_runs_its_priced_windows():
     c._dist_uses_master = Mock(return_value=False)
     credited = {}
     c._dist_credit_zone = AsyncMock(
-        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None: credited.update(
+        side_effect=lambda z, s, measured_l=None, planned_seconds=None, result=None, ceiling=None, **_kw: credited.update(
             seconds=s, planned=planned_seconds
         )
     )

@@ -1,10 +1,12 @@
 """Gardena distributor engine primitives (DistributorMixin)."""
 
 import datetime
+import itertools
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 from custom_components.irrigation_plus import const
+from custom_components.irrigation_plus import distributor as distributor_module
 from custom_components.irrigation_plus.distributor import DistributorMixin
 from custom_components.irrigation_plus.flow_metering import (
     flow_is_totalizer,
@@ -558,10 +560,32 @@ def _flow_host(sensor="sensor.inlet_flow"):
     return c, d
 
 
-def _state(val, unit):
+_REPORT_EPOCH = datetime.datetime(2026, 9, 27, 10, 0, 0, tzinfo=datetime.timezone.utc)
+_report_seq = itertools.count()
+
+
+def _state(val, unit, reported=None):
+    """A fake HA state for a flow sensor: value, unit, and when it last REPORTED.
+
+    ``last_reported`` advances for every state built here, because a sensor
+    sending a value is exactly what makes HA write a new State. Handing ONE
+    object back on every poll models a sensor that has gone QUIET -- a different
+    thing from a sensor reporting zero, and the difference is what decides
+    whether a run may be written off as dry. Pass ``reported`` to model the quiet
+    sensor on purpose.
+
+    Before this, the field was an auto-created Mock attribute: not a datetime, so
+    FlowMeter.sample()'s isinstance check read it as no report at all, and every
+    test here modelled the quiet sensor whether it meant to or not.
+    """
     s = Mock()
     s.state = str(val)
     s.attributes = {"unit_of_measurement": unit}
+    s.last_reported = (
+        _REPORT_EPOCH + datetime.timedelta(seconds=next(_report_seq))
+        if reported is None
+        else reported
+    )
     return s
 
 
@@ -738,15 +762,300 @@ async def test_measure_window_sensor_dies_mid_extend_stops_before_cap():
     assert actual < 1200
 
 
-async def test_measure_window_zero_flow_healthy_sensor_is_unreliable():
-    # A live meter reading 0 the whole window (dry pipe / stuck valve) is unreliable
-    # -> None (fall back to time-based crediting), NOT a credited 0 L. Part B fail-safe.
+def test_read_flow_reports_when_the_sensor_last_spoke():
+    """The tuple carries ``State.last_reported`` -- when the sensor last SENT this
+    value, not when we read it.
+
+    ``hass.states.get`` hands back the same State object for as long as a sensor
+    stays quiet, so a caller counting its own polls cannot tell a meter watching a
+    dry run from one whose sensor has said nothing since before the valve opened.
+    The classic runner's reader already carries the field; this one is the second
+    of the four metered paths to need it.
+    """
     c, d = _flow_host()
-    c.hass.states.get = Mock(return_value=_state(0.0, "L/min"))
+    spoke = datetime.datetime(2026, 9, 27, 6, 30, tzinfo=datetime.timezone.utc)
+    c.hass.states.get = Mock(return_value=_state(3.5, "L/min", reported=spoke))
+    assert c._dist_read_flow("sensor.inlet_flow") == (3.5, "L/min", None, spoke)
+
+
+async def test_measure_window_tells_the_meter_when_the_sensor_spoke():
+    """Reading the report is not enough -- the window has to hand it ON.
+
+    FlowMeter.metered_the_run() needs a report NEWER than the first one it saw.
+    While the two sample() calls here passed three values, that never happened and
+    the accessor was constant False on this path: an inherited accessor whose
+    evidence was not inherited with it. Any guard built on it then collapses to
+    plain `delivered <= 0`, which is what this file already did -- a silent no-op,
+    and a test that issues no reports agrees with it.
+
+    So this pins the plumbing directly, one level below the guard, because a
+    regression here would otherwise surface only as "the dry verdict does not
+    fire" -- a symptom two functions away from its cause.
+    """
+    c, d = _flow_host()
+    c.hass.states.get = Mock(side_effect=lambda s: _state(0.0, "L/min"))
+    built = []
+    real = distributor_module.FlowMeter
+
+    def _capture(*a, **kw):
+        meter = real(*a, **kw)
+        built.append(meter)
+        return meter
+
+    with patch.object(distributor_module, "FlowMeter", _capture):
+        await c._dist_measure_window(d, 30)
+    assert len(built) == 1
+    assert built[0].metered_the_run() is True
+
+
+def test_read_flow_rejects_non_finite():
+    """``float("nan")`` and ``float("inf")`` PARSE, so a sensor reporting either got
+    past the try/except and out of a function whose docstring promises None for a
+    non-numeric state.
+
+    FlowMeter.sample() rejects the same value anyway, so nothing was ever
+    mis-credited -- but the poll loop reads these tuples for a SECOND purpose, and
+    that one was misled.
+    """
+    c, d = _flow_host()
+    for bad in ("nan", "inf", "-inf", "NaN", "Infinity"):
+        c.hass.states.get = Mock(return_value=_state(bad, "L/min"))
+        assert c._dist_read_flow("sensor.inlet_flow") is None, bad
+    c.hass.states.get = Mock(return_value=_state(3.5, "L/min"))
+    assert c._dist_read_flow("sensor.inlet_flow")[0] == 3.5
+
+
+async def test_measure_window_nan_reading_does_not_hold_the_inlet_to_the_cap():
+    """The dead-meter extend guard keys on the gap since the last tuple, so while a
+    nan sensor returned one it looked ALIVE -- and a classic-extend outlet held the
+    shared inlet open for the whole cap on a sensor that was dead for metering.
+
+    Measured, window 30 / cap 600: 600 s before, 30 s after. A 20x difference on a
+    valve several zones share.
+    """
+    c, d = _flow_host()
+    c.hass.states.get = Mock(return_value=_state("nan", "L/min"))
+    measured, actual, stopped = await c._dist_measure_window(
+        d, 30, cap=600, target=100.0
+    )
+    assert measured is None
+    assert actual == 30
+    assert stopped is False
+
+
+async def test_measure_window_zero_flow_live_meter_measures_zero():
+    """A meter that watched the whole window and integrated nothing has ANSWERED --
+    0.0, not "no measurement".
+
+    Collapsed to None (the old fail-safe) the caller fell back to the
+    planned-window credit, so a member zone behind an empty cistern was credited in
+    full and logged completed. The two states that produce a 0.0 WITHOUT having
+    measured the run stay None and have their own tests below.
+
+    A fresh state per poll on purpose: that is a sensor that keeps REPORTING, which
+    is what makes the zero evidence rather than silence.
+    """
+    c, d = _flow_host()
+    c.hass.states.get = Mock(side_effect=lambda s: _state(0.0, "L/min"))
+    measured, actual, stopped = await c._dist_measure_window(d, 30)
+    assert measured == 0.0
+    assert actual == 30
+    assert stopped is False
+
+
+async def test_measure_window_a_quiet_sensor_is_not_dry():
+    """A sensor reading 0 that has not SPOKEN since before the valve opened is not
+    evidence of anything -- it keeps its time-based credit.
+
+    ``hass.states.get`` hands back the same State object while a sensor stays quiet,
+    so this is the same 0 the test above writes a run off for; only the report
+    separates them. Any flow sensor that updates less often than the run lasts is
+    this case: a cloud-polled controller, a utility meter on a few minutes, a
+    counter that reports only after the valve closes.
+    """
+    c, d = _flow_host()
+    quiet = _state(0.0, "L/min", reported=_REPORT_EPOCH)
+    c.hass.states.get = Mock(return_value=quiet)
     measured, actual, stopped = await c._dist_measure_window(d, 30)
     assert measured is None
     assert actual == 30
     assert stopped is False
+
+
+async def test_measure_window_sensor_dead_after_open_read_is_not_dry():
+    """The window feeds the valve-open reading into the meter at ``at=0.0``, so
+    ``_have_reading`` is true from the first second and ``delivered()`` never returns
+    None again whatever the sensor does next.
+
+    A RATE sensor showing 12 L/min at the open and then going unavailable has no
+    second sample to integrate against, so it measures exactly 0.0 -- byte-identical
+    to the dry cistern above. Only asking the meter what it actually CREDITED
+    separates them: the seed prices nothing, so it accounted for no run.
+    """
+    c, d = _flow_host()
+    calls = {"n": 0}
+
+    def _drive(_sensor):
+        calls["n"] += 1
+        return _state(12.0, "L/min") if calls["n"] == 1 else None  # seed, then dead
+
+    c.hass.states.get = Mock(side_effect=_drive)
+    measured, actual, stopped = await c._dist_measure_window(d, 30)
+    assert measured is None  # no evidence -> time-based, as before the fix
+    assert actual == 30
+    assert stopped is False
+
+
+async def test_measure_window_totalizer_reset_is_not_dry():
+    """The second way a 0.0 lies. This path resolves its counter type read-only, so
+    an unlearned ``auto`` becomes the over-credit-safe ``lifetime``, which KEEPS the
+    pre-reset baseline.
+
+    A per-run counter that resets mid-run therefore climbs back from 0 without ever
+    passing the baseline and measures 0.0 while real water flowed -- measured on the
+    sister path: 45 L really delivered against a ``delivered()`` of 0.0. The sister
+    case 100 -> 102 -> 5 -> 7 measures 2.0 and is unaffected: only a reset that
+    leaves NOTHING credited looks dry.
+    """
+    c, d = _flow_host()
+    vals = iter([100.0, 100.0, 5.0, 7.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 7.0), "L"))
+    measured, actual, stopped = await c._dist_measure_window(d, 15)
+    # The drop marks the run declined, so metered_the_run() is false and the 0.0
+    # degrades to the time-based credit. (An explicit saw_reset() term in the guard
+    # would be redundant for exactly this reason -- every drop declines first.)
+    assert measured is None
+    assert stopped is False
+
+
+async def test_measure_window_rate_gap_wider_than_max_gap_is_not_dry():
+    """The flapping sensor. ``_sample_rate`` refuses to integrate when dt exceeds
+    ``max_gap_s`` (4 polls = 20 s), because bridging dropped samples with a recovered
+    rate would over-credit.
+
+    The poll loop still saw a live reading and the sensor still REPORTED, so neither
+    a timings-based witness nor the report separates this from a dry run -- only the
+    meter's own refusal does. 12 L/min flowed the whole window and none of it was
+    credited anywhere.
+    """
+    c, d = _flow_host()
+    seq = [12.0] + [None, None, None, None, 12.0] * 2 + [None, None]
+    it = iter(seq)
+    c.hass.states.get = Mock(
+        side_effect=lambda s: (lambda v: None if v is None else _state(v, "L/min"))(
+            next(it, None)
+        )
+    )
+    measured, actual, stopped = await c._dist_measure_window(d, 60)
+    assert measured is None
+    assert stopped is False
+
+
+async def test_measure_window_totalizer_below_retained_baseline_is_not_dry():
+    """near_zero = max(1.0, 0.1 x 100) = 10, so the drop to 60 is a glitch and not a
+    reset: the baseline 100 is kept and the 60 -> 90 climb (30 L of real water) never
+    passes it.
+
+    ``delivered()`` is 0.0 with every read live and every read freshly reported.
+    """
+    c, d = _flow_host()
+    vals = iter([100.0, 60.0, 70.0, 80.0, 90.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 90.0), "L"))
+    measured, actual, stopped = await c._dist_measure_window(d, 20)
+    assert measured is None
+    assert stopped is False
+
+
+async def test_measure_window_per_run_reset_above_near_zero_is_not_dry():
+    """near_zero = max(1.0, 0.1 x 45) = 4.5, and the first read after the reset is 8
+    -- ABOVE the floor, so the reset is invisible as a reset. 32 L really flowed
+    (8 -> 40) below the retained baseline of 45.
+
+    This and the test above are the same physical situation as the one before it; the
+    only difference is where the poll landed after the reset. A real install produces
+    whichever its cadence happens to hit, which is why none of the three may be
+    written off.
+    """
+    c, d = _flow_host()
+    vals = iter([45.0, 8.0, 20.0, 30.0, 40.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 40.0), "L"))
+    measured, actual, stopped = await c._dist_measure_window(d, 20)
+    assert measured is None
+    assert stopped is False
+
+
+async def test_measure_window_a_priced_zero_is_still_dry():
+    """The CONTROL for the tests above: tightening the witness must not disable the
+    feature.
+
+    An interval credited at 0 L counts as priced, and that is how a genuinely dry run
+    is recognised -- the question is not "delivered > 0". Three shapes, all dry, all
+    must stay 0.0: a rate sensor reading 0 every poll; a totalizer holding its value;
+    and a pressure surge at the open then nothing -- the surge is the SEED, which
+    prices nothing, and every interval after it is credited at 0. That last one is
+    the leading case, an empty cistern behind a valve that still thumps.
+    """
+    c, d = _flow_host()
+    c.hass.states.get = Mock(side_effect=lambda s: _state(0.0, "L/min"))
+    assert (await c._dist_measure_window(d, 30))[0] == 0.0
+
+    c, d = _flow_host()
+    c.hass.states.get = Mock(side_effect=lambda s: _state(100.0, "L"))
+    assert (await c._dist_measure_window(d, 20))[0] == 0.0
+
+    c, d = _flow_host()
+    surge = iter([12.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(surge, 0.0), "L/min"))
+    assert (await c._dist_measure_window(d, 30))[0] == 0.0
+
+
+async def test_measure_window_one_poll_counts_the_seed_report_as_the_baseline():
+    """A window short enough for a single poll is still judgeable, because the
+    valve-open seed carries a report of its own.
+
+    Without it the first readable poll would become the baseline and evidence would
+    need a SECOND report, so a one-poll run could never be written off. That is the
+    conservative direction and it is the right one when the sensor was unavailable at
+    the open -- but when the seed was readable, its report is what makes the single
+    poll a change rather than a first sighting.
+    """
+    c, d = _flow_host()
+    c.hass.states.get = Mock(side_effect=lambda s: _state(0.0, "L/min"))
+    measured, actual, stopped = await c._dist_measure_window(d, 5)
+    assert actual == 5  # exactly one poll at the 5 s cadence
+    assert measured == 0.0
+
+
+async def test_measure_window_an_early_priced_interval_does_not_excuse_the_window():
+    """The same three inputs as the three ``..._is_not_dry`` tests, each with two
+    ordinary reads in front of it.
+
+    A "priced anything" latch is satisfied by those two and writes the rest of the
+    window off; the meter has to account for the WHOLE run. All three credited real
+    water nowhere.
+    """
+    # 1. a pump that takes a poll to build pressure, behind a flapping sensor
+    c, d = _flow_host()
+    seq = [0.0, 0.0] + [None, None, None, None, 12.0] * 2 + [None, None]
+    it = iter(seq)
+    c.hass.states.get = Mock(
+        side_effect=lambda s: (lambda v: None if v is None else _state(v, "L/min"))(
+            next(it, None)
+        )
+    )
+    assert (await c._dist_measure_window(d, 70))[0] is None
+
+    # 2. a totalizer that reads flat, then falls below its retained baseline and climbs
+    c, d = _flow_host()
+    vals = iter([100.0, 100.0, 60.0, 70.0, 80.0, 90.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 90.0), "L"))
+    assert (await c._dist_measure_window(d, 50))[0] is None
+
+    # 3. the same, with a per-run reset whose first post-reset read clears near_zero
+    c, d = _flow_host()
+    vals = iter([45.0, 45.0, 8.0, 20.0, 30.0, 40.0])
+    c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 40.0), "L"))
+    assert (await c._dist_measure_window(d, 50))[0] is None
 
 
 # --- Phase 4 Part A: crediting the measured flow volume ---------------------
@@ -808,3 +1117,53 @@ async def test_credit_zone_timed_fallback_uses_planned_seconds():
     kw = c._record_run.await_args.kwargs
     assert kw["actual_s"] == 900  # log stays truthful about the real elapsed time
     assert kw["planned_s"] == 60
+
+
+async def test_credit_zone_passes_detail_to_record_run():
+    """The sweep needs to say WHY a run failed, and _record_run already takes a
+    ``detail`` -- this was the only thing in the way."""
+    c = _host()
+    c.store.async_update_zone = AsyncMock()
+    c.async_write_watered_bucket = AsyncMock()
+    c._stamp_run_finalized = AsyncMock()
+    c._record_run = AsyncMock()
+    c._depth_from_volume_native = Mock(return_value=0.0)
+    await c._dist_credit_zone(
+        {const.ZONE_ID: 7, const.ZONE_BUCKET: -3.0},
+        60,
+        measured_l=0.0,
+        result=const.RUN_RESULT_FAILED,
+        detail=const.FAULT_FLOW_NEVER_STARTED,
+    )
+    assert c._record_run.await_args.kwargs["result"] == const.RUN_RESULT_FAILED
+    assert c._record_run.await_args.kwargs["detail"] == const.FAULT_FLOW_NEVER_STARTED
+
+
+async def test_credit_zone_dry_leaves_the_bucket_and_the_total_alone():
+    """The three values a dry run must leave alone, pinned through the REAL
+    _dist_credit_zone.
+
+    Its collaborators are mocked, so this pins the arguments handed down; the values
+    themselves are what the live test on hardware reads. A 0.0 credit must leave the
+    bucket exactly where the run found it, add nothing to water_used_total and not
+    stamp last_irrigation. The ceiling is deliberately set BELOW the pre-run bucket,
+    to prove the clamp cannot turn a failed run into a withdrawal.
+    """
+    c = _host()
+    c.store.async_update_zone = AsyncMock()
+    c.async_write_watered_bucket = AsyncMock()
+    c._stamp_run_finalized = AsyncMock()
+    c._record_run = AsyncMock()
+    c._depth_from_volume_native = Mock(return_value=0.0)
+    await c._dist_credit_zone(
+        {const.ZONE_ID: 7, const.ZONE_BUCKET: -3.0, const.ZONE_STATE: "automatic"},
+        60,
+        measured_l=0.0,
+        planned_seconds=60,
+        result=const.RUN_RESULT_FAILED,
+        detail=const.FAULT_FLOW_NEVER_STARTED,
+        ceiling=-5.0,
+    )
+    c.async_write_watered_bucket.assert_awaited_once_with(7, -3.0)  # unchanged
+    c._stamp_run_finalized.assert_awaited_once_with(7, 0.0)  # 0 L -> no stamp
+    assert c._record_run.await_args.kwargs["volume_l"] == 0.0  # nothing to the total
