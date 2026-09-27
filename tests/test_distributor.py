@@ -787,7 +787,10 @@ async def test_measure_window_totalizer_reset_is_not_dry():
     vals = iter([100.0, 100.0, 5.0, 7.0])
     c.hass.states.get = Mock(side_effect=lambda s: _state(next(vals, 7.0), "L"))
     measured, actual, stopped = await c._dist_measure_window(d, 15)
-    assert measured is None  # saw_reset() -> no evidence -> time-based
+    # The drop marks the run declined, so metered_the_run() is false and the 0.0
+    # degrades to the time-based credit. (An explicit saw_reset() term in the guard
+    # was removed as redundant for exactly this reason -- every drop declines first.)
+    assert measured is None
     assert stopped is False
 
 

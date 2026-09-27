@@ -787,10 +787,18 @@ class DistributorMixin:
         #   fourth the first attempt missed — two ordinary reads in front of any of them
         #   latch a plain "priced" flag and write the rest of the window off. It is true
         #   for a dry run that was really measured (an interval credited at 0 L counts).
-        #   saw_reset() stays beside it and is NOT redundant: a totalizer reading
-        #   100,100,5,7 credits the flat interval and declines nothing, so only
-        #   saw_reset() catches the reset after it. The classic runner makes the same
-        #   diversion before its own dry branch (irrigation.py:1535).
+        #   A `meter.saw_reset()` term stood here too and has been REMOVED: it is
+        #   provably redundant, because every totalizer drop marks the run declined
+        #   before the near-zero branch that is the only place _saw_reset is set, so
+        #   saw_reset() implies not metered_the_run(). The mutation that drops it
+        #   kills nothing, which is how it was found. The classic runner makes the
+        #   same diversion before its own dry branch (irrigation.py:1535), from the
+        #   other side: it has no declined flag, so there saw_reset() is the test.
+        # Beleg: a per-run counter whose reset falls inside the window therefore
+        #   never gets a dry verdict -- it reads declined, so a 0.0 degrades to the
+        #   time-based credit. That is correct and not a gap: after a reset a 0.0
+        #   cannot be told apart from a post-reset climb the retained baseline
+        #   swallowed, which is the 45 L case this guard exists for.
         # NOT-TO-DO: do not derive this from the poll loop's own timings. That was the
         #   first design (a `last_live <= 0.0` test) and it is what the three inputs
         #   above defeat: the loop sees a live tuple, the meter throws the value away.
@@ -803,11 +811,7 @@ class DistributorMixin:
         #   test_measure_window_totalizer_below_retained_baseline_is_not_dry
         #   test_measure_window_per_run_reset_above_near_zero_is_not_dry
         #   test_measure_window_a_priced_zero_is_still_dry
-        if (
-            delivered is not None
-            and delivered <= 0
-            and (not meter.metered_the_run() or meter.saw_reset())
-        ):
+        if delivered is not None and delivered <= 0 and not meter.metered_the_run():
             delivered = None
         return delivered, elapsed, stopped_early
 

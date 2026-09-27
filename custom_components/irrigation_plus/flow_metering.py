@@ -196,6 +196,10 @@ class FlowMeter:
         # test_per_run_post_reset_seed_midrun_glitch_no_over_credit.
         # A drop credits nothing, by either branch below, so the climb back up is lost
         # and the run is no longer fully accounted for.
+        # NOT-TO-DO: do not move this inside either branch below. It has to cover the
+        #   near-zero/reset branch as well, and a caller relies on that: with it here,
+        #   saw_reset() implies `not metered_the_run()`, so a dry-run guard needs only
+        #   the one test. Split them and that guard silently loses the reset case.
         self._declined = True
         if litres <= self._near_zero():
             # A near-zero drop = a reset (per-run) or a lifetime glitch — indistinguishable
