@@ -407,3 +407,262 @@ coverage accounting, not a guard.
   full-window route delegates to `_sc_finish_run` first
   (`run_watch.py:981-984`, `:1010-1014`), including a manual stop inside the
   finish grace, which returns before `_sc_finish_flow` is reached at all.
+
+## 11. What the maintainer's review changed (2026-09-27, `CHANGES_REQUESTED`)
+
+§10.1's witness does not hold. `saw_reading_after_open()` answers *"was a sample
+**accepted** after the seed"*, which is one question short of *"did this meter
+**measure** this run"*. **Four inputs separate the two** — one found by the
+maintainer on `JustChr#174`, three measured by the distributor work
+(`Eifel-Joe#53`) that inherited this design. Every one of them ends as
+`RUN_RESULT_FAILED` / `flow_never_started`, with the optimistic credit reversed
+and a zone fault raised, **on a run that watered**.
+
+That is the harmful direction: the zone waters again at the next opportunity and
+the fault stays on, for someone whose irrigation was working. `master`, which
+credits all four by time, is better than this branch for them. The bar has to be
+higher here than in §10.1, because the classic runner's dry branch only fires
+after a volume-targeted run has gone all the way to its safety maximum
+(`while elapsed < max_seconds and delivered < target_volume`,
+`irrigation.py:1519`, dry branch at `:1580`) — here the window can be the
+planned 60 s.
+
+### 11.1 The maintainer's input: a state that is read again but never reported
+
+`_sc_flow_tick` re-reads `hass.states` every `FLOW_POLL_INTERVAL` (15 s), and
+`hass.states.get()` hands back the **same `State` object** when nothing was
+written to it. `sample()` therefore set `_saw_reading_after_open` at `at > 0` for
+a sensor that has not spoken since before the valve opened. Nothing then told a
+meter that *watched the run and saw no water* apart from one that had simply
+**not sent a new value yet**.
+
+On real installations that is any flow sensor updating less often than the run
+lasts: a cloud-polled controller, a utility meter reporting every few minutes,
+or a counter that reports only after the valve closes. Our own live test on
+HA-Test walked into it — `sensor.wasser_3_flow` had `last_reported` five minutes
+before the valve opened, and the run was recorded `failed` (`reconstructed/`
+2026-09-27 protocol). The test that was supposed to pin the dry case,
+`test_a_live_but_dry_meter_reports_zero_not_nothing`, feeds one state object that
+is never updated — so it pinned this defect rather than the dry cistern.
+
+**`State.last_reported` is the separator.** It advances on every write from the
+integration even when the value is unchanged, and it exists on our 2025.5 floor
+(verified present in the local test environment's HA 2024.12.5, and a
+constructor keyword, so tests can set it directly).
+
+### 11.2 Three more inputs of the same class, measured
+
+Fed straight into the real `FlowMeter` with this path's real constants
+(`near_zero_frac 0.1`, `near_zero_floor 1.0`, `max_gap_s 60`, poll 15 s) and run
+through the guard expression as submitted. Probe:
+`D:\Entwicklung\HASI\pr174-work\probe_174_guard.py`.
+
+| input | water that really flowed | `delivered()` | `saw_reset()` | `saw_reading_after_open()` | verdict as submitted |
+|---|---|---|---|---|---|
+| rate 12 L/min, live only every 75 s (gap `>` `max_gap_s` 60) | the whole window | `0.0` | `False` | `True` | **FAILED (dry)** |
+| totalizer `100 → 60, 70, 80, 90` | 30 L | `0.0` | `False` | `True` | **FAILED (dry)** |
+| totalizer `45 → 8, 20, 30, 40` | 32 L | `0.0` | `False` | `True` | **FAILED (dry)** |
+| *boundary:* totalizer `45 → 0.2, 15, 30, 45` | 45 L | `0.0` | `True` | `True` | None (time-based) ✔ |
+| *control:* rate `0` every poll, freshly reported | 0 L | `0.0` | `False` | `True` | **FAILED (dry)** ✔ |
+
+Two things the table settles:
+
+1. **The rate-gap case is separable after all.** §10.1's closing paragraph
+   declared it wasn't — "separating those needs coverage accounting, not a
+   guard". The accounting is one boolean: whether the meter *refused* an
+   interval. `_sample_rate`'s `else` branch is exactly that refusal, and it is
+   already written; it just was not readable from outside.
+   The distributor's numbers in §4.1 were measured at `max_gap_s 20`
+   (`DISTRIBUTOR_FLOW_POLL_SECONDS 5 × 4`); on this path the same sensor needs a
+   75 s outage, five consecutive missed polls, which is the flapping mode the
+   dead-meter extend guard exists for.
+2. **Row 3 and row 4 are the same physical situation** — a per-run counter on a
+   zone whose type is still being learned, resolved to the over-credit-safe
+   `lifetime`, which keeps the pre-reset baseline. The *only* difference is where
+   the 15 s poll landed after the reset: at `0.2 L` it is below
+   `max(1.0, 0.1 × 45) = 4.5` and `saw_reset()` catches it; at `8 L` it is above,
+   `saw_reset()` is `False`, and the guard does not fire. §10.1 measured the
+   lucky landing and generalised from it. A real install produces whichever the
+   poll cadence happens to hit.
+
+### 11.3 The form: three conditions, one accessor
+
+`FlowMeter` distinguishes five states of a reading, and §10.1 exposed the second
+weakest (the row that is struck through is the one this section removes):
+
+| state | flag | what it proves |
+|---|---|---|
+| a numeric value arrived | `_have_reading` | nothing — the valve-open seed satisfies it alone |
+| ~~…after the seed~~ | ~~`_saw_reading_after_open`~~ | ~~that *we read*, not that the sensor *spoke*~~ — removed |
+| the sensor reported anew | `_saw_report_after_open` | the sensor was alive **during** the run |
+| the reading was **credited** | `_priced` | the meter accounted for an interval |
+| a reading was **refused** | `_declined` | the meter saw one it would not price |
+
+```python
+    def metered_the_run(self) -> bool:
+        return self._saw_report_after_open and self._priced and not self._declined
+```
+
+and the guard in `_sc_finish_flow` collapses to one term:
+
+```python
+        if d is not None and d <= 0 and not meter.metered_the_run():
+            return None, self._flow_learn_end_changes(zone, meter, open_start_l)
+        return d, self._flow_learn_end_changes(zone, meter, open_start_l)
+```
+
+**All three conditions are load-bearing, and neither half subsumes the other:**
+
+- §11.1's stale sensor **passes** `_priced` — a rate sensor read at `0` prices
+  every interval at 0 L, which is why `metered_the_run()` alone (the form
+  `Eifel-Joe#53` built) has the maintainer's defect too. Only
+  `_saw_report_after_open` rejects it.
+- §11.2 rows 1–3 **pass** `_saw_report_after_open` — those sensors do report,
+  freshly, on every live poll. Only `_declined` rejects them.
+
+**Where the flags are set** — at the two points a reading is credited and the two
+where one is refused, and nowhere else:
+
+- `_priced`: `_sample_rate`'s in-gap branch beside the `_delivered` increment,
+  and `_sample_totalizer`'s rising branch. *An interval credited at 0 L counts,
+  and that is the point*: a rate sensor reading 0 every poll, or a totalizer
+  holding its value, has **measured** the dryness.
+- `_declined`: `_sample_rate`'s `else` (the gap it will not integrate across),
+  and **unconditionally above** `_sample_totalizer`'s near-zero branch.
+- neither in the seed path (`if self._last is None`), which accounts for nothing.
+  So a pressure surge at valve-open followed by an empty cistern
+  (`12, 0, 0, 0…`) is still correctly written off: the surge is the seed, and
+  every interval after it is credited at 0.
+
+### 11.4 Plumbing the report through
+
+`_read_flow_sample` grows a fourth element, `state.last_reported`, and
+`FlowMeter.sample` takes it as its fourth **positional** parameter with `at`
+moved behind the `*`:
+
+```python
+    def sample(self, value, unit, state_class, reported_at=None, *, at: float) -> None:
+```
+
+That shape is chosen so the eight `meter.sample(*sample, at=…)` call sites —
+`_flow_build_meter` (shared by **all four** metered paths, including this one's
+valve-open seed), the classic runner's two loops, `observed_watering`'s two and
+`self_closing`'s two — need no edit at all, and so the two `distributor.py` sites
+that pass `at` positionally fail **loudly** (`at` is keyword-only and has no
+default) instead of silently binding elapsed seconds to `reported_at`. Those two
+become `at=…`.
+
+The baseline is the **first sample that carries a `reported_at`**, and a later
+sample is evidence only when its report is strictly newer. With the usual
+valve-open seed that is identical to "newer than the open". Without a seed (the
+sensor was `unavailable` at open) the first readable poll becomes the baseline,
+so evidence needs two reports — deliberately conservative, and it closes an
+edge the submitted form left open: a run shorter than one poll whose seed is
+missing has no `_rate_marks` entry at or before the valve-off report, so
+`end_rate_at` zeroes `_delivered`; with only one post-open report there is no
+witness, and the run keeps its time-based credit instead of being written off.
+
+`reported_at=None` — every caller that does not pass one — leaves
+`metered_the_run()` `False`, i.e. **never dry**. The safe direction is the
+default, and it is why the dry tests have to issue states with a fresh
+`last_reported` to stay red-on-regression.
+
+### 11.5 What `saw_reset()` no longer does here
+
+It leaves the guard. `_saw_reset` is assigned in exactly one place, *inside*
+`_sample_totalizer`'s near-zero branch, and `_declined` is set unconditionally
+just above the `if` guarding it — so `saw_reset()` implies
+`not metered_the_run()` and the term is provably redundant. `Eifel-Joe#53`
+reached the same conclusion from the other end: the mutation that drops it kills
+nothing (`bd7930f6`). A `NOT-TO-DO` at the `_declined` assignment records that
+the two must stay together.
+
+The classic runner keeps `saw_reset()` as its in-loop diversion
+(`irrigation.py:1535`) — it has no declined flag, so there the term is the test
+rather than a redundant one. Which is also why **the classic runner still has
+row 3 of §11.2**: `measured <= 0 and meter.saw_reset()` is `False` for the `8 L`
+landing, so its loop runs to `max_seconds` and its dry branch writes the run
+off. That is a pre-existing defect in another runner with different credit
+mechanics, it is not made worse here, and it stays out of this PR — with its own
+issue, as §10.1's dead-after-seed case already has.
+
+### 11.6 What this form costs, stated
+
+- **A per-run counter whose reset falls inside the window never gets a dry
+  verdict.** Its reset reads as declined, so a `0.0` degrades to the time-based
+  credit. Correct rather than a gap: after a reset a `0.0` cannot be told apart
+  from a post-reset climb the retained baseline swallowed — §11.2 rows 3 and 4.
+  A per-run counter that *does* deliver is unaffected; `delivered` is positive
+  and the guard never looks.
+- **A sensor reporting exactly once during the run gets no verdict either**
+  (§11.4). One report is a baseline, not a change.
+- **`flow_metering.py` grows two flags and one accessor that only one caller
+  reads today.** `Eifel-Joe#53` is the second, and it now inherits this instead
+  of shipping its own copy — which removes the textual conflict in `sample()`'s
+  neighbourhood that `Eifel-Joe#53` §4.3 had accepted as the lesser evil.
+
+### 11.7 The test baseline moved with the base
+
+Rebased onto `c5330c7f` (`#165`, `#168`, `#169`, `#171`, `#173` merged since
+`418ab8a0`), so §9's numbers are void. Measured fresh on `c5330c7f` in its own
+worktree: **7 failed / 3322 passed / 9 skipped / 367 errors**, 374 non-green
+names in `D:\Entwicklung\HASI\pr174-work\baseline-names.txt`. The `418ab8a0`
+figure was 356 names — an old baseline file would have read 18 new failures as
+ours.
+
+### 11.8 The apology owed with this
+
+Both of the maintainer's reviews closed on the same complaint: the test
+docstrings cite `Eifel-Joe#3` / `Eifel-Joe#4`, issue numbers in **our** fork
+that no reader of his repository can resolve. He asked for "GitHub issue/PR
+numbers instead". The resolution is **not** to substitute other numbers: we do
+not open issues in his repository in order to cite them. The references come out
+entirely and the defect is described in words. The reply says so, and apologises
+for the referencing rather than explaining it away.
+
+### 11.9 The premise verified against a live instance, not the docs
+
+The whole design rests on one claim about foreign code: that `last_reported`
+advances when a sensor sends a value it has already sent, while `last_changed`
+does not. Taking that from the review would have been the mistake §11 exists to
+correct, so it was measured on HA-Test (2026-09-27):
+
+- **42 of 348 `sensor.*` entities had `last_reported` strictly later than
+  `last_changed`.** Example: `sensor.irrigation_plus_kirschlorbeer_next_irrigation`,
+  value unchanged since 08:19:32, reported again at 10:39:34. So a repeated
+  identical report is visible, which is exactly the signal the witness needs.
+- **`sensor.wasser_3_flow` — the sensor the previous live test ran against — still
+  read `last_reported = 10:20:16`**, hours later and identical to its
+  `last_changed`. It is a genuinely quiet sensor, which confirms why that run was
+  recorded `failed`: it is §11.1's case and not a dry cistern.
+
+Both halves of the separator therefore exist on a real instance, which is what
+made the earlier live test unreadable rather than wrong.
+
+### 11.10 What the mutation matrix changed
+
+Thirteen mutations, driven by `D:\Entwicklung\HASI\pr174-work\mutate.py` (each one
+reverted with `git checkout --`, the tree asserted clean before the next). The
+first run left **five survivors**, and per the rule that a mutation killing
+nothing may be the WRONG mutation, each was investigated rather than papered over
+with an invented test. All five turned out to be a weak test, not a redundant
+term:
+
+| mutant | why it survived | the input that was missing |
+|---|---|---|
+| drop `_declined` (whole half) | both §11.2 rate/totalizer inputs price **nothing** — every rate interval exceeds `max_gap_s`, and a totalizer below its retained baseline never reaches the rising branch — so `_priced` alone already rejected them | credited FIRST, refused after: two intervals at 0 L, then a 90 s gap with 12 L/min in it |
+| drop `_declined` from `_sample_rate` | same | same |
+| move `_declined` below the near-zero `if` | same, for the totalizer | a counter that HOLDS twice (priced at 0 L) and then falls to 5 and climbs to 35 |
+| drop `_priced` | with a report after the open and nothing refused, a totalizer sample always rises or falls, so `_priced` looked implied | a rate sample that does not advance the clock: the non-monotonic branch credits and refuses nothing, so a fresh report on it proves the sensor is alive and nothing about the run |
+| `isinstance(reported_at, datetime)` → `is not None` | **the fixture short-circuited the line under test.** Its first report was already `None`, so `_open_reported_at` never became a `datetime` and the inner `isinstance` kept re-assigning the baseline — the comparison the outer guard protects was never reached | the valve-open seed carries a REAL report, and the junk arrives after it |
+
+And one mutation that survived *as predicted* in the first run was found to be a
+real gap after all: **the guard's `<= 0` narrowed to `== 0`**. It needs a run that
+measures BELOW zero and was not measured — a rate sensor's negative resting
+offset integrates to `-0.2 L` across two intervals, and at `== 0` that walks past
+the guard and is written off as dry. §10.3 had argued `<= 0` from the *credit*
+side; this is the same argument on the *evidence* side, and it now has a test.
+
+Second run: **13 of 13 killed, 0 survivors.** The last row is the same lesson as
+§11.1 in miniature — a test can pin the defect instead of the behaviour, and only
+something that changes the code underneath it will say so.

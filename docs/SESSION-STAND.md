@@ -23,6 +23,149 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-27 (2) — JustChr#174 nachgebessert, live belegt, gepusht; zwei Geschwister-Pfade als Issues
+
+### Stand (verifiziert)
+- **`JustChr#174` ist nachgebessert, gepusht und kommentiert.** Branch
+  `fix-a-run-that-delivered-nothing-is-not-a-success`, Worktree
+  `D:/Entwicklung/HASI/pr34-work/pr2`, Kopf **`3e372042`**, Basis `c5330c7f`,
+  **0 hinter upstream**. PR-Status: `DIRTY` --> **`MERGEABLE` / `CLEAN`**,
+  **CI 4 passing / 0 failing**. `reviewDecision` steht weiter auf
+  `CHANGES_REQUESTED`, bis JustChr neu reviewt.
+  [Kommentar](https://github.com/JustChr/HAsmartirrigation/pull/174#issuecomment-5855700205)
+  — **mit der Entschuldigung an erster Stelle**.
+- **Die Zeugen-Form, die gelandet ist:**
+  `metered_the_run() == _saw_report_after_open and _priced and not _declined`.
+  `_read_flow_sample` trägt `State.last_reported`, `FlowMeter.sample` nimmt es im
+  vierten Positions-Slot, `at` ist hinter das `*` gewandert. `saw_reading_after_open()`
+  ist ersatzlos weg, `saw_reset()` aus dem Guard raus (beweisbar redundant).
+  Volle Begründung: Spec §11 (siehe unten), **nicht hier doppeln**.
+- **Der Umfang wurde erweitert, und zwar auf Beleg:** JustChrs Fall war einer von
+  vier. Die drei aus Spec §4 des `#53`-Designs habe ich gegen `#174`s *eingereichten*
+  Guard nachgemessen — alle drei wurden als `failed` abgeschrieben, obwohl Wasser floss.
+  Probe: `D:\Entwicklung\HASI\pr174-work\probe_174_guard.py`, Gegenprobe auf dem
+  neuen Stand `probe_new_guard.py` (7 von 7 richtig).
+- **Voll-Lauf:** Baseline **neu** auf `c5330c7f` in eigenem Worktree
+  (`pr174-work/base`): 7 failed / **3322** passed / 9 skipped / 367 errors = 374 Namen.
+  Branch: 7 failed / **3344** passed / 9 skipped / 367 errors — **Namens-Diff LEER**.
+  Dateien: `pr174-work/{baseline,after}-names*.txt`. Lint grün.
+- **Mutationsmatrix 13/13 getötet** (`pr174-work/mutate.py`, Ergebnis `mutate-run2.txt`).
+  Erster Durchlauf hatte **fünf Überlebende** — jeder war ein zu schwacher Test, kein
+  redundanter Term. Details in Spec §11.10.
+- **🧪 Live belegt auf HA-Test, drei Läufe, eine Variable.** Wegwerf-Build
+  `v2026.09.27b2` (`2a1ee093`), Zone `Grace Test`, Flussquelle
+  `input_number.hasi_flow_probe` konstant `0.0`, je `run_zone duration: 1`:
+  stumm --> `completed` + 4,0 L zeitbasiert · meldend --> **`failed` /
+  `flow_never_started`**, Eimer/Verbrauch/`last_irrigation` unberührt · stumm -->
+  `completed` und **der Fehler wird geklärt**.
+  Volles Protokoll: `archive/design-history`,
+  `docs/superpowers/reconstructed/2026-09-27-dry-run-witness-live.md`.
+- **Der Angelpunkt wurde vorher gemessen, nicht angenommen:** `input_number.set_value`
+  mit **unverändertem** Wert rückte `last_reported` um 244 s vor, `last_changed` stand.
+  Und generell auf HA-Test: **42 von 348 Sensoren** haben `last_reported` strikt nach
+  `last_changed`.
+- **Regel P2 nachgezogen:** `Eifel-Joe#4` kommentiert (JustChrs Einwand in seinen Worten
+  + Live-Tabelle + Querverweis), `#53` kommentiert (erbt die Form, Live-Test muss
+  wiederholt werden). **Neu: `#57`** (observed watering, umgekehrter Vertrag) und
+  **`#58`** (klassischer Runner, Umleitung im Sampling-Loop) — beide aus dem
+  Schwester-Pfad-Check, beide `typ:fehler`. 48 Issues offen.
+  **Schwere/Größe/`prod-scharf` auf `#57`/`#58` absichtlich NICHT gesetzt** — das ist
+  Triage und gehört dir.
+- **Branch-Form:** in die **zwei** Commits umgeformt, die JustChr erwartet, weil die drei
+  Falschreferenzen auch im *Inhalt* des alten Fix-Commits steckten. Beweis: **leerer
+  `git diff`** gegen die granulare Historie, die als **`pr174-granular`** (`a1dfabc7`)
+  lokal erhalten ist. Skript: `pr174-work/reshape.sh`.
+- **Drei Referenz-Checks liefen vor dem Push, nicht zwei:** Diff, Commit-Messages **und
+  pro-Commit-Inhalt**. Alle leer (einziger Treffer: die eigene Author-Zeile).
+
+### Verworfen
+- **Nur JustChrs Punkt zu fixen.** Die drei weiteren Eingaben sind gemessen; `#174` wäre
+  mit drei bekannten Falsch-Abschreibungen rausgegangen.
+- **`metered_the_run()` allein als Zeuge** (die `#53`-Form). Ein abgestandener Sensor bei
+  `0` besteht `_priced` — eine Rate von 0 bepreist jedes Intervall mit 0 L.
+- **`last_reported` allein als Zeuge.** Die drei §4-Eingaben melden frisch, wann immer sie
+  live sind; nur `_declined` lehnt sie ab.
+- **Template-Sensor als Live-Flussquelle.** Ein zustandsbasierter Template-Sensor rendert
+  bei unverändertem Wert möglicherweise nicht neu — darauf durfte der Beweis nicht stehen.
+  `input_number` geht durch `async_write_ha_state` und damit immer.
+
+### Fallen
+- **Der Voll-Lauf mit Namens-Diff ist nicht ersetzbar.** Nach Task 2 waren
+  `test_flow_meter`, `test_self_closing`, `test_observed_watering`, `test_metered_run`
+  und alle Verteiler-Dateien grün — und `tests/test_valve_verification.py` rot, eine
+  Datei, die ich nie einzeln gefahren hatte. Ursache: ein `SimpleNamespace`-Double ohne
+  `last_reported`.
+- **Eine Mutation, die nichts tötet, ist zuerst ein Verdacht gegen den Test.** Fünf
+  Überlebende, fünf zu schwache Tests. Der schärfste: der Guard gegen unsortierbare
+  Report-Zeiten war mit einem Fixture gepinnt, dessen **erster** Report schon `None` war
+  — die Basislinie wurde nie ein `datetime`, die geschützte Vergleichszeile nie erreicht.
+  Der Test hätte jede Guard-Variante bestätigt.
+- **`git add dist/` scheitert still.** `dist/` ist als *Verzeichnis* gitignored, obwohl
+  die Dateien getrackt sind; `git check-ignore` auf die *Dateien* meldet nichts. Ohne
+  `-f` bricht das `git add` ab, das `&&` verschluckt den Commit, und `git log` sieht
+  unverändert aus. Und: es sind **4** Bundles, die Projekt-`CLAUDE.md` sagt 3.
+- **Der Feldname im Panel heißt „Durchflussmesser-Sensor (optional)"**, nicht
+  „Flusssensor" — ich hatte ihn erfunden und der User fand ihn nicht. Beschriftungen
+  aus `frontend/localize/languages/de.json` holen, nicht aus dem Key raten.
+- **Der Aufräum-Check hat korrekt verweigert** und war trotzdem irreführend: „the matrix
+  left the tree dirty" — der Dreck waren meine eigenen uncommitteten Tests, nicht ein
+  Mutant. Die Matrix-Ziele waren sauber.
+- **HTTP 200 nach einem HA-Neustart heißt nichts.** Der Port antwortete nach 5 s; der
+  belastbare Beleg ist `update.smart_irrigation_update` mit
+  `installed_version = v2026.09.27b2` plus Config-Entry `loaded`.
+
+### Stand auf HA-Test (aufräumen oder bewusst so lassen)
+- Läuft **`v2026.09.27b2`** = upstream `c5330c7f` + die zwei `#174`-Commits.
+  **Keine Eigenentwicklungen** des Forks in diesem Build.
+- **Dessen Release und Tag sind gelöscht**, HACS kann die Version also nicht neu ziehen
+  oder prüfen. Die Dateien sind intakt. Zurück auf einen HACS-bekannten Build:
+  `v2026.09.27b1` (upstream ohne den Fix) oder `v2026.09.22b1` (letzter mit der
+  Ventil-Sicherheit). Der Build selbst bleibt reproduzierbar: **lokaler** Branch
+  `prerelease/v2026.09.27b2` (`2a1ee093`) im Worktree `pr174-work/prerel`.
+- **`Grace Test` trägt `input_number.hasi_flow_probe` als Durchflussmesser-Sensor.**
+  Vorher hatte die Zone **keinen**. Zurücksetzen geht **nur im Panel** — solange das
+  Feld gesetzt ist, darf der Helper nicht gelöscht werden.
+- `Grace Test`s Eimer steht nach drei Testläufen auf **−2,53** (vorher −3,33),
+  `Wasserverbrauch` auf **8,0 L** (vorher 0,0), Fehler-Sensor `off`.
+- `Gardena1` trägt weiter `flow_sensor: sensor.wasser_3_flow` (der stumme Sensor).
+- `Test2`s Eimer steht weiter von Hand auf −5.
+- PirateWeather antwortet auf dieser Instanz mit **429** — `calculate_zone` liefert
+  nichts, `run_zone duration:` ist der wetterunabhängige Weg.
+
+### Nächste Schritte
+1. **Panel:** `Grace Test` → „Durchflussmesser-Sensor (optional)" **leeren**. Danach
+   `input_number.hasi_flow_probe` löschen.
+2. **`archive/design-history` pushen** — Spec §11 (§11.1–§11.10), Plan
+   `2026-09-27-dry-run-witness-rework.md` und das Live-Protokoll liegen im Worktree
+   `pr139-work/archive-wt` **uncommittet**. Regel P1 ist bis dahin NICHT erfüllt.
+3. **Auf JustChrs Re-Review von `#174` warten.** Kommt ein Einwand: als Kommentar in
+   `Eifel-Joe#4`, in seinen Worten.
+4. **`Eifel-Joe#53` auf die gelandete Form ziehen** — `metered_the_run()` erbt
+   `_saw_report_after_open`, der `flow_metering.py`-Teil des Branches entfällt, die zwei
+   `distributor.py`-Aufrufe brauchen `at=`. Danach Live-Test **mit meldendem Sensor**
+   (`input_number`-Rezept steht im Protokoll). Branch
+   `fix-a-dry-member-run-is-not-a-delivery`, Worktree `issue53-work/wt`, Kopf `dc56b1fb`,
+   Basis `418ab8a0` — **Basis ist veraltet, neu rebasen und neu baselinen.**
+   ⛔ Dessen 20 Commit-Messages tragen weiter `Eifel-Joe#53`/`#4`.
+5. **`JustChr#172`** — Uhr in den Tests pinnen, `before_run`-Anker, seine Frage zu Zonen
+   ohne Zeitplan.
+6. **PR 2 / Task 11 (`Eifel-Joe#45`)** rebasen; vorher prüfen, ob `c5330c7f` den Defekt
+   noch trägt.
+7. **`Eifel-Joe#22` PR 1** ist entblockt.
+8. Aufräumen, wenn `#174` durch ist: Worktrees `pr34-work/pr1`, `prerelease-work/wt`,
+   `issue53-work/base`, `pr174-work/base`, die Branches `prerelease/v2026.09.22b1` und
+   `prerelease/v2026.09.27b1` samt Release. Vorher die kleinen Ordner ansehen
+   (Memory `scratch-dirs-hold-irreproducible-evidence`) — in `pr174-work` liegen die
+   beiden Proben, die Matrix und die Baselines.
+
+### Empfohlene Skills
+`superpowers:receiving-code-review` für JustChrs Re-Review, `pr-workflow` für `#53`/`#172`,
+`superpowers:verification-before-completion` vor jedem „fertig" — diese Sitzung hat einen
+Regress in einer Datei gefunden, die kein Teil-Lauf berührte, und fünf Tests, die eine
+Mutation überleben ließen.
+
+---
+
 ## 2026-09-27 — Eifel-Joe#53 gebaut und live gefahren, aber von JustChrs Review gestoppt; fünf PRs gemergt; P2 nachgezogen
 
 ### Stand (verifiziert)
