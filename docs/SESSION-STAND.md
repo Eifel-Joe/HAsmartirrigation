@@ -23,6 +23,156 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-27 — Eifel-Joe#53 gebaut und live gefahren, aber von JustChrs Review gestoppt; fünf PRs gemergt; P2 nachgezogen
+
+### Stand (verifiziert)
+- **`Eifel-Joe#53` ist GEBAUT, NICHT eingereicht, und nicht fertig.** Branch
+  `fix-a-dry-member-run-is-not-a-delivery`, Worktree `D:/Entwicklung/HASI/issue53-work/wt`,
+  Kopf **`dc56b1fb`**, Basis `418ab8a0` (inzwischen 5 Commits hinter upstream).
+  - Voll-Suite **7 failed / 3274 passed / 9 skipped / 349 errors**, Basis war 3254 → **+20**.
+    Die 356 nicht-grünen Namen sind `diff`-IDENTISCH zur Baseline auf demselben
+    Basis-Commit (`issue53-work/baseline-names.txt`). Lint grün.
+  - **14 Mutationen, 13 getötet**, M3a überlebt konstruktionsbedingt. Treiber
+    `issue53-work/mutate3.py` — er nimmt jede Mutation per `git checkout --` zurück und
+    **bricht ab**, wenn der Baum vorher nicht sauber ist (hat einmal korrekt verweigert).
+  - Diff: `distributor.py +169`, `flow_metering.py +41`, 4 Testdateien. `self_closing.py`,
+    `run_chain.py`, `live_estimate.py`, `calculation.py`, `irrigation.py` unberührt.
+- **🔴 Der Fix ist so nicht richtig, und der Befund kommt von JustChr an `JustChr#174`:**
+  ein erneut gelesener **unveränderter** State setzt den Zeugen ebenfalls. Ein Sensor, der
+  seltener meldet als der Lauf dauert (cloud-gepollt, Zähler der alle paar Minuten meldet,
+  Zähler der erst nach dem Schließen meldet), ist damit von einem trockenen nicht zu
+  unterscheiden — und sein Lauf wird als `failed` abgeschrieben, die Gutschrift
+  zurückgedreht. Sein Vorschlag: **`State.last_reported`**, nur ein Bericht *nach* dem
+  Ventil-Öffnen ist Evidenz (ab HA 2025.5 verfügbar, unser Boden).
+  Gilt für `#174` **und** `#53` gleichermaßen.
+- **🧪 Live-Test auf HA-Test: Mechanik belegt, Richtigkeit NICHT.** Pre-Release
+  [`v2026.09.27b1`](https://github.com/Eifel-Joe/HAsmartirrigation/releases/tag/v2026.09.27b1)
+  (Commit `560fe52e`, Branch `prerelease/v2026.09.27b1`), per HACS installiert, HA-Test neu
+  gestartet. `production` NICHT angefasst.
+  - Drei Läufe auf `Test2`, Verteiler `Gardena1`, Sensor `sensor.wasser_3_flow` auf `0`:
+    09:58 `completed` 3,05 L · 10:15 `completed` 3,0 L (beide alter Build) · **10:26
+    `failed` / `flow_never_started` 0 L** (neuer Build). Eimer, `water_used_total` und
+    `last_irrigation` blieben unberührt, die neue WARNING steht im Log.
+  - **Aber:** der Sensor hatte `last_reported = 10:20:16`, das Fenster lief 10:25:30–10:26:30.
+    Er hat während des Laufs **nicht gemeldet** — genau der Fall, in dem der Lauf seine
+    zeitbasierte Gutschrift hätte behalten müssen. Der Test zeigt also, dass die Kette
+    durchläuft, nicht dass sie richtig urteilt. **Muss mit einem meldenden Sensor wiederholt
+    werden.**
+  - Was steht: auf dem Build **ohne** Fix bekamen in einem Zyklus **vier** Member-Zonen je
+    3,05 L gutgeschrieben, Sensor durchgehend 0 — **12,2 L als geliefert verbucht**, alle
+    vier Eimer von Defizit auf 0, alle Problem-Sensoren `off`.
+  - Volles Protokoll: `archive/design-history`,
+    `docs/superpowers/reconstructed/2026-09-27-dry-distributor-member-live.md`.
+- **Drei Zeugen-Entwürfe, zwei davon als Regression GEMESSEN**, bevor der dritte hielt.
+  Das ist die Substanz dieser Sitzung und steht in Spec §4:
+  1. `last_live` (Poll-Zeitpunkte) — drei Eingaben lieferten `0.0` für Läufe mit echtem
+     Wasser, wo `418ab8a0` `None` gab;
+  2. `priced_anything()` — rastete beim *ersten* verbuchten Intervall ein, zwei gewöhnliche
+     Reads davor hoben die Wirkung auf;
+  3. `metered_the_run()` = verbucht **und** nichts verworfen — hält gegen alle sechs
+     Eingaben und alle vier Trocken-Kontrollen.
+  Zweimal war die Wurzel dieselbe wie bei `#174`s Critical: Schwester-Pfad-Check eine Ebene
+  zu früh abgebrochen.
+- **Die Matrix hat einen toten Term gefunden:** `saw_reset()` im Guard tötete nichts.
+  Beweisbar redundant — `_saw_reset` wird an genau einer Stelle gesetzt, *innerhalb* des
+  near-zero-Zweigs, `_declined` unbedingt darüber. Term entfernt (`bd7930f6`) statt einen
+  Test dafür zu erfinden.
+- **🔴 upstream/master = `c5330c7f`, fünf PRs gemergt:** `#165` (`f0027213`), `#168`
+  (`e8a3ef8f`), `#169` (`85e54468`), `#171` (`59a3da8c`), `#173` (`c5330c7f`).
+  Beide noch offenen PRs stehen auf **`CHANGES_REQUESTED`**: `#174` (zusätzlich `DIRTY`,
+  weil `#173` darunter gemergt wurde) und `#172`.
+  - `#172`: (1) die Tests hängen am Kalender und **fielen auf seiner Uhr um**, drei
+    Fehlschläge — dieselbe Klasse, die wir selbst als `JustChr#141` gemeldet haben;
+    (2) bei `autocalcmode: before_run` bepreist der Resolver den **nächsten** Lauf, weil der
+    Fire-Callback `_armed_runs` vor `_execute_schedule` leert; (3) offene Frage zu Zonen ohne
+    eigenen Zeitplan, er tendiert zum `evaluated_at`-Fallback.
+- **⚠️ Der nächste Text an JustChr MUSS sich für die Falschreferenzierungen entschuldigen**
+  (User-Anweisung 2026-09-27). Er hat sie in beiden Reviews gerügt: „Nobody reading this
+  repository can follow those."
+- **Konvention korrigiert:** wir verweisen **nur auf das, was es bei JustChr schon gibt** —
+  es werden **keine** Issues angelegt, nur um zitieren zu können (User-Anweisung). Für `#53`
+  existiert upstream keins, also stehen dort **keine** Verweise; der Kommentar beschreibt den
+  Defekt. Umgesetzt in `dc56b1fb`: 21 Präfixe und 2 `spec D2` entfernt, Endkontrolle am Diff
+  ist leer.
+- **P2 nachgezogen** (alles freigegeben, alles gesendet): `Eifel-Joe#3`, `#2`, `#43`, `#6`,
+  `#52` kommentiert und **geschlossen**; `#4`, `#21`, `#22`, `#45`, `#53` kommentiert und
+  offen; **`#56` neu** (Reset-Umfang aus `#52` Teil 2); `#42` Body in beiden Sprachhälften
+  aktualisiert. 46 Issues offen.
+- **Regel P1 erfüllt:** Spec, Plan und Live-Protokoll auf `archive/design-history` =
+  **`82612625`, gepusht**.
+
+### Verworfen
+- **`last_live` als Zeuge** (Tasks 2–4). Gemessen gegen `418ab8a0`: Rate 12 L/min mit
+  Lücken > `max_gap_s`, Totalizer `100→60,70,80,90`, Totalizer `45→8,20,30,40` — alle drei
+  auf HEAD `0.0`, auf der Basis `None`.
+- **`priced_anything()`** (Task 4b). Zwei gewöhnliche Reads vor jeder dieser Eingaben
+  rasten den Flag ein und schreiben den Rest des Fensters ab.
+- **`saw_reset()` als zweiter Guard-Term** — redundant, siehe oben.
+- **`set_bucket` + `calculate_zone`, um eine Member-Zone wieder fällig zu machen.**
+  `set_bucket` schreibt den Store direkt (auf `handle_set_zone` registriert) und rechnet die
+  Dauer **nicht** neu; `calculate_zone` konnte auch keine liefern, weil PirateWeather mit
+  **429** antwortete. Ersetzt durch `run_zone` auf der Member-Zone, das über
+  `_dispatch_distributor_cycles(..., duration_override=...)` läuft und die Fälligkeit umgeht.
+
+### Fallen
+- **🔴 Surrogat-Escapes, zum zweiten Mal.** `\ud83d\udc41\ufe0f` für 👁️ ist ein halbes
+  Surrogatpaar, kein Emoji — der Anker fand nichts. Richtig: `\U0001F441\uFE0F`. Nur die
+  `assert count == 1` hat den Fehlgriff gefangen.
+- **🔴 Ein `<<'PYEOF'`-Heredoc frisst eine Backslash-Ebene.** `\\n` in einem Python-String
+  landete als echter Zeilenumbruch in der Datei und riss das Skript. Zweimal passiert.
+  **Mehrzeilige Skripte mit dem Write-Tool schreiben und per absolutem Pfad aufrufen**, nie
+  per Heredoc.
+- **Ein `sed`-Muster, dessen eigene Verifikation den Fehler nicht zeigen kann.** Plan-Task 5
+  verbreiterte 8 Stubs, `numstat` sagte `8 8` und `grep -c` sagte `8` — beide bestätigten nur,
+  dass der `sed` tat was er sagte, nicht dass das Muster alle Stellen traf. Drei weitere
+  Stubs benutzen `w` statt `s` als Parameternamen.
+- **Ein Test, der VOR dem Fix grün ist.** Plan-Task 8 benutzte `_dist(...)` ohne
+  `watering_mode`; der Default `CLASSIC` macht `can_stop` unbedingt wahr und schließt das
+  Gate kurz, das der Test prüfen sollte. Fixture auf `WATERING_MODE_SERVICE`, dann echtes RED.
+- **`irrigation_plus.set_bucket` auf den *Eimer*-Sensor gibt HTTP 500** statt das Ziel
+  abzulehnen. Richtiges Ziel ist der Zonen-Sensor (`sensor.irrigation_plus_test2`).
+- **Verteiler- und Zonenfelder sind per MCP nur lesbar** — der Flusssensor am Verteiler musste
+  im Panel gesetzt werden. `set_bucket`, `run_zone`, `calculate_zone`,
+  `distributor_run_now` gehen dagegen per Service.
+- **Die Integrations-Diagnostics geben den Pirate-Weather-Schlüssel im Klartext aus.** Nicht
+  in Dateien, Issues oder Commits kopieren; er gehört zu Memory `hasi-pirate-weather-api-key`.
+
+### Stand auf HA-Test (aufräumen oder bewusst so lassen)
+- Läuft **`v2026.09.27b1`** — dieser Build enthält `#3`/`#4` **nicht**. Wer die
+  Ventil-Sicherheit dort zurück will, installiert `v2026.09.22b1`.
+- `Gardena1` trägt jetzt `flow_sensor: sensor.wasser_3_flow`.
+- `Test2`s Eimer steht von Hand auf **−5 mm**, kein echtes Defizit. `Test3`, `Test5`, `Test6`
+  wurden nach dem ersten Zyklus auf −0,61 zurückgesetzt.
+- Grace Test trägt weiter `flow_sensor` + `throughput 4`.
+
+### Nächste Schritte
+1. **`JustChr#174` zuerst** — er legt die Zeugen-Form fest, die `#53` erbt. Nötig:
+   `State.last_reported` als Evidenz, Rebase auf `c5330c7f`, Testkommentare von unseren
+   Nummern befreien, **und die Entschuldigung**. Sein sekundärer Punkt (geplantes Volumen
+   unter `FLOW_CAL_METER_RESOLUTION_L`) ist ausdrücklich optional.
+2. **`#53` auf dieselbe Form ziehen**, dann **Live-Test wiederholen** mit einem Sensor, der
+   während des Laufs wirklich meldet (Sonoff-Emulator oder ein `input_number` als Flussquelle).
+3. **`JustChr#172`** — Uhr in den Tests pinnen, den `before_run`-Anker korrigieren (Test durch
+   das echte `_advance_past_fired_occurrence`), seine Frage zu Zonen ohne Zeitplan beantworten,
+   rebasen, `#159`/`#160` zitieren.
+4. **PR 2 / Task 11 (`Eifel-Joe#45`)** ist entblockt: `#165` gemergt, also rebasen —
+   er squasht, der Basis-Commit wurde umgeschrieben. **Vorher prüfen, ob `c5330c7f` den
+   Defekt noch trägt** (`#165` Punkt 8 behob die sequenzielle Warteschlange, Punkt 6 gab dem
+   rotierenden Zweig nur Marker und Logging).
+5. **`Eifel-Joe#22` PR 1** ist entblockt (`#168` gemergt), wird auf aktuellem master gebaut.
+6. Aufräumen, wenn `#173`/`#174` durch sind: Worktrees `pr34-work/{pr1,pr2}`,
+   `prerelease-work/wt`, `issue53-work/base`, und der Wegwerf-Branch
+   `prerelease/v2026.09.27b1` samt Release. Vorher die kleinen Ordner ansehen
+   (Memory `scratch-dirs-hold-irreproducible-evidence`).
+
+### Empfohlene Skills
+`pr-workflow` für `#174`/`#172`, `superpowers:receiving-code-review` für JustChrs Befunde
+(er hat zweimal recht gehabt, wo ein eigenes Review nichts fand),
+`superpowers:verification-before-completion` vor jedem „fertig" — diese Sitzung hat einen
+Live-Test als Beweis gelesen, der keiner war.
+
+---
+
 ## 2026-09-26 (2) — Eifel-Joe#3 + #4: gebaut, reviewt, LIVE BELEGT, als JustChr#173/#174 upstream
 
 ### Stand (verifiziert)
