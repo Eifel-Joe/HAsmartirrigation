@@ -1,0 +1,208 @@
+[
+  {
+    "n": 1,
+    "file": "run_state.py",
+    "mutation": "the fourth source always answers False",
+    "expected_killer": "the two open-window chain tests + test_an_open_external_run_counts",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_chain_sees_external_runs.py::test_a_rotation_writes_off_a_zone_whose_valve_is_open_externally",
+      "FAILED tests/test_chain_sees_external_runs.py::test_a_sequential_cycle_skips_a_zone_whose_valve_is_open_externally",
+      "FAILED tests/test_run_in_flight.py::test_an_open_external_run_counts",
+      "FAILED tests/test_run_in_flight.py::test_the_narrow_question_ignores_an_external_run"
+    ]
+  },
+  {
+    "n": 2,
+    "file": "run_state.py",
+    "mutation": "drop the ceiling comparison",
+    "expected_killer": "test_an_external_run_past_its_ceiling_does_not_count",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_run_in_flight.py::test_an_external_run_exactly_at_its_ceiling_does_not_count",
+      "FAILED tests/test_run_in_flight.py::test_an_external_run_past_its_ceiling_does_not_count"
+    ]
+  },
+  {
+    "n": 3,
+    "file": "run_state.py",
+    "mutation": "ceiling < becomes <=",
+    "expected_killer": "nothing expected - boundary is one microsecond wide",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_run_in_flight.py::test_an_external_run_exactly_at_its_ceiling_does_not_count"
+    ]
+  },
+  {
+    "n": 4,
+    "file": "run_state.py",
+    "mutation": "the wide answer drops the fourth source",
+    "expected_killer": "the two open-window chain tests",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_chain_sees_external_runs.py::test_a_rotation_writes_off_a_zone_whose_valve_is_open_externally",
+      "FAILED tests/test_chain_sees_external_runs.py::test_a_sequential_cycle_skips_a_zone_whose_valve_is_open_externally",
+      "FAILED tests/test_run_in_flight.py::test_an_open_external_run_counts",
+      "FAILED tests/test_run_in_flight.py::test_the_narrow_question_ignores_an_external_run"
+    ]
+  },
+  {
+    "n": 5,
+    "file": "observed_watering.py",
+    "mutation": "the open edge asks the WIDE question again",
+    "expected_killer": "test_the_open_edge_tracks_a_second_external_open_of_the_same_zone",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_observed_watering.py::test_the_open_edge_tracks_a_second_external_open_of_the_same_zone"
+    ]
+  },
+  {
+    "n": 6,
+    "file": "run_state.py",
+    "mutation": "the narrow answer drops the distributor source",
+    "expected_killer": "test_distributor_cycle_counts_for_its_members",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_run_in_flight.py::test_distributor_cycle_counts_for_its_members"
+    ]
+  },
+  {
+    "n": 7,
+    "file": "observed_watering.py",
+    "mutation": "drop the provenance gate (always drop the zone)",
+    "expected_killer": "test_a_few_seconds_of_hand_testing_keeps_the_zones_turn",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_chain_sees_external_runs.py::test_a_few_seconds_of_hand_testing_keeps_the_zones_turn"
+    ]
+  },
+  {
+    "n": 8,
+    "file": "observed_watering.py",
+    "mutation": "invert the provenance gate",
+    "expected_killer": "the two closed-window chain tests",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_chain_sees_external_runs.py::test_a_few_seconds_of_hand_testing_keeps_the_zones_turn",
+      "FAILED tests/test_chain_sees_external_runs.py::test_a_rotation_drops_a_zone_watered_externally_between_its_turns",
+      "FAILED tests/test_chain_sees_external_runs.py::test_a_sequential_cycle_drops_a_zone_watered_externally_before_its_turn"
+    ]
+  },
+  {
+    "n": 9,
+    "file": "observed_watering.py",
+    "mutation": "never tell the chain at all",
+    "expected_killer": "the two closed-window chain tests",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_chain_sees_external_runs.py::test_a_rotation_drops_a_zone_watered_externally_between_its_turns",
+      "FAILED tests/test_chain_sees_external_runs.py::test_a_sequential_cycle_drops_a_zone_watered_externally_before_its_turn"
+    ]
+  },
+  {
+    "n": 10,
+    "file": "observed_watering.py",
+    "mutation": "finally becomes a plain trailing await",
+    "expected_killer": "test_the_calculation_is_picked_up_even_if_the_credit_raises",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_observed_watering.py::test_the_calculation_is_picked_up_even_if_the_credit_raises"
+    ]
+  },
+  {
+    "n": 11,
+    "file": "observed_watering.py",
+    "mutation": "ceiling returns maximum_duration without the margin",
+    "expected_killer": "the two ceiling tests",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_observed_watering.py::test_a_bound_substituted_ceiling_warns_rather_than_clipping_silently",
+      "FAILED tests/test_observed_watering.py::test_a_configured_ceiling_that_binds_does_not_warn",
+      "FAILED tests/test_observed_watering.py::test_a_maximum_that_is_not_a_number_falls_back_to_the_default_ceiling",
+      "FAILED tests/test_observed_watering.py::test_a_numeric_string_maximum_is_read_as_the_number_it_is",
+      "FAILED tests/test_observed_watering.py::test_a_zone_with_no_usable_maximum_gets_the_default_ceiling_not_none",
+      "FAILED tests/test_observed_watering.py::test_capped_seconds_bounds_at_maximum_duration_plus_margin",
+      "FAILED tests/test_observed_watering.py::test_capped_seconds_falls_back_when_no_maximum_duration",
+      "FAILED tests/test_observed_watering.py::test_capped_seconds_rejects_negative_maximum_duration",
+      "FAILED tests/test_observed_watering.py::test_flow_zone_dead_sensor_uses_capped_time_and_flags",
+      "FAILED tests/test_observed_watering.py::test_non_flow_zone_credit_capped_at_maximum_duration",
+      "FAILED tests/test_observed_watering.py::test_the_external_run_ceiling_is_the_zones_own_maximum_plus_the_margin"
+    ]
+  },
+  {
+    "n": 12,
+    "file": "observed_watering.py",
+    "mutation": "substituted is always False",
+    "expected_killer": "the default-ceiling test",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_experimental_features.py::test_observed_credit_estimates_from_runtime",
+      "FAILED tests/test_experimental_features.py::test_observed_credit_writes_run_log_and_total",
+      "FAILED tests/test_experimental_features.py::test_observed_credit_zeroes_duration_when_satisfied",
+      "FAILED tests/test_observed_watering.py::test_a_bound_substituted_ceiling_warns_rather_than_clipping_silently",
+      "FAILED tests/test_observed_watering.py::test_a_maximum_that_is_not_a_number_falls_back_to_the_default_ceiling",
+      "FAILED tests/test_observed_watering.py::test_a_substituted_ceiling_that_does_not_bind_stays_quiet",
+      "FAILED tests/test_observed_watering.py::test_a_zone_with_no_usable_maximum_gets_the_default_ceiling_not_none",
+      "FAILED tests/test_observed_watering.py::test_capped_seconds_falls_back_when_no_maximum_duration",
+      "FAILED tests/test_observed_watering.py::test_capped_seconds_rejects_negative_maximum_duration",
+      "FAILED tests/test_observed_watering.py::test_time_based_branch_still_warns_about_a_substituted_ceiling"
+    ]
+  },
+  {
+    "n": 13,
+    "file": "observed_watering.py",
+    "mutation": "the wrapper drops the measured volume",
+    "expected_killer": "test_the_finish_hands_the_credit_everything_the_close_edge_measured",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_observed_watering.py::test_the_finish_hands_the_credit_everything_the_close_edge_measured"
+    ]
+  },
+  {
+    "n": 14,
+    "file": "observed_watering.py",
+    "mutation": "the wrapper drops sensor_present",
+    "expected_killer": "test_the_finish_hands_the_credit_everything_the_close_edge_measured",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_observed_watering.py::test_the_finish_hands_the_credit_everything_the_close_edge_measured"
+    ]
+  },
+  {
+    "n": 15,
+    "file": "observed_watering.py",
+    "mutation": "un-harden the ceiling read (no float coercion)",
+    "expected_killer": "the non-numeric maximum tests",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_observed_watering.py::test_a_maximum_that_is_not_a_number_falls_back_to_the_default_ceiling",
+      "FAILED tests/test_observed_watering.py::test_a_numeric_string_maximum_is_read_as_the_number_it_is"
+    ]
+  },
+  {
+    "n": 16,
+    "file": "observed_watering.py",
+    "mutation": "the close edge drops the measured volume",
+    "expected_killer": "test_close_edge_credits_measured_flow_end_to_end",
+    "result": "killed",
+    "collected": "collected 102 items",
+    "killed_by": [
+      "FAILED tests/test_observed_watering.py::test_close_edge_credits_measured_flow_end_to_end"
+    ]
+  }
+]
