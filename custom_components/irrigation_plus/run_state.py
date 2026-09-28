@@ -2,9 +2,10 @@
 
 The state exists per actuation mode and nowhere together: ``_active_runs`` for
 classic linked-entity runs (in memory), ``CONF_ACTIVE_VALVE_RUNS`` for
-self-closing runs (persisted), and the owning distributor's ``active_cycle`` for
-a member zone. Two separate defects need exactly this lookup, so it lives here
-once:
+self-closing runs (persisted), the owning distributor's ``active_cycle`` for a
+member zone, and ``_observed_on_since`` for a run nothing in here started (in
+memory, no record at all). Two separate defects need exactly this lookup, so it
+lives here once:
 
 * **Calculation vs run.** Every run path settles the bucket from an anchor taken
   before the valve opened - ``original_bucket`` in ``_run_valve_metered``,
@@ -12,7 +13,12 @@ once:
   distributor sweep iterates. That absolute reconcile is deliberate (a delta
   correction would over-/under-shoot whenever the optimistic credit clamped at
   ``maximum_bucket``), but it means a calculation landing mid-run is overwritten
-  and that window's evapotranspiration is lost. So the calculation gives way:
+  and that window's evapotranspiration is lost.
+  The observed path inverts this rather than sharing it: it credits a delta read
+  at the close, so nothing of its own is clobbered - but a calculation that read
+  the zone before that credit landed and wrote afterwards would erase it, because
+  the calculation's own bucket write is absolute.
+  So the calculation gives way:
   ``async_calculate_zone`` returns before consuming anything and the zone is
   marked for a recalculation once the run finalises. Nothing is lost by waiting -
   ``last_consumed_at`` is only advanced on the write path, so the readings stay
@@ -129,8 +135,56 @@ class RunStateMixin:
             return False
         return bool(distributor.get("active_cycle"))
 
-    def zone_run_in_flight(self, zone_id) -> bool:
-        """True while ANY actuation path is watering this zone."""
+    def _observed_run_in_flight(self, zone_id: int) -> bool:
+        """An external open this integration did not drive is holding the zone.
+
+        The fourth actuation path, and the only one with no record of its own: observed
+        watering credits an external run at its close and registers nothing, so the
+        guard at a zone's turn answered False while the valve was open and the cycle
+        watered it a second time. It needs no new store -- ``_observed_on_since``
+        already holds the instant the external valve opened, which is exactly what "in
+        flight" means here.
+
+        Bounded, for the same reason :meth:`_self_closing_run_in_flight` is bounded: an
+        entry that outlives its close edge must not block the zone for ever. Unbounded,
+        one valve stuck reporting ``open`` would drop the zone from every cycle AND park
+        its calculation (which gives way to a run in flight) with no way out. The bound
+        is the zone's own external-run ceiling -- the same number its credit is capped
+        at -- so a valve still reporting open past the longest plausible run for that
+        zone reads as a broken report rather than as water.
+
+        The comparison reads wall-clock time, so a backwards system-clock jump holds
+        the zone until the clock passes the ceiling again, and a forward one releases
+        a genuinely open run early. :meth:`_self_closing_run_in_flight` has carried
+        the same exposure since it was written.
+
+        The reads are defensive because this runs on every ``zone_run_in_flight`` call,
+        including on coordinators built with ``__new__`` in tests, where the attribute
+        may be absent and ``store`` is often a Mock whose every attribute answers with
+        another Mock.
+        """
+        since = getattr(self, "_observed_on_since", None)
+        if not isinstance(since, dict):
+            return False
+        started = since.get(zone_id)
+        if started is None:
+            return False
+        zone = self.store.get_zone(zone_id)
+        ceiling, _substituted = self._observed_run_ceiling_seconds(
+            zone if isinstance(zone, dict) else {}
+        )
+        return (dt_util.utcnow() - started).total_seconds() < ceiling
+
+    def _si_run_in_flight(self, zone_id) -> bool:
+        """True while a run THIS INTEGRATION dispatched is holding the zone.
+
+        Split out of :meth:`zone_run_in_flight` when external runs joined that answer.
+        The two had been the same question, and one caller only ever meant this
+        narrower one: observed watering asks, at a valve's open edge, whether the
+        integration opened it, so it can leave its own runs to the runner. Pointed at
+        the wider answer it would suppress the tracking of the very runs it is there to
+        track, the moment its own tracking fed that answer.
+        """
         try:
             zid = int(zone_id)
         except (TypeError, ValueError):
@@ -140,6 +194,14 @@ class RunStateMixin:
             or self._self_closing_run_in_flight(zid)
             or self._distributor_run_in_flight(zid)
         )
+
+    def zone_run_in_flight(self, zone_id) -> bool:
+        """True while ANY actuation path is watering this zone, ours or not."""
+        try:
+            zid = int(zone_id)
+        except (TypeError, ValueError):
+            return False
+        return self._si_run_in_flight(zid) or self._observed_run_in_flight(zid)
 
     # --- deferred calculations ---------------------------------------------
 

@@ -157,6 +157,56 @@ def test_self_closing_record_past_its_window_does_not_count(monkeypatch):
     assert coord.zone_run_in_flight(1) is False
 
 
+def test_an_open_external_run_counts(monkeypatch):
+    """Observed watering registers no run record, so this is the only state that says
+    a valve nobody in here opened is currently watering the zone."""
+    coord = _coord(monkeypatch)
+    coord._observed_on_since = {1: dt_util.utcnow()}
+    assert coord.zone_run_in_flight(1) is True
+    assert coord.zone_run_in_flight(2) is False
+
+
+def test_an_external_run_past_its_ceiling_does_not_count(monkeypatch):
+    """Same reason the self-closing window is bounded: an entry that outlived its
+    close edge must not block the zone for ever. A valve still reporting open past the
+    longest plausible run for the zone is a broken report, not water."""
+    coord = _coord(monkeypatch)
+    # The zone's maximum_duration is 36000 s, so the ceiling is 36030 s.
+    coord._observed_on_since = {
+        1: dt_util.utcnow() - dt_util.dt.timedelta(seconds=36031)
+    }
+    assert coord.zone_run_in_flight(1) is False
+
+
+def test_an_external_run_exactly_at_its_ceiling_does_not_count(monkeypatch):
+    """The ceiling is exclusive, like the self-closing window it is modelled on.
+
+    Frozen, because the boundary is one instant wide: without a stopped clock
+    nothing in the suite ever stands exactly on it, and the comparison could be
+    loosened to ``<=`` with every other test still green. The two lines this work
+    added fall on deliberately opposite sides -- the provenance gate includes its
+    boundary (a run of exactly five minutes is watering), this one excludes it (a
+    run that has reached the longest plausible length for its zone has reached the
+    point where the report stops being evidence of water).
+    """
+    coord = _coord(monkeypatch)
+    started = dt_util.utcnow()
+    # maximum_duration 36000 s + the 30 s margin, landed on to the microsecond.
+    with freeze_time(started + dt_util.dt.timedelta(seconds=36030)):
+        coord._observed_on_since = {1: started}
+        assert coord.zone_run_in_flight(1) is False
+
+
+def test_the_narrow_question_ignores_an_external_run(monkeypatch):
+    """The two questions are not the same question. The observed open edge asks the
+    narrow one -- did WE open this valve? -- and must get False for an external run,
+    or it would suppress the tracking of the very runs it exists to track."""
+    coord = _coord(monkeypatch)
+    coord._observed_on_since = {1: dt_util.utcnow()}
+    assert coord._si_run_in_flight(1) is False
+    assert coord.zone_run_in_flight(1) is True
+
+
 def _service_run(started, *, watch_entity=None, margin=None):
     """A 600 s service record as dispatch persists it.
 

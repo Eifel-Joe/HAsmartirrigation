@@ -135,7 +135,11 @@ class ObservedWateringMixin:
             # own length (_note_si_valve run_seconds + margin) and so already
             # spans the whole run, and _active_runs / the distributor's
             # active_cycle are live for exactly that window too.
-            if self.zone_run_in_flight(zone_id) or self.hass.loop.time() < (
+            #
+            # Deliberately the NARROW question. The wide one now also answers True for
+            # an external run this module is itself tracking, so asking it here would
+            # make an open valve look like ours and stop the tracking that credits it.
+            if self._si_run_in_flight(zone_id) or self.hass.loop.time() < (
                 self._si_driven_until.get(zone_id, 0.0)
             ):
                 _LOGGER.debug(
@@ -165,8 +169,22 @@ class ObservedWateringMixin:
                 # when we subscribed).
                 return
             seconds = (dt_util.utcnow() - started).total_seconds()
+            # A cycle holding this zone has to hear about the run. Its queue entry --
+            # or its rotation remainder -- outlives the external open, and the guard at
+            # the zone's turn reads state this close edge has just removed, so by that
+            # turn there is nothing left to see. Told here the way a stop tells it,
+            # through the one helper that reaches every chain's queue AND remainder.
+            #
+            # Gated on the same provenance line the flow advisory uses, and for the
+            # same reading of it: below that line an open is more likely someone
+            # testing the valve than watering. Withholding a zone's whole turn for a
+            # few seconds of hand-testing is the worse error of the two -- the water it
+            # skips is real, while the water a short open leaves unaccounted is bounded
+            # by the line itself.
+            if seconds >= const.OBSERVED_SAMPLE_MIN_RUN_SECONDS:
+                self._chain_drop_zone(zone_id)
             self.hass.async_create_task(
-                self._credit_observed_watering(
+                self._observed_run_finished(
                     zone_id, seconds, measured_l=measured, sensor_present=sensor_present
                 )
             )
@@ -283,6 +301,35 @@ class ObservedWateringMixin:
             sensor,
         )
 
+    def _observed_run_ceiling_seconds(self, zone: dict) -> tuple[float, bool]:
+        """The longest external open still plausible for this zone, and whether the
+        zone's own ``maximum_duration`` had to be substituted to say so.
+
+        One policy, two questions. :meth:`_observed_capped_seconds` bounds the seconds
+        an external run may CREDIT; ``RunStateMixin._observed_run_in_flight`` bounds how
+        long one may count as being IN FLIGHT. Both mean the same thing, so both read it
+        here instead of each spelling out the fallback and drifting apart.
+
+        A non-positive or absent ``maximum_duration`` falls back to the default ceiling
+        rather than to "no ceiling" — see :meth:`_observed_capped_seconds` for why
+        mirroring the calculation path's ``>= 0`` reading would be wrong here. The flag
+        is returned rather than warned about, because only the crediting caller can say
+        whether the substitution actually bound anything.
+        """
+        max_dur = zone.get(const.ZONE_MAXIMUM_DURATION)
+        try:
+            max_dur = float(max_dur)
+        except (TypeError, ValueError):
+            # Not a number at all. Treated as "no usable maximum" rather than
+            # allowed to raise: this is read on every in-flight lookup, so a
+            # comparison that throws would abort a running cycle rather than
+            # cost one credit.
+            max_dur = 0.0
+        substituted = not max_dur or max_dur < 0
+        if substituted:
+            max_dur = const.CONF_DEFAULT_MAXIMUM_DURATION
+        return float(max_dur) + const.OBSERVED_CAP_MARGIN_SECONDS, substituted
+
     def _observed_capped_seconds(
         self, zone: dict, seconds: float, *, warn: bool = True
     ) -> float:
@@ -318,11 +365,8 @@ class ObservedWateringMixin:
         happen. The value is still returned: the time-based estimate is computed
         on every path, it is simply not the one that gets used.
         """
-        max_dur = zone.get(const.ZONE_MAXIMUM_DURATION)
-        substituted = not max_dur or max_dur < 0
-        if substituted:
-            max_dur = const.CONF_DEFAULT_MAXIMUM_DURATION
-        capped = min(float(seconds), float(max_dur) + const.OBSERVED_CAP_MARGIN_SECONDS)
+        ceiling, substituted = self._observed_run_ceiling_seconds(zone)
+        capped = min(float(seconds), ceiling)
         if warn and substituted and capped < float(seconds):
             _LOGGER.warning(
                 "Observed watering: zone %s has no usable maximum_duration (%s), "
@@ -336,6 +380,35 @@ class ObservedWateringMixin:
                 const.CONF_DEFAULT_MAXIMUM_DURATION,
             )
         return capped
+
+    async def _observed_run_finished(
+        self,
+        zone_id: int,
+        seconds: float,
+        measured_l: float | None = None,
+        sensor_present: bool = False,
+    ) -> None:
+        """Credit an external run, then pick up the calculation it displaced.
+
+        A calculation landing while a valve is open gives way and is deferred, and every
+        site that picks a deferral back up is the teardown of a run this integration
+        drove. An external run is none of them, so now that one counts as being in
+        flight the deferral needs an owner here, or the zone's duration stays as it was
+        until its next real run.
+
+        In a ``finally`` because the pick-up is teardown: a credit that raises must not
+        also cost the zone its calculation. The pick-up is a no-op unless something was
+        actually deferred, and never propagates, so it is cheap on every external run.
+        """
+        try:
+            await self._credit_observed_watering(
+                zone_id,
+                seconds,
+                measured_l=measured_l,
+                sensor_present=sensor_present,
+            )
+        finally:
+            await self.async_run_deferred_calculation(zone_id)
 
     async def _credit_observed_watering(
         self,
