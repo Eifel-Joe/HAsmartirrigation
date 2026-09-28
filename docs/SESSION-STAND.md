@@ -23,6 +23,82 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-28 (10) — Eifel-Joe#22: Rev-3-Plan verworfen, Revision 4 geschrieben, JustChr soll A oder B wählen
+
+### Stand
+
+- ⛔ **Den Plan `plans/2026-09-28-weather-buffer-aware-writers.md` NICHT ausführen.** Vor der
+  ersten Codezeile gegen `1876aa03` geprobt: Task 1 macht das heute korrekte Tagesfenster
+  1,0 → 3,0 h und das Live-Fenster 3,0 → 5,0 h; die Schreiber-Tasks 4–6 werfen `TypeError`
+  (Prune, Merge im Sensor-Ereignispfad, `_hour_multiplier`); sein eigener Pin 2
+  (`min(hours) >= 12.0`) bleibt dabei grün. Plan und Rev-3-Spec tragen im Archiv einen Banner.
+- **Revision 4** auf `archive/design-history` **`2cac20e6`**, gepusht:
+  `docs/superpowers/specs/2026-09-28-weather-buffer-one-frame-design.md`. Belege daneben unter
+  `docs/superpowers/probes/2026-09-28-weather-buffer-*` (Proben P1–P6, Ergebnisse,
+  Stempel-Inventar mit 191 gegengeprüften `file:line`). Die archivierten Proben reproduzieren
+  die Ergebnisse zeilengleich. Kopien ungetrackt auch im Worktree.
+- **Offene Entscheidung, bei JustChr:** Speicherform **A** (aware, exakte Lesegrenze) oder
+  **B** (naiv HA-lokal + Migration 14 → 15, **von uns empfohlen**). Gefragt auf JustChr#160,
+  Kommentar `5879455421`. Stand auf `Eifel-Joe#22`, Kommentar `5879470922`; Labels unverändert.
+- **Vom User freigegeben, gilt für A und B:** `local_naive_now()` an 19 Stellen (13 schreibend,
+  3 reine Vergleichs-`now`s inkl. Solar-Klemme `__init__.py:1429`, 3 Defaults in
+  `weather_aggregate`); `_process_timezone()` → `dateutil.tz.tzlocal()`; E2E-Matrix Tages-/Live-
+  Pfad × alter/frischer Store, exakt 1,0 h / `[12.5]` / 2,0, RED auf `1876aa03`.
+- **Vom User freigegeben, nur B:** beide Provenienz-Namen bleiben (verhalten sich danach gleich,
+  Docstring sagt warum); `_parse_stored_as_ha_local` wird korrekt, DEFECT-Pin umdrehen.
+- **Baseline neu unter `TZ=UTC`:** 7 failed / 3455 passed / 9 skipped / 367 errors,
+  Zusammensetzung identisch zur Berlin-Messung (0/0). Alle 367 sind `ERROR at teardown`
+  „Lingering timer" (734 Zeilen = 2 je Error, gezählt). Datei:
+  `D:\Entwicklung\HASI\issue22-work\measure\baseline-1876aa03-tzutc.txt`.
+- Branch `fix/weather-buffer-aware-writers` steht weiter auf `1876aa03`, **kein Produktionscode
+  geändert**, Worktree hat nur das ungetrackte `docs/superpowers/`.
+- **Offen außerdem, unverändert:** Reproduktion zu `Eifel-Joe#66`; Live-Test zu `Eifel-Joe#64`
+  auf HA-Test nie gefahren.
+
+### Verworfen
+
+- **Der Rev-3-Plan als Ganzes** — Belege oben und in der Spec.
+- **R3-2s Rollback-Argument gegen den Versionssprung** — die Schreiber erzeugen binnen Minuten
+  aware Stempel, `1876aa03` bricht darauf in der Tagesberechnung dauerhaft ab (P4). Unter B ist
+  der Sprung selbst die rollback-gutmütige Form.
+- **Meine eigene Vermutung „die `-q`-Datei zeigt keine Error-Gründe"** — falsch: nur die
+  Summary-Zeilen haben keinen, die Traceback-Abschnitte schon. Vor dem Aufschreiben gezählt.
+
+### Fallen
+
+- **Eine Umrechnung, die von Identität zur Transformation wird, ist nicht mehr idempotent.**
+  Dann muss jeder Wert genau einmal durch. In `weather_aggregate` rechnet nur `select_window`
+  das Watermark um, und zwar lokal (`:167`); `:382/414/415/729/731` nehmen den Rohwert.
+  Memory `non-idempotent-coercion-needs-inventory`.
+- **Die `hass`-Fixture setzt HA auf US/Pacific**, der CI-Prozess läuft auf UTC, dieser Rechner
+  auf Berlin → Zeitzonen-Deltas nur unter `TZ=UTC` messen (wirkt unter Windows, verifiziert).
+  Memory `hasi-local-test-env-rebuild`.
+- **`_process_timezone()` ist ein fester Offset von heute** (`helpers.py:1015`) → Altstempel
+  über eine Sommerzeitgrenze hinweg 1 h daneben.
+- **`async_load` wandelt nichts um** — Stempel sind nach einem Neustart `str`, nach dem nächsten
+  Schreiben `datetime`. Der Kommentar `store.py:1980-1984` behauptet für Watermarks das
+  Gegenteil.
+- **`/tmp` für Zwischendateien** landet auf C: — Temp nach `D:\Entwicklung\…-work\`.
+
+### Nächste Schritte
+
+1. **JustChrs Antwort auf #160 abwarten.** Dann neu fetchen (ist `upstream/master` noch
+   `1876aa03`?) und den Plan nach `superpowers:writing-plans` auf Revision 4 aufsetzen — bei B:
+   Migration + 19 Stellen; bei A: Abschnitt „Variant A" der Spec + Leserliste aus dem Inventar.
+2. Hat er Einwände: in seinen Worten als Kommentar in `Eifel-Joe#22` (Regel P2).
+3. Unabhängig davon abrufbar: `Eifel-Joe#66`-Reproduktion (Dispatch-Zeitpunkt ohne aktiven
+   Zyklus, JustChr#181), `Eifel-Joe#64`-Live-Test auf HA-Test.
+
+### Empfohlene Skills
+
+- `superpowers:writing-plans`, sobald JustChr entschieden hat — Grundlage ist Revision 4,
+  nicht der Rev-3-Plan
+- `superpowers:subagent-driven-development` + `superpowers:test-driven-development` für die
+  Umsetzung; der Controller probt den Kern-Task vor dem ersten Dispatch
+- `code-doku` für den Migrations-Kommentar (Annahme, verworfene Detektion, verworfene
+  `DEFAULT_TIME_ZONE`-„Reparatur")
+- `pr-workflow` + Memory `hasi-pr-build-recipe`, sobald es upstream geht
+
 ## 2026-09-28 (9) — Eifel-Joe#22: Spec + Plan fertig, Umsetzung noch nicht begonnen
 
 ### Stand
