@@ -1,0 +1,36 @@
+
+==============================================================================
+P1  live-estimate path, real aggregate_window + build_hourly_rows
+==============================================================================
+real elapsed: 1.0 h; correct row: hour 12.5 (12:00-13:00 Berlin), offset +2.0
+[1876aa03 coerce_stamp    ] [legacy naive store            ] anchor=2026-07-15 10:00:00  window=3.0 h  rows(hour,cov,off)=[(10.5, 1.0, 2.0), (11.5, 1.0, 2.0), (12.5, 1.0, 2.0)]
+[1876aa03 coerce_stamp    ] [aware store (after Tasks 4-6) ] anchor=2026-07-15 12:00:00  window=1.0 h  rows(hour,cov,off)=[(12.5, 1.0, 2.0)]
+[plan Task-1 coerce_stamp ] [legacy naive store            ] anchor=2026-07-15 10:00:00  window=5.0 h  rows(hour,cov,off)=[(10.5, 1.0, 2.0), (11.5, 1.0, 2.0), (12.5, 1.0, 2.0), (13.5, 1.0, 2.0), (14.5, 1.0, 2.0)]
+[plan Task-1 coerce_stamp ] [aware store (after Tasks 4-6) ] anchor=2026-07-15 12:00:00  window=3.0 h  rows(hour,cov,off)=[(12.5, 1.0, 2.0), (13.5, 1.0, 2.0), (14.5, 1.0, 2.0)]
+
+==============================================================================
+P2  real _prune_mapping_buffer after Task 5 (now = dt_util.now(), aware), legacy store
+==============================================================================
+RAISED TypeError: can't compare offset-naive and offset-aware datetimes
+
+==============================================================================
+P3  real merge_or_append_mapping_reading after Task 5 (aware timestamp), legacy newest row
+==============================================================================
+RAISED TypeError: can't compare offset-naive and offset-aware datetimes
+
+==============================================================================
+P4  DAILY-calc path (calculation.py call shape): watermark = _as_datetime(raw), real aggregate_window
+==============================================================================
+real elapsed: 1.0 h. 'pre-Task-5' now = naive process clock 11:00; 'post-Task-5' now = dt_util.now() at 11:00Z
+[1876aa03 coerce_stamp    ] [legacy naive store            ] [pre-Task-5 now ] window=1.0 h
+[1876aa03 coerce_stamp    ] [legacy naive store            ] [post-Task-5 now] window=1.0 h
+[1876aa03 coerce_stamp    ] [aware store (after Tasks 4-6) ] [pre-Task-5 now ] RAISED TypeError: can't subtract offset-naive and offset-aware datetimes
+[1876aa03 coerce_stamp    ] [aware store (after Tasks 4-6) ] [post-Task-5 now] RAISED TypeError: can't subtract offset-naive and offset-aware datetimes
+[plan Task-1 coerce_stamp ] [legacy naive store            ] [pre-Task-5 now ] window=3.0 h
+[plan Task-1 coerce_stamp ] [legacy naive store            ] [post-Task-5 now] window=3.0 h
+[plan Task-1 coerce_stamp ] [aware store (after Tasks 4-6) ] [pre-Task-5 now ] RAISED TypeError: can't subtract offset-naive and offset-aware datetimes
+[plan Task-1 coerce_stamp ] [aware store (after Tasks 4-6) ] [post-Task-5 now] RAISED TypeError: can't subtract offset-naive and offset-aware datetimes
+=== P6 plan pin 2 under Task-1 rule ===
+row hours: [12.5, 13.5, 14.5] | coverage: [1.0, 1.0, 1.0]
+plan assertion min(hours) >= 12.0 -> True | rows[0].tz_offset_h -> 2.0
+window hours covered: 3.0 (real: 13:00 local minus 12:00 local = 1.0)

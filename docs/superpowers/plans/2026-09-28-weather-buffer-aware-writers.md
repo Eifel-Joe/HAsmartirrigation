@@ -1,5 +1,12 @@
 # Weather buffer: the write side moves into HA's zone — Implementation Plan
 
+> ⛔ **SUPERSEDED — DO NOT EXECUTE.** Checked against the code before any line was built
+> (2026-09-28): Task 1 turns the daily calculation's correct 1.0 h window into 3.0 h and the
+> live estimate's 3.0 h into 5.0 h; Tasks 4–6 then raise `TypeError` on a store holding both
+> naive and aware stamps; and this plan's own end-to-end pin 2 stays green through all of it.
+> See Revision 4, `specs/2026-09-28-weather-buffer-one-frame-design.md`, and the probes it
+> cites. Kept unchanged below as history.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make every weather-buffer timestamp mean one thing — naive HA-local inside the

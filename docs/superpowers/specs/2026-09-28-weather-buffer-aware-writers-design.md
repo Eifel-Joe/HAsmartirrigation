@@ -1,5 +1,10 @@
 # Weather buffer: the write side moves into HA's zone
 
+> ⚠️ **Superseded by Revision 4**, `2026-09-28-weather-buffer-one-frame-design.md`
+> (2026-09-28). R3-1's single internal frame (naive HA-local) and R3-3 stand. This
+> revision's scope (readers missing, three "writers" that persist nothing), R3-2's
+> downgrade reasoning, and its end-to-end pins do not — Revision 4 shows why, with probes.
+
 **Revision 3** of `docs/superpowers/specs/2026-09-21-weather-buffer-aware-time-design.md`
 (on `archive/design-history`). That document stays authoritative for everything this
 one does not restate — in particular its reader inventory (section "Leser (B)") and
