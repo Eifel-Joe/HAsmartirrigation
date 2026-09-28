@@ -23,6 +23,365 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-28 (9) — Eifel-Joe#22: Spec + Plan fertig, Umsetzung noch nicht begonnen
+
+### Stand
+
+**Nebensache zuerst, weil abgeschlossen.** JustChrs Kommentar auf `JustChr#180` enthielt
+eine Rückfrage an uns („*Water all zones* — same filter? If it does, tell me").
+Beantwortet als **`JustChr#181`** (neues Issue, nicht Kommentar — `#180` ist zu):
+`async_irrigate_now` engt bei `zone_id` nur die Liste ein (`irrigation.py:3361`),
+`_drop_zones_already_running` läuft danach bedingungslos (`:3379`) — es ist nicht
+derselbe *Filter*, es ist **dieselbe Aufrufstelle**. Einschränkung aus dem
+Schwester-Pfad-Check: Member-Zonen sind bei `:3374` aus der Liste genommen und kommen
+über `:3389` zum Wasser, in `distributor.py` — 0 Prädikat-Treffer. Für Member greift
+der Filter also nicht.
+`Eifel-Joe#66` dazu fortgeschrieben (Kommentar + Label `upstream:gemeldet`,
+`beobachten` entfernt). **Sachliche Präzisierung dort:** der Verteiler-Pfad ist nicht
+ungeschützt, sondern gegen das Falsche geschützt — `_dist_eligible_for_run` lehnt auf
+`active_cycle` ab, fängt also einen *eigenen zweiten* Zyklus. Die im Body
+vorgeschlagene Reproduktion „während des Zyklus" ist damit der teurere Weg; billiger
+ist der Dispatch-Zeitpunkt ohne aktiven Zyklus.
+
+**Hauptarbeit `Eifel-Joe#22` / `JustChr#160` — die zweite Hälfte, von ihm freigegeben.**
+- Basis verifiziert: `upstream/master` = **`1876aa03`** (neu gefetcht).
+- Branch **`fix/weather-buffer-aware-writers`** von `1876aa03`, Worktree
+  `D:\Entwicklung\HASI\issue22-work\wt`. Der WIP `fix/weather-buffer-aware-time` ist
+  unangetastet.
+- **Noch keine Zeile Produktionscode geändert.** Es liegen nur Spec und Plan.
+- Spec (Revision 3) und Plan auf `archive/design-history`, `6ce399f8` und `c8670a44`.
+  Pfade siehe „Nächste Schritte". **Nicht** auf dem Feature-Branch.
+- Zielbasis vom User entschieden: **eine interne Zone, naiv HA-lokal** — nicht aware
+  durchgängig. Begründung in der Spec (R3-1).
+- **Baseline neu gemessen** auf `1876aa03`: 7 failed / 3455 passed / 9 skipped /
+  **367 errors**, und alle 367 sind `Failed: Lingering timer after test` — Teardown-
+  Artefakt der Windows-Env, kein Sachfehler. Datei:
+  `D:\Entwicklung\HASI\issue22-work\measure\baseline-1876aa03.txt`. Nur der Delta zählt.
+- Umfang gezählt: **16 Writer** (`__init__.py` 7, `calculation.py` 5,
+  `continuous_update.py` 3, `store.py` 1) + 3 `now`-Defaults in `weather_aggregate.py`
+  + der `STAMP_FROM_STORE`-Zweig in `coerce_stamp`.
+
+**Offen:** Plan-Tasks 1–8 alle. Reproduktion zu `Eifel-Joe#66`. Live-Test zu
+`Eifel-Joe#64` auf HA-Test weiterhin nie gefahren.
+
+### Verworfen
+
+- **Meine Detektions-Idee (Ledger-Versatz).** Der Store hält tatsächlich aware Stempel
+  neben den naiven (`irrigation.py:600/664/2861/2975`), aber ein Ledger-Eintrag entsteht
+  beim Bewässern, ein Buffer-Stempel beim Poll: ihr Versatz ist *Schreibzeit-Differenz +
+  Uhren-Differenz* und aus einem Paar nicht trennbar.
+- **Mein Diskontinuitäts-Detektor** — widerlegt von `D4` der alten Spec: beim
+  DST-Herbstübergang läuft die naive Folge eine Stunde rückwärts, byte-identisch zur
+  Signatur eines Container-TZ-Fixes. Träfe jeden DST-Nutzer zweimal jährlich mit
+  derselben Fehlergröße. Auch der Zukunfts-Check fällt (richtungsblind + falsch-positiv
+  auf Boards ohne gepufferte RTC).
+- **`STORAGE_VERSION`-Bump 14→15** (war `D3`) — revidiert. Ein Bump schreibt aware in den
+  Store, ein HACS-**Rollback** liest die dann mit Code ohne Coercion → stilles Abschalten
+  der Live-Schätzung. `D3`s harte Regel (Watermark + Puffer zusammen) erfüllt die
+  Lesezeit-Coercion ebenfalls, weil beide durch denselben Aufruf gehen.
+- **Aware Internals** (Richtung von `D1`) — der pauschale `except` macht daraus ein
+  stilles Abschalten statt eines Fehlers.
+- **Zwei meiner eigenen Entwurfs-Tests** — einer tautologisch (verglich den Helfer mit
+  seinem eigenen Rumpf), einer zeitabhängig trotz „elapsed"-Namen. Beide im Plan ersetzt.
+
+### Fallen
+
+- **`nohup … &` zusammen mit `run_in_background`** koppelt den Prozess ab: Shell endet
+  mit Exit 0, Ergebnisdatei bleibt **0 Bytes**. „0 Ausfälle" war ein Nicht-Lauf. Vor
+  jedem Verdikt prüfen, ob der Lauf Tests GESAMMELT hat.
+- **Heredoc-Terminator griff nicht** bei einem langen Dokument → die Apostrophe im Text
+  wurden als Quotes gelesen, `unexpected EOF`. Für große Dokumente das Write-Tool.
+- **`docs/superpowers/` ist NICHT gitignored.** Darf nie auf dem Branch gestaget werden,
+  der als Upstream-PR geht (nennt `Eifel-Joe#22`). Und **nicht** in `.git/info/exclude`
+  aufnehmen — dann scheitert `git add` im Archiv still, die `dist/`-Falle.
+- **Es lag schon eine Spec im Archiv** (`2026-09-21-weather-buffer-aware-time-design.md`)
+  mit `D1`–`D5`. Zwei ihrer Entscheidungen waren meinen überlegen. **Vor dem Entwerfen
+  `archive/design-history` durchsehen**, nicht danach.
+- **`tz_offset_h` bleibt in beiden Rahmen `+2.0`** — was kippt, ist `row["hour"]` (heute
+  `10.5`, richtig `12.5`). Nicht den Offset pinnen, sondern das Paar. `calculation.py:796`
+  warnt genau davor: ein aware-Wechsel lässt diese Arithmetik unberührt „and the suite
+  green" — das ist die teure Hälfte (±23,5 % auf der Strahlung).
+
+### Nächste Schritte
+
+1. Plan lesen: `docs/superpowers/plans/2026-09-28-weather-buffer-aware-writers.md` auf
+   `archive/design-history` (`c8670a44`). Spec daneben,
+   `docs/superpowers/specs/2026-09-28-weather-buffer-aware-writers-design.md` (`6ce399f8`).
+2. **Task 1** zuerst. Die zwei Ende-zu-Ende-Assertions müssen auf `1876aa03` **RED
+   gesehen** werden, nicht angenommen.
+3. Worktree `D:\Entwicklung\HASI\issue22-work\wt`, Interpreter absolut adressieren
+   (kein eigenes `.venv` im Worktree) — Befehl steht im Plan unter „Environment".
+4. Vor jedem Push: `grep -rn "Eifel-Joe" custom_components/ tests/` muss leer sein.
+
+### Empfohlene Skills
+
+- `superpowers:subagent-driven-development` (Tasks 4–6 sind mechanisch und unabhängig)
+  oder `superpowers:executing-plans`
+- `superpowers:test-driven-development` pro Task
+- `code-doku` für die Kommentare in Task 7
+- `pr-workflow`, sobald es upstream geht — plus Memory `hasi-pr-build-recipe`
+- `superpowers:verification-before-completion` vor jedem „fertig"
+
+## 2026-09-28 (8) — JustChrs Kommentare gesichtet; Eifel-Joe#22 ist die nächste Arbeit
+
+### Was JustChr auf #176–#180 geschrieben hat (alle gemergt, 0 Reviews, 0 Inline-Kommentare)
+- **`#177`: „Ready for the second half whenever you are."** → Das ist der Auftrag.
+  `#177` war nur das BENENNEN der zwei Herkünfte; die Reparatur ist `JustChr#160`
+  (Wetterpuffer OS-lokal gestempelt, HA-lokal zurückgelesen; beide naiv, also still).
+  Bei uns `Eifel-Joe#22`, **offen und `upstream:freigegeben`** — Bau ist zugesagt.
+- **`#179`:** „If you want to take that gap on, an issue for it would be welcome" —
+  das war die Observed-Lücke, **erledigt** als `#180`.
+- **`#176`:** veralteter Kommentar in `run_chain.py`, „nothing you need to do".
+  Geprüft: steht **nicht mehr** auf master, er hat ihn selbst entfernt.
+- **`#178` AUFGEKLÄRT** (unser Stand führte das als „ungeklärt"): der rote
+  `test-ha-floor` war `test_solar_azimuth_bearing`, das `utcnow()` las und nur
+  **~80 s am Tag** umfiel (05:14–05:15 UTC), wenn ein früherer Test HAs Zone
+  nicht-UTC hinterlassen hatte. Gepinnt in `1bfa9643`. Unsere damalige Diagnose hatte
+  die Uhr per 24-h-Sweep **verworfen** — richtige Größe gemessen, falsche Bedingung.
+
+### Der WIP-Branch `fix/weather-buffer-aware-time` ist NICHT rebasebar — und teils überholt
+- Stand `c9720a72` (+ `c17a8111`), **29 hinter** upstream. `upstream/master` ist
+  inzwischen **`1876aa03`** (v2026.09.27, enthält unser `#180`) — `e42d0a69` ist schon
+  wieder alt.
+- ⛔ **Der Branch IST auf origin gepusht** → Projektregel „kein Rebase auf gepushten
+  Branches". Nicht rebased; stattdessen **Probe-Rebase in einem Wegwerf-Worktree**
+  gemessen und wieder abgebrochen. Branch ist unangetastet, `lokal == origin`.
+- **Ergebnis der Probe:** Konflikt in `helpers.py` — dort stehen **zwei Entwürfe für
+  dieselbe Sache**. `upstream/master` hat `coerce_stamp(value, provenance)` +
+  `STAMP_FROM_STORE`/`STAMP_FROM_CLIENT` (= unser gemergtes `#177`), der WIP hat den
+  älteren `as_stored_aware`. Sogar `_process_timezone()` steht in beiden — `#177` hat
+  es übernommen. **Commit 1 des WIP ist also im Wesentlichen das, was als `#177` ging.**
+- **Was übrig bleibt:** nur Commit 2 (`c9720a72`, +127/−93 über 10 Dateien) — der
+  „aware flip" auf der Schreibseite, plus `tests/test_stored_stamp_timezone.py`.
+  Er war selbst als unfertig deklariert; offen blieb die **zweite naive Herkunft**
+  (Weather-Client-/Forecast-Zeilen sind **site-lokal**, nicht prozess-lokal).
+- **Empfehlung: nicht rebasen, neu von `1876aa03` aufsetzen** — auf `coerce_stamp` als
+  Fundament. `#177`s Docstring sagt das selbst: „this normalises to NAIVE, not to aware
+  … an aware input is what the **write-side change will start producing**". Der WIP ist
+  ab jetzt Ideengeber (vor allem für die zweite Herkunft), nicht Codebasis.
+
+## 2026-09-28 (7) — PR 2 als überholt verworfen, #65 hinfällig, Worktrees aufgeräumt
+
+- **PR 2 ist überholt, Branch gelöscht.** `fix/second-dispatch-joins-the-queue`
+  (`1b3cc7d5`) wartete auf den Merge von `JustChr#165`; währenddessen ging sein Inhalt
+  über den **zweiten Anlauf** (`issue2b-work`) als `JustChr#176` upstream. Geprüft statt
+  angenommen: beide Testdateien liegen auf `master`, JustChrs
+  `test_chain_append_on_second_dispatch.py` ist **größer** (314 statt 294 Zeilen) und
+  trägt einen Test mehr; exklusiv hatte unser Branch nur noch `Eifel-Joe#…`-Verweise in
+  Docstrings. `Eifel-Joe#2` war ohnehin schon zu.
+  ⚠️ **Methodenfalle:** `git diff upstream/master HEAD` (zwei Punkte) gegen eine alte
+  Basis sieht riesig aus (77 Dateien, 8093 „Löschungen") und sagt **nichts** — das ist
+  upstreams neuere Arbeit. Aussagekräftig ist nur, was der Branch EXKLUSIV hat.
+- **`Eifel-Joe#65` geschlossen, ohne etwas zu bauen** — JustChr hat den Verweis mit
+  `213f8d91` selbst entfernt (hereingekommen mit `f0027213`). Gegengeprüft: auf
+  `upstream/master` steht kein Verweis auf unseren Tracker mehr. Die verbliebenen
+  „Eifel-Joe"-Treffer sind **Melder-Nennungen und Fork-URLs** (`#88` ist dort SEINE
+  Nummer) — die dürfen bleiben. Einzeiler-PR entfällt.
+- **Worktrees 24 → 2:** nur noch `HAsmartirrigation` + `pr139-work/archive-wt`.
+  ~870 MB frei (1,1 GB → 258 MB). Belegt vor dem Löschen: Branches überleben
+  `worktree remove`, und alle 7 uncommitteten Design-Dokumente lagen bereits im Archiv,
+  zwei sogar in neuerer Fassung. Die `*-work`-Ordner mit ihren Messbelegen stehen noch.
+- **Memory:** `hasi-pr2-task11-paused` gelöscht (stand falsch da), Lehre in
+  `check-before-duplicating-work` eingearbeitet. Index 13,6 KB / 81 Einträge, keine
+  toten Links, keine Waisen.
+
+### Offen
+- **`Eifel-Joe#66`** (Verteiler fragt das Prädikat nie) — Schwere angenommen, nicht
+  gemessen; erster Schritt ist die Reproduktion.
+- **Live-Test zu `#64` auf HA-Test** — nie gefahren, `custom_components/**` ist über MCP
+  nur lesbar. Der Fix ist ohne Live-Beleg upstream gegangen (gemergt als `JustChr#180`).
+- `pr2-work` (55 MB), `pr174-work`, `issue53b-work`, `prerelease-work` (je ~45 MB) haben
+  nach dem Worktree-Abzug noch auffällig viel Inhalt — vermutlich Build-Abfall, nicht
+  geprüft.
+
+## 2026-09-28 (6) — Eifel-Joe#64 ABGESCHLOSSEN: JustChr#180 GEMERGT
+
+- **`JustChr#180` GEMERGT**, CI **4/4 grün**, beim Merge bereits durch. Branch
+  `fix-an-external-run-reaches-the-chain` gepusht, 8 Commits auf `e42d0a69`.
+- **`Eifel-Joe#64` geschlossen** (Regel P2: Upstream zu → unseres zu), Label
+  `upstream:gemeldet` gesetzt, Ergebnis-Kommentar mit den gemessenen Zahlen drin.
+- **`Eifel-Joe#45` geschlossen** — sein `JustChr#179` ist als `dee2310f` gemergt.
+- **`Eifel-Joe#66` NEU angelegt**: `distributor.py` fragt `zone_run_in_flight` nie, ein
+  extern bewässertes Member ist für den Sweep unsichtbar (`typ:fehler`,
+  `schwere:mittel`, `groesse:M`, `beobachten`). Schwere dort **per Analogie angenommen,
+  nicht gemessen** — der erste Schritt ist die Reproduktion, wie bei `#64` das Tor.
+- **`Eifel-Joe#42`** um `#64`/`#65`/`#66` fortgeschrieben.
+- **Archiv gepusht:** `archive/design-history` `2959be38`, 7 Dateien.
+- **MEMORY.md kompaktiert:** 22,3 KB → 13,7 KB, 82 Einträge, keine Waisen mehr
+  (3 unverlinkte Dateien wieder angebunden).
+
+### Weiterhin offen
+- **`Eifel-Joe#65`** als Einzeiler-PR.
+- **Live-Test auf HA-Test wurde NIE gefahren** — `custom_components/**` ist über MCP nur
+  lesbar, der Branch ließ sich von hier nicht installieren. Der Fix ging ohne Live-Beleg
+  upstream (Suite + Mutationsmatrix trugen die Freigabe). Nachholen, sobald deployt:
+  Fremdöffnung > 300 s während eines sequenziellen Zyklus, erwartet wird die
+  Drop-Logzeile und **kein** zweiter Lauf der Zone.
+- **`Eifel-Joe#66`** reproduzieren und messen, bevor entworfen wird.
+- Worktree `issue64-work/wt` kann weg, sobald der Live-Test nicht mehr daran hängt.
+
+## 2026-09-28 (5) — Eifel-Joe#64 GEBAUT, alle Gates grün, nichts gepusht
+
+### Stand (verifiziert)
+- **8 Commits** auf Branch `fix-an-external-run-reaches-the-chain`, Worktree
+  `issue64-work/wt`, **lokal, nicht gepusht**. Nur Code + Tests (8 Dateien,
+  `+532/−29`), `docs/` bewusst untracked.
+- **Basis ist gewandert:** JustChr hat `#176`–`#179` gemergt, `upstream/master` =
+  **`e42d0a69`** (vorher `6acfc819`). **Mitten im Bau rebased** statt erst in Task 9 —
+  sonst hätten Gates und Mutationsmatrix gegen eine tote Basis gemessen. Datei-
+  Überschneidung null, Rebase sauber, `0 behind`.
+- **Gates:** Volllauf `7 failed, 3455 passed, 9 skipped, 367 errors`; **Namens-Diff
+  leer (374 = 374)** gegen die NEU auf `e42d0a69` gemessene Baseline
+  (`issue64-work/baseline-e42d0a69.txt` — inhaltsgleich zur alten, die 6 Upstream-
+  Commits änderten keinen Fehlernamen); `black --check` + `ruff` sauber;
+  Referenz-Prüfungen **0/0/0** (Code, Commit-Messages, PR-Body).
+- **Mutationsmatrix 16 von 16 gefangen**, Quellen byte-genau wiederhergestellt,
+  Referenzlauf `collected 102 items` / 0 Vorab-Fehler (die Sammel-Prüfung ist im
+  Runner verdrahtet).
+- **Task 1 war ein echtes Tor und hat gehalten:** der Deckel greift. Gemessen
+  `credit −13.800` → zweiter Lauf schreibt `(2, 0.0)`, `pre + depth = 6.200` →
+  **6,20 mm verworfen**, und das ist exakt die Fremdgutschrift. Zuviel-Wasser ist
+  damit belegt der *unsichtbare* Fehler.
+- **Design-Historie archiviert** (Regel P1): `archive/design-history` **`2959be38`**,
+  7 Dateien (Spec, Plan, Schwester-Pfad-Protokoll, Mutations-MD + JSON, 2 Probes).
+  **Ebenfalls lokal, nicht gepusht.**
+
+### Befunde aus dem Bau (alle gemessen, nicht gelesen)
+- **Es sind ZEHN Aufrufstellen, nicht neun.** `run_chain.py:390` (`_chain_join`) kam mit
+  JustChrs `#176` herein: ein zweiter Dispatch reiht eine Zone nicht mehr ein, wenn ihr
+  Ventil fremd offen steht. Gewollt, deckungsgleich mit der Fenster-1-Entscheidung.
+  **Nur durch den frühen Rebase + erneutes grep gefunden**, der Plan konnte es nicht
+  wissen.
+- **Der Selbsttreffer-Test sicherte nichts.** Er prüfte auf einen Eintrag, den er selbst
+  gesetzt hatte → Mutation zurück aufs weite Prädikat überlebte die ganze Suite. Jetzt:
+  *veralteten* Stempel setzen und prüfen, dass die Kante ihn überschreibt.
+- **Der neue Wrapper durfte `measured_l` verschlucken** — 86 Tests grün, während eine
+  flussgemessene Gutschrift still auf Zeit×Durchsatz zurückgefallen wäre. Entstanden
+  beim Umhängen eines Mocks auf die neue Naht. Pin prüft jetzt den ganzen Aufruf.
+- **Mutant 3 (`<` → `<=`) überlebte den ersten Lauf** — der Plan hätte ihn als
+  „unbeobachtbar" durchgewinkt. Nicht abgenickt: die Grenze ist einen Augenblick breit,
+  `freeze_time` fängt sie. Die beiden Linien liegen auf **entgegengesetzten** Seiten
+  (Provenienz-Schwelle inklusiv, Ceiling exklusiv wie das Self-Closing-Vorbild).
+- **Zwei Kommentare** begründeten ihren Code nicht mehr (Rotations-Abschreibung stützte
+  sich auf ein eingefrorenes Ceiling im Run-Record, Kalkulations-Vertagung auf einen
+  Anker vor Ventilöffnung — ein Fremdlauf hat beides nicht). Code richtig, Argument zu
+  kurz → gefixt.
+
+### Fallen
+- ⚠️ **Baseline-Filter:** `grep -E "^(FAILED|ERROR) "` fängt auch **Logzeilen**, die mit
+  `ERROR ` beginnen (eine aus `batch.py:304`) → 375 statt 374, sieht aus wie eine
+  Regression. Richtig ist `^(FAILED|ERROR) tests/`.
+- ⚠️ **Eine Rotation mit zwei Zonen wird von ihrer eigenen Abschreibung zerlegt:** ist
+  nichts mehr mit `remaining > 0` da, läuft `_chain_release` und nullt `state.rotation`
+  — `rotation.remaining[2]` ist dann nicht mehr lesbar. Beide Rotations-Tests brauchen
+  eine **dritte Zone**. Kostete zwei Runden.
+- ⚠️ **`_obs_coord` konfiguriert `store.get_zone` nicht** → Auto-Mock ist truthy, die
+  Öffnen-Kante nimmt fälschlich den Flow-Sampler-Pfad und stirbt in `_flow_build_meter`.
+  Ein `coord.store.get_zone = Mock(return_value=zone)` dazu.
+- ⚠️ Eine Ergebnisdatei **nicht lesen, solange der Lauf noch läuft** — der Namens-Diff
+  liest sonst eine halbe Datei und meldet 374 Phantom-Regressionen.
+
+### Nächste Schritte (alles freigabepflichtig)
+1. `git push -u origin fix-an-external-run-reaches-the-chain` + `gh pr create` gegen
+   `JustChr/HAsmartirrigation` mit `issue64-work/pr-body.md` (Body im Chat freigegeben?).
+2. Push von `archive/design-history` (`2959be38`).
+3. `Eifel-Joe#64` kommentieren + Label `upstream:gemeldet`.
+4. `Eifel-Joe#45` schließen (sein `#179` gemergt), `#42` um `#64`/`#65` ergänzen.
+5. Neues Issue: `distributor.py` fragt `zone_run_in_flight` nie — Schwesterbefund,
+   Beleg + Begründung in `archive/design-history` unter `…-sister-paths.md`.
+6. `Eifel-Joe#65` als Einzeiler-PR — weiter offen.
+7. **Live-Test auf HA-Test steht aus** — über MCP ist `custom_components/**` nur lesbar,
+   der Branch lässt sich von hier nicht installieren. Braucht Deploy durch den User.
+
+## 2026-09-28 (4) — Eifel-Joe#64: Tor entschieden, Spec + Plan freigegeben, nichts gebaut
+
+### Stand (verifiziert)
+- **Das Tor ist entschieden** (User, zwei Fragen): Form = **zwei kleine Teile** — vierte
+  Quelle in `zone_run_in_flight` (Fenster 1) + Meldung an die Kette an der Schließen-Flanke
+  (Fenster 2). Schwelle = Provenienz-Linie `OBSERVED_SAMPLE_MIN_RUN_SECONDS` (300 s), **nur
+  für Fenster 2**; Fenster 1 ohne Schwelle. Das Prädikat bleibt **global** (ausdrücklich
+  bestätigt, nachdem die Mitleser benannt waren).
+- **Spec + Plan geschrieben und freigegeben**, beide **untracked** im Worktree:
+  `issue64-work/wt/docs/superpowers/specs/2026-09-28-external-run-reaches-the-chain-design.md`
+  und `.../plans/2026-09-28-external-run-reaches-the-chain.md` (9 Tasks, echter Test- und
+  Produktionscode pro Schritt). Noch **nicht** im Archiv — das ist Plan-Task 9.
+- **Worktree** `issue64-work/wt`, Branch `fix-an-external-run-reaches-the-chain`, auf
+  `upstream/master` = `6acfc819` (`rev-list --count` = 0 geprüft), `_local_socket_unblock.py`
+  kopiert. **Kein Produktionscode angefasst**, `git log -1` steht auf `6acfc819`.
+- **Befunde beim Lesen, alle code-belegt:**
+  - `_chain_drop_zone` (`run_chain.py:457`) deckt **beide** Geometrien — Queue *und*
+    `rotation.remaining` *und* `planned`, Live-Marke unter `held`-Gate — und ist der Weg,
+    den `async_stop_zone` nimmt. Fenster 2 braucht kein neues Werkzeug.
+  - **Registrierung allein lässt die Fenster nicht zusammenfallen**, nur Registrierung +
+    Finalisierung. Und die kostet: `async_resume_self_closing_runs` (`self_closing.py:1191`)
+    adoptiert jeden persistierten Satz, `master.py:242` blockt den Boot-Master-Off,
+    `run_chain.py:319` friert den Zyklus bei geleaktem Satz, `_record_run` schreibt doppelt.
+  - **Der Überschuss wird still verworfen:** `_run_ceiling` (`irrigation.py:2789`) =
+    `max(target, pre)`, und `self_closing.py:806-808` schreibt `min(ceiling, pre + depth)`.
+    Damit ist Zuviel-Wasser der *unsichtbare* Fehler und Zuwenig der *sichtbare* — das hat
+    die Schwellwert-Frage entschieden. **Gelesen, nicht gemessen**; Plan-Task 1 misst es und
+    stoppt, wenn der Deckel nicht greift.
+  - `calculation.py:510` verschiebt die Berechnung, und **alle fünf** Abholstellen sind
+    Teardowns eigener Läufe (`_release_chain_zones`, `_run_valve_metered`, `_sc_finish_run`,
+    `async_stop_self_closing`, `async_run_distributor_cycle`) — Observed ist keine davon.
+  - `distributor.py` fragt `zone_run_in_flight` **gar nicht** → ein extern bewässertes
+    Member ist für den Sweep unsichtbar. Schwesterbefund, **eigenes Issue**, nicht dieser
+    Branch.
+- **Prod-Evidenz per Diagnostics** (nicht aus dem Feature-Flag gefolgert): **alle drei**
+  Zonen haben `observed_entity` = ihr eigenes `confirm_entity` (`valve.wasser_vorne`,
+  `valve.wasser_hinten`, `valve.wasser_beet_valve_l1`), alle `service` + `automatic`,
+  `maximum_duration` 3600/3600/2700. Im Run-Log stehen **sieben** Fremdläufe: 72 s, 90 s,
+  718 s, 718 s, 2153 s, 10518 s, 21304 s.
+
+### Verworfen
+- **Observed als vollwertiger Lauf** (Satz in `CONF_ACTIVE_VALVE_RUNS` + normale
+  Finalisierung): deckt beide Fenster aus einem Mechanismus, aber vier belegte
+  Nebenwirkungen (oben). Erkennbar daran, dass jede eine eigene Absicherung bräuchte.
+- **Nur die Meldung an die Kette:** lässt den wahrscheinlicheren Prod-Fall offen —
+  Handöffnung während des Morgenzyklus, Zug kommt währenddessen.
+- **Schmale Variante** (nur `run_chain.py:367`/`:683` fragen Observed): eine zweite,
+  konkurrierende Antwort auf die Frage, die `run_state.py` laut eigener Doku genau einmal
+  beantworten soll.
+- **Anteilige Verrechnung:** erreicht die rotierende Geometrie nicht — `rotation.remaining`
+  wird einmal bei Zyklusstart gebaut und nie aus der Zonendauer nachgelesen.
+- **Neue mm-Konstante als Schwelle:** Wert nicht aus dem Bestand herleitbar, und JustChr
+  fragt bei neuen Konstanten nach der Herleitung.
+
+### Fallen
+- ⚠️ **Heredoc `<<'EOF'` scheiterte am Markdown-Inhalt** (`unexpected EOF while looking for
+  matching '`), Datei blieb leer. Für Markdown mit Backticks/Apostrophen das Write-Tool —
+  steht auch im Kopf dieser Datei, gilt also doppelt.
+- ⚠️ **Drei bestehende Tests stubben genau die Stelle, die Plan-Task 3 umbenennt:**
+  `tests/test_observed_watering.py:282`, `:514`, `:630` setzen
+  `coord.zone_run_in_flight = Mock(return_value=False)`. Dort muss danach
+  `_si_run_in_flight` stehen, sonst läuft das echte Prädikat gegen einen Mock-Store.
+- ⚠️ **`_observer_coordinator` in `test_experimental_features.py` stubbt es NICHT** — dort
+  antwortet das echte Prädikat auf dem Mock-Store mit `False`. Nach der vierten Quelle kann
+  sich das ändern; Plan-Task 3 Schritt 6 schaut ausdrücklich hin, statt es anzunehmen.
+- ⚠️ **Zwei Plan-Tests sind auf `master` schon grün** (Deckel-Grenze, Provenienz-Gegenprobe)
+  und im Plan als solche markiert. Sie tragen nur über die Matrix — Mutant 2 und Mutant 7
+  sind dort an sie gebunden.
+- **Diagnostics-Pfade:** `data.store.zones` ist eine **Liste**, `data.store.zones.1.feld`
+  scheitert (`cannot descend into list`). Mit `diagnostics_data_limit=1` + `offset`
+  paginieren; `truncate_at_bytes` unter ~9500 schneidet eine Zone mit Run-Log ab.
+
+### Nächste Schritte
+1. **Umsetzung in frischer Sitzung**, Plan-Task 1 zuerst (die Messung). Greift der Deckel
+   nicht, stoppen und melden statt weiterbauen.
+2. Dann Task 2–5 (je RED --> GREEN --> Commit), 6 Schwester-Pfade, 7 Gates, 8 Matrix,
+   9 Live + Archiv + PR-Text zur Freigabe.
+3. `JustChr#179` Review abwarten. `#176`/`#177`/`#178` weiter offen; `#178`s roter
+   `test-ha-floor` unverändert ungeklärt.
+4. `Eifel-Joe#65` als Einzeiler-PR — offen.
+5. Tracking-Issue `Eifel-Joe#42` um `#64` und `#65` ergänzen — offen.
+6. Neues Issue für den Verteiler-Schwesterbefund (`distributor.py` fragt das Prädikat nie).
+
+### Empfohlene Skills
+`superpowers:subagent-driven-development` (frischer Subagent pro Task),
+`superpowers:test-driven-development` in jedem Task,
+`superpowers:verification-before-completion` vor jedem „fertig", `code-doku` für die
+Kommentare, `pr-workflow` für Task 9.
+
 ## 2026-09-28 (3) — Eifel-Joe#45 gebaut: JustChr#179; zwei Folge-Issues aus dem Bau
 
 ### Stand (verifiziert)
