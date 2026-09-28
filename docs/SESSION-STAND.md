@@ -23,6 +23,479 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-28 (3) — Eifel-Joe#45 gebaut: JustChr#179; zwei Folge-Issues aus dem Bau
+
+### Stand (verifiziert)
+- **`JustChr#179` OFFEN, CI 4/4 GRÜN, `CLEAN`** — `fix(chain): a rotating zone watered
+  elsewhere keeps no turn`, Branch `fix-a-rotating-zone-already-watered-keeps-its-turn`,
+  Worktree `issue45-work/wt`, 6 Commits auf `6acfc819`, gepusht. Unser Issue
+  **`Eifel-Joe#45` kommentiert + korrigiert + `upstream:gemeldet`**.
+  Nebenbefund zum offenen Rätsel von `#178`: derselbe `test-ha-floor`-Job ist hier auf
+  derselben Basis grün.
+- **Der Fix:** `Rotation.in_flight` — die Zone, deren Slot die Rotation selbst dispatcht
+  hat. Anspruch **vor** dem Dispatch-`await`; `_chain_advance` liest ihn dort, wo es
+  ohnehin `last_finish` stempelt. Zwei Dateien, `+226/−0`. Spec + Plan + Mutationsmatrix:
+  `archive/design-history` **`18d7e1f3`**, 0 voraus.
+- **Gates:** Suite `7 failed, 3395 passed, 9 skipped, 367 errors`; **Namens-Diff leer
+  (374 = 374)** gegen die auf `6acfc819` NEU gemessene Baseline
+  (`issue45-work/baseline-6acfc819.txt`, identisch zur alten von `1c071cf0`);
+  `black`/`ruff` sauber; Referenz-Prüfungen 0/0/0 auf hinzugefügte Zeilen UND
+  Commit-Messages; **Mutationsmatrix 7 von 7 gefangen**.
+- **`Eifel-Joe#64` NEU** (`schwere:hoch`, `prod-scharf`, `groesse:L`): eine extern
+  bewässerte Zone ist für die Kette unsichtbar — **in beiden Geometrien**.
+  `observed_watering.py` bucht über `_record_run` + `async_write_watered_bucket`,
+  registriert keinen aktiven Lauf und ruft nie `_chain_advance_for_run`. Gemessen gegen
+  `6acfc819`, sequenziell: Zone 2 wird mit **+6,20 mm** gutgeschrieben, bleibt in der
+  Warteschlange, wird danach **volle 600 s** bewässert. Rotierend gegen den Branch MIT
+  `#179`: trotzdem ein zweiter 300-s-Slot. **HA-Prod ist die betroffene Konstellation** —
+  `zone_sequencing: "sequential"`, `observed_watering_enabled: true`, tägliche
+  „alle Zonen"-Schedule (aus den Diagnostics gelesen, nicht angenommen).
+- **`Eifel-Joe#65` NEU** (`typ:politur`, `schwere:niedrig`, `groesse:S`): `master` trägt in
+  `tests/test_chain_carries_its_plan.py:1` den einzigen Querverweis auf unseren Tracker
+  (`Eifel-Joe#2`), hereingekommen mit `f0027213` = `JustChr#165`. Eigener Einzeiler-PR
+  vorgesehen.
+
+### Verworfen
+- **`in_flight` bei verweigertem Dispatch zu räumen.** Eine Verweigerung setzt
+  `remaining = 0.0`, und nur ein frischer `Rotation`-Aufbau stellt das wieder her — der
+  startet `in_flight` ohnehin auf `None`. Wäre eine Zeile ohne beobachtbare Wirkung
+  gewesen; stattdessen Kommentar + Test, dass eine Verweigerung eine spätere Übernahme
+  nicht verdeckt.
+- **Anteilige Verrechnung des Fremdlaufs** (User-Entscheidung): der ganze Rest wird
+  abgeschrieben, symmetrisch zum schon behobenen Zweig. Folge, im PR-Body benannt: ein
+  `run_zone` mit `duration_minutes: 1` zum Ventil-Testen streicht die restliche
+  Bewässerung dieser Zone für den Zyklus.
+
+### Fallen
+- ⚠️ **Der RED-Test, den das Issue als „fertig" verlinkte, war nicht erfüllbar.** Fall 2
+  der Probe drückte die Übernahme durch `zone_run_in_flight → False` aus — die echte
+  Prüfung meldet dort aber ohnehin schon `False`. Gemessen war der Zustand am
+  Entscheidungspunkt **identisch** zu `test_two_zones_take_turns`, das daraus das
+  Gegenteil verlangt. Vor dem Bau gegen einen gelieferten Test IMMER prüfen, ob sein
+  Grün-Zustand von einer korrekten Implementierung überhaupt erreichbar ist.
+- ⚠️ **Zwei Tests waren grün, weil sie nicht fallen konnten.** Die Marken-Assertion prüfte
+  ins Leere (der Fremdlauf verbraucht die Marke selbst über `_run_ceiling`), und der
+  Verweigerungs-Test prüfte eine Entscheidung, an der die Verweigerung keinen Anteil hatte
+  (der nächste Dispatch überschrieb den Anspruch im selben Durchlauf). **Beide fand die
+  Mutationsmatrix, nicht das Lesen.**
+- ⚠️ **Meine eigenen „dokumentiert überlebenden" Mutanten waren beide falsch begründet** —
+  der Review widerlegte sie, ich habe beide nachgemessen und beide sind tötbar. Eine davon
+  (Anspruch nach dem `await`) ist der schädlichste Fehlermodus der ganzen Änderung: alle
+  Zonen werden als Übernahme abgeschrieben, der Zyklus endet nach je einem Slot. Ein
+  Überlebender ist zuerst ein zu schwacher Test, **dann** erst eine harmlose Mutation.
+- ⚠️ **„prod-scharf" nicht aus einem eingeschalteten Feature folgern.** Ich nannte die
+  Observed-Lücke prod-scharf, weil `observed` an ist — die dort beschriebene Lücke
+  brauchte aber Rotation, und Prod läuft sequenziell. Die Konfiguration nachlesen, bevor
+  die Schwere behauptet wird; der echte Grund war am Ende stärker, hätte aber auch
+  schwächer sein können.
+- **Der Bash-/Edit-Klassifizierer fiel mehrfach für mehrere Züge aus** (Lesen lief weiter).
+  Nicht mehr als zwei-, dreimal nacheinander versuchen, sonst bricht der Turn ab —
+  lesende Arbeit vorziehen und später wiederkommen.
+
+### Nächste Schritte
+1. **`JustChr#179`** — Review abwarten. Bei Einwänden `superpowers:receiving-code-review`,
+   Einwand **in JustChrs Worten** in `Eifel-Joe#45` (Regel P2), Label mitziehen.
+2. **`#176`/`#177`/`#178`** stehen weiter offen; `#178`s roter `test-ha-floor` ist
+   unverändert ungeklärt (siehe Eintrag 2026-09-28 (2)).
+3. **`Eifel-Joe#64`** ist der schwerste offene Punkt und prod-scharf. Vor dem Bau die Form
+   entscheiden: registriert Observed seinen Lauf im aktiven Laufspeicher (dann fallen
+   beide Fenster zusammen), oder bekommt die Kette eine eigene Meldung?
+4. **`Eifel-Joe#65`** als Einzeiler-PR, und die Referenz-Prüfung dauerhaft verankern statt
+   sie pro Sitzung neu zu tippen.
+5. **Tracking-Issue `Eifel-Joe#42`** um `#64` und `#65` ergänzen; Punkt 8 (`#45`) auf
+   „gebaut, `JustChr#179` offen" setzen.
+
+### Empfohlene Skills
+`superpowers:receiving-code-review`, sobald JustChr antwortet;
+`superpowers:verification-before-completion` vor jedem „fertig";
+`superpowers:brainstorming` für die Formfrage in `Eifel-Joe#64`.
+
+## 2026-09-28 (2) — Live-Befund auf HA-Prod: watering_now kann bei Service-Zonen nie angehen; JustChr#178
+
+### Stand (verifiziert)
+- **✅ `JustChr#175` IST GEMERGT** (27.09. 20:42 UTC, gesquasht zu **`6acfc819`**, jetzt
+  master). `git diff 6d4b9cc1 6acfc819` über `custom_components`/`tests` ist **leer** —
+  byte-identisch übernommen. **`Eifel-Joe#53` ist kommentiert und GESCHLOSSEN** (Regel
+  P2), mit Merge-Beleg und Verweis auf das Live-Protokoll. Kein Rest; die Zyklus-Frage
+  war immer `Eifel-Joe#55`.
+- **`JustChr#178` OFFEN** — `fix(sensor): a service zone shows when it is watering`,
+  Branch `fix-a-service-zone-shows-when-it-is-watering`, Worktree `issue63-work/wt`,
+  1 Commit auf `1c071cf0`, gepusht. Unser Issue: **`Eifel-Joe#63`**, kommentiert +
+  `upstream:gemeldet`.
+  🔴 **CI: `test-ha-floor` ROT**, `lint`/`test (3.13)`/`validate` grün. Gefallen ist
+  `tests/test_solar_azimuth_bearing.py::test_the_repaired_schedule_fires_at_the_same_time_as_before`
+  mit `assert None is not None` — eine Datei, die diese Änderung nicht berührt.
+  **Was geprüft ist:** lokal 16/16 grün, im Voll-Lauf grün, **nicht** in der Baseline,
+  Namens-Diff leer. **Zwei Hypothesen gemessen und BEIDE widerlegt:** (a) Tageszeit —
+  Probe `issue63-work/probe_azimuth_clock.py` fährt den Referenz-Zeitpunkt über 24 h,
+  **kein** Startpunkt liefert `None`, auch 05:14 UTC nicht; (b) der neue master-Commit
+  `6acfc819` — das ist unser eigener `#175` und fasst nur `distributor.py` an.
+  **Nicht nachstellbar hier:** der Floor-Job ist Python 3.13 + HA 2025.5.0, auf Windows
+  doppelt blockiert. **Re-Run nicht möglich** (keine Admin-Rechte), `--force` ist per
+  Projektregel aus. **Offen: Wurzel unbekannt** — nicht geraten. Stattdessen
+  [an JustChr gefragt](https://github.com/JustChr/HAsmartirrigation/pull/178#issuecomment-5864114578)
+  mit der ganzen Evidenz, Bitte um Re-Run und um den Hinweis, ob er den Test anderswo
+  fallen sieht. **Eine Spur ist ausdrücklich NICHT ausgeschlossen:** der Floor-Job
+  installiert seine transitiven Abhängigkeiten ungepinnt (`uv pip install` ohne Lock),
+  eine Solar-Mathe-Abhängigkeit könnte sich zwischen den grünen Läufen von heute früh
+  und 05:14 bewegt haben. **Das ist der erste Faden, wenn es reproduzierbar ist.**
+  Probe: `issue63-work/probe_azimuth_clock.py`.
+- **DREI Upstream-PRs offen** (`#175` ist gemergt): `#176` (chain second dispatch),
+  `#177` (time provenances PR 1), `#178` (watering_now). Alle auf Basis `1c071cf0`,
+  alle mit leerem Namens-Diff. `#176`/`#177` `CLEAN` mit je 4 SUCCESS, `#178` rot.
+- **Der Befund, live auf HA-Prod gefunden (User meldete: „Bewässerung läuft, Entitäten
+  zeigen es nicht"):** `binary_sensor.<zone>_watering_now` kann bei `watering_mode:
+  service` / self-closing **nie** angehen. Der Sensor spiegelt `zone_watch_entity`, das
+  ausschließlich `linked_entity` liest — und die ist bei einer `run_service`-Zone
+  `null`. Also abonniert er nichts und `is_on` ist konstant `False`. **Strukturell,
+  kein hängengebliebener Zustand.** An der gespeicherten Config belegt, nicht aus dem
+  Symptom erschlossen.
+  **Der Fix ist eine bestehende Regel**, angewandt auf den einen Verbraucher, dem sie
+  fehlte: `observed_watering.py` macht den Rückfall auf `observed_entity` schon, und
+  `store.py` kommentiert ihn am Feld selbst.
+- **Messung vom 28.09. (HA-Prod, nichts verändert):** drei Zonen wässerten nacheinander,
+  alle Läufe korrekt verbucht — Kirschlorbeer 04:46:14Z / 48,0 L, Kirschbaum
+  04:49:07Z / 26,0 L, Beet 04:54:16Z / 15,5 L — und **alle drei `watering_now` standen
+  über vier Läufe auf `off` mit `last_changed` eingefroren auf dem Boot-Zeitstempel**.
+  Steuerpfad gesund, nur die Anzeige tot.
+- **Gates `#178`:** 7 failed / **3370** passed / 9 skipped / 367 errors, Namens-Diff
+  **leer** (374 = 374), `+4` nach Definition, `black`/`ruff` clean, Referenz-Prüfungen
+  0 / 0 / je genau 1. **Mutationsmatrix 4 Mutanten, 3 getötet**, einer dokumentiert
+  überlebend (`or None` — masters eigener Term, unbeobachtbar).
+- **Regel P1:** `archive/design-history` **`b83c1aff`**, 0 voraus, mit
+  `reconstructed/2026-09-28-service-zone-watering-now.md`.
+- **Tracking-Issue `Eifel-Joe#42` nachgetragen** (beide Sprachhälften): `#62` als neuer
+  Punkt **2a**, `#63` als **13a**, `#53` durchgestrichen mit Merge-Beleg (Punkt 5a),
+  `#22` (Punkt **24**) auf „PR 1 eingereicht, PR 2 wartet auf dessen Merge" inklusive
+  des `tz_offset_h`-Fallstricks, `#46` (Punkt **25**) mit der beantworteten
+  Produktfrage. Strukturkontrolle vor dem Absetzen: 19 Überschriften unverändert,
+  Einträge 96 → 100, Original gesichert in `issue63-work/issue42-body.orig.md`.
+- ⚠️ **Beim Nachtragen gefunden, Punkt 8 von `#42`:** `Eifel-Joe#45` (rotierende Zone,
+  zwischen ihren Zügen übernommen, wird doppelt bewässert) ist **NICHT** das, was
+  `JustChr#176` behebt. Die Notiz „der fertige PR 2 kann rebasen" stand in `#42` **und**
+  an `#45` selbst — gemeint war die Arbeit, die jetzt als `#176` für `Eifel-Joe#62`
+  draußen ist, ein anderer Defekt. **Für `#45` ist nichts gebaut**, und der erste
+  Schritt seines eigenen Kommentars („re-check whether master still carries this
+  defect") ist bis heute nicht gemacht — weder gegen `c5330c7f` noch gegen `6acfc819`.
+  In `#42` Punkt 8 jetzt so vermerkt, damit es niemand für abgehakt hält.
+- **Die Nachprüfung IST jetzt gemacht (28.09.): master trägt `Eifel-Joe#45` noch** —
+  gemessen, nicht gefolgert, und
+  [am Issue kommentiert](https://github.com/Eifel-Joe/HAsmartirrigation/issues/45#issuecomment-5864595231).
+  `run_chain.py` ist zwischen `1c071cf0` und `6acfc819` byte-identisch.
+  **Was `JustChr#165` wirklich brachte:** einen Übernahme-Wächter in
+  `_chain_rotation_advance`, der aber an `zone_run_in_flight(zone_id)` hängt — also
+  daran, daß der fremde Lauf beim Zug der Zone NOCH LÄUFT. Der gemessene Fall des
+  Issues ist der andere (fremder Lauf vorher fertig), dann meldet die Prüfung wieder
+  `False` und der Wächter greift nie. **Defekt halbiert, nicht behoben.**
+  **Messung**, rotierend, 2 Zonen, Slot 300 s, eine Variable:
+  fremder Lauf läuft noch → `writing off zone 2 and its remaining 600s`, kein zweiter
+  Slot; fremder Lauf fertig → `dispatched: [(1, 300.0), (2, 300.0)]`, `remaining[2]`
+  600 → **300**, also zweite Eimer-Gutschrift für eine voll bewässerte Zone.
+  **Warum die zweite Hälfte strukturell ist:** `Rotation` trägt `slot, absorption,
+  order, remaining, last_finish, cursor` — **keinen Vermerk, wer in dieser Runde schon
+  bewässert hat**. `last_finish` merkt sich WANN, nicht WER.
+  **Probe = fertiger RED-Test:** `issue63-work/probe_45.py` (Scratch, zum Ausführen
+  nach `tests/` kopieren; ihr erster Fall ist die Kontrolle gegen einen Rückfall der
+  schon behobenen Hälfte). Der Worktree wurde danach wieder sauber hinterlassen.
+
+### Verworfen
+- **`confirm_entity` als zweiten Rückfall mitzunehmen** (User-Entscheidung 28.09.):
+  es bedeutet „das Ventil hat das Öffnen bestätigt", nicht „es fließt Wasser" — eine
+  neue Zusage statt der bestehenden Regel konsistent angewandt.
+- **Den Rückfall in `zone_watch_entity` selbst zu legen.** Observed-Watering setzt die
+  zwei selbst zusammen und der OpenSprinkler-Pfad löst aus `linked_entity` einen
+  Running-Sensor auf; den Accessor zu verbreitern hätte beide ohne Grund erreicht.
+
+### Fallen
+- ⚠️ **`is_on` prüft `self.hass`, nicht den an `__init__` übergebenen `hass`.** HA setzt
+  das erst beim Hinzufügen zur Plattform. Ein im Test direkt gebauter Sensor meldet
+  deshalb `False`, **egal was er spiegelt** — der erste grüne Lauf war aus dem falschen
+  Grund grün, alle vier Zusagen wären gegen eine kaputte Implementierung durchgegangen.
+  Der Helfer setzt jetzt `sensor.hass = hass`, wie die Plattform es tut.
+- ⚠️ **Ein einmal geführter RED-Beleg gilt nicht mehr, wenn der Test sich danach
+  ändert.** Nach der Fixture-Korrektur neu geführt: Quelle per `git checkout --` auf
+  master, `assert None == 'valve.…'`, dann zurück, 4 passed. Das ist
+  `verification-must-exercise-the-change` eine Ebene höher.
+- **Ein gemeldetes Symptom kann zwei Sachen sein.** Der User nannte Kirschbaum als
+  offen; Kirschbaum war zu und verbucht, offen war das Beet (nächste Zone der Kette).
+  Erst die Ventile mit Zeitstempeln lesen, dann urteilen — und das Beet von offen bis
+  zur Verbuchung durchbeobachten, statt „schließt sich schon" zu sagen.
+- **Das Tuya-Beet-Ventil rundet auf Minuten auf.** 273 s berechnet → 300 s offen. Wer
+  auf die berechnete Dauer wartet, hält es fälschlich für hängend.
+
+### Nächste Schritte
+1. **`#178`s roten Floor-Job verfolgen** (JustChrs Antwort abwarten), und CI/Review von
+   `#176` und `#177` lesen, bevor etwas Neues beginnt. Bei Einwänden
+   `superpowers:receiving-code-review`, Einwand **in JustChrs Worten** ins jeweilige
+   Issue (Regel P2).
+2. ⛔ **`Eifel-Joe#52` ist ERLEDIGT und GESCHLOSSEN — nicht nochmal bauen.** Der frühere
+   Eintrag hier („wartet als eigener Einzeiler") war falsch: `exc_info=True` steht seit
+   `JustChr#171` (`59a3da8c`) in master, geprüft an `live_estimate.py:1533`. Der Rest —
+   erster Fehlschlag pro Refresh auf WARNING — ist **`Eifel-Joe#56`** und braucht zuerst
+   eine Entscheidung über den Reset-Scope (pro Refresh / pro Zone / pro Prozess),
+   `typ:produktentscheidung`.
+3. **`Eifel-Joe#22` PR 2** erst nach `#177`s Merge (Schreiber, Migration, Fixtures).
+4. **Triage:** `Eifel-Joe#57`, `#58`, `#61`.
+5. **HA-Prod:** `flow_calibration_advised` steht auf Kirschbaum — **nicht übernehmen**,
+   der Schlauch ist defekt (`hasi-kirschbaum-hose-defect`). Prod läuft v2026.09.20, der
+   nächste Produktiv-Build zieht alle vier PRs plus die zwei gemergten mit.
+6. **HA-Test:** `Gardena1`s Durchflusssensor-Feld zeigt noch auf die Sonde — laut User
+   egal, kein Handlungsbedarf.
+
+### Empfohlene Skills
+`superpowers:receiving-code-review`, sobald JustChr antwortet;
+`superpowers:verification-before-completion` vor jedem „fertig".
+
+---
+
+## 2026-09-28 — Drei PRs offen: JustChr#175, #176, #177; Eifel-Joe#22 PR 1 gebaut, Chain-PR 2 eingereicht
+
+### Stand (verifiziert)
+- **Drei Upstream-PRs offen, alle auf Basis `1c071cf0`:**
+  - **`JustChr#175`** — `fix(distributor): a dry member run is not a delivery`
+    (`Eifel-Joe#53`). Beim Absetzen **CI 4 passing / 0 failing, MERGEABLE/CLEAN**.
+  - **`JustChr#176`** — `fix(chain): a second dispatch joins the running cycle instead
+    of replacing it` (`Eifel-Joe#62` neu, `Eifel-Joe#46` mitbetroffen).
+  - **`JustChr#177`** — `refactor(time): name the two things a naive timestamp can mean`
+    (`Eifel-Joe#22`, PR 1 von zwei).
+  **CI aller drei am 28.09. nachgemessen: je 4 SUCCESS**, #176 und #177
+  `MERGEABLE`/`CLEAN`, #175 `UNKNOWN` (GitHubs transienter Rechenzustand, vorher
+  `CLEAN`). **Review-Stand aber noch von keinem** — beim Lesen dieses Eintrags zuerst
+  nachsehen, nicht annehmen.
+- **`Eifel-Joe#22` PR 1 gebaut und eingereicht.** Branch
+  `fix/name-the-two-time-provenances`, Worktree `D:/Entwicklung/HASI/issue22-work/wt`,
+  **6 Commits**, gepusht. Voll-Lauf **7 failed / 3384 passed / 9 skipped / 367 errors**,
+  **Namens-Diff leer** (374 = 374), `+18` nach Definition. `black`/`ruff` clean.
+  **Mutationsmatrix 11/11.** Referenz-Prüfungen: hinzugefügte Zeilen 0, Messages 0,
+  je Commit genau 1.
+  **Der WIP `fix/weather-buffer-aware-time` (`c9720a72`) wurde NICHT fortgesetzt** — er
+  ist vom 21.09., JustChrs Schnitt-Antwort vom 23.09., und er macht den Flip (= PR 2).
+  `as_stored_aware` erfüllt seine Bedingung nicht (kein Pflicht-Argument). Er bleibt als
+  Ideengeber stehen; `_process_timezone()` ist das eine übernommene Stück.
+- **Chain-PR 2 neu gebaut** (der alte Commit trug drei Tracker-Verweise im *Inhalt*,
+  Historie deshalb neu). Branch `fix-a-second-dispatch-joins-the-running-cycle`,
+  Worktree `issue2b-work/wt`, **1 Commit**. Voll-Lauf **3386 passed**, Namens-Diff leer,
+  `+20` nach Definition, **Mutationsmatrix 12/12**.
+  `JustChr#165` hatte unseren ersten Halbteil **byte-identisch** übernommen, der Rebase
+  war deshalb ein Cherry-pick.
+- **Regel P2 nachgezogen:** `Eifel-Joe#53` kommentiert + `upstream:gemeldet`;
+  `Eifel-Joe#59` kommentiert (JustChrs Festlegung im Zitat) + `upstream:gemeldet`;
+  **`Eifel-Joe#62` NEU angelegt** (weil `#2` geschlossen ist — Rest → neues Issue),
+  5 Labels; `Eifel-Joe#46` kommentiert + `upstream:gemeldet`.
+- **Regel P1 erledigt und remote verifiziert:** `archive/design-history` **`d1f5401e`**,
+  0 voraus. Neu darin: `#53`-Plan + Live-Protokoll, `#22`-Spec-Revision 3 + Plan,
+  und `reconstructed/2026-09-28-chain-second-dispatch-pr2.md`.
+- **Live-Test `#53` bestanden**, beide Richtungen, auf Wegwerf-Build `v2026.09.27b3`.
+  Details im Archiv-Protokoll, nicht hier doppeln.
+
+### Verworfen
+- **Den `#22`-WIP zu rebasen.** Falscher Schnitt (macht PR 2), 19 Commits hinter master,
+  und die zwei clarejor-Merges haben `live_estimate.py` um +499/−34 umgeschrieben —
+  genau die Datei, die der WIP um 60 Zeilen ändert.
+- **Ein Pflicht-`now_provenance=` an den vier Eintrittspunkten.** **Gemessen:** `now=`
+  steht **94×** in **9** Testdateien. Das wären ~94 Test-Änderungen in dem PR, dessen
+  ganzer Punkt ist, dass er keine Zahl bewegt.
+- **PR 1 etwas aware machen zu lassen.** „Accepts both kinds" heißt, ein aware Wert darf
+  nicht mehr werfen — die naive Form bleibt. Aware würde genau dort werfen, wo der Spec
+  222 verschluckte `TypeError` gemessen hat.
+- **Einen Live-Test für `#22` PR 1 zu inszenieren.** Er ändert keine Zahl; der leere
+  Namens-Diff ist der Beleg. Steht so im Plan, statt einen Test zu bauen, der nicht
+  fehlschlagen kann.
+
+### Fallen
+- ⚠️ **Eine Mutationsmatrix, die nichts gesammelt hat, meldet „alles überlebt".** Die
+  Chain-Matrix sagte zuerst `0 killed, 12 survived` — Ursache war
+  `tests/test_rotation.py` in der Liste, die es nicht gibt; pytest bricht auf dem
+  fehlenden Pfad ab, jeder Lauf `no tests ran in 0.01s`. **Als Verdikt gelesen wären das
+  zwölf ungedeckte Zeilen gewesen.** Die Treiber im Scratchpad prüfen das jetzt
+  (`BROKEN` statt `SURVIVED`) und die Liste wird einmal un-mutiert vorab gefahren.
+  Memory `mutation-survivor-suspects-the-test` erweitert.
+- ⚠️ **Ein Test, der den Helfer direkt prüft, belegt nicht die Aufrufstelle.** `#22`s
+  T10 (Vorhersage-Zeilen mit der falschen Herkunft) überlebte, weil mein Test
+  `coerce_stamp` direkt aufrief. Die drei Stellen sitzen hinter
+  `if when.tzinfo is not None:`, das kein Fixture auslöst. Memory
+  `verification-must-exercise-the-change`, hineingelaufen.
+- ⚠️ **`uvx ruff check … | tail -1` verschluckt den Befund.** Task 2 ging mit
+  `F401 imported but unused` durch. Jetzt: `| grep -c "All checks passed!"`.
+- **Eine Commit-Message aus einer Memory-Formulierung abschreiben.** „One existing test
+  is inverted" stand in der Chain-PR-2-Message — auf master gibt es keinen solchen Test.
+  Wirklich passiert war ein **neu gebautes Fixture**, weil der alte Weg unerreichbar
+  wurde. Vor dem Push geprüft und korrigiert.
+- **`sed -i` unter MSYS zieht CRLF auf LF.** Die Patch-Helfer im Scratchpad
+  (`patch.py`, `replace_block.py`) lesen Text-Modus und schreiben `newline="\r\n"`.
+- **`git commit --amend` braucht einen sauberen Baum, bevor eine Matrix läuft** — der
+  Treiber bricht sonst korrekt ab, aber erst nach dem ersten Mutanten.
+
+### Nächste Schritte
+1. **CI und Review der drei PRs lesen**, bevor etwas Neues beginnt — `#176` und `#177`
+   sind ungeprüft. Bei Einwänden `superpowers:receiving-code-review`, und JustChrs
+   Einwand **in seinen Worten** in das jeweilige Issue (Regel P2).
+2. **`Eifel-Joe#22` PR 2** ist die Fortsetzung: Schreiber auf `dt_util.now()`, die
+   Migration (`STORAGE_VERSION` 14 → 15), die Fixtures neu einsortiert. Erst **nach**
+   `#177`s Merge, weil PR 2 dessen Vokabular nur noch benutzt. Die Release-Notes führen
+   mit dem Clearness-Ratio-Strahlungsfehler (+23,5 % / −16 %), nicht mit dem
+   Elapsed-Window-Drift — so von JustChr verlangt.
+   ⚠️ **`tz_offset_h` reist als float, nicht als tzinfo** — aware Stempel beheben die
+   Solarkorrektur NICHT. Steht als `NOT-TO-DO` an `calculation.py`.
+3. **`Eifel-Joe#52`** (`exc_info=True` auf `_intraday_for_zone`) ist separat freigegeben
+   und wartet als eigener Einzeiler. Der „erster Fehlschlag auf WARNING"-Teil ist
+   `Eifel-Joe#56`, uns überlassen.
+4. **HA-Test zurückstellen:** `Gardena1`s Feld „Durchflusssensor (optional)" zeigt noch
+   auf `input_number.hasi_flow_probe` (alter Wert `sensor.wasser_3_flow`). **Nur im
+   Panel, also Sache des Users.** Die Sonde bleibt absichtlich stehen.
+5. **Triage:** `Eifel-Joe#57`, `#58`, `#61` (Schwere/Größe/`prod-scharf`).
+6. **Aufräumen:** Hilfsmarken `issue21-*`, Worktree `issue21-work/base`,
+   Branch `prerelease/v2026.09.27b3`. **Vorher die `*-work/`-Ordner ansehen** —
+   `issue21-work/`, `issue53-work/`, `issue53b-work/`, `issue2-work/`, `issue2b-work/`,
+   `issue22-work/` tragen Baselines, Voll-Läufe, `mutations.json` und PR-Texte.
+
+### Empfohlene Skills
+`superpowers:receiving-code-review`, sobald JustChr auf einen der drei PRs antwortet;
+`superpowers:verification-before-completion` vor jedem „fertig"; `pr-workflow` für
+weitere Pushes.
+
+---
+
+## 2026-09-27 (4) — Eifel-Joe#53 neu auf master gebaut, live belegt, als JustChr#175 eingereicht
+
+### Stand (verifiziert)
+- **`JustChr#175` IST OFFEN** — [PR](https://github.com/JustChr/HAsmartirrigation/pull/175),
+  Titel `fix(distributor): a dry member run is not a delivery`, Head
+  `Eifel-Joe:fix-a-dry-member-run-is-not-a-delivery`, Basis `master`. **CI beim Absetzen
+  noch nicht gestartet** (0/0/0) — der PR-Monitor der App ist gebunden und meldet.
+  ⚠️ Beim Lesen dieses Eintrags also **zuerst CI und Review prüfen**, nicht annehmen.
+- **Historie NEU entstanden, nicht rebasiert.** Der alte Branch heißt jetzt
+  `issue53-granular` (Tip `dc56b1fb`, Worktree `issue53-work/wt` folgte mit), sein
+  Inhalt ist unangetastet. Neu: **9 Commits auf Basis `1c071cf0`**, Worktree
+  `D:/Entwicklung/HASI/issue53b-work/wt`, Kopf **`6d4b9cc1`**, gepusht.
+  Grund: 20 der 21 alten Commit-Messages trugen unsere Nummern, und zwei trugen sie
+  im *Inhalt* — ein Reparatur-Commit hätte Prüfung 3 weiter gerissen.
+- **Basis-Korrektur:** `upstream/master` war beim Start nicht `5ebffa76`, sondern
+  **`1c071cf0`** (`build: release v2026.09.25`). Baseline darauf **374 nicht-grüne
+  Namen**, `diff` gegen `issue21-work/baseline-fa863aa9.txt` **leer** — der
+  Release-Commit bewegt keinen Test. Datei: `issue53b-work/baseline-1c071cf0.txt`.
+- **Der `flow_metering.py`-Teil (+41 Zeilen) ist ganz entfallen**, master trägt den
+  Accessor. Der Textkonflikt aus Spec §4.3 existiert nicht.
+- **Voll-Lauf:** 7 failed / **3388** passed / 9 skipped / 367 errors, **Namens-Diff
+  leer** (374 = 374). `+22` **nach Definition gezählt**, nicht aus der Differenz
+  geschlossen. `black` 69 unverändert, `ruff` clean.
+- **Mutationsmatrix: 17 Mutationen, 16 getötet, 1 dokumentierter Überlebender**
+  (`M6`, das `<= 0` des Fenster-Guards — dort provabel unerreichbar als Negativ, der
+  Vergleich trägt eine Ebene höher im Sweep, wo `M7` ihn tötet). Verdikte in
+  `issue53b-work/mutations.json`, Treiber im Scratchpad (`mutate.py`).
+- **Drei Referenz-Prüfungen bestanden**, mit `;` verkettet: Diff **0**,
+  Commit-Messages **0**, je Commit **genau 1** = die `Author:`-Zeile. Zusatz-Scan nur
+  über die *hinzugefügten* Zeilen auf `#NNN`, Branch-SHAs, Doku-Kürzel: nichts.
+  Auch der PR-Body selbst geprüft: 0, einzige Nummer `#174` (JustChrs eigener).
+- **Live-Test bestanden, beide Richtungen** — Protokoll
+  `archive/design-history:docs/superpowers/reconstructed/2026-09-27-dry-distributor-member-live-on-master.md`.
+  Build `v2026.09.27b3` (Branch `prerelease/v2026.09.27b3`, `6a313d7c`), HACS-Install,
+  HA-Test-Neustart, `installed_version` **und** Config-Entry `loaded` geprüft.
+  Zwei Läufe auf `Test2`, gleiche Zone/Sensor/Messwert/Fenster, **eine Variable**:
+  Sonde spricht → `failed`/`flow_never_started`, alle vier Werte unverändert, Warnung
+  einmal; Sonde stumm → `completed`, 3,0 L, Eimer −5,0 → −4,4, Gesamt → 1197,3.
+- **Regel P1 erledigt und remote verifiziert:** `archive/design-history` **`ccc669f1`**,
+  0 voraus. Darin der Phase-M-Plan mit allen Messergebnissen und das Live-Protokoll —
+  und damit ist auch der vorher lokale `d1508e4a` draußen.
+- **Regel P2 erledigt:** `Eifel-Joe#53` kommentiert
+  ([Kommentar](https://github.com/Eifel-Joe/HAsmartirrigation/issues/53#issuecomment-5858890932)),
+  Label **`upstream:gemeldet`** im selben Zug gesetzt. Issue bleibt **OFFEN** bis
+  JustChrs Entscheidung zu `#175`.
+
+### Verworfen
+- **Das 4-Tupel als eigener kleiner PR davor** (User-Entscheidung, mit Korrektur der
+  Prämisse): der Diff wächst um **keine** Datei — `_dist_read_flow` hat genau drei
+  Referenzen im Paket, alle in `distributor.py`, und sein einziger Teststub liegt in
+  `test_distributor_dispatch.py`, das die Guard-Tests schon anfassen. Allein wäre der
+  PR verhaltensneutral und nur durch noch nicht eingereichte Arbeit zu rechtfertigen.
+- **Das alte Live-Protokoll als Beleg weiterzuverwenden.** Es schrieb einen Lauf mit
+  `sensor.wasser_3_flow` ab und begründete das mit „`metered_the_run()` ist true" —
+  das galt für die **Zwei**-Bedingungs-Form. Masters dritte Bedingung lehnt genau
+  diesen Sensor ab, weil er während eines Laufs nicht meldet. Das alte Protokoll
+  bleibt gültig für die alte Form, nicht für die gelandete.
+- **Die Sonde nach dem Test zu löschen.** Beim Schwester-Test wurde
+  `input_number.hasi_flow_probe` gelöscht und musste heute neu gebaut werden.
+  Sie bleibt jetzt stehen.
+
+### Fallen
+- ⚠️ **Das MCP-`ha_get_state` liefert `last_reported` FALSCH** — es gibt
+  `last_changed` zurück (für die Sonde 20:12:38, HAs Template-Engine sagte 20:17:16).
+  Bei *jeder* Entität ist `last_reported == last_changed`. **Jede Timing-Aussage muss
+  per Template-Render** (`states.<entity>.last_reported`) gelesen werden, sonst ist sie
+  kein Beleg. Hat mich hier eine falsche Zwischenbehauptung gekostet.
+- **Ein gezielter Member-Lauf rückt zuerst den Ring vor.** `current_outlet` 3 → Ausgang
+  2 auf einem 6er-Ring = 5 Skip-Pulse à 15 s, das Messfenster öffnete **150 s** nach
+  dem Service-Aufruf. Mein erstes Treiber-Skript mit 90 s wäre vor dem Fenster
+  verstummt und hätte den Zeugen ausgehungert — vor dem Lauf auf 270 s verlängert.
+- **Das Verteiler-Feld heißt anders als das Zonen-Feld:** „Durchflusssensor
+  (optional)" (`de.json:877`), nicht „Durchflussmesser-Sensor (optional)" (`:380`).
+  Aus `de.json` gelesen, nicht aus der Memory übernommen.
+- **`ha_get_integration(include_diagnostics=True)` gibt die Config-Entry-`options`
+  immer mit aus** — inklusive `pw_api_key` im Klartext, auch bei engem
+  `diagnostics_data_path`. Nicht vermeidbar, also: nie in Datei, Issue oder Commit.
+- **Der Run-Log liegt auf der Zone** (`ZONE_RUN_LOG`, 50 Einträge), nicht in einem
+  eigenen Store und nicht als Entity. Lesbar nur über
+  `diagnostics_data_path=data.store.zones` mit `limit/offset` — **keine Listenindizes**
+  im Pfad. `Test2` (id 3) steht auf **offset 3**, `Test1` (id 2) auf offset 2.
+- **`sed -i` unter MSYS zieht CRLF-Dateien auf LF.** Das Repo hat
+  `core.autocrlf=true`, git normalisiert beim Commit, aber der Baum wird inkonsistent.
+  Patch-Helfer im Scratchpad (`patch.py`, `replace_block.py`) lesen Text-Modus und
+  schreiben `newline="\r\n"` zurück.
+- **`grep -c` mit null Treffern liefert Exit 1** und bricht eine `&&`-Kette ab.
+  Prüfungen mit `;` verketten.
+
+### Nächste Schritte
+1. **`JustChr#175`: CI und Review lesen**, bevor irgendetwas anderes beginnt. Bei
+   Einwänden `superpowers:receiving-code-review`, und JustChrs Einwand **in seinen
+   Worten** als Kommentar in `Eifel-Joe#53` nachtragen (Regel P2).
+2. **HA-Test zurückstellen:** `Gardena1`s Feld „Durchflusssensor (optional)" zeigt noch
+   auf `input_number.hasi_flow_probe`, alter Wert `sensor.wasser_3_flow`. **Nur im
+   Panel änderbar, also Sache des Users.** `Test2` steht jetzt auf Eimer −4,4 und
+   1197,3 L, `last_irrigation` 20:33:09. Wegwerf-Release `v2026.09.27b3` und der
+   Branch `prerelease/v2026.09.27b3` können nach Belieben weg.
+3. **`JustChr#159` ist absichtlich offen** und `Eifel-Joe#59` trägt jetzt JustChrs
+   Festlegung im Zitat plus `upstream:gemeldet`
+   ([Kommentar](https://github.com/Eifel-Joe/HAsmartirrigation/issues/59#issuecomment-5859138730)).
+   Aufteilung: Defekt-Hälfte = `#172`, gemergt, `Eifel-Joe#21` zu. Design-Hälfte
+   (greift die Gewichtung auf dem Live-Estimate-Pfad überhaupt?) = `Eifel-Joe#59`,
+   eigener PR gewünscht, **Produktentscheidung fehlt**. `upstream:freigegeben` bewusst
+   NICHT gesetzt — seine Bau-Zusage vom 21.09. galt vor der Aufteilung.
+4. **`JustChr#160` / `Eifel-Joe#22` (`upstream:freigegeben`): angefangen, unfertig.**
+   Branch `fix/weather-buffer-aware-time` im HAUPTBAUM, 2 Commits, Basis `965a4f9d`,
+   **19 hinter master**. Fertig ist `helpers.as_stored_aware` + `_process_timezone()`
+   (eigene Funktion, weil `time.tzset()` auf Windows fehlt), angewandt in
+   `calculation.py`, `live_estimate.py` (3×), `weather_aggregate.py`, plus
+   `tests/test_stored_stamp_timezone.py`. **Unaufgelöst laut eigener Commit-Message:**
+   die zweite naive Herkunft (Wetter-Client- und Vorhersage-Zeilen sind **site**-lokal,
+   Store-Stempel **prozess**-lokal — entgegengesetzt, ein Helfer kann nicht beide
+   bedienen, siehe Memory `enumerate-provenances-before-reformat`).
+   ⚠️ **Und eine Stelle, die der Helfer-Docstring als ersetzt BESCHREIBT, ist es nicht:**
+   `sensor._to_aware_datetime` (`sensor.py:603/620`) macht weiter
+   `replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)`, gerufen an `:822`, `:887`, `:1102`.
+   Der Docstring sagt „It **was** in sensor._to_aware_datetime", der Code widerspricht.
+   Vor Weiterarbeit: **Rebase auf `1c071cf0`** (`#172` hat `calculation.py` angefasst,
+   eine der geänderten Dateien) und **neue Baseline** — die alte gilt für `965a4f9d`.
+5. **Triage fehlt weiter:** `Eifel-Joe#57`, `#58` (Schwere/Größe/`prod-scharf`) und
+   `#61` (`schwere:`).
+6. **`Eifel-Joe#61`** ist die eigene Verifikationslücke (Vorhersage-Gewichtung nie
+   gegen einen antwortenden Wetter-Client gelaufen) — braucht Open-Meteo auf HA-Test,
+   eine Zone mit und eine ohne Zeitplan, Berechnung aus einem Dispatch unter
+   `autocalcmode: before_run`.
+7. **`Eifel-Joe#59`** braucht eine Produktentscheidung, `#60` ist `schwere:niedrig`.
+8. **Aufräumen, jetzt gefahrlos:** Hilfsmarken `issue21-granular`,
+   `issue21-prereshape`, `issue21-resolver-only`, Worktree `issue21-work/base`.
+   **Vorher `issue21-work/` ansehen** — Baselines und Voll-Läufe liegen dort, nur die
+   Proben sind im Archiv. Neu dazu: `issue53-work/` (dort liegen die alten Baselines
+   und PR-Texte) und `issue53b-work/` (Baseline `1c071cf0`, beide Voll-Läufe,
+   `mutations.json`, PR- und Issue-Texte) — **nicht blind löschen.**
+
+### Empfohlene Skills
+`superpowers:receiving-code-review`, sobald JustChr auf `#175` antwortet;
+`superpowers:verification-before-completion` vor jedem „fertig"; `pr-workflow` für
+weitere Pushes.
+
+---
+
 ## 2026-09-27 (3) — JustChr#174 UND JustChr#172 gemergt; P2 und P1 nachgezogen; Eifel-Joe#53 entblockt und teurer
 
 ### Stand (verifiziert)
