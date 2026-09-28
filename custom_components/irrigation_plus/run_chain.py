@@ -263,9 +263,9 @@ class RunChainMixin:
         state = self._chain_state(mode)
         live_now = getattr(self, "_live_run_zones", None) or set()
 
-        # Replaces both structures wholesale, in lockstep off one bound id per
-        # zone — merging into what a previous cycle left behind is a later PR's
-        # behaviour, not this one's.
+        # One plan per zone, keyed off one bound id, for both uses below: a live
+        # cycle has a joining zone's plan appended to its queue (_chain_join), a
+        # fresh one has both structures replaced in lockstep.
         def _plan(zone) -> ZonePlan:
             return ZonePlan(
                 seconds=float(zone.get(const.ZONE_DURATION) or 0),
