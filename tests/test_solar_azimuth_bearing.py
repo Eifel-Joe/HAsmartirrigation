@@ -103,10 +103,17 @@ def test_the_legacy_helper_still_reproduces_the_reported_number():
 # the repair
 # --------------------------------------------------------------------------- #
 
+# A fixed moment, not utcnow(). Searching from the wall clock made the end-to-end
+# test below fail for ~80 s a day (05:14:25-05:15:45 UTC in late September, with
+# HA's zone left non-UTC by an earlier test): the legacy crossing landed a minute
+# after the reference, the sun had just passed round(bearing), and the corrected
+# search needed more than its one-day window, so it returned None.
+REFERENCE = datetime.datetime(2026, 6, 21, 18, tzinfo=datetime.UTC)
+
 
 def test_corrected_bearing_is_the_true_bearing_at_the_old_fire_time():
     lat, lon = 33.45, -112.07
-    reference = dt_util.utcnow()
+    reference = REFERENCE
     bearing, fire_time = corrected_azimuth_bearing(lat, lon, 90.0, reference)
 
     assert bearing is not None
@@ -123,7 +130,7 @@ def test_the_repaired_schedule_fires_at_the_same_time_as_before():
     """End to end: search with the legacy maths for the OLD angle, and with the
     corrected maths for the NEW one, and land at the same instant."""
     lat, lon = 33.45, -112.07
-    reference = dt_util.utcnow()
+    reference = REFERENCE
     old_fire = find_next_solar_azimuth_time(
         lat,
         lon,
