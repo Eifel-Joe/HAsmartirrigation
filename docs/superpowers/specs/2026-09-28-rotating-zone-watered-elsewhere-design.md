@@ -51,9 +51,16 @@ in_flight: int | None = None
 the zone whose slot the rotation itself dispatched and is waiting for.
 
 1. **`_chain_rotation_advance`** sets `in_flight` to the zone id immediately before
-   `async_run_self_closing`, and clears it again when that dispatch is refused (a refusal
-   creates no run, so nothing will ever finalise to clear it, and a stale value would make
-   the *next* zone's own slot look foreign).
+   `async_run_self_closing` — before, not after, because a run that finalised inside that
+   await would otherwise find no record and have its own slot written off.
+
+   It is **not** cleared when the dispatch is refused, and that is a decision rather than
+   an omission. A refusal sets `remaining[zone] = 0.0`, and only building a fresh
+   `Rotation` restores it — which starts `in_flight` at `None` again. A value left
+   pointing at a refused zone can therefore only suppress a write-off for a zone whose
+   remainder is already nil. Clearing it would be a line with no observable behaviour and
+   no test that could fail for it; a comment carries the reasoning instead. That a
+   refusal does not shadow a later take-over is pinned by its own test.
 2. **`_chain_advance`**, in the block that already stamps `last_finish`:
    - `finished_zone_id == in_flight` → the rotation's own slot ended. Clear `in_flight`,
      carry on exactly as today.
@@ -95,6 +102,24 @@ The sequential geometry needs nothing: `_chain_forget_finished` already takes a 
 of the queue when a run of it finalises, and its docstring's "a rotation keeps `zones`
 empty, so it is unaffected" stays true — the rotating geometry is served by `remaining`,
 which is what this change writes to.
+
+### The other rotation, and why it cannot have this defect
+
+`irrigation.py`'s `_irrigate_zones_rotating` is a second, independent rotation — the
+classic linked-entity path, which walks its slots inline inside one coroutine instead of
+being driven by finalisation callbacks. It is immune, and for a reason worth stating
+rather than assuming:
+
+`_claim_chain_zones` registers **every** zone of the cycle in `_active_runs` as
+`queued=True` for the whole rotation, not at valve-open, and `_classic_run_in_flight` is
+plain membership of that registry. A zone merely waiting its turn there therefore answers
+`True` to `zone_run_in_flight`, so the duplicate-dispatch guard refuses an Irrigate-now
+on it and the take-over never happens.
+
+That claim is exactly the invariant the self-closing chain lacks: its waiting zones live
+in `rotation.remaining`, which nothing consults. The same asymmetry the issue describes
+for the sequential queue — one geometry gets the fact for free, the other has to be
+given it.
 
 ## Explicitly not in scope
 
