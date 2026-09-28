@@ -1,0 +1,146 @@
+# A rotating zone watered elsewhere between its turns
+
+Design for `Eifel-Joe#45`. Base: `master` = `6acfc819`.
+
+`JustChr#165` fixed the *sequential* half of this defect and half of the rotating one.
+This document is about the half that is left, and about why it is not an extension of
+either guard but a missing record.
+
+## The defect, measured
+
+Rotating, two zones, slot 300 s, one variable — whether the foreign run is still going
+when the rotation reaches the zone:
+
+| foreign run at zone 2's turn | master's behaviour |
+|---|---|
+| **still running** | `writing off zone 2 and its remaining 600s, another run took it over while it waited` — no second slot |
+| **already finished** | `dispatched: [(1, 300.0), (2, 300.0)]`, `remaining[2]` 600 → **300** |
+
+The second row is the defect: zone 2 was watered in full by Irrigate-now, its run
+finalised, and the rotation hands it another 300 s slot — a second bucket credit for a
+zone that already had its water.
+
+## Why a better guard cannot fix it
+
+The existing guard in `_chain_rotation_advance` asks `zone_run_in_flight(zone_id)`. That
+predicate reads the persisted run record, and `_sc_finish_run` calls `_sc_remove_run`
+**before** advancing the chain. Once the foreign run has finalised there is nothing left
+in the store to read: the predicate answers `False`, correctly, and the guard never
+fires.
+
+Nor can the rotation reconstruct it from what it carries. `Rotation` holds
+`slot, absorption, order, remaining, last_finish, cursor`. `last_finish` records *when* a
+zone last stopped — it drives the absorption wait — and is stamped for **any** run of a
+zone the rotation holds, including a foreign one. It does not record *who* watered, so it
+cannot tell the rotation's own slot ending from a take-over ending.
+
+`_chain_advance(mode, finished_zone_id)` is the one moment the rotation hears "a run of
+zone X in this chain's mode has ended". It stamps `last_finish[X]` and discards the rest
+of what it knows. The information needed is available exactly there and nowhere later.
+
+## The fix
+
+Give the rotation the one fact it is missing: which run is its own.
+
+`Rotation` gains a single field:
+
+```python
+in_flight: int | None = None
+```
+
+the zone whose slot the rotation itself dispatched and is waiting for.
+
+1. **`_chain_rotation_advance`** sets `in_flight` to the zone id immediately before
+   `async_run_self_closing`, and clears it again when that dispatch is refused (a refusal
+   creates no run, so nothing will ever finalise to clear it, and a stale value would make
+   the *next* zone's own slot look foreign).
+2. **`_chain_advance`**, in the block that already stamps `last_finish`:
+   - `finished_zone_id == in_flight` → the rotation's own slot ended. Clear `in_flight`,
+     carry on exactly as today.
+   - otherwise, and the zone is one this rotation holds with water left → something else
+     watered it this round. Write off its remainder (`remaining[zid] = 0.0`), hand back the
+     live-run marker, and log the take-over — in the same shape as the two write-off
+     branches that already exist in `_chain_rotation_advance`.
+
+The write-off, not a separate "already watered" set, is deliberate: `remaining = 0.0`
+already means "no more turns" and is what `_chain_abandon` reads when it reports what a
+stop abandoned. A second field would be a second truth about the same thing.
+
+### Why a new field rather than `cursor`
+
+`order[cursor]` is the zone dispatched last, so it *looks* like it could serve. It cannot:
+`cursor` means "where the turn order resumes" and keeps pointing at a zone after that
+zone's slot has ended. A foreign run landing in an absorption window would then be read as
+the rotation's own. Overloading `cursor` with a second meaning is the same implicit
+coupling that produced this defect.
+
+### Alternatives rejected
+
+- **Compare the run record.** `async_run_self_closing` returns a bool, so the rotation
+  would have to re-read the store after dispatching to learn which record was its own —
+  a round trip with its own race, for a fact it could simply have written down.
+- **Compare `RUN_TRIGGER`.** A trigger is not an identity. A scheduled run started outside
+  the chain carries the same one the chain uses, and a rotation started by "irrigate all
+  now" would classify a genuine Irrigate-now take-over as its own slot.
+
+## Reach
+
+`run_chain.py` is shared by the service chain and the OpenSprinkler chain, so both
+geometries are covered by the one change. In `custom_components/` the only live caller
+that carries a finished zone id is `_chain_advance_for_run`; `_os_chain_advance` has no
+production caller (tests mock it). The detection sits in `_chain_advance` regardless,
+because that is where every such report arrives.
+
+The sequential geometry needs nothing: `_chain_forget_finished` already takes a zone out
+of the queue when a run of it finalises, and its docstring's "a rotation keeps `zones`
+empty, so it is unaffected" stays true — the rotating geometry is served by `remaining`,
+which is what this change writes to.
+
+## Explicitly not in scope
+
+- **Proportional deduction** of what the foreign run delivered. Decided 2026-09-28: the
+  whole remainder is written off, symmetric with the branch that already handles the
+  still-running case. Deducting only `RUN_PLANNED_SECONDS` would make the same take-over
+  end differently depending on whether the foreign run happened to outlast the slot.
+- **The sequential geometry** — already fixed.
+- **Surviving a restart.** The rotation lives in memory today and continues to.
+- **The pricing mirrors** in `run_window.py` and `irrigation.py`. They size a cycle up
+  front; this is a decision taken at a zone's turn.
+
+## End-to-end criterion
+
+Rotating, two zones, slot 300 s. Zone 2 is watered in full by a run dispatched outside
+the chain (`async_run_self_closing(zone, trigger="manual")`, the path Irrigate-now uses)
+which finalises **before** zone 1's slot ends. At zone 2's turn the rotation must dispatch
+nothing for it, `remaining[2]` must be `0.0`, and the log must name the take-over.
+
+Measured on `6acfc819` as the exact opposite:
+
+```
+after the take-over: dispatched=[(1, 300.0), (2, 600.0)]   remaining={1: 300.0, 2: 600.0}
+at zone 2's turn:   dispatched later=[(2, 300.0)]          remaining={1: 300.0, 2: 300.0}
+```
+
+## A note on the probe this issue shipped with
+
+`Eifel-Joe#45` links a two-case probe as "already the RED test a fix needs". Its first
+case — the take-over still running at the turn — is a sound control for the half
+`JustChr#165` fixed, and is kept verbatim.
+
+Its second case is not usable as written. It marks the take-over only in a comment and
+expresses it by stubbing `zone_run_in_flight` to `False` — but that predicate already
+answers `False` in an ordinary rotation, so the stub changes nothing. Measured at the
+decision point:
+
+```
+ORDINARY (test_two_zones_take_turns)  dispatched: [(1,60),(2,60)]  remaining: {1:120, 2:120}
+PROBE case 2                          dispatched: [(1,60),(2,60)]  remaining: {1:120, 2:120}
+```
+
+The two states are identical, and `test_two_zones_take_turns` asserts the opposite
+outcome (`[1, 2, 1, 2, 1, 2]`) from it. Any implementation that made the probe's second
+case green as written would have to stop dispatching the second zone of a normal
+rotation. The case is therefore rebuilt to inject the run it describes — dispatch it,
+finalise it — which is also what makes the fix's signal observable at all.
+
+Decided with the user, 2026-09-28.
