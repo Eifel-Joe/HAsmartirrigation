@@ -70,8 +70,8 @@ the zone whose slot the rotation itself dispatched and is waiting for.
      branches that already exist in `_chain_rotation_advance`.
 
 The write-off, not a separate "already watered" set, is deliberate: `remaining = 0.0`
-already means "no more turns" and is what `_chain_abandon` reads when it reports what a
-stop abandoned. A second field would be a second truth about the same thing.
+already means "no more turns" and is what `_chain_forfeit_queue` reads when it reports
+what a stop abandoned. A second field would be a second truth about the same thing.
 
 ### Why a new field rather than `cursor`
 
@@ -131,6 +131,19 @@ given it.
 - **Surviving a restart.** The rotation lives in memory today and continues to.
 - **The pricing mirrors** in `run_window.py` and `irrigation.py`. They size a cycle up
   front; this is a decision taken at a zone's turn.
+- **A take-over by observed watering.** Found during review, and a real second source of
+  the same defect rather than a variant of it: `observed_watering.py` credits an
+  externally-opened zone through `_record_run` and `async_write_watered_bucket` and never
+  calls `_sc_finish_run` or `_chain_advance_for_run`. The chain therefore does not hear
+  about it at all — neither the existing guard at the turn, which reads
+  `zone_run_in_flight`, nor the write-off added here, which needs a finalisation to fire
+  on. A rotating zone with an `observed_entity`, opened by hand between its turns, is
+  still dispatched another slot and credited twice.
+
+  Left out on purpose. Covering it means giving observed watering a route into the chain,
+  which is a change to a second subsystem and its own piece of work. It gets its own
+  issue; this change is not weakened by stopping here, because every take-over that does
+  reach the chain is now caught.
 
 ## End-to-end criterion
 

@@ -1,0 +1,84 @@
+[
+  {
+    "n": 1,
+    "mutation": "drop the claim at the dispatch",
+    "result": "killed",
+    "killed_by": [
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_refused_dispatch_does_not_shadow_a_later_take_over",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_slot_that_finishes_inside_its_own_dispatch_is_not_a_take_over",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_take_over_still_running_at_the_turn_is_written_off",
+      "FAILED tests/test_service_chain.py::TestAStoppedZoneLeavesTheCycle::test_its_remaining_slots_are_dropped",
+      "FAILED tests/test_service_chain.py::TestRotatingSlicesThem::test_a_zone_is_dispatched_in_slots",
+      "FAILED tests/test_service_chain.py::TestRotatingSlicesThem::test_absorption_holds_a_zone_back_from_its_next_slot",
+      "FAILED tests/test_service_chain.py::TestRotatingSlicesThem::test_the_last_slot_is_the_remainder_not_a_full_one",
+      "FAILED tests/test_service_chain.py::TestRotatingSlicesThem::test_two_zones_take_turns",
+      "FAILED tests/test_service_chain.py::TestTheChainOnlyAdvancesOnceNothingIsInFlight::test_the_recorded_run_is_the_slot_not_the_zone_duration",
+      "FAILED tests/test_service_chain.py::TestTheTwoChainsStayApart::test_teardown_drops_every_chain"
+    ]
+  },
+  {
+    "n": 2,
+    "mutation": "in_flight != zid instead of == zid",
+    "result": "killed",
+    "killed_by": [
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_refused_dispatch_does_not_shadow_a_later_take_over",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_slot_that_finishes_inside_its_own_dispatch_is_not_a_take_over",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_take_over_still_running_at_the_turn_is_written_off",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_take_over_that_finished_before_the_turn_gets_no_slot",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_the_two_take_over_shapes_do_not_read_alike",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_the_write_off_hands_back_a_marker_the_take_over_left",
+      "FAILED tests/test_service_chain.py::TestAStoppedZoneLeavesTheCycle::test_its_remaining_slots_are_dropped",
+      "FAILED tests/test_service_chain.py::TestRotatingSlicesThem::test_a_zone_is_dispatched_in_slots",
+      "FAILED tests/test_service_chain.py::TestRotatingSlicesThem::test_absorption_holds_a_zone_back_from_its_next_slot",
+      "FAILED tests/test_service_chain.py::TestRotatingSlicesThem::test_the_last_slot_is_the_remainder_not_a_full_one",
+      "FAILED tests/test_service_chain.py::TestRotatingSlicesThem::test_two_zones_take_turns",
+      "FAILED tests/test_service_chain.py::TestTheChainOnlyAdvancesOnceNothingIsInFlight::test_the_recorded_run_is_the_slot_not_the_zone_duration",
+      "FAILED tests/test_service_chain.py::TestTheTwoChainsStayApart::test_teardown_drops_every_chain"
+    ]
+  },
+  {
+    "n": 3,
+    "mutation": "drop the take-over branch entirely",
+    "result": "killed",
+    "killed_by": [
+      "ERROR tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_refused_dispatch_does_not_shadow_a_later_take_over",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_take_over_that_finished_before_the_turn_gets_no_slot",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_the_two_take_over_shapes_do_not_read_alike",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_the_write_off_hands_back_a_marker_the_take_over_left"
+    ]
+  },
+  {
+    "n": 4,
+    "mutation": "remaining >= 0 instead of > 0",
+    "result": "killed",
+    "killed_by": [
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_zone_with_nothing_left_keeps_its_marker"
+    ]
+  },
+  {
+    "n": 5,
+    "mutation": "claim the slot AFTER the await instead of before",
+    "result": "killed",
+    "killed_by": [
+      "ERROR tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_refused_dispatch_does_not_shadow_a_later_take_over",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_refused_dispatch_does_not_shadow_a_later_take_over",
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_a_slot_that_finishes_inside_its_own_dispatch_is_not_a_take_over"
+    ]
+  },
+  {
+    "n": 6,
+    "mutation": "drop the live-marker hand-back",
+    "result": "killed",
+    "killed_by": [
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_the_write_off_hands_back_a_marker_the_take_over_left"
+    ]
+  },
+  {
+    "n": 7,
+    "mutation": "reuse the sibling branch's wording",
+    "result": "killed",
+    "killed_by": [
+      "FAILED tests/test_service_chain.py::TestARotatingZoneWateredElsewhere::test_the_two_take_over_shapes_do_not_read_alike"
+    ]
+  }
+]
