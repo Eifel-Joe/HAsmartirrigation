@@ -1116,6 +1116,9 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
       clearTimeout(this.globalDebounceTimer);
       this.globalDebounceTimer = null;
     }
+    // Unsent edits go with the timer: posted once the page is back, they
+    // could carry values long out of date.
+    this._pendingSaves.clear();
 
     // Clear the mapping cache
     this.mappingCache.clear();

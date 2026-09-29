@@ -120,4 +120,13 @@ describe("a sensor group edit is saved", () => {
     await vi.advanceTimersByTimeAsync(500);
     expect(el.isSaving).toBe(true);
   });
+
+  it("drops an unsent save when the page is left", () => {
+    const { el, callApi } = make([group(1, "Garden"), group(2, "Bed")]);
+    el.handleEditMapping(0, group(1, "Garden south"));
+    el.disconnectedCallback();
+    el.handleEditMapping(1, group(2, "Bed north"));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([group(2, "Bed north")]);
+  });
 });

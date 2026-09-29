@@ -185,6 +185,17 @@ describe("a zone edit posts what it set", () => {
       { id: 2, name: "Hecke" },
     ]);
   });
+
+  it("drops an unsent edit when the page is left", () => {
+    // Put back later, the page must not post an edit made long before: the
+    // level it carries may be out of date by then.
+    const { el, callApi } = make([staleZone(1)]);
+    el.handleEditZone(0, { bucket: 5 });
+    el.disconnectedCallback();
+    el.handleEditZone(0, { name: "Beet" });
+    vi.advanceTimersByTime(500);
+    expect(bodies(callApi)).toEqual([{ id: 1, name: "Beet" }]);
+  });
 });
 
 describe("select value for an optional id", () => {

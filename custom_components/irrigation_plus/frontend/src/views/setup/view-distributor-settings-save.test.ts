@@ -109,4 +109,13 @@ describe("a distributor edit is saved", () => {
     await vi.advanceTimersByTimeAsync(500);
     expect(el._saveStatus).toBe("idle");
   });
+
+  it("drops an unsent save when the page is left", () => {
+    const { el, callApi } = make([distributor(1, 5), distributor(2, 5)]);
+    el.handleEditDistributor(0, distributor(1, 7));
+    el.disconnectedCallback();
+    el.handleEditDistributor(1, distributor(2, 9));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([[2, 9]]);
+  });
 });

@@ -1247,6 +1247,9 @@ class SmartIrrigationViewDistributorSettings extends SubscribeMixin(
       clearTimeout(this.globalDebounceTimer);
       this.globalDebounceTimer = null;
     }
+    // Unsent edits go with the timer: posted once the page is back, they
+    // could carry values long out of date.
+    this._pendingSaves.clear();
     if (this._savedResetTimer) {
       clearTimeout(this._savedResetTimer);
       this._savedResetTimer = null;
