@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+import voluptuous as vol
 from homeassistant.exceptions import ServiceNotFound
 
 from custom_components.irrigation_plus import const
@@ -242,15 +243,24 @@ async def test_notify_bare_target_only_persistent():
     assert (domain, service) == ("persistent_notification", "create")
 
 
-async def test_notify_a_failing_target_is_logged_not_raised(caplog):
-    # A stale notify target raises ServiceNotFound. The panel notification is
-    # already there, so the optional channel is logged and skipped instead of
-    # failing the halt or the refusal that called it.
+@pytest.mark.parametrize(
+    "failure",
+    [
+        lambda domain, service: ServiceNotFound(domain, service),
+        lambda domain, service: vol.Invalid("extra keys not allowed"),
+    ],
+    ids=["the_service_no_longer_exists", "its_schema_rejects_the_message"],
+)
+async def test_notify_a_failing_target_is_logged_not_raised(caplog, failure):
+    # A stale notify target raises ServiceNotFound, one whose schema rejects the
+    # message vol.Invalid. The panel notification is already there, so the
+    # optional channel is logged and skipped instead of failing the halt or the
+    # refusal that called it.
     c = _host()
 
     async def _service_call(domain, service, data=None, **kwargs):
         if domain == "notify":
-            raise ServiceNotFound(domain, service)
+            raise failure(domain, service)
 
     c.hass.services.async_call = AsyncMock(side_effect=_service_call)
 
@@ -260,6 +270,18 @@ async def test_notify_a_failing_target_is_logged_not_raised(caplog):
     first = c.hass.services.async_call.await_args_list[0].args
     assert first[:2] == ("persistent_notification", "create")
     assert "could not forward the notification to notify.gone" in caplog.text
+
+
+async def test_notify_a_corrupt_target_is_logged_not_raised(caplog):
+    # A hand-edited store can hold a non-str target; splitting it raises
+    # AttributeError, which the guard must take as well.
+    c = _host()
+
+    with caplog.at_level(logging.ERROR):
+        await c._dist_notify(_dist(notify_target=5), "boom")
+
+    c.hass.services.async_call.assert_awaited_once()  # the panel notification
+    assert "could not forward the notification to 5" in caplog.text
 
 
 async def test_notify_a_cancellation_still_cancels():

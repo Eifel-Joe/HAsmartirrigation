@@ -181,6 +181,8 @@ class DistributorMixin:
           AttributeError in _dist_split_service. Do not widen it to BaseException:
           a cancellation must still cancel.
         siehe test_distributor.py::test_notify_a_failing_target_is_logged_not_raised
+        siehe test_distributor.py::test_notify_a_corrupt_target_is_logged_not_raised
+        siehe test_distributor.py::test_notify_a_cancellation_still_cancels
         siehe test_distributor_cycle.py::test_resume_goes_on_after_a_failing_notify_target
         """
         await self.hass.services.async_call(
