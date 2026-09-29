@@ -1163,6 +1163,34 @@ class DistributorMixin:
             ids = self._dist_inflight = set()
         return ids
 
+    def _dist_inlet_reports_open(self, distributor: dict) -> str | None:
+        """The inlet state that refuses a cycle now, or ``None`` (#181).
+
+        Wurzel: the claim asked synced / confirmed / in flight and nothing about the
+          inlet, so a cycle claimed while a foreign run held the inlet open watered
+          over it: opening an inlet that is already open makes no edge, the ring does
+          not index, the leg is credited to the next member, and the stored position
+          ends one ahead while it still reads synced.
+        Fix: refuse on exactly DISTRIBUTOR_INLET_OPEN_STATES. ``closing`` counts
+          because the valve has not closed yet and the ring has not indexed. Nothing
+          else refuses; a distributor without an inlet entity has no signal and keeps
+          today's behaviour. Independent of the watch mode and the watering mode.
+        Synchronous on purpose: the claim calls it between its in-flight check and
+        ``inflight.add``, where an await would reopen the single-flight window.
+        NOT-TO-DO: do not move this into _dist_eligible_for_run. Two entries call the
+          claim directly (distributor_run_now, the test run), and that predicate also
+          feeds the finish-anchor estimate, which must not depend on the moment it
+          runs.
+        siehe test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open
+        """
+        entity_id = distributor.get("inlet_entity")
+        if not entity_id:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state not in const.DISTRIBUTOR_INLET_OPEN_STATES:
+            return None
+        return state.state
+
     async def async_run_distributor_cycle(
         self,
         distributor: dict,
@@ -1199,6 +1227,12 @@ class DistributorMixin:
             return False
         inflight = self._dist_inflight_ids()
         if dist_id in inflight:
+            return False
+        # #181: never start over an open inlet. After the in-flight guard, because
+        # the integration's own sweep holds the inlet open and must read "in
+        # flight", not "open"; before inflight.add with no await in between, so the
+        # single-flight guarantee is unchanged.
+        if self._dist_inlet_reports_open(distributor) is not None:
             return False
         inflight.add(dist_id)
         # Final-review Issue 1 (2026-07-12): the instant SI claims this distributor,

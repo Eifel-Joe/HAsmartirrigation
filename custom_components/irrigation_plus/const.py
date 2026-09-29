@@ -1256,5 +1256,11 @@ DISTRIBUTOR_WATCH_MODE_WARN = "warn"  # mark uncertain (de-arm + notify)
 DISTRIBUTOR_WATCH_MODE_IGNORE = "ignore"  # do not observe
 DISTRIBUTOR_REASON_FOREIGN_PULSE = "foreign_inlet_pulse"
 
+# Distributor inlet gate (#181): a cycle is refused while its inlet reports one of
+# these states -- open, on its way open, or not closed yet, so the ring has not
+# indexed. Every other state (off, closed, unavailable, unknown, a missing entity)
+# lets it through: "not available" is not "open".
+DISTRIBUTOR_INLET_OPEN_STATES = frozenset({"on", "open", "opening", "closing"})
+
 # Distributor flow-metering poll interval (seconds) for volume measurement (Part A).
 DISTRIBUTOR_FLOW_POLL_SECONDS = 5
