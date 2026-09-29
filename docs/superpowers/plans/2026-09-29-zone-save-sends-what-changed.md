@@ -1864,3 +1864,88 @@ Expected: `27 killed / 27 applied / 27 total`, every source restored byte-for-by
 - On the fix build, after Step 4: the same for two sensor groups, two distributors (if HA-Test
   has two; otherwise say so) and two modules. Expected: both edits stored after a reload.
 - Restore every name and value afterwards.
+
+### Addendum, part 2: the Task 4 review (2026-09-29)
+
+The Task 4 review measured the backend's answer to every call site, old whole-zone post against
+new `{id, …change}`, through the real view, coordinator and store: 43 site variants × 6 start
+zones, 258 pairs. 184 identical; the 74 others differ only because two accidental side effects
+of the whole-zone post are gone — a name edit no longer zeroes the duration of an automatic
+zone sitting at bucket 0.0 (store rule "bucket == 0 → duration 0"), and no longer clamps a
+bucket above the maximum into a booked assertion. Both harmless; nothing regresses.
+
+Folded in:
+
+| change | where | why |
+|---|---|---|
+| the by-id tripwire gets a positive pin (`onConfirm: () => this._editZoneById(zone.id` exactly once) and a wider negative (`onConfirm:[^}]*?\bhandleEditZone\b`) | `test_a_confirmed_zone_edit_finds_its_zone_by_id`, amend Task 4 | `_editZoneById(index, …)` and a block body passed the old regex with the defect back |
+| "so after a run it still held" → "could still hold" | the `handleEditZone` comment and the Task 4 commit body, amend Task 4 | a distributor cycle's events refresh the page (as in Task 1) |
+| **Task 4d**: a zone deleted inside the debounce window takes its pending edit with it | `_confirmDelete`, new commit | flagged by two reviews: the edit went out after `{id, remove}` and the server created a shell zone from the edited fields alone (before this series: the whole deleted zone came back) |
+| the same delete rule on the three sibling pages | Tasks 4a–4c (below) | sister path of 4d; each page's delete handler leaves the new pending map untouched |
+
+Not taken: a wider spread tripwire (any `...zone` in code) — the approved pin targets the defect's
+shape; `if (id === undefined) return;` in `_editZoneById` — unreachable, the id-less zone cannot
+open the dialog. A failed post is not retried (the map is emptied before posting, the toast is
+the signal; a re-queue would repeat a rejected field forever) — say so in the PR text.
+
+#### Task 4d: a deleted zone drops its pending edit
+
+Test, in `view-zone-settings-save.test.ts` inside `describe("a zone edit posts what it set")`,
+after the by-id test:
+
+```typescript
+  it("drops the pending edit of a zone deleted before it is sent", () => {
+    // Sent after the delete, the edit would reach the server for an id it no
+    // longer knows, and it would create a zone from the edited fields alone.
+    const { el, callApi } = make([staleZone(1), staleZone(2)]);
+    el.handleEditZone(0, { name: "Beet" });
+    el._confirmDeleteZoneId = 1;
+    el._confirmDelete();
+    vi.advanceTimersByTime(500);
+    expect(bodies(callApi)).toEqual([{ id: "1", remove: true }]);
+  });
+```
+
+RED: `[{ id: "1", remove: true }, { id: 1, name: "Beet" }]`. Fix, in `_confirmDelete` directly
+after `this._confirmDeleteZoneId = null;`:
+
+```typescript
+    // An edit still waiting for the timer must not follow the delete: the
+    // server would take it for a new zone and create one from those fields.
+    this._pendingEdits.delete(zoneId);
+```
+
+Commit `fix(panel): a deleted zone takes its pending edit with it`, `dist` rebuilt.
+
+#### Changes to Tasks 4a–4c
+
+Each page gets a third test and one line in its delete handler. The test, per page (names and
+payloads adapted):
+
+- groups: `el.handleEditMapping(0, group(1, "Garden south")); el.handleRemoveMapping({ stopPropagation() {} }, 0);` → saved bodies `[{ id: "1", remove: true }]`
+- distributors: `el.handleEditDistributor(0, distributor(1, 7)); el._confirmDeleteId = 1; el._confirmDelete();` → raw bodies `[{ id: 1, remove: true }]` (the distributor delete posts the id as a number, so this test reads the raw bodies, not `saved()`)
+- modules: `el.handleEditConfig(0, mod(1, "PyETO east")); el.handleRemoveModule({ stopPropagation() {} }, 0);` → `[{ id: "1", remove: true }]`
+
+The line, directly after the page removes the object from its list:
+
+```typescript
+    // A save still waiting for the timer must not follow the delete.
+    this._pendingSaves.delete(<id>);
+```
+
+Modules keep their pending map in a field for this (the delete handler cannot reach a closure
+variable): `private _pendingSaves = new Map<number | undefined, SmartIrrigationModule>();`
+declared above `debouncedSave`, which uses `this._pendingSaves` instead of a local `pending`.
+
+#### Numbers after part 2
+
+| check | after part 1 | after part 2 |
+|---|---|---|
+| `view-zone-settings-save.test.ts` | 11 | 12 |
+| each of the three new `*-save.test.ts` | 2 | 3 |
+| vitest, all files | 27 files / 646 | 27 files / 650 |
+| pytest (`test_zone_view_save.py` 11; three-file run 36 + 5 errors; full 7 / 3466 / 9 / 367) | — | unchanged |
+
+Mutation rows 28–32: the zone delete line removed (killed by the zone delete test); the same for
+groups, distributors, modules (their delete tests); `this._editZoneById(zone.id, {` →
+`this._editZoneById(index, {` (killed by the positive pin). Expected `32 killed / 32`.
