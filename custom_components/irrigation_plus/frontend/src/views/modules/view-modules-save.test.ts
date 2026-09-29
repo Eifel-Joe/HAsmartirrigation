@@ -84,4 +84,12 @@ describe("a module edit is saved", () => {
       ["irrigation_plus/modules", { id: "1", remove: true }],
     ]);
   });
+
+  it("saves only the latest copy of a module edited twice", () => {
+    const { el, callApi } = make([mod(1, "PyETO"), mod(2, "Static")]);
+    el.handleEditConfig(0, mod(1, "PyETO e"));
+    el.handleEditConfig(0, mod(1, "PyETO east"));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([[1, "PyETO east"]]);
+  });
 });

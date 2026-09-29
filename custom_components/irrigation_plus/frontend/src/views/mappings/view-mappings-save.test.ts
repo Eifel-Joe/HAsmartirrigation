@@ -83,4 +83,27 @@ describe("a sensor group edit is saved", () => {
     vi.advanceTimersByTime(500);
     expect(saved(callApi)).toEqual([{ id: "1", remove: true }]);
   });
+
+  it("saves only the latest copy of a group edited twice", () => {
+    const { el, callApi } = make([group(1, "Garden"), group(2, "Bed")]);
+    el.handleEditMapping(0, group(1, "Garden s"));
+    el.handleEditMapping(0, group(1, "Garden south"));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([group(1, "Garden south")]);
+  });
+
+  it("saves the other groups when one save fails, and reports it", async () => {
+    const { el, callApi } = make([group(1, "Garden"), group(2, "Bed")]);
+    // showErrorToast reports through the element's own event.
+    el.dispatchEvent = vi.fn();
+    callApi.mockImplementation((_method: string, _path: string, body: any) =>
+      body.id === 1 ? Promise.reject(new Error("boom")) : Promise.resolve(true),
+    );
+    el.handleEditMapping(0, group(1, "Garden south"));
+    el.handleEditMapping(1, group(2, "Bed north"));
+    await vi.advanceTimersByTimeAsync(500);
+    expect(callApi).toHaveBeenCalledTimes(2);
+    expect(el.dispatchEvent).toHaveBeenCalledTimes(1);
+    expect(el.isSaving).toBe(false);
+  });
 });

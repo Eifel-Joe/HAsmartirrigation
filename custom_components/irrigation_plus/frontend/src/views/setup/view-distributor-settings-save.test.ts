@@ -87,4 +87,12 @@ describe("a distributor edit is saved", () => {
       ["irrigation_plus/distributors", { id: 1, remove: true }],
     ]);
   });
+
+  it("saves only the latest copy of a distributor edited twice", () => {
+    const { el, callApi } = make([distributor(1, 5), distributor(2, 5)]);
+    el.handleEditDistributor(0, distributor(1, 7));
+    el.handleEditDistributor(0, distributor(1, 70));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([[1, 70]]);
+  });
 });
