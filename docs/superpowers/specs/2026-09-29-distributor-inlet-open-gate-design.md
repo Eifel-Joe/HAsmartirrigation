@@ -164,8 +164,9 @@ wait for the inlet to report closed. A slow or cloud-polled inlet can keep readi
 after it — a second dispatch, or *Irrigate now* on another member — would be refused although
 nothing foreign happened.
 
-* **Where it starts:** `_dist_close_inlet` records `dt_util.utcnow()` under the distributor's id
-  **after its close command returned without raising**: in classic mode once the inlet was turned
+* **Where it starts:** `_dist_close_inlet` records `self.hass.loop.time()` under the
+  distributor's id **after its close command returned without raising** — the monotonic clock
+  this module already measures a foreign open with (`distributor.py:951`, `:978`): in classic mode once the inlet was turned
   off, in service mode once `stop_service` was called. Service mode without `stop_service` sends
   nothing and records nothing: without a command there is no evidence the valve has closed, and a
   cycle started over a still-open inlet is the measured defect itself (H2). A close command that
@@ -176,7 +177,7 @@ nothing foreign happened.
   safety close; a close in the middle of a sweep is followed by the sweep's own next open. After a
   halt and after a restart the distributor is uncertain, and the synced guard refuses before the
   gate is asked.
-* **How long:** a new constant `DIST_INLET_CLOSE_GRACE_SECONDS = VALVE_CONFIRM_TIMEOUT` (30 s),
+* **How long:** a new constant `DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS = VALVE_CONFIRM_TIMEOUT` (30 s),
   one number for how long a valve may take to report. The grace holds while less than 30 s have
   passed since the recorded close.
 * **Where it is kept:** a dict on the coordinator, keyed by distributor id and created on first
@@ -317,8 +318,8 @@ the real `async_run_distributor_cycle`:
 8. `get_total_irrigation_duration` returns the same with the inlet open and closed.
 9. Both new keys in all eight languages with matching placeholders — pinned by the existing
    `tests/test_i18n_completeness.py`.
-10. **The grace after our own close (R6)**, the clock driven by `freezer`, the real
-    `_dist_close_inlet`, the inlet state left `on`: (a) a claim 29 s after the close is not refused
+10. **The grace after our own close (R6)**, the clock driven through the host's
+    `hass.loop.time`, the real `_dist_close_inlet`, the inlet state left `on`: (a) a claim 29 s after the close is not refused
     — JustChr's requested test; (b) 31 s after it, it is refused; (c) service mode with
     `stop_service`: the grace holds; (d) service mode without `stop_service`: no grace, refused at
     once; (e) a close on distributor A leaves distributor B's gate as it was; (f) a close command
