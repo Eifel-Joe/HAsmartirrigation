@@ -344,25 +344,25 @@ class SmartIrrigationZoneView(HomeAssistantView):
         hass = request.app["hass"]
         coordinator = hass.data[const.DOMAIN]["coordinator"]
         zone = int(data[const.ZONE_ID]) if const.ZONE_ID in data else None
-        # The panel's zone settings form saves a zone by POSTing the WHOLE zone object.
-        # That object carries server-owned run-accounting fields (water_used_total, the
-        # run log, last_irrigation) plus the flow engine's server-owned learning and
-        # calibration state (flow_last_end / flow_reset_streak drive cross-run counter
-        # learning; flow_calibration_samples / _advised back the calibration advisory)
-        # plus the runner-owned timestamps (last_consumed_at is the per-zone weather
-        # consumption watermark; last_calculated / last_updated are display timestamps)
-        # from the browser's snapshot. If the settings page was left open across an
-        # irrigation run, the snapshot is stale, and saving any setting would overwrite
-        # the live values — reverting that run's usage total, deleting its history entry,
-        # resetting the flow learning/calibration state, or rewinding last_consumed_at.
-        # The watermark is the most dangerous: calculation.py advances it to `now` after
-        # folding a weather window into the bucket, so a stale save rewinds it and the
-        # next calc re-aggregates an already-consumed window → the bucket delta is
-        # double-counted → over-irrigation. Drop these fields from a client save so the
-        # runner remains their sole writer (it writes them via the store directly, not
-        # through this view). flow_counter_type is intentionally NOT here — it is a
-        # user-editable config field set from this very form.
-        # See test_zone_view_ignores_server_owned_fields.
+        # The panel's zone settings form posts only the fields an edit set. A panel
+        # still cached in a browser from before that posts the WHOLE zone object it
+        # holds, and so may any other client of this endpoint.
+        # Wurzel: that object is the page's copy, re-read only on _update_frontend,
+        #   which a run's credit does not send. After a run it can still carry the
+        #   pre-run values, and posting it wrote them back: the run's usage total and
+        #   history entry, the flow engine's learning, the consumption watermark
+        #   (rewound, the next calculation folds an already-consumed window in
+        #   again), the ledger, the days-between counter and the calculation's
+        #   outputs.
+        # Fix-Logik: drop every field the server writes and the form has no input
+        #   for, so the store's own writers stay their only writers. The schema
+        #   above still accepts them on purpose: rejecting a field an old panel
+        #   sends would fail its whole save with a 400, whatever was being edited.
+        # NOT-TO-DO: do not add a field the form edits (bucket, duration,
+        #   multiplier, flow_counter_type, ...). In a whole-zone post a stale copy
+        #   of one cannot be told from an edit of it; only the panel posting what
+        #   it set keeps those safe.
+        # See test_zone_view_ignores_server_owned_fields and test_zone_view_save.py.
         for _server_owned in (
             const.ZONE_WATER_USED_TOTAL,
             const.ZONE_RUN_LOG,
@@ -378,8 +378,40 @@ class SmartIrrigationZoneView(HomeAssistantView):
             # would restore credits the last calculation already folded into the
             # bucket, and the next calculation would apply them a second time.
             const.ZONE_PENDING_BUCKET_EVENTS,
+            # Reset to 0 in the same write as every credit: a pre-run copy
+            # undoes the days-between wait the run has just restarted.
+            const.ZONE_DAYS_SINCE_IRRIGATION,
+            # The calculation's outputs.
+            const.ZONE_IRRIGATION_TARGET_BUCKET,
+            const.ZONE_DELTA,
+            const.ZONE_EXPLANATION,
+            const.ZONE_CURRENT_DRAINAGE,
+            const.ZONE_NUMBER_OF_DATA_POINTS,
         ):
             data.pop(_server_owned, None)
+        # Wurzel: the store clamps the bucket to maximum_bucket only when one
+        #   payload carries both. A whole-zone save always did; a panel edit of
+        #   either now posts that one alone, which would slip past the cap.
+        # Fix-Logik: complete the pair from the stored zone, so the store sees what
+        #   a whole-zone save gave it. A level above the cap is clamped; a cap
+        #   lowered below the level clamps the level, and _book_asserted_bucket
+        #   books that as a statement, as it always did; a cap that leaves the
+        #   level alone moves nothing.
+        # NOT-TO-DO: do not read the missing value inside the store instead. Credits,
+        #   the calculation and set_all_buckets pass through it with the bucket
+        #   alone, and none of them is clamped there today.
+        # See test_zone_view_save.py.
+        if zone is not None and (const.ZONE_BUCKET in data) != (
+            const.ZONE_MAXIMUM_BUCKET in data
+        ):
+            stored = coordinator.store.get_zone(zone)
+            if stored is not None:
+                missing = (
+                    const.ZONE_MAXIMUM_BUCKET
+                    if const.ZONE_BUCKET in data
+                    else const.ZONE_BUCKET
+                )
+                data[missing] = stored.get(missing)
         try:
             await coordinator.async_update_zone_config(zone, data)
         except SmartIrrigationError as err:

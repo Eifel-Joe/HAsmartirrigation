@@ -1677,7 +1677,11 @@ class SmartIrrigationStorage:
             if ATTR_NEW_BUCKET_VALUE in changes:
                 changes[ZONE_BUCKET] = changes[ATTR_NEW_BUCKET_VALUE]
                 changes.pop(ATTR_NEW_BUCKET_VALUE)
-            # apply maximum bucket value
+            # apply maximum bucket value -- only when this payload carries both.
+            # A panel edit may post one of them alone; the zone view completes the
+            # pair from the stored zone before it gets here. Credits, the
+            # calculation and set_all_buckets pass the bucket alone and are
+            # deliberately not clamped here: see test_zone_view_save.py.
             # review finding J: guard changes[ZONE_BUCKET] presence like the
             # sibling block below (partial POST may omit bucket -> KeyError/500)
             if (

@@ -2002,9 +2002,11 @@ class SmartIrrigationCoordinator(
         try:
             # Read the level BACK off the stored entry rather than off the
             # request: the store clamps a value above ``maximum_bucket`` when the
-            # same payload carries one, which the panel's whole-zone save always
-            # does. An unchanged bucket -- every panel save that edited some
-            # other setting -- must not move anything.
+            # same payload carries one, which a whole-zone save always does and
+            # the zone view arranges for a panel edit of either. An unchanged
+            # bucket -- the stored level the zone view adds to a maximum edit,
+            # or a whole-zone save from a panel still cached in a browser --
+            # must not move anything.
             before = float(old_zone.get(const.ZONE_BUCKET) or 0)
             after = float(entry.get(const.ZONE_BUCKET) or 0)
         except (TypeError, ValueError):

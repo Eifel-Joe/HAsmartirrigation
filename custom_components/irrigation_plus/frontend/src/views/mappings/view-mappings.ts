@@ -80,6 +80,8 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
 
   private debounceTimers = new Map<number, number>();
   private globalDebounceTimer: number | null = null;
+  // Edited groups not saved yet, latest copy per id (see handleEditMapping).
+  private _pendingSaves = new Map<number | undefined, SmartIrrigationMapping>();
 
   // Cache for rendered mapping cards to avoid re-rendering unchanged ones
   private mappingCache = new Map<string, TemplateResult>();
@@ -243,6 +245,8 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
 
     // Clear cache for this mapping
     this.mappingCache.delete(mappingid.toString());
+    // A save still waiting for the timer must not follow the delete.
+    this._pendingSaves.delete(mappingid);
 
     if (!this.hass) {
       return;
@@ -282,24 +286,41 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
       this.mappingCache.delete(updatedMapping.id.toString());
     }
 
-    // Use global debounce to reduce timer overhead
+    // Wurzel: the one debounce timer kept only the group edited last, so a
+    //   second group edited within half a second cancelled the first one's
+    //   save: the page showed the edit, the server never got it.
+    // Fix-Logik: keep the latest copy per group and save every one of them
+    //   when the timer runs out, as the zone settings page does.
+    // NOT-TO-DO: do not post only the changed fields, as the zone page does:
+    //   these objects carry no field the server writes, so the latest copy
+    //   is the right payload.
+    // See view-mappings-save.test.ts.
+    this._pendingSaves.set(updatedMapping.id, updatedMapping);
     if (this.globalDebounceTimer) {
       clearTimeout(this.globalDebounceTimer);
     }
 
     // Debounce saving to avoid excessive API calls during rapid editing
     this.globalDebounceTimer = window.setTimeout(() => {
-      this.isSaving = true;
-      this.saveToHA(updatedMapping)
-        .catch((error) => {
-          console.error("Failed to save mapping:", error);
-          showErrorToast(this, this.hass, "common.errors.save_failed", error);
-        })
-        .finally(() => {
-          this.isSaving = false;
-          this._scheduleUpdate();
-        });
       this.globalDebounceTimer = null;
+      // Taken out before saving: an edit made while these are in flight
+      // belongs to the next round.
+      const batch = [...this._pendingSaves.values()];
+      this._pendingSaves.clear();
+      // A delete may have taken the only pending entry: nothing to save.
+      if (!batch.length) return;
+      this.isSaving = true;
+      Promise.all(
+        batch.map((mapping) =>
+          this.saveToHA(mapping).catch((error) => {
+            console.error("Failed to save mapping:", error);
+            showErrorToast(this, this.hass, "common.errors.save_failed", error);
+          }),
+        ),
+      ).finally(() => {
+        this.isSaving = false;
+        this._scheduleUpdate();
+      });
     }, 500); // Increased debounce time to reduce backend load
 
     // Trigger minimal re-render
@@ -1098,8 +1119,13 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
       clearTimeout(this.globalDebounceTimer);
       this.globalDebounceTimer = null;
     }
+    // Unsent edits go with the timer: posted once the page is back, they
+    // could carry values long out of date.
+    this._pendingSaves.clear();
 
     // Clear the mapping cache
     this.mappingCache.clear();
   }
 }
+
+export { SmartIrrigationViewMappings };

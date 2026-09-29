@@ -78,6 +78,11 @@ import {
 import "../../components/ip-field";
 import "../../components/ip-zone-form";
 
+// A zone edit as it goes over the wire: a field the form cleared is null.
+type ZoneEdit = {
+  [K in keyof SmartIrrigationZone]?: SmartIrrigationZone[K] | null;
+};
+
 /**
  * Setup → Zones: full zone configuration, reporting (weather / calendar) and
  * management (add / edit / delete / reset). The everyday dashboard lives in the
@@ -177,6 +182,9 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
   }
 
   private globalDebounceTimer: number | null = null;
+
+  // Edits not yet posted, per zone id (see handleEditZone).
+  private _pendingEdits = new Map<number, ZoneEdit>();
 
   /** Zone id targeted by a deep link from the dashboard gear icon. */
   private get _targetZoneId(): number | null {
@@ -402,35 +410,99 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
       });
   }
 
+  // Wurzel: every call site passed `{ ...zone, [FIELD]: v }` and the whole
+  //   object was posted. The page's copy is re-read only on _update_frontend,
+  //   which a run's credit does not send, so after a run it could still hold
+  //   the pre-run bucket. The next edit of any field wrote that back, and the
+  //   backend took it for a level set by hand (_book_asserted_bucket).
+  // Fix-Logik: a call site passes only what it sets. Edits are collected per
+  //   zone and posted as `{ id, ...changes }`, every zone at once when the
+  //   debounce runs out. A cleared field is `undefined`, which JSON drops (the
+  //   server then kept the old value), so it is sent as null.
+  // NOT-TO-DO: do not work the change out as a difference against the page's
+  //   copy. That copy is what goes stale: the state select sets
+  //   `{ state, duration: 0 }`, and against a copy already showing 0 the reset
+  //   would never be sent.
+  // See view-zone-settings-save.test.ts.
   private handleEditZone(
     index: number,
-    updatedZone: SmartIrrigationZone,
+    changes: Partial<SmartIrrigationZone>,
   ): void {
     if (!this.hass) return;
+    const zone = this.zones[index];
+    if (!zone) return;
 
     // Replace the whole array so Lit's reactive system detects the change.
-    this.zones = this.zones.map((z, i) => (i === index ? updatedZone : z));
+    this.zones = this.zones.map((z, i) =>
+      i === index ? { ...z, ...changes } : z,
+    );
+    this._scheduleUpdate();
+
+    // A zone without an id is one handleAddZone is still creating. It cannot
+    // be expanded (_isExpanded), so no edit is expected to reach here.
+    if (zone.id === undefined) return;
+    const pending: ZoneEdit = { ...this._pendingEdits.get(zone.id) };
+    for (const [key, value] of Object.entries(changes)) {
+      (pending as Record<string, unknown>)[key] = value ?? null;
+    }
+    this._pendingEdits.set(zone.id, pending);
 
     if (this.globalDebounceTimer) clearTimeout(this.globalDebounceTimer);
-
     this.globalDebounceTimer = window.setTimeout(() => {
-      this.isSaving = true;
-      this._saveStatus = "saving";
-      this.saveToHA(updatedZone)
-        .then(() => this._markSaved())
-        .catch((error) => {
-          console.error("Failed to save zone:", error);
-          this._saveStatus = "idle";
-          showErrorToast(this, this.hass, "common.errors.save_failed", error);
-        })
-        .finally(() => {
-          this.isSaving = false;
-          this._scheduleUpdate();
-        });
       this.globalDebounceTimer = null;
+      this._savePendingEdits();
     }, 500);
+  }
 
-    this._scheduleUpdate();
+  private _savePendingEdits(): void {
+    // Taken out before posting: an edit made while these are in flight
+    // belongs to the next round.
+    const edits = [...this._pendingEdits];
+    this._pendingEdits.clear();
+    if (!edits.length) return;
+    this.isSaving = true;
+    this._saveStatus = "saving";
+    Promise.all(
+      edits.map(([id, changes]) =>
+        // null is how a cleared field travels; saveZone's type has no room
+        // for it.
+        this.saveToHA({ id, ...changes } as Partial<SmartIrrigationZone>),
+      ),
+    )
+      .then(() => this._markSaved())
+      .catch((error) => {
+        console.error("Failed to save zone:", error);
+        this._saveStatus = "idle";
+        showErrorToast(this, this.hass, "common.errors.save_failed", error);
+      })
+      .finally(() => {
+        this.isSaving = false;
+        this._scheduleUpdate();
+      });
+  }
+
+  // The select value for an optional id. A module or mapping the form cleared
+  // comes back from the server as null, and String(null) matches no option.
+  private _selectValue(id: number | string | null | undefined): string {
+    return id == null ? "" : String(id);
+  }
+
+  // Wurzel: a confirm dialog runs its edit only when the user confirms. By
+  //   then this.zones may have been re-read with a zone added or removed, so
+  //   the index the dialog was opened with can hold another zone, and with
+  //   only the change posted, that zone's id is where the edit would go.
+  // Fix-Logik: the dialog keeps the zone's id and finds the zone again when
+  //   it runs; a zone that is gone by then is left alone.
+  // NOT-TO-DO: do not resolve the index when the dialog opens -- it is stale
+  //   by the time the user confirms -- and do not hand the zone's copy back
+  //   to carry the id: that copy is what goes stale.
+  // See view-zone-settings-save.test.ts and tests/test_zone_view_save.py.
+  private _editZoneById(
+    id: number | undefined,
+    changes: Partial<SmartIrrigationZone>,
+  ): void {
+    const index = this.zones.findIndex((z) => z.id === id);
+    if (index !== -1) this.handleEditZone(index, changes);
   }
 
   private handleRemoveZone(zoneId: number): void {
@@ -447,6 +519,9 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
     const originalZones = [...this.zones];
     this.zones = this.zones.filter((z) => z.id !== zoneId);
     this._confirmDeleteZoneId = null;
+    // An edit still waiting for the timer must not follow the delete: the
+    // server would take it for a new zone and create one from those fields.
+    this._pendingEdits.delete(zoneId);
     this.isSaving = true;
 
     deleteZone(this.hass, zoneId.toString())
@@ -499,7 +574,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
     `;
   }
 
-  private async saveToHA(zone: SmartIrrigationZone): Promise<void> {
+  private async saveToHA(zone: Partial<SmartIrrigationZone>): Promise<void> {
     if (!this.hass) throw new Error("Home Assistant connection not available");
     await saveZone(this.hass, zone);
   }
@@ -633,7 +708,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
     const v = (e.target as HTMLSelectElement).value;
     if (!v) {
       this.handleEditZone(index, {
-        ...zone,
         [ZONE_DISTRIBUTOR_ID]: null,
         [ZONE_OUTLET_NUMBER]: null,
       });
@@ -654,7 +728,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
       outlet = Math.min(maxOutlet + 1, DISTRIBUTOR_MAX_OUTLETS);
     }
     this.handleEditZone(index, {
-      ...zone,
       [ZONE_DISTRIBUTOR_ID]: distId,
       [ZONE_OUTLET_NUMBER]: outlet,
     });
@@ -713,7 +786,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                     .value="${zone.name}"
                     @input="${(e: Event) =>
                       this.handleEditZone(index, {
-                        ...zone,
                         [ZONE_NAME]: (e.target as HTMLInputElement).value,
                       })}"
                   />
@@ -737,7 +809,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                           (e.target as HTMLInputElement).valueAsNumber * 100,
                         ) / 100;
                       if (!isNaN(v))
-                        this.handleEditZone(index, { ...zone, [ZONE_SIZE]: v });
+                        this.handleEditZone(index, { [ZONE_SIZE]: v });
                     }}"
                   />
                 </ha-settings-row>
@@ -764,7 +836,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                         ) / 100;
                       if (!isNaN(v))
                         this.handleEditZone(index, {
-                          ...zone,
                           [ZONE_THROUGHPUT]: v,
                         });
                     }}"
@@ -798,7 +869,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                         SOIL_TYPE_DRAINAGE[st] !== undefined
                       )
                         this.handleEditZone(index, {
-                          ...zone,
                           [ZONE_DRAINAGE_RATE]: SOIL_TYPE_DRAINAGE[st],
                         });
                     }}"
@@ -859,7 +929,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                         ) / 100;
                       if (!isNaN(v))
                         this.handleEditZone(index, {
-                          ...zone,
                           [ZONE_DRAINAGE_RATE]: v,
                         });
                     }}"
@@ -889,7 +958,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       };
                       if (pt !== "custom" && PLANT_TYPE_KC[pt] !== undefined)
                         next[ZONE_KC] = PLANT_TYPE_KC[pt];
-                      this.handleEditZone(index, { ...zone, ...next });
+                      this.handleEditZone(index, next);
                     }}"
                   >
                     <option
@@ -941,7 +1010,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                         ) / 100;
                       if (!isNaN(v))
                         this.handleEditZone(index, {
-                          ...zone,
                           [ZONE_KC]: v,
                           [ZONE_PLANT_TYPE]: "custom",
                         });
@@ -961,7 +1029,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                     .value="${live(zone.state)}"
                     @change="${(e: Event) =>
                       this.handleEditZone(index, {
-                        ...zone,
                         [ZONE_STATE]: (e.target as HTMLSelectElement)
                           .value as SmartIrrigationZoneState,
                         [ZONE_DURATION]: 0,
@@ -1009,13 +1076,10 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                   >
                   <select
                     class="settings-input"
-                    .value="${live(
-                      zone.module !== undefined ? String(zone.module) : "",
-                    )}"
+                    .value="${live(this._selectValue(zone.module))}"
                     @change="${(e: Event) => {
                       const v = (e.target as HTMLSelectElement).value;
                       this.handleEditZone(index, {
-                        ...zone,
                         [ZONE_MODULE]: v ? parseInt(v) : undefined,
                       });
                     }}"
@@ -1033,13 +1097,10 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                   >
                   <select
                     class="settings-input"
-                    .value="${live(
-                      zone.mapping !== undefined ? String(zone.mapping) : "",
-                    )}"
+                    .value="${live(this._selectValue(zone.mapping))}"
                     @change="${(e: Event) => {
                       const v = (e.target as HTMLSelectElement).value;
                       this.handleEditZone(index, {
-                        ...zone,
                         [ZONE_MAPPING]: v ? parseInt(v) : undefined,
                       });
                     }}"
@@ -1075,7 +1136,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                           .value="${live(zone.watering_mode ?? "classic")}"
                           @change="${(e: Event) =>
                             this.handleEditZone(index, {
-                              ...zone,
                               [ZONE_WATERING_MODE]: (
                                 e.target as HTMLSelectElement
                               ).value,
@@ -1150,7 +1210,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                 allow-custom-entity
                                 @value-changed="${(e: CustomEvent) =>
                                   this.handleEditZone(index, {
-                                    ...zone,
                                     [ZONE_CONFIRM_ENTITY]:
                                       e.detail.value || null,
                                   })}"
@@ -1188,7 +1247,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                 allow-custom-entity
                                 @value-changed="${(e: CustomEvent) =>
                                   this.handleEditZone(index, {
-                                    ...zone,
                                     [ZONE_RUN_SERVICE]: e.detail.value || null,
                                   })}"
                               ></ha-entity-picker>
@@ -1216,7 +1274,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                 .value="${zone.duration_field || "duration"}"
                                 @input="${(e: Event) =>
                                   this.handleEditZone(index, {
-                                    ...zone,
                                     [ZONE_DURATION_FIELD]:
                                       (e.target as HTMLInputElement).value ||
                                       undefined,
@@ -1243,7 +1300,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                 )}"
                                 @change="${(e: Event) =>
                                   this.handleEditZone(index, {
-                                    ...zone,
                                     [ZONE_DURATION_UNIT]: (
                                       e.target as HTMLSelectElement
                                     ).value,
@@ -1291,7 +1347,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                 allow-custom-entity
                                 @value-changed="${(e: CustomEvent) =>
                                   this.handleEditZone(index, {
-                                    ...zone,
                                     [ZONE_STOP_SERVICE]: e.detail.value || null,
                                   })}"
                               ></ha-entity-picker>
@@ -1322,7 +1377,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                 allow-custom-entity
                                 @value-changed="${(e: CustomEvent) =>
                                   this.handleEditZone(index, {
-                                    ...zone,
                                     [ZONE_CONFIRM_ENTITY]:
                                       e.detail.value || null,
                                   })}"
@@ -1359,7 +1413,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                         );
                                         if (v !== null)
                                           this.handleEditZone(index, {
-                                            ...zone,
                                             [ZONE_LATENCY_MARGIN]: v,
                                           });
                                       }}"
@@ -1393,7 +1446,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                       allow-custom-entity
                                       @value-changed="${(e: CustomEvent) =>
                                         this.handleEditZone(index, {
-                                          ...zone,
                                           [ZONE_OBSERVED_ENTITY]:
                                             e.detail.value || null,
                                         })}"
@@ -1426,7 +1478,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                 allow-custom-entity
                                 @value-changed="${(e: CustomEvent) =>
                                   this.handleEditZone(index, {
-                                    ...zone,
                                     [ZONE_LINKED_ENTITY]:
                                       e.detail.value || null,
                                   })}"
@@ -1461,7 +1512,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                   allow-custom-entity
                                   @value-changed="${(e: CustomEvent) =>
                                     this.handleEditZone(index, {
-                                      ...zone,
                                       [ZONE_LINKED_ENTITY]:
                                         e.detail.value || null,
                                     })}"
@@ -1492,7 +1542,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                     allow-custom-entity
                     @value-changed="${(e: CustomEvent) =>
                       this.handleEditZone(index, {
-                        ...zone,
                         [ZONE_SOIL_MOISTURE_SENSOR]: e.detail.value || null,
                       })}"
                   ></ha-entity-picker>
@@ -1523,7 +1572,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       const raw = (e.target as HTMLInputElement).value;
                       const v = raw === "" ? null : Number(raw);
                       this.handleEditZone(index, {
-                        ...zone,
                         [ZONE_SOIL_MOISTURE_THRESHOLD]:
                           v === null || isNaN(v) ? null : v,
                       });
@@ -1547,7 +1595,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                           allow-custom-entity
                           @value-changed="${(e: CustomEvent) =>
                             this.handleEditZone(index, {
-                              ...zone,
                               [ZONE_FLOW_SENSOR]: e.detail.value || null,
                             })}"
                         ></ha-entity-picker>
@@ -1575,7 +1622,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                                 )}"
                                 @change="${(e: Event) =>
                                   this.handleEditZone(index, {
-                                    ...zone,
                                     [ZONE_FLOW_COUNTER_TYPE]:
                                       (e.target as HTMLSelectElement).value ||
                                       "auto",
@@ -1623,7 +1669,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                         ) / 100;
                       if (!isNaN(v))
                         this.handleEditZone(index, {
-                          ...zone,
                           [ZONE_BUCKET]: v,
                         });
                     }}"
@@ -1654,7 +1699,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                         ) / 100;
                       if (!isNaN(v))
                         this.handleEditZone(index, {
-                          ...zone,
                           [ZONE_MAXIMUM_BUCKET]: v,
                         });
                     }}"
@@ -1682,7 +1726,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                         ) / 100;
                       if (!isNaN(v))
                         this.handleEditZone(index, {
-                          ...zone,
                           [ZONE_MULTIPLIER]: v,
                         });
                     }}"
@@ -1708,7 +1751,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       const v = (e.target as HTMLInputElement).valueAsNumber;
                       if (!isNaN(v))
                         this.handleEditZone(index, {
-                          ...zone,
                           [ZONE_LEAD_TIME]: Math.round(v),
                         });
                     }}"
@@ -1734,7 +1776,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                       const v = (e.target as HTMLInputElement).valueAsNumber;
                       if (!isNaN(v))
                         this.handleEditZone(index, {
-                          ...zone,
                           [ZONE_MAXIMUM_DURATION]: Math.round(v),
                         });
                     }}"
@@ -1765,7 +1806,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                         ) / 10;
                       if (!isNaN(v))
                         this.handleEditZone(index, {
-                          ...zone,
                           [ZONE_BUCKET_THRESHOLD]: Math.min(v, 0),
                         });
                     }}"
@@ -1794,7 +1834,6 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                               .valueAsNumber;
                             if (!isNaN(v))
                               this.handleEditZone(index, {
-                                ...zone,
                                 [ZONE_DURATION]: Math.round(v),
                               });
                           }}"
@@ -1822,8 +1861,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                           this.hass!.language,
                         ),
                         onConfirm: () =>
-                          this.handleEditZone(index, {
-                            ...zone,
+                          this._editZoneById(zone.id, {
                             [ZONE_BUCKET]: 0.0,
                           }),
                       };
@@ -2124,6 +2162,9 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
       clearTimeout(this.globalDebounceTimer);
       this.globalDebounceTimer = null;
     }
+    // Unsent edits go with the timer: posted once the page is back, they
+    // could carry values long out of date.
+    this._pendingEdits.clear();
     if (this._savedResetTimer) {
       clearTimeout(this._savedResetTimer);
       this._savedResetTimer = null;

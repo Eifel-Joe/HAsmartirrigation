@@ -117,8 +117,9 @@ async def _assert_level_by_hand(c, store, zone):
     """Set the bucket the way a user does: the service / panel path.
 
     Both ``set_bucket`` and the panel's zone save land on the generic branch of
-    ``async_update_zone_config``; nothing between them and the store inspects the
-    bucket. Driving that method is therefore the same write either of them makes.
+    ``async_update_zone_config``. The zone view first adds the stored maximum to
+    a bucket posted alone, so a level above it would be clamped; this one is
+    below it. Driving that method is therefore the same write either makes.
     """
     # Frozen, because the write stamps the moment of the assertion from the
     # clock and the rest of this test lives in a constructed day.
@@ -226,7 +227,7 @@ async def test_the_mid_window_ledger_is_dropped_with_it(coordinator):
 
 
 async def test_a_save_that_leaves_the_bucket_alone_moves_nothing(coordinator):
-    """The panel POSTs the WHOLE zone on every settings save, bucket included.
+    """A panel still cached in a browser POSTs the WHOLE zone, bucket included.
 
     Editing a throughput must not restart the weather window: the level was not
     stated, it merely rode along unchanged. Without this the watermark would jump
