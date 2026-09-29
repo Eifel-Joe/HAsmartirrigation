@@ -78,6 +78,11 @@ import {
 import "../../components/ip-field";
 import "../../components/ip-zone-form";
 
+// A zone edit as it goes over the wire: a field the form cleared is null.
+type ZoneEdit = {
+  [K in keyof SmartIrrigationZone]?: SmartIrrigationZone[K] | null;
+};
+
 /**
  * Setup → Zones: full zone configuration, reporting (weather / calendar) and
  * management (add / edit / delete / reset). The everyday dashboard lives in the
@@ -177,6 +182,9 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
   }
 
   private globalDebounceTimer: number | null = null;
+
+  // Edits not yet posted, per zone id (see handleEditZone).
+  private _pendingEdits = new Map<number, ZoneEdit>();
 
   /** Zone id targeted by a deep link from the dashboard gear icon. */
   private get _targetZoneId(): number | null {
@@ -402,35 +410,81 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
       });
   }
 
+  // Wurzel: every call site passed `{ ...zone, [FIELD]: v }` and the whole
+  //   object was posted. The page's copy is re-read only on _update_frontend,
+  //   which a run's credit does not send, so after a run it still held the
+  //   pre-run bucket. The next edit of any field wrote that back, and the
+  //   backend took it for a level set by hand (_book_asserted_bucket).
+  // Fix-Logik: a call site passes only what it sets. Edits are collected per
+  //   zone and posted as `{ id, ...changes }`, every zone at once when the
+  //   debounce runs out. A cleared field is `undefined`, which JSON drops (the
+  //   server then kept the old value), so it is sent as null.
+  // NOT-TO-DO: do not work the change out as a difference against the page's
+  //   copy. That copy is what goes stale: the state select sets
+  //   `{ state, duration: 0 }`, and against a copy already showing 0 the reset
+  //   would never be sent.
+  // See view-zone-settings-save.test.ts.
   private handleEditZone(
     index: number,
-    updatedZone: SmartIrrigationZone,
+    changes: Partial<SmartIrrigationZone>,
   ): void {
     if (!this.hass) return;
+    const zone = this.zones[index];
+    if (!zone) return;
 
     // Replace the whole array so Lit's reactive system detects the change.
-    this.zones = this.zones.map((z, i) => (i === index ? updatedZone : z));
+    this.zones = this.zones.map((z, i) =>
+      i === index ? { ...z, ...changes } : z,
+    );
+    this._scheduleUpdate();
+
+    // A zone without an id is one handleAddZone is still creating. It cannot
+    // be expanded (_isExpanded), so no edit is expected to reach here.
+    if (zone.id === undefined) return;
+    const pending: ZoneEdit = { ...this._pendingEdits.get(zone.id) };
+    for (const [key, value] of Object.entries(changes)) {
+      (pending as Record<string, unknown>)[key] = value ?? null;
+    }
+    this._pendingEdits.set(zone.id, pending);
 
     if (this.globalDebounceTimer) clearTimeout(this.globalDebounceTimer);
-
     this.globalDebounceTimer = window.setTimeout(() => {
-      this.isSaving = true;
-      this._saveStatus = "saving";
-      this.saveToHA(updatedZone)
-        .then(() => this._markSaved())
-        .catch((error) => {
-          console.error("Failed to save zone:", error);
-          this._saveStatus = "idle";
-          showErrorToast(this, this.hass, "common.errors.save_failed", error);
-        })
-        .finally(() => {
-          this.isSaving = false;
-          this._scheduleUpdate();
-        });
       this.globalDebounceTimer = null;
+      this._savePendingEdits();
     }, 500);
+  }
 
-    this._scheduleUpdate();
+  private _savePendingEdits(): void {
+    // Taken out before posting: an edit made while these are in flight
+    // belongs to the next round.
+    const edits = [...this._pendingEdits];
+    this._pendingEdits.clear();
+    if (!edits.length) return;
+    this.isSaving = true;
+    this._saveStatus = "saving";
+    Promise.all(
+      edits.map(([id, changes]) =>
+        // null is how a cleared field travels; saveZone's type has no room
+        // for it.
+        this.saveToHA({ id, ...changes } as Partial<SmartIrrigationZone>),
+      ),
+    )
+      .then(() => this._markSaved())
+      .catch((error) => {
+        console.error("Failed to save zone:", error);
+        this._saveStatus = "idle";
+        showErrorToast(this, this.hass, "common.errors.save_failed", error);
+      })
+      .finally(() => {
+        this.isSaving = false;
+        this._scheduleUpdate();
+      });
+  }
+
+  // The select value for an optional id. A module or mapping the form cleared
+  // comes back from the server as null, and String(null) matches no option.
+  private _selectValue(id: number | string | null | undefined): string {
+    return id == null ? "" : String(id);
   }
 
   private handleRemoveZone(zoneId: number): void {
@@ -499,7 +553,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
     `;
   }
 
-  private async saveToHA(zone: SmartIrrigationZone): Promise<void> {
+  private async saveToHA(zone: Partial<SmartIrrigationZone>): Promise<void> {
     if (!this.hass) throw new Error("Home Assistant connection not available");
     await saveZone(this.hass, zone);
   }
@@ -1009,9 +1063,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                   >
                   <select
                     class="settings-input"
-                    .value="${live(
-                      zone.module !== undefined ? String(zone.module) : "",
-                    )}"
+                    .value="${live(this._selectValue(zone.module))}"
                     @change="${(e: Event) => {
                       const v = (e.target as HTMLSelectElement).value;
                       this.handleEditZone(index, {
@@ -1033,9 +1085,7 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
                   >
                   <select
                     class="settings-input"
-                    .value="${live(
-                      zone.mapping !== undefined ? String(zone.mapping) : "",
-                    )}"
+                    .value="${live(this._selectValue(zone.mapping))}"
                     @change="${(e: Event) => {
                       const v = (e.target as HTMLSelectElement).value;
                       this.handleEditZone(index, {
