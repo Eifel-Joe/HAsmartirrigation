@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "D:\Entwicklung\HASI\issue66-work\repro_count.py", line 161, in <module>
+    main()
+  File "D:\Entwicklung\HASI\issue66-work\repro_count.py", line 84, in main
+    s = log("baseline")
+        ^^^^^^^^^^^^^^^
+  File "D:\Entwicklung\HASI\issue66-work\repro_count.py", line 66, in log
+    s = s or snap()
+             ^^^^^^
+  File "D:\Entwicklung\HASI\issue66-work\repro_count.py", line 44, in snap
+    return json.loads(payload["result"])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\json\__init__.py", line 339, in loads
+    raise TypeError(f'the JSON object must be str, bytes or bytearray, '
+TypeError: the JSON object must be str, bytes or bytearray, not dict

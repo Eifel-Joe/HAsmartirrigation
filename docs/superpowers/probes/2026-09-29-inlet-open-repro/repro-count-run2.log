@@ -1,0 +1,89 @@
+14:30:12 baseline                     ha_now=14:30:14.541 valve=off(lc 11:23:36.501) outlet=3(lc 11:23:38.948) watering=off master=off script=off probe=0.0
+14:30:12 after set_outlet             ha_now=14:30:14.586 valve=off(lc 11:23:36.501) outlet=4(lc 12:30:14.563) watering=off master=off script=off probe=0.0
+target zone before: (61, -0.6093805978687866, 'automatic')
+14:30:13 foreign ON + probe           ha_now=14:30:14.760 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=off master=off script=off probe=10.0
+14:30:13 after foreign ON             ha_now=14:30:14.787 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=off master=off script=off probe=10.0
+14:30:21 foreign open, probe kept live ha_now=14:30:22.835 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=off master=off script=off probe=10.0
+14:30:29 foreign open, probe kept live ha_now=14:30:30.875 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=off master=off script=off probe=10.0
+14:30:37 foreign open, probe kept live ha_now=14:30:38.907 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=off master=off script=off probe=10.0
+14:30:45 foreign open, probe kept live ha_now=14:30:46.968 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=off master=off script=off probe=10.0
+14:30:53 foreign open, probe kept live ha_now=14:30:55.023 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=off master=off script=off probe=10.0
+target zone at trigger: (61, -0.6093805978687866, 'automatic')
+14:30:53 irrigate_now sent            ha_now=14:30:55.148 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=off probe=10.0
+14:30:54 cycle                        ha_now=14:30:56.174 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=off probe=10.0
+14:30:55 cycle                        ha_now=14:30:57.209 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=off probe=10.0
+14:30:56 cycle                        ha_now=14:30:58.243 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=off probe=10.0
+14:30:57 cycle                        ha_now=14:30:59.285 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=off probe=10.0
+14:30:58 cycle                        ha_now=14:31:00.313 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:30:59 cycle                        ha_now=14:31:01.361 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:00 cycle                        ha_now=14:31:02.398 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:01 cycle                        ha_now=14:31:03.430 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:02 cycle                        ha_now=14:31:04.498 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:03 cycle                        ha_now=14:31:05.513 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:04 cycle                        ha_now=14:31:06.551 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:05 cycle                        ha_now=14:31:07.589 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:06 cycle                        ha_now=14:31:08.635 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:07 cycle                        ha_now=14:31:09.651 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:09 cycle                        ha_now=14:31:10.683 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:10 cycle                        ha_now=14:31:11.716 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:11 cycle                        ha_now=14:31:12.781 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:12 cycle                        ha_now=14:31:13.816 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:13 cycle                        ha_now=14:31:14.857 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:14 cycle                        ha_now=14:31:15.889 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:15 cycle                        ha_now=14:31:16.919 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:16 cycle                        ha_now=14:31:17.936 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:17 cycle                        ha_now=14:31:18.954 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:18 cycle                        ha_now=14:31:20.260 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:19 cycle                        ha_now=14:31:21.291 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:20 cycle                        ha_now=14:31:22.321 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:21 cycle                        ha_now=14:31:23.336 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:22 cycle                        ha_now=14:31:24.352 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:23 cycle                        ha_now=14:31:25.430 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:24 cycle                        ha_now=14:31:26.462 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:25 cycle                        ha_now=14:31:27.477 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:26 cycle                        ha_now=14:31:28.502 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:27 cycle                        ha_now=14:31:29.547 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:28 cycle                        ha_now=14:31:30.572 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:29 cycle                        ha_now=14:31:31.612 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:30 cycle                        ha_now=14:31:32.646 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:31 cycle                        ha_now=14:31:33.673 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:33 cycle                        ha_now=14:31:34.709 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:34 cycle                        ha_now=14:31:35.743 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:35 cycle                        ha_now=14:31:36.769 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:36 cycle                        ha_now=14:31:37.819 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:37 cycle                        ha_now=14:31:38.834 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:38 cycle                        ha_now=14:31:39.864 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:39 cycle                        ha_now=14:31:40.900 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:40 cycle                        ha_now=14:31:41.954 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:41 cycle                        ha_now=14:31:43.002 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:42 cycle                        ha_now=14:31:44.025 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:43 cycle                        ha_now=14:31:45.063 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:44 cycle                        ha_now=14:31:46.116 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:45 cycle                        ha_now=14:31:47.142 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:46 cycle                        ha_now=14:31:48.164 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:47 cycle                        ha_now=14:31:49.177 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:48 cycle                        ha_now=14:31:50.220 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:49 cycle                        ha_now=14:31:51.258 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:50 cycle                        ha_now=14:31:52.297 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:51 cycle                        ha_now=14:31:53.323 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:52 cycle                        ha_now=14:31:54.396 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:53 cycle                        ha_now=14:31:55.424 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:54 cycle                        ha_now=14:31:56.463 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:55 cycle                        ha_now=14:31:57.477 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:56 cycle                        ha_now=14:31:58.541 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:57 cycle                        ha_now=14:31:59.582 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:58 cycle                        ha_now=14:32:00.619 valve=on(lc 12:30:14.686) outlet=5(lc 12:30:14.690) watering=on master=on script=on probe=10.0
+14:31:59 cycle                        ha_now=14:32:01.643 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=10.0
+14:32:00 valve OFF -> probe 0         ha_now=14:32:01.720 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:01 cycle                        ha_now=14:32:02.745 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:02 cycle                        ha_now=14:32:03.784 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:03 cycle                        ha_now=14:32:04.799 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:04 cycle                        ha_now=14:32:05.814 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:05 cycle                        ha_now=14:32:06.848 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:06 cycle                        ha_now=14:32:07.861 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:07 cycle                        ha_now=14:32:08.893 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:08 cycle                        ha_now=14:32:09.932 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:09 cycle                        ha_now=14:32:10.959 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:10 cycle                        ha_now=14:32:11.994 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+14:32:10 end                          ha_now=14:32:12.023 valve=off(lc 12:32:01.142) outlet=6(lc 12:32:01.335) watering=off master=off script=off probe=0.0
+distributor after: {"current_outlet": 6, "position_state": "synced", "commissioning_confirmed": true, "active_cycle": {}}

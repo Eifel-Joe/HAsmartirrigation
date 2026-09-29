@@ -1,0 +1,48 @@
+=== state changes since 2026-09-29T12:29:00Z
+=== zones
+zone 5 Test4: bucket=-0.07276440010412163 water_used_total=0 duration=7
+    {"ts": "2026-09-28T20:08:03.634660+02:00", "trigger": "schedule", "planned_s": null, "actual_s": null, "volume_l": 0.0, "result": "skipped", "detail": "soil_moisture"}
+    {"ts": "2026-09-27T09:56:22.284805+02:00", "trigger": "schedule", "planned_s": null, "actual_s": null, "volume_l": 0.0, "result": "skipped", "detail": "soil_moisture"}
+    {"ts": "2026-09-26T20:19:00.792909+02:00", "trigger": "schedule", "planned_s": null, "actual_s": null, "volume_l": 0.0, "result": "skipped", "detail": "soil_moisture"}
+zone 6 Test5: bucket=0.0 water_used_total=1225.3166666666666 duration=0
+    {"ts": "2026-09-29T14:32:01.268848+02:00", "trigger": "distributor", "planned_s": 61, "actual_s": 61, "volume_l": 10.17, "result": "completed", "detail": null}
+    {"ts": "2026-09-28T20:12:01.854085+02:00", "trigger": "distributor", "planned_s": 94, "actual_s": 94, "volume_l": 4.7, "result": "completed", "detail": null}
+    {"ts": "2026-09-27T10:01:20.645113+02:00", "trigger": "distributor", "planned_s": 61, "actual_s": 61, "volume_l": 3.05, "result": "completed", "detail": null}
+=== store
+distributor: {"current_outlet": 6, "position_state": "synced", "commissioning_confirmed": true, "watch_mode": "count", "active_cycle": {}}
+=== integration log lines (last hour)
+[31m2026-09-29 14:13:40.134 ERROR (SyncWorker_3) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.168 ERROR (SyncWorker_7) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.224 ERROR (SyncWorker_12) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.228 ERROR (SyncWorker_1) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.237 ERROR (SyncWorker_11) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.261 ERROR (SyncWorker_8) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.316 ERROR (SyncWorker_2) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.320 ERROR (SyncWorker_6) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.422 ERROR (SyncWorker_0) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.554 ERROR (SyncWorker_4) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.606 ERROR (SyncWorker_3) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.616 ERROR (SyncWorker_10) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.660 ERROR (SyncWorker_7) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.669 ERROR (SyncWorker_12) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.702 ERROR (SyncWorker_9) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.709 ERROR (SyncWorker_5) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:13:40.713 ERROR (SyncWorker_1) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:39.035 ERROR (SyncWorker_6) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[33m2026-09-29 14:23:39.035 WARNING (MainThread) [custom_components.irrigation_plus] [async_update_all] No weather data to parse for sensor group 0[0m
+[31m2026-09-29 14:23:39.347 ERROR (SyncWorker_0) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[33m2026-09-29 14:23:39.348 WARNING (MainThread) [custom_components.irrigation_plus] [async_update_all] No weather data to parse for sensor group 1[0m
+[31m2026-09-29 14:23:39.848 ERROR (SyncWorker_4) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.188 ERROR (SyncWorker_7) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.305 ERROR (SyncWorker_6) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.306 ERROR (SyncWorker_9) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.314 ERROR (SyncWorker_5) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.340 ERROR (SyncWorker_12) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.397 ERROR (SyncWorker_8) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.402 ERROR (SyncWorker_2) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.407 ERROR (SyncWorker_11) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.491 ERROR (SyncWorker_1) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.513 ERROR (SyncWorker_0) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.624 ERROR (SyncWorker_10) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.627 ERROR (SyncWorker_4) [custom_components.irrigation_plus.weathermodules.PirateWeatherClient] PirateWeather API returned error status code: 429[0m
+[31m2026-09-29 14:23:40.714 ERROR (SyncWorker_6) [custom_components.irrigation_plus.we
