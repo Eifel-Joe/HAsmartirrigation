@@ -1949,3 +1949,33 @@ declared above `debouncedSave`, which uses `this._pendingSaves` instead of a loc
 Mutation rows 28–32: the zone delete line removed (killed by the zone delete test); the same for
 groups, distributors, modules (their delete tests); `this._editZoneById(zone.id, {` →
 `this._editZoneById(index, {` (killed by the positive pin). Expected `32 killed / 32`.
+
+### Addendum, part 3: the review of 4d and 4a–4c (2026-09-29)
+
+Commits as built: 4d `bca90cd3`, 4a `6c6ae29c`, 4b `e52f309b`, 4c `19ef2ae9`. The review
+rebuilt `dist` from `19ef2ae9` byte for byte and confirmed each delete line is real: the
+backend creates a mapping or module for an id it does not know (`async_update_*_config` falls
+through to create, the store keeps the posted id), so without the drop a deleted group or module
+came back under its old id.
+
+Folded in, as two more commits:
+
+| finding | change | commit |
+|---|---|---|
+| a first-copy-wins map (`if (!has(id)) set(…)`) passed all nine sibling tests — it would drop the last keystroke of every text edit | one "latest copy" pin per page | `06a7882a` (tests only) |
+| no test pinned that a failed group save leaves the others and is reported once | a failure pin on the groups page | `06a7882a` |
+| since a delete can empty the map, the timer can fire with nothing to save: a distributor showed "saved", a group cleared `isSaving` while its delete was in flight | `if (!batch.length) return;` on groups and distributors (the zone page already has it), RED tests first | `c026af72` |
+
+Not taken: a `.catch` on the modules' `forEach(saveToHA)` (the same unhandled rejection as
+before, one per failing module); skipping id-less objects on groups and modules (pre-existing:
+an edit before the refetch already posted without an id); flushing on disconnect (unchanged
+behaviour).
+
+#### Numbers at `c026af72`
+
+| check | value |
+|---|---|
+| vitest | 27 files / 656 (zone 12, groups 6, distributors 5, modules 4 in the save tests) |
+| `tsc`, lint, build | 0 / 0 / 0 TS diagnostics; committed `dist` == fresh build; card bundles unchanged |
+| full backend suite, `TZ=UTC` (at `19ef2ae9`; no Python changed since) | 7 / 3466 / 9 / 367, names identical to the baseline, 375 = 375 |
+| mutation matrix | rows 33–38 added (first-copy-wins ×3, empty-round guard ×2, the per-group toast); rows 23/25 re-anchored on the `clear()` line alone. 32/32 killed at `19ef2ae9`; on `c026af72`: **38 killed / 38**, each by its expected test, every row collected pytest 36 and vitest 27, every source restored byte-for-byte (`sha256sum -c` OK ×6). Recorded in `probes/2026-09-29-zone-save-mutations-branch.json`, runner `…-mutations-branch.py` |
