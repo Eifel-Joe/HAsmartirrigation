@@ -516,6 +516,9 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
     const originalZones = [...this.zones];
     this.zones = this.zones.filter((z) => z.id !== zoneId);
     this._confirmDeleteZoneId = null;
+    // An edit still waiting for the timer must not follow the delete: the
+    // server would take it for a new zone and create one from those fields.
+    this._pendingEdits.delete(zoneId);
     this.isSaving = true;
 
     deleteZone(this.hass, zoneId.toString())

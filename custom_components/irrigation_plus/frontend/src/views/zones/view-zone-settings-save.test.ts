@@ -169,6 +169,17 @@ describe("a zone edit posts what it set", () => {
     expect(bodies(callApi)).toEqual([{ id: 2, bucket: 0 }]);
     expect(el.zones.map((z: any) => z.bucket)).toEqual([0, -6.2]);
   });
+
+  it("drops the pending edit of a zone deleted before it is sent", () => {
+    // Sent after the delete, the edit would reach the server for an id it no
+    // longer knows, and it would create a zone from the edited fields alone.
+    const { el, callApi } = make([staleZone(1), staleZone(2)]);
+    el.handleEditZone(0, { name: "Beet" });
+    el._confirmDeleteZoneId = 1;
+    el._confirmDelete();
+    vi.advanceTimersByTime(500);
+    expect(bodies(callApi)).toEqual([{ id: "1", remove: true }]);
+  });
 });
 
 describe("select value for an optional id", () => {
