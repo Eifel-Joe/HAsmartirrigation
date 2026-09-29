@@ -2,12 +2,16 @@
 
 Design for `Eifel-Joe#66`, reported upstream as `JustChr#181`. Base: `upstream/master` =
 `1876aa03` (unchanged on 2026-09-29). Every line reference below is to that commit.
+`0b9a71bd` (`JustChr#182`, merged later that day) moves `store.py` below line 1680 down by four
+lines; no other file cited here changed.
 
-**Status:** behaviour decided with the user on 2026-09-29. **The placement of the gate (the
-claim) is our proposal to JustChr and waits for his answer on `JustChr#181`**; he suggested
-`_dist_eligible_for_run`. The implementation plan is written after that answer. If he holds to
-his placement, the section *Where the gate sits* is revisited together with what depends on it:
-R1's list of entries, R4, and tests 7 and 8.
+**Status:** behaviour decided with the user on 2026-09-29. **JustChr agreed to the claim as the
+gate's place on 2026-09-29** (`JustChr#181`, comment `5894821774`): every entry passes it, and the
+estimate stays independent of the moment it runs; the behaviour, the signal set and what the user
+sees stand as proposed. He added one request, a grace period after the integration's own close
+command, decided with the user the same day: **30 s, and only after a close command that was
+actually sent** (R6, *The grace after our own close*). The implementation plan follows this
+amended spec.
 
 ## The defect, measured
 
@@ -66,6 +70,9 @@ names, until someone re-syncs by hand.
   of the members that did not get their water.
 * **R4** — The finish-anchor estimate (`get_total_irrigation_duration`) does not change.
 * **R5** — No new persisted state. The integration never actuates an inlet it did not open.
+* **R6** — The integration's own close does not refuse the next cycle: for 30 s after the
+  integration sent a close command for a distributor's inlet, an open report from that inlet does
+  not block that distributor's claim (JustChr's request on `JustChr#181`).
 
 ## Options considered
 
@@ -77,11 +84,11 @@ names, until someone re-syncs by hand.
 | defer until the inlet closes, then sweep | a small scheduler of its own (waiting, cancel on unload, the days-since counter, the run's parameters); it only pays in `count` — in `warn` the distributor is uncertain after the foreign pulse, in `ignore` the ring is desynchronised by it. Filed as a follow-up. |
 | take over: close the inlet, then sweep | impossible in service mode without `stop_service`; ends a deliberate manual run |
 
-### Where the gate sits (our proposal, pending JustChr)
+### Where the gate sits (agreed by JustChr on 2026-09-29)
 
 | option | covers every entry | cost |
 |---|---|---|
-| **proposed: in the claim**, `async_run_distributor_cycle` | yes: schedule, *Water all zones*, *Irrigate now*, the member run with a custom duration, `distributor_run_now`, the test run from button and service | none found; the estimate is untouched |
+| **chosen: in the claim**, `async_run_distributor_cycle` | yes: schedule, *Water all zones*, *Irrigate now*, the member run with a custom duration, `distributor_run_now`, the test run from button and service | none found; the estimate is untouched |
 | in `_dist_eligible_for_run` (JustChr's suggestion) | no: `distributor_run_now` (`:1896`) and the test run (`:1788`) call the claim directly | the predicate also feeds the estimate (`skip_conditions.py:593`): a foreign open at the instant of the estimate would drop the distributor's track, and a finish-anchored schedule would start too late. A flag to exempt the estimate makes it the claim's check again with less coverage. |
 | both | yes | two places for one question; the dispatcher gains nothing, because the claim already knows the target members (`only_zone_ids`) |
 
@@ -101,6 +108,18 @@ leave the default installation unprotected. `ignore` means "do not track foreign
 gate asks a different question, "do not start over an open inlet". In classic mode
 `inlet_entity` is the valve the integration switches itself, so its state is as reliable as the
 switching.
+
+### The grace after our own close (JustChr's request; user decision)
+
+| option | verdict |
+|---|---|
+| **chosen: `_dist_close_inlet` records the time once its close command returned, and the gate consults it** | one writer, one reader; every close of the integration's own counts without weighing each call site |
+| record it only at a cycle's last close | every close site would need its own reasoning, for nothing: a close in the middle of a sweep never meets the gate |
+| let the sweep wait until the inlet reports closed, up to 30 s | lengthens every cycle, holds the claim and the master while it waits, and ends cycles up to 30 s later than the finish-anchor estimate says. JustChr asked for a grace, not a wait |
+
+**30 s, and only after a command that was actually sent** (user decision): the grace is
+`VALVE_CONFIRM_TIMEOUT`, the window `_confirm_valve_running` already gives a slow valve to report
+open. Service mode without `stop_service` sends no command and gets no grace.
 
 ### Count's advance (user decision)
 
@@ -129,10 +148,42 @@ synced → commissioning confirmed (not for a test run) → not in flight → IN
   absent `inlet_entity`, or any other state. "Not available" does not mean "open", and this keeps
   today's behaviour for every case the gate cannot judge.
 * It is independent of the watch mode and of the watering mode.
+* **It never blocks during the grace after the integration's own close** for this distributor
+  (R6, next section).
 * The read is `hass.states.get`, synchronous, so there is still no `await` between the check and
-  `inflight.add`; the single-flight guarantee of the claim is unchanged.
+  `inflight.add`; the single-flight guarantee of the claim is unchanged. The grace check is a dict
+  lookup and a clock read, synchronous as well.
 * **In flight before the gate:** while the integration's own sweep holds the inlet open, the
   in-flight guard answers first, so the gate never reports the integration's own run.
+
+### The grace after our own close
+
+Requested by JustChr on `JustChr#181`: `_dist_close_inlet` sends the close command and does not
+wait for the inlet to report closed. A slow or cloud-polled inlet can keep reading `on` or
+`closing` for a while after the integration's own close, and a cycle for the same distributor right
+after it — a second dispatch, or *Irrigate now* on another member — would be refused although
+nothing foreign happened.
+
+* **Where it starts:** `_dist_close_inlet` records `dt_util.utcnow()` under the distributor's id
+  **after its close command returned without raising**: in classic mode once the inlet was turned
+  off, in service mode once `stop_service` was called. Service mode without `stop_service` sends
+  nothing and records nothing: without a command there is no evidence the valve has closed, and a
+  cycle started over a still-open inlet is the measured defect itself (H2). A close command that
+  raises records nothing either.
+* **Every own close counts:** the end of each leg (`distributor.py:1725`), the halt after a failed
+  confirm (`:1595`), the safety close on an exception (`:1255`) and the close after a restart
+  (`:1824`). Only the close that ends a cycle can ever meet the gate — its last leg's, or the
+  safety close; a close in the middle of a sweep is followed by the sweep's own next open. After a
+  halt and after a restart the distributor is uncertain, and the synced guard refuses before the
+  gate is asked.
+* **How long:** a new constant `DIST_INLET_CLOSE_GRACE_SECONDS = VALVE_CONFIRM_TIMEOUT` (30 s),
+  one number for how long a valve may take to report. The grace holds while less than 30 s have
+  passed since the recorded close.
+* **Where it is kept:** a dict on the coordinator, keyed by distributor id and created on first
+  use. In memory only (R5): it holds no handle, needs no teardown, and a restart forgets it.
+* **What it does:** while the grace holds, `_dist_inlet_reports_open` returns `None` for that
+  distributor, whatever the inlet reports. Another distributor's gate is not affected.
+* **The trade, accepted by JustChr:** a foreign open inside those 30 s goes unseen.
 
 ### The refusal
 
@@ -155,7 +206,8 @@ The refusal path may `await` (it does not hold the claim) and does three things:
    * DE: `Verteiler '{name}' hat einen Bewässerungszyklus nicht gestartet: sein Einlass {entity} war offen.`
 
    The wording stays neutral about who opened the inlet: it can also be the tail of the
-   integration's own self-closing run whose off report comes late. Nothing dismisses the
+   integration's own self-closing run whose off report comes late — in service mode without
+   `stop_service`, which gets no grace, or once the grace has run out. Nothing dismisses the
    notification automatically, as with the halt notification today.
 3. **Record a skipped run** for the members through `_record_skipped_run`, with a new reason
    `SKIP_REASON_INLET_OPEN = "inlet_open"`, labelled under `panels.zones.outlook.checks.inlet_open`
@@ -181,7 +233,10 @@ The refusal path may `await` (it does not hold the claim) and does three things:
 | `warn`, on edge seen | blocked by the synced guard, except between the edge and the store write | that window is closed |
 | `ignore` | member watered on top; in classic mode the foreign run is cut at the integration's window | refused; the foreign pulse itself still desynchronises the ring, as `ignore` is documented |
 | any mode, no on edge seen | sweep over the open inlet | refused; the later off edge still books nothing — separate issue |
-| own self-closing run, late off report, immediate second claim | sweep over a possibly still-open valve | refused, correctly |
+| own close sent (classic, or service with `stop_service`), the inlet still reports `on` or `closing`, next claim within 30 s | sweep | **not refused** — the grace (R6) |
+| the same, next claim after 30 s, the inlet still reports open | sweep | refused |
+| own self-closing run without `stop_service`, late off report, immediate second claim | sweep over a possibly still-open valve | refused, correctly: no command was sent, so no grace |
+| foreign open within 30 s of the integration's own close | sweep over the open inlet | not seen — the trade JustChr accepted |
 | service mode without `stop_service` | — | nothing special: a refusal actuates nothing |
 | service mode without `inlet_entity` | — | no signal, unchanged; stated in the docs |
 | finish-anchor estimate | — | unchanged |
@@ -190,9 +245,11 @@ The refusal path may `await` (it does not hold the claim) and does three things:
 
 `docs/configuration-distributors.md`, section *Watching the inlet for foreign pulses*, gains a
 paragraph: a cycle never starts while the inlet reports open, in every watch mode, provided an
-inlet entity is set; a refused cycle appears in the members' history and as a notification;
-re-sync only while the inlet is closed; a self-closing distributor without an inlet entity has no
-such protection.
+inlet entity is set; for 30 s after the integration closed the inlet itself, an inlet that still
+reports open does not block, so a slow or cloud-polled valve does not refuse the next cycle
+(service mode needs a stop service for this); a refused cycle appears in the members' history and
+as a notification; re-sync only while the inlet is closed; a self-closing distributor without an
+inlet entity has no such protection.
 
 ## Sister paths checked
 
@@ -230,7 +287,9 @@ Each of the first four gets its own issue in the fork; the texts are approved in
 * **The stale distributor copies** described under *Sister paths checked*.
 * **Residual windows, no issue:** a foreign open *during* a sweep (the handler ignores edges while
   `active_cycle` is set), and the seconds between the claim and the first open (master start and
-  settle). Different windows, no harm measured, and no gate at the claim can see them.
+  settle). Different windows, no harm measured, and no gate at the claim can see them. A third
+  window is chosen, not left over: a foreign open within 30 s of the integration's own close goes
+  unseen (R6, the trade JustChr accepted).
 * The flow sensor as a substitute signal (rejected above) and moving `count`'s advance (decided
   above).
 
@@ -258,6 +317,12 @@ the real `async_run_distributor_cycle`:
 8. `get_total_irrigation_duration` returns the same with the inlet open and closed.
 9. Both new keys in all eight languages with matching placeholders — pinned by the existing
    `tests/test_i18n_completeness.py`.
+10. **The grace after our own close (R6)**, the clock driven by `freezer`, the real
+    `_dist_close_inlet`, the inlet state left `on`: (a) a claim 29 s after the close is not refused
+    — JustChr's requested test; (b) 31 s after it, it is refused; (c) service mode with
+    `stop_service`: the grace holds; (d) service mode without `stop_service`: no grace, refused at
+    once; (e) a close on distributor A leaves distributor B's gate as it was; (f) a close command
+    that raises records no grace.
 
 **Gates:** the full suite with no new failures against a baseline measured at the
 implementation's base commit; `black` and `ruff` clean; the dist rebuilt, all four bundles staged
@@ -277,12 +342,23 @@ record; HA-Prod is not touched):
   does to the position is evidence for the missed-edge issue.
 * **L4 no false refusal:** inlet closed, *Irrigate now* — a normal cycle with its terminal
   advance.
-* Afterwards everything back as found: position, watch mode, logger level, valve, master, probe.
+* **L5 the grace after our own close** (service mode, single-member cycles only). For the test the
+  inlet keeps reporting `on` after the integration's close: the leg's run script closes the valve
+  45 s late (the `grace_emu_*` set, `input_number.grace_emu_off_delay` = 45), and `stop_service`
+  is a do-nothing helper script created for the test — announced before it is created, removed
+  afterwards. Single-member cycles, because a second leg would open while the first leg's valve is
+  still waiting to close.
+  * **L5a:** *Irrigate now* on one member; within 30 s of its leg's end, *Irrigate now* on another
+    member — the cycle starts.
+  * **L5b:** a fresh run; the second *Irrigate now* 31–44 s after the leg's end, the inlet still
+    `on` — refused, with the notification and the history entry.
+* Afterwards everything back as found: position, watch mode, logger level, valve, master, probe,
+  the wiring changed for L5, and the helper script removed.
 
 ## Delivery
 
-* One upstream pull request, branched from `upstream/master`, **after JustChr's answer**: the
-  gate, the refusal path, both i18n keys in eight languages, the documentation paragraph, the
-  rebuilt dist, the tests.
+* One upstream pull request, branched from `upstream/master` (JustChr answered on 2026-09-29):
+  the gate with its grace, the refusal path, both i18n keys in eight languages, the documentation
+  paragraph, the rebuilt dist, the tests.
 * Nothing in the code, the commits or the pull request refers to the fork's issues.
 * This spec and the measurement record go to `archive/design-history` (rule P1).
