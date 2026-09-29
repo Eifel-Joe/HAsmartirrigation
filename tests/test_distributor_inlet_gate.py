@@ -400,3 +400,55 @@ async def test_a_close_that_raised_starts_no_grace():
 
     c.hass.loop.time.return_value = 1001.0
     assert await c.async_run_distributor_cycle(cfg) is False
+
+
+async def test_a_stop_service_that_raised_starts_no_grace():
+    # A stale stop_service raises ServiceNotFound at once: nothing was sent, so
+    # nothing shows the valve closed (the service twin of the classic case above).
+    c = _grace_host()
+
+    async def _service_call(domain, service, data=None, **kwargs):
+        if domain == "script":
+            raise ServiceNotFound(domain, service)
+
+    c.hass.services.async_call = AsyncMock(side_effect=_service_call)
+    cfg = _gated_cfg(
+        watering_mode=const.WATERING_MODE_SERVICE, stop_service="script.dist_stop"
+    )
+    with pytest.raises(ServiceNotFound):
+        await c._dist_close_inlet(cfg)
+
+    c.hass.loop.time.return_value = 1001.0
+    assert await c.async_run_distributor_cycle(cfg) is False
+
+
+async def test_a_later_close_restarts_the_grace():
+    # Every own close counts: the last one decides, not the first.
+    c = _grace_host()
+    cfg = _gated_cfg()
+    await c._dist_close_inlet(cfg)
+
+    c.hass.loop.time.return_value = 1500.0
+    await c._dist_close_inlet(cfg)
+
+    c.hass.loop.time.return_value = 1529.0
+    assert await c.async_run_distributor_cycle(cfg) is True
+
+
+async def test_the_grace_is_over_at_exactly_thirty_seconds():
+    c = _grace_host()
+    cfg = _gated_cfg()
+    await c._dist_close_inlet(cfg)
+
+    c.hass.loop.time.return_value = 1030.0
+    assert await c.async_run_distributor_cycle(cfg) is False
+
+
+async def test_the_grace_runs_for_a_distributor_that_is_not_number_zero():
+    # Every other positive test uses id 0, the one id that is also falsy.
+    c = _grace_host()
+    cfg = _gated_cfg(id=3)
+    await c._dist_close_inlet(cfg)
+
+    c.hass.loop.time.return_value = 1029.0
+    assert await c.async_run_distributor_cycle(cfg) is True

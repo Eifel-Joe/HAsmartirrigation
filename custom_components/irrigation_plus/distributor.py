@@ -141,6 +141,7 @@ class DistributorMixin:
         NOT-TO-DO: do not stamp before the await, and do not stamp the service
           branch without stop_service.
         siehe test_distributor_inlet_gate.py::test_a_service_distributor_without_stop_service_gets_no_grace
+        siehe test_distributor_inlet_gate.py::test_a_close_that_raised_starts_no_grace
         """
         if distributor.get("watering_mode") == const.WATERING_MODE_SERVICE:
             stop = distributor.get("stop_service")
@@ -1241,6 +1242,7 @@ class DistributorMixin:
           feeds the finish-anchor estimate, which must not depend on the moment it
           runs.
         siehe test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open
+        siehe test_distributor_inlet_gate.py::test_the_grace_runs_out_after_thirty_seconds
         """
         entity_id = distributor.get("inlet_entity")
         if not entity_id:
