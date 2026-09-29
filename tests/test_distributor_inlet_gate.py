@@ -19,7 +19,9 @@ import pytest
 from homeassistant.exceptions import ServiceNotFound
 
 from custom_components.irrigation_plus import const
+from tests.test_distributor import _dist, _host
 from tests.test_distributor_cycle import _dist_cfg, _loop_host, _mem
+from tests.test_distributor_integration import _call
 
 
 def _gated_cfg(**kw):
@@ -452,3 +454,109 @@ async def test_the_grace_runs_for_a_distributor_that_is_not_number_zero():
 
     c.hass.loop.time.return_value = 1029.0
     assert await c.async_run_distributor_cycle(cfg) is True
+
+
+_MEMBER = {
+    "id": 7,
+    "distributor_id": 0,
+    "outlet_number": 1,
+    "duration": 30,
+    "bucket": -1,
+    "bucket_threshold": 0,
+    "state": "automatic",
+}
+
+
+def _entry_host(inlet_state="on"):
+    """The full distributor host with the REAL dispatcher and claim.
+
+    Distributor 0 (``_dist``: classic, inlet ``switch.inlet``, synced, confirmed) has
+    one due member, zone 7. Only the sweep, the history writer and the store's reads
+    are stubbed, so a call through any entry meets the gate as it would in the
+    coordinator.
+    """
+    c = _host()
+    c.hass.config.language = "en"
+    c.hass.states.get = Mock(return_value=SimpleNamespace(state=inlet_state))
+    c.store.config.zone_sequencing = const.CONF_ZONE_SEQUENCING_SEQUENTIAL
+    c._master_off_deadline = None
+    c._rain_delay_active = Mock(return_value=False)
+    c._sc_is_self_closing = Mock(return_value=False)
+    c.store.async_get_zones = AsyncMock(return_value=[dict(_MEMBER)])
+    c.store.get_zone = Mock(return_value=dict(_MEMBER))
+    c.store.async_get_distributors = AsyncMock(return_value=[_dist(id=0)])
+    c.store.get_distributor = Mock(return_value=_dist(id=0, active_cycle=None))
+    c._dist_members = AsyncMock(return_value=[dict(_MEMBER)])
+    c._dist_needs_water = Mock(return_value=True)
+    c._dist_run_sweep = AsyncMock(return_value=True)
+    c._record_skipped_run = AsyncMock()
+    return c
+
+
+def _assert_refused(c, trigger="schedule"):
+    c._dist_run_sweep.assert_not_awaited()
+    assert 0 not in c._dist_inflight_ids()
+    c._record_skipped_run.assert_awaited_once_with(
+        [7], const.SKIP_REASON_INLET_OPEN, trigger=trigger
+    )
+
+
+async def test_a_scheduled_dispatch_meets_the_gate():
+    c = _entry_host()
+
+    assert await c._dispatch_distributor_cycles("all") is False
+
+    _assert_refused(c)
+
+
+async def test_water_all_zones_meets_the_gate():
+    c = _entry_host()
+
+    await c.async_irrigate_now()
+
+    _assert_refused(c)
+
+
+async def test_irrigate_now_on_a_member_meets_the_gate():
+    c = _entry_host()
+
+    await c.async_irrigate_now("7")
+
+    _assert_refused(c)
+
+
+async def test_a_member_run_with_a_duration_meets_the_gate():
+    # A forced run bypasses the rain delay and the demand gate, but not this one.
+    c = _entry_host()
+
+    await c.async_run_zone(7, 2)
+
+    _assert_refused(c, trigger="manual")
+
+
+async def test_distributor_run_now_meets_the_gate():
+    c = _entry_host()
+
+    await c.handle_distributor_run_now(_call(**{const.ATTR_DISTRIBUTOR_ID: 0}))
+
+    _assert_refused(c)
+
+
+async def test_the_test_run_meets_the_gate():
+    c = _entry_host()
+
+    assert await c.async_run_distributor_test(_dist(id=0)) is False
+
+    c._dist_run_sweep.assert_not_awaited()
+    c._record_skipped_run.assert_not_awaited()
+
+
+async def test_the_finish_anchor_estimate_does_not_read_the_inlet():
+    c = _entry_host(inlet_state="off")
+    closed = await c.get_total_irrigation_duration("all")
+
+    c.hass.states.get = Mock(return_value=SimpleNamespace(state="on"))
+    opened = await c.get_total_irrigation_duration("all")
+
+    assert closed > 0
+    assert opened == closed
