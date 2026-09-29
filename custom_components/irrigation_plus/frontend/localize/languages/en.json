@@ -753,7 +753,8 @@
           "freeze": "Frost",
           "paused": "Paused (rain delay)",
           "soil_moisture": "Soil moisture",
-          "no_demand": "No water demand"
+          "no_demand": "No water demand",
+          "inlet_open": "Distributor inlet open"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -884,6 +885,7 @@
       },
       "notify": {
         "halted": "Distributor '{name}' halted ({reason}). Re-sync and re-confirm required.",
+        "inlet_open": "Distributor '{name}' did not start a watering cycle: its inlet {entity} was open.",
         "reason": {
           "valve_did_not_open": "valve did not open",
           "restart_mid_advance": "restarted mid-advance",

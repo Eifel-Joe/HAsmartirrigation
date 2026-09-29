@@ -572,7 +572,8 @@
           "freeze": "Gelo",
           "paused": "In pausa (ritardo per pioggia)",
           "soil_moisture": "Umidità del suolo",
-          "no_demand": "Nessun fabbisogno idrico"
+          "no_demand": "Nessun fabbisogno idrico",
+          "inlet_open": "Ingresso del distributore aperto"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -884,6 +885,7 @@
       },
       "notify": {
         "halted": "Distributore '{name}' arrestato ({reason}). Necessarie nuova sincronizzazione e riconferma.",
+        "inlet_open": "Distributore '{name}' non ha avviato un ciclo di irrigazione: il suo ingresso {entity} era aperto.",
         "reason": {
           "valve_did_not_open": "la valvola non si è aperta",
           "restart_mid_advance": "riavvio durante l'avanzamento",

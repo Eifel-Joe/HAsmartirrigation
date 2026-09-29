@@ -1191,6 +1191,63 @@ class DistributorMixin:
             return None
         return state.state
 
+    async def _dist_refuse_inlet_open(
+        self,
+        distributor: dict,
+        state: str,
+        *,
+        test_run: bool,
+        only_zone_ids,
+        force_water: bool,
+    ) -> None:
+        """Make a cycle refused over an open inlet visible: log, notify, record.
+
+        Runs after the claim decided not to take the distributor, so it may await.
+        The notification reuses the halt's per-distributor id, so a repeat replaces
+        it. Its wording stays neutral about who opened the inlet: it can also be
+        the late off report of the integration's own self-closing run.
+        The history names exactly the members that did not get their water. The
+        dispatcher hands the claim the schedule's whole target, direct zones
+        included, so ``only_zone_ids`` is cut down to this distributor's members;
+        without it, every member. Always an explicit list:
+        ``_record_skipped_run(None, ...)`` means every zone of the installation.
+        A test run never waters or credits, so it records nothing.
+        siehe test_distributor_inlet_gate.py::test_a_refusal_records_only_the_targeted_members
+        """
+        name = distributor.get("name")
+        entity_id = distributor.get("inlet_entity")
+        _LOGGER.warning(
+            "Distributor '%s' did not start a cycle: inlet %s is %s",
+            name,
+            entity_id,
+            state,
+        )
+        # Filled by replace(), like the halt message, so a translation can never
+        # inject a str.format field.
+        template = await localize(
+            "panels.distributors.notify.inlet_open", self.hass.config.language
+        )
+        message = template.replace("{name}", str(name)).replace(
+            "{entity}", str(entity_id)
+        )
+        await self._dist_notify(distributor, message)
+        if test_run:
+            return
+        members = [
+            int(m.get(const.ZONE_ID))
+            for m in await self._dist_members(distributor.get("id"))
+        ]
+        if only_zone_ids is not None:
+            wanted = {int(z) for z in only_zone_ids}
+            members = [zid for zid in members if zid in wanted]
+        if not members:
+            return
+        await self._record_skipped_run(
+            members,
+            const.SKIP_REASON_INLET_OPEN,
+            trigger="manual" if force_water else "schedule",
+        )
+
     async def async_run_distributor_cycle(
         self,
         distributor: dict,
@@ -1232,7 +1289,16 @@ class DistributorMixin:
         # the integration's own sweep holds the inlet open and must read "in
         # flight", not "open"; before inflight.add with no await in between, so the
         # single-flight guarantee is unchanged.
-        if self._dist_inlet_reports_open(distributor) is not None:
+        # The refusal awaits only after this decision, holding nothing.
+        blocking = self._dist_inlet_reports_open(distributor)
+        if blocking is not None:
+            await self._dist_refuse_inlet_open(
+                distributor,
+                blocking,
+                test_run=test_run,
+                only_zone_ids=only_zone_ids,
+                force_water=force_water,
+            )
             return False
         inflight.add(dist_id)
         # Final-review Issue 1 (2026-07-12): the instant SI claims this distributor,

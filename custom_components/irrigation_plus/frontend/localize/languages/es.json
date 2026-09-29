@@ -532,7 +532,8 @@
           "freeze": "Helada",
           "paused": "En pausa (retraso por lluvia)",
           "soil_moisture": "Humedad del suelo",
-          "no_demand": "Sin necesidad de riego"
+          "no_demand": "Sin necesidad de riego",
+          "inlet_open": "Entrada del distribuidor abierta"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -884,6 +885,7 @@
       },
       "notify": {
         "halted": "Distribuidor '{name}' detenido ({reason}). Se requiere volver a sincronizar y volver a confirmar.",
+        "inlet_open": "Distribuidor '{name}' no inició un ciclo de riego: su entrada {entity} estaba abierta.",
         "reason": {
           "valve_did_not_open": "la válvula no se abrió",
           "restart_mid_advance": "reinicio durante el avance",

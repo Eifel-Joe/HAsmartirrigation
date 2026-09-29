@@ -9,6 +9,7 @@ a refused cycle leaves behind, and the grace after the integration's own close.
 """
 
 import asyncio
+import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -157,3 +158,100 @@ async def test_the_claim_refuses_in_every_watch_and_watering_mode(
     assert await c.async_run_distributor_cycle(cfg) is False
 
     c._dist_run_sweep.assert_not_awaited()
+
+
+_NOTICE = "Distributor 'Garten' did not start a watering cycle: its inlet switch.inlet was open."
+
+
+async def test_a_refusal_is_logged_and_notified(caplog):
+    c = _gate_host(inlet_state="on")
+
+    with caplog.at_level(logging.WARNING):
+        await c.async_run_distributor_cycle(_gated_cfg())
+
+    assert (
+        "Distributor 'Garten' did not start a cycle: inlet switch.inlet is on"
+        in caplog.text
+    )
+    c.hass.services.async_call.assert_any_await(
+        "persistent_notification",
+        "create",
+        {
+            "title": "Irrigation Plus",
+            "message": _NOTICE,
+            "notification_id": f"{const.DOMAIN}_distributor_0",
+        },
+    )
+
+
+async def test_a_refusal_is_forwarded_to_the_notify_target():
+    c = _gate_host(inlet_state="on")
+
+    await c.async_run_distributor_cycle(_gated_cfg(notify_target="notify.phone"))
+
+    c.hass.services.async_call.assert_any_await("notify", "phone", {"message": _NOTICE})
+
+
+async def test_a_refusal_records_every_member_as_an_explicit_list():
+    c = _gate_host(inlet_state="on")
+
+    await c.async_run_distributor_cycle(_gated_cfg())
+
+    c._record_skipped_run.assert_awaited_once_with(
+        [1, 2, 3], const.SKIP_REASON_INLET_OPEN, trigger="schedule"
+    )
+
+
+async def test_a_refusal_records_only_the_targeted_members():
+    # The dispatcher hands the claim the schedule's whole target, direct zones
+    # included: zone 9 is not a member and must get no entry.
+    c = _gate_host(inlet_state="on")
+
+    await c.async_run_distributor_cycle(_gated_cfg(), only_zone_ids=[2, 9])
+
+    c._record_skipped_run.assert_awaited_once_with(
+        [2], const.SKIP_REASON_INLET_OPEN, trigger="schedule"
+    )
+
+
+async def test_a_refusal_records_nothing_when_no_member_was_targeted():
+    c = _gate_host(inlet_state="on")
+
+    await c.async_run_distributor_cycle(_gated_cfg(), only_zone_ids=[9])
+
+    c._record_skipped_run.assert_not_awaited()
+
+
+async def test_a_refused_test_run_records_no_history():
+    c = _gate_host(inlet_state="on")
+
+    assert await c.async_run_distributor_cycle(_gated_cfg(), test_run=True) is False
+
+    c._record_skipped_run.assert_not_awaited()
+    c.hass.services.async_call.assert_awaited_once()  # the notification still goes out
+
+
+async def test_a_refused_forced_member_run_is_recorded_as_manual():
+    c = _gate_host(inlet_state="on")
+
+    await c.async_run_distributor_cycle(
+        _gated_cfg(), only_zone_ids=[2], force_water=True
+    )
+
+    c._record_skipped_run.assert_awaited_once_with(
+        [2], const.SKIP_REASON_INLET_OPEN, trigger="manual"
+    )
+
+
+async def test_a_distributor_in_flight_is_not_reported_as_an_open_inlet(caplog):
+    # The integration's own sweep holds the inlet open: the in-flight guard must
+    # answer first, with no notification and no history entry.
+    c = _gate_host(inlet_state="on")
+    c._dist_inflight_ids().add(0)
+
+    with caplog.at_level(logging.WARNING):
+        assert await c.async_run_distributor_cycle(_gated_cfg()) is False
+
+    c.hass.services.async_call.assert_not_awaited()
+    c._record_skipped_run.assert_not_awaited()
+    assert "did not start a cycle" not in caplog.text

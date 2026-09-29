@@ -187,6 +187,10 @@ SKIP_REASON_NO_DEMAND = "no_demand"
 # as a raw code. Pinned by
 # test_days_between_per_zone.py::test_the_detail_matches_the_id_the_frontend_localizes
 SKIP_REASON_DAYS_BETWEEN = "days_between"
+# Run-log / skip token recorded for a distributor's members when its cycle is
+# refused because the inlet reported open at the claim (#181). Localized in the
+# run-log via panels.zones.outlook.checks.inlet_open, like the ids above.
+SKIP_REASON_INLET_OPEN = "inlet_open"
 
 # Days between irrigation configuration
 CONF_DAYS_BETWEEN_IRRIGATION = "days_between_irrigation"

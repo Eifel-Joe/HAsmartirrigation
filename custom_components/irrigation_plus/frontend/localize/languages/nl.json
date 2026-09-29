@@ -532,7 +532,8 @@
           "freeze": "Vorst",
           "paused": "Gepauzeerd (regenvertraging)",
           "soil_moisture": "Bodemvocht",
-          "no_demand": "Geen waterbehoefte"
+          "no_demand": "Geen waterbehoefte",
+          "inlet_open": "Inlaat van de verdeler open"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -884,6 +885,7 @@
       },
       "notify": {
         "halted": "Verdeler '{name}' gestopt ({reason}). Opnieuw synchroniseren en opnieuw bevestigen vereist.",
+        "inlet_open": "Verdeler '{name}' heeft geen beregeningscyclus gestart: de inlaat {entity} stond open.",
         "reason": {
           "valve_did_not_open": "klep is niet opengegaan",
           "restart_mid_advance": "herstart tijdens het doorschakelen",

@@ -532,7 +532,8 @@
           "freeze": "Gel",
           "paused": "Suspendu (report pour pluie)",
           "soil_moisture": "Humidité du sol",
-          "no_demand": "Aucun besoin d'eau"
+          "no_demand": "Aucun besoin d'eau",
+          "inlet_open": "Entrée du distributeur ouverte"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -884,6 +885,7 @@
       },
       "notify": {
         "halted": "Distributeur '{name}' arrêté ({reason}). Resynchronisation et reconfirmation requises.",
+        "inlet_open": "Distributeur '{name}' n'a pas démarré de cycle d'arrosage : son entrée {entity} était ouverte.",
         "reason": {
           "valve_did_not_open": "la vanne ne s'est pas ouverte",
           "restart_mid_advance": "redémarrage pendant l'avance",

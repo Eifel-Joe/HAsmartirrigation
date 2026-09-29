@@ -532,7 +532,8 @@
           "freeze": "Frost",
           "paused": "På pause (regnforsinkelse)",
           "soil_moisture": "Jordfuktighet",
-          "no_demand": "Ingen vannbehov"
+          "no_demand": "Ingen vannbehov",
+          "inlet_open": "Fordelerens innløp åpent"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -884,6 +885,7 @@
       },
       "notify": {
         "halted": "Fordeler '{name}' stoppet ({reason}). Ny synkronisering og ny bekreftelse kreves.",
+        "inlet_open": "Fordeler '{name}' startet ikke en vanningssyklus: innløpet {entity} var åpent.",
         "reason": {
           "valve_did_not_open": "ventilen åpnet ikke",
           "restart_mid_advance": "omstart under fremrykking",
