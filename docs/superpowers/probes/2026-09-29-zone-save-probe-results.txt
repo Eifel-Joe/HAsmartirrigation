@@ -1,0 +1,10 @@
+Probe run of plans/2026-09-29-zone-save-sends-what-changed.md on 1876aa03 (throwaway worktree), 2026-09-29
+
+== full backend suite, TZ=UTC ==
+baseline:    = 7 failed, 3455 passed, 9 skipped, 11 warnings, 367 errors in 350.79s (0:05:50) =
+with change: = 7 failed, 3462 passed, 9 skipped, 11 warnings, 367 errors in 321.56s (0:05:21) =
+(7 new tests at that time; the create pin was added after the run started)
+FAILED/ERROR names: baseline 375, with change 375, diff lines: 0
+
+== mutation matrix (see 2026-09-29-zone-save-mutations-probe.json) ==
+15 killed / 15

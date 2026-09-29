@@ -182,6 +182,15 @@ without rendering, with fake timers and a `callApi` that records). Bodies are co
 | F3 | two fields of one zone within 500 ms | one post carrying both | whole zone → RED |
 | F4 | clear the module | `{id, module: null}` | key missing → RED |
 | F5 | change state, page copy already has `duration: 0` | `{id, state, duration: 0}` | whole zone → RED; also stops a later difference helper (D1) |
+| F1b | edit the name | the displayed copy has the new name and keeps every other field | copy replaced by the change → RED |
+| F3b | edit, let it post, edit again | two posts; the second carries only the second edit | whole zone → RED |
+| F6 | `_selectValue(null / undefined / 3 / 0)` | `"" / "" / "3" / "0"` | method missing → RED |
+
+**The call-site pin is a pytest test, not a vitest one:** CI's frontend job runs `npm ci`
+and `npm run build` only, never the panel tests, while the pytest job gates every PR. The pin
+reads `view-zone-settings.ts` and fails while any `handleEditZone` call spreads `...zone`
+(35 on `1876aa03`). It is the test that fails at the root of the defect; F1–F6 only test what
+`handleEditZone` does with the change it is given.
 
 **Backend** (pytest, `hass` fixture, under `TZ=UTC`)
 
@@ -192,7 +201,8 @@ without rendering, with fake timers and a `callApi` that records). Bodies are co
 | B3 | `{id, maximum_bucket: 10}`, stored bucket 20 | bucket 10, watermark moved | bucket stays 20 → RED |
 | B4 | `{id, maximum_bucket: 40}`, stored bucket 20 | nothing moves, no assertion | green, **pin** against a spurious assertion from the fill-in |
 | B5 | a real credit, then `{id, name}` | bucket, `last_consumed_at`, ledger as the run left them | green, **pin** (the backend already merges a partial post) |
-| B6 | a credit through the store funnel above the maximum | not clamped | green, **pin** for D2 |
+| B6 | `set_all_buckets` above the maximum (a writer through the store funnel) | not clamped | green, **pin** for D2 |
+| B7 | create a zone with a bucket and no maximum, no id (what the wizard and "add zone" post) | the zone is created | green, **pin**: `store.get_zone(None)` raises, so the completion must skip a create |
 
 Must stay green: `test_zone_view_ignores_server_owned_fields`, `tests/test_manual_bucket_assertion.py`
 (R7), the distributor partial-save tests, every panel test.
@@ -202,9 +212,36 @@ Must stay green: `test_zone_view_ignores_server_owned_fields`, `tests/test_manua
 - The full suite under `TZ=UTC` against `issue22-work\measure\baseline-1876aa03-tzutc.txt`
   (7 failed / 3455 passed / 9 skipped / 367 errors); only the difference counts. If
   `upstream/master` has moved, measure again first.
-- `npm test`, then `npm run build`; stage the 4 bundles with `-f` and count them.
+- `npm test`, `npx tsc --noEmit -p .` (0 errors on the base), then `npm run build`. Only
+  `dist/irrigation-plus.js` changes content (the card bundles do not import this view); stage
+  it with `-f` and count.
 - `uvx black`, `uvx ruff check`.
 - Before any push, `grep -rn "Eifel-Joe" custom_components/ tests/` must be empty.
+
+## Probe run and sister paths (2026-09-29, after the design was agreed)
+
+The plan was run once on a throwaway worktree on `1876aa03` before it was handed over. Every
+new test failed on the base for the reason it names, or passed as a declared pin. With the
+change:
+- the full suite under `TZ=UTC` was 7 failed / 3462 passed / 9 skipped / 367 errors against
+  the baseline's 7 / 3455 / 9 / 367, with identical FAILED/ERROR names;
+- vitest went from 629 to 637;
+- `tsc` and the build were clean;
+- the mutation matrix killed 15 of 15.
+
+Three things changed on the way, all folded into this document:
+- the call-site pin moved to pytest;
+- a 40-character window in its first regex found only 23 of the 35 spreads;
+- test file imports of `node:fs` would print one TS2591 warning per bundle.
+
+Sister paths, per the global rule: every other panel page that posts to the backend was read.
+None posts a copy carrying fields the server writes:
+- distributor settings: `_configPayload`, an explicit list of config fields;
+- general settings: a `pick` of 8 settings;
+- sensor groups: `{id, name, mappings}`;
+- schedules: the server writes nothing into a schedule.
+
+The zone page is the only one.
 
 ## End-to-end criterion
 

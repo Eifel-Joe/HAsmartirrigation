@@ -1,0 +1,179 @@
+[
+  {
+    "n": 1,
+    "file": "websockets.py",
+    "mutation": "the six new strip entries are gone",
+    "expected_killer": "test_a_whole_zone_post_does_not_write_back_what_the_server_writes",
+    "result": "killed",
+    "summary": "pytest: =================== 1 failed, 32 passed, 5 errors in 7.44s ==================== | vitest: Tests  8 passed (8)",
+    "killed_by": [
+      "FAILED tests/test_zone_view_save.py::test_a_whole_zone_post_does_not_write_back_what_the_server_writes"
+    ]
+  },
+  {
+    "n": 2,
+    "file": "websockets.py",
+    "mutation": "only days_since_irrigation is gone",
+    "expected_killer": "test_a_whole_zone_post_does_not_write_back_what_the_server_writes",
+    "result": "killed",
+    "summary": "pytest: =================== 1 failed, 32 passed, 5 errors in 7.64s ==================== | vitest: Tests  8 passed (8)",
+    "killed_by": [
+      "FAILED tests/test_zone_view_save.py::test_a_whole_zone_post_does_not_write_back_what_the_server_writes"
+    ]
+  },
+  {
+    "n": 3,
+    "file": "websockets.py",
+    "mutation": "no pair completion",
+    "expected_killer": "test_a_lone_bucket_is_clamped..., test_a_lowered_maximum...",
+    "result": "killed",
+    "summary": "pytest: =================== 2 failed, 31 passed, 5 errors in 7.53s ==================== | vitest: Tests  8 passed (8)",
+    "killed_by": [
+      "FAILED tests/test_zone_view_save.py::test_a_lone_bucket_is_clamped_to_the_stored_maximum",
+      "FAILED tests/test_zone_view_save.py::test_a_lowered_maximum_clamps_the_stored_level_as_a_statement"
+    ]
+  },
+  {
+    "n": 4,
+    "file": "websockets.py",
+    "mutation": "completion when both or neither are posted",
+    "expected_killer": "test_a_lone_bucket_is_clamped..., test_a_lowered_maximum...",
+    "result": "killed",
+    "summary": "pytest: =================== 5 failed, 28 passed, 5 errors in 7.57s ==================== | vitest: Tests  8 passed (8)",
+    "killed_by": [
+      "FAILED tests/test_distributor_integration.py::test_zone_view_accepts_membership_fields",
+      "FAILED tests/test_distributor_integration.py::test_zone_view_coerces_latency_margin_to_int",
+      "FAILED tests/test_distributor_integration.py::test_zone_view_ignores_server_owned_fields",
+      "FAILED tests/test_zone_view_save.py::test_a_lone_bucket_is_clamped_to_the_stored_maximum",
+      "FAILED tests/test_zone_view_save.py::test_a_lowered_maximum_clamps_the_stored_level_as_a_statement"
+    ]
+  },
+  {
+    "n": 5,
+    "file": "websockets.py",
+    "mutation": "completion overwrites the posted value",
+    "expected_killer": "test_a_lone_bucket_is_clamped..., test_a_lowered_maximum...",
+    "result": "killed",
+    "summary": "pytest: =================== 3 failed, 30 passed, 5 errors in 7.55s ==================== | vitest: Tests  8 passed (8)",
+    "killed_by": [
+      "FAILED tests/test_zone_view_save.py::test_a_lone_bucket_is_clamped_to_the_stored_maximum",
+      "FAILED tests/test_zone_view_save.py::test_a_lowered_maximum_clamps_the_stored_level_as_a_statement",
+      "FAILED tests/test_zone_view_save.py::test_a_raised_maximum_leaves_the_level_and_the_window_alone"
+    ]
+  },
+  {
+    "n": 6,
+    "file": "websockets.py",
+    "mutation": "completion also on create (no id)",
+    "expected_killer": "test_a_new_zone_posted_with_a_bucket_and_no_maximum_is_created",
+    "result": "killed",
+    "summary": "pytest: =================== 1 failed, 32 passed, 5 errors in 7.54s ==================== | vitest: Tests  8 passed (8)",
+    "killed_by": [
+      "FAILED tests/test_zone_view_save.py::test_a_new_zone_posted_with_a_bucket_and_no_maximum_is_created"
+    ]
+  },
+  {
+    "n": 7,
+    "file": "store.py",
+    "mutation": "the store completes the pair itself",
+    "expected_killer": "test_a_bucket_set_through_the_store_funnel_is_not_clamped",
+    "result": "killed",
+    "summary": "pytest: =================== 1 failed, 32 passed, 5 errors in 7.87s ==================== | vitest: Tests  8 passed (8)",
+    "killed_by": [
+      "FAILED tests/test_zone_view_save.py::test_a_bucket_set_through_the_store_funnel_is_not_clamped"
+    ]
+  },
+  {
+    "n": 8,
+    "file": "view-zone-settings.ts",
+    "mutation": "posted without the zone id",
+    "expected_killer": "sends the zone id and the edited field...",
+    "result": "killed",
+    "summary": "pytest: ======================== 33 passed, 5 errors in 7.36s ========================= | vitest: Tests  6 failed | 2 passed (8)",
+    "killed_by": [
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > does not post an edit twice once it has been sent",
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > merges two edits to one zone into one post",
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > saves every zone edited inside one debounce window",
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > sends a cleared field as null, so the server stores the clear",
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > sends every field the edit set, even one the page's copy already shows",
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > sends the zone id and the edited field, nothing from the page's copy"
+    ]
+  },
+  {
+    "n": 9,
+    "file": "view-zone-settings.ts",
+    "mutation": "one pending set for every zone",
+    "expected_killer": "saves every zone edited inside one debounce window",
+    "result": "killed",
+    "summary": "pytest: ======================== 33 passed, 5 errors in 7.47s ========================= | vitest: Tests  1 failed | 7 passed (8)",
+    "killed_by": [
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > saves every zone edited inside one debounce window"
+    ]
+  },
+  {
+    "n": 10,
+    "file": "view-zone-settings.ts",
+    "mutation": "an edit replaces the zone's pending edits",
+    "expected_killer": "merges two edits to one zone into one post",
+    "result": "killed",
+    "summary": "pytest: ======================== 33 passed, 5 errors in 7.41s ========================= | vitest: Tests  1 failed | 7 passed (8)",
+    "killed_by": [
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > merges two edits to one zone into one post"
+    ]
+  },
+  {
+    "n": 11,
+    "file": "view-zone-settings.ts",
+    "mutation": "pending edits kept after posting",
+    "expected_killer": "does not post an edit twice once it has been sent",
+    "result": "killed",
+    "summary": "pytest: ======================== 33 passed, 5 errors in 7.43s ========================= | vitest: Tests  1 failed | 7 passed (8)",
+    "killed_by": [
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > does not post an edit twice once it has been sent"
+    ]
+  },
+  {
+    "n": 12,
+    "file": "view-zone-settings.ts",
+    "mutation": "a cleared field stays undefined",
+    "expected_killer": "sends a cleared field as null...",
+    "result": "killed",
+    "summary": "pytest: ======================== 33 passed, 5 errors in 7.50s ========================= | vitest: Tests  1 failed | 7 passed (8)",
+    "killed_by": [
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > sends a cleared field as null, so the server stores the clear"
+    ]
+  },
+  {
+    "n": 13,
+    "file": "view-zone-settings.ts",
+    "mutation": "the change worked out against the page's copy",
+    "expected_killer": "sends every field the edit set, even one the page's copy already shows",
+    "result": "killed",
+    "summary": "pytest: ======================== 33 passed, 5 errors in 7.48s ========================= | vitest: Tests  1 failed | 7 passed (8)",
+    "killed_by": [
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > sends every field the edit set, even one the page's copy already shows"
+    ]
+  },
+  {
+    "n": 14,
+    "file": "view-zone-settings.ts",
+    "mutation": "a null id selects the text 'null'",
+    "expected_killer": "shows the empty option for a cleared id...",
+    "result": "killed",
+    "summary": "pytest: ======================== 33 passed, 5 errors in 7.56s ========================= | vitest: Tests  1 failed | 7 passed (8)",
+    "killed_by": [
+      "vitest src/views/zones/view-zone-settings-save.test.ts > select value for an optional id > shows the empty option for a cleared id, and the id otherwise"
+    ]
+  },
+  {
+    "n": 15,
+    "file": "view-zone-settings.ts",
+    "mutation": "one call site spreads the page's copy again",
+    "expected_killer": "test_the_panel_names_what_each_zone_edit_sets",
+    "result": "killed",
+    "summary": "pytest: =================== 1 failed, 32 passed, 5 errors in 7.52s ==================== | vitest: Tests  8 passed (8)",
+    "killed_by": [
+      "FAILED tests/test_zone_view_save.py::test_the_panel_names_what_each_zone_edit_sets"
+    ]
+  }
+]
