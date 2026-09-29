@@ -271,3 +271,35 @@ One PR to JustChr: the fix, its tests and the rebuilt `dist/`. It is a singleton
 rides along. Its text names no issue of this fork. The `Eifel-Joe#5` body proposes the
 allowlist, so the issue gets a comment on why the build differs, plus label `upstream:gemeldet`
 once the PR is open.
+
+## Addendum 2026-09-29 (during execution)
+
+### Scope: three sibling pages join this PR
+
+The Task 3 review found the shared save timer that R2 removes from the zone page on three more
+pages: sensor groups (`handleEditMapping`), distributors (`handleEditDistributor`) and modules
+(`debouncedSave`). Editing a second object within 500 ms cancels the first object's save; the
+page shows the edit, the server never gets it. The general settings page already merges its
+deltas. The user first chose a separate issue, then decided the same day to fix all three in
+this PR ("es gehört ja zusammen"). The "singleton" line under Delivery no longer holds.
+
+- **R8** Edits to several sensor groups, distributors or modules inside one debounce window
+  are all saved.
+
+These pages post whole objects without server-written fields (sister-path table), so only the
+timer changes: the latest copy per object id is kept and every entry is saved when the timer
+runs out. Tests and tasks: plan addendum, Tasks 4a–4c.
+
+### Corrections found by the reviews
+
+- **D2 names a unit-system flip among the writers the store completion would change. It would
+  not:** `convert_zone_values` writes `bucket` and `maximum_bucket` in one payload, so the flip
+  is clamped today. The decision stands on credits, the calculation and `set_all_buckets`.
+- **"The defect, traced", step 3 lists what refreshes an open page.** Also refreshing it:
+  a distributor cycle's start, outlet advance and end (`_dist_store_update`), rain delay,
+  skips, fault changes and a unit-system flip. After a distributor run the page may therefore
+  be current; after a timed, flow, self-closing or observed run it is not.
+- **A confirm dialog must not address its zone by index.** The reset-bucket dialog runs its
+  edit when the user confirms. The zone's id used to travel inside the copy; with the change
+  alone, the index at confirm time decides the zone, and a re-read in between can move another
+  zone there. That site finds its zone by id (`_editZoneById`), pinned by a pytest tripwire.

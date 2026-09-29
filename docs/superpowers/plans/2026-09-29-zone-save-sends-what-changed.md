@@ -1402,3 +1402,465 @@ gh pr create --repo JustChr/HAsmartirrigation --base master --head Eifel-Joe:fix
 body's allowlist (the form edits the bucket, so an allowlist of edited fields still lets the
 stale value through), what was built instead, the PR link, and `upstream:gemeldet`. The
 tracking issue `Eifel-Joe#42` gets the state change. English first, German below.
+
+---
+
+## Addendum 2026-09-29 (during execution) — where this section differs, it wins
+
+Everything above stays as written. This section records what changed while the plan was
+executed, and adds Tasks 4a–4c.
+
+### Review findings folded into Tasks 1–4
+
+| task | finding (reviewer, verified before acting) | change | commit |
+|---|---|---|---|
+| 1 | the credit pin passed with the credit turned into a no-op; `days_since_irrigation` defaults to 0 | seed the counter at 4; assert the credit happened (bucket 0.0, counter 0, ledger +1) | `52860467` |
+| 1 | "After a run it still carries the pre-run values" is too absolute: a distributor cycle's start, advance and end dispatch `_update_frontend` (`distributor.py` `_dist_store_update`) | "it can still carry" | `52860467` |
+| 2 | mutant `!=` → `or` survived: a post carrying both would get the posted maximum overwritten by the stored one | pin `test_a_post_that_carries_both_is_saved_as_it_was_posted` | `e8db0916` |
+| 2 | the `stored is not None` guard had no test | pin `test_a_lone_bucket_for_an_id_the_store_does_not_know_creates_the_zone` | `e8db0916` |
+| 2 | "credits, the calculation, a unit flip, set_all_buckets … none of them is clamped" is wrong: `convert_zone_values` (`unit_system.py`) writes bucket and maximum in one payload, so the flip IS clamped | the comments in `websockets.py` and `store.py` and the commit body name only credits, the calculation and `set_all_buckets` | `e8db0916` |
+| 3 | the `zone.id === undefined` guard and the debounce window had no test | two vitest pins | `9618bd13` |
+| 4 | the reset-bucket confirm runs its edit later (`_runPendingConfirm`); with the spread gone, the index at confirm time decides the zone, and a re-read in between can move another zone there | that one site calls `_editZoneById(zone.id, …)`; a vitest test (RED first) and a second pytest tripwire `test_a_confirmed_zone_edit_finds_its_zone_by_id` | Task 4 |
+
+The other 34 call sites are synchronous event handlers (checked: none awaits before calling).
+Trailers name the model that wrote each commit (`Claude Sonnet 5.5`), not the Opus line above.
+
+### Tasks 4a–4c: the same shared save timer on three sibling pages
+
+Found by the Task 3 review. One debounce timer that keeps only the object edited last — the
+shape R2 fixes on the zone page — also sits on three more pages. The user first chose a
+separate issue, then decided (2026-09-29): **into this PR, it belongs together**. These pages
+post a whole object that carries no server-written field (sister-path table above), so only the
+timer is wrong:
+
+| page | method | lost |
+|---|---|---|
+| sensor groups | `view-mappings.ts` `handleEditMapping` | the first of two groups edited within 500 ms |
+| distributors | `view-distributor-settings.ts` `handleEditDistributor` | the first of two distributors |
+| modules | `view-modules.ts` `debouncedSave` (called by `handleEditConfig`) | the first of two modules |
+
+`view-general.ts` already merges its deltas ("audit finding: silent per-field data loss") and
+stays as it is. Each fix keeps the latest copy per object id in a map and, when the one timer
+runs out, empties the map and saves every entry. Sensor groups and modules are not exported;
+each gets `export { … };` at its end, as the zone and distributor views have, so the test can
+build the element. Same harness as `view-zone-settings-save.test.ts`. Code must pass
+`npm run lint` (prettier, printWidth 80); if lint flags only the formatting of changed lines,
+`npx eslint --fix <file>` and read the diff.
+
+Each task: export (where needed) → test file → RED (`1 failed | 1 passed (2)`; the second test
+is a pin) → fix → GREEN (`2 passed (2)`) → `npx vitest run`, `tsc`, `npm run lint` → build
+(only `dist/irrigation-plus.js` changes; `git add -f`, count) → one commit.
+
+#### Task 4a: sensor groups
+
+Files: create `frontend/src/views/mappings/view-mappings-save.test.ts`; modify
+`frontend/src/views/mappings/view-mappings.ts`; rebuilt `dist/irrigation-plus.js`.
+
+Export: after the class's closing `}` at the end of `view-mappings.ts`, add a blank line and
+`export { SmartIrrigationViewMappings };`.
+
+Test file:
+
+```typescript
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+
+beforeAll(() => {
+  (globalThis as any).HTMLElement = class {};
+  (globalThis as any).customElements = {
+    define() {},
+    get() {
+      return undefined;
+    },
+    whenDefined: () => Promise.resolve(),
+  };
+  (globalThis as any).window = globalThis;
+  // _scheduleUpdate() defers a re-render to the next frame; nothing renders here.
+  (globalThis as any).requestAnimationFrame = () => 0;
+});
+
+type ViewModule = typeof import("./view-mappings");
+let View: ViewModule["SmartIrrigationViewMappings"];
+beforeAll(async () => {
+  ({ SmartIrrigationViewMappings: View } = await import("./view-mappings"));
+});
+
+// A group without sensors: saveToHA checks each configured sensor entity
+// against hass.states, and there is none to check.
+function group(id: number, name: string) {
+  return { id, name, mappings: {} };
+}
+
+function make(groups: unknown[]) {
+  const callApi = vi.fn().mockResolvedValue(true);
+  const el: any = new View();
+  el.hass = { language: "en", states: {}, callApi };
+  el.mappings = groups;
+  return { el, callApi };
+}
+
+function saved(callApi: ReturnType<typeof vi.fn>) {
+  return callApi.mock.calls.map(([method, path, body]) => {
+    expect([method, path]).toEqual(["POST", "irrigation_plus/mappings"]);
+    return body;
+  });
+}
+
+describe("a sensor group edit is saved", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("saves every group edited inside one debounce window", () => {
+    const { el, callApi } = make([group(1, "Garden"), group(2, "Bed")]);
+    el.handleEditMapping(0, group(1, "Garden south"));
+    el.handleEditMapping(1, group(2, "Bed north"));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([
+      group(1, "Garden south"),
+      group(2, "Bed north"),
+    ]);
+  });
+
+  it("does not save a group twice once it has been saved", () => {
+    const { el, callApi } = make([group(1, "Garden"), group(2, "Bed")]);
+    el.handleEditMapping(0, group(1, "Garden south"));
+    vi.advanceTimersByTime(500);
+    el.handleEditMapping(1, group(2, "Bed north"));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([
+      group(1, "Garden south"),
+      group(2, "Bed north"),
+    ]);
+  });
+});
+```
+
+Field, directly after `private globalDebounceTimer: number | null = null;`:
+
+```typescript
+  // Edited groups not saved yet, latest copy per id (see handleEditMapping).
+  private _pendingSaves = new Map<number | undefined, SmartIrrigationMapping>();
+```
+
+In `handleEditMapping`, replace from `    // Use global debounce to reduce timer overhead` down to and
+including `    }, 500); // Increased debounce time to reduce backend load` with:
+
+```typescript
+    // Wurzel: the one debounce timer kept only the group edited last, so a
+    //   second group edited within half a second cancelled the first one's
+    //   save: the page showed the edit, the server never got it.
+    // Fix-Logik: keep the latest copy per group and save every one of them
+    //   when the timer runs out, as the zone settings page does.
+    // See view-mappings-save.test.ts.
+    this._pendingSaves.set(updatedMapping.id, updatedMapping);
+    if (this.globalDebounceTimer) {
+      clearTimeout(this.globalDebounceTimer);
+    }
+
+    // Debounce saving to avoid excessive API calls during rapid editing
+    this.globalDebounceTimer = window.setTimeout(() => {
+      this.globalDebounceTimer = null;
+      // Taken out before saving: an edit made while these are in flight
+      // belongs to the next round.
+      const batch = [...this._pendingSaves.values()];
+      this._pendingSaves.clear();
+      this.isSaving = true;
+      Promise.all(
+        batch.map((mapping) =>
+          this.saveToHA(mapping).catch((error) => {
+            console.error("Failed to save mapping:", error);
+            showErrorToast(
+              this,
+              this.hass,
+              "common.errors.save_failed",
+              error,
+            );
+          }),
+        ),
+      ).finally(() => {
+        this.isSaving = false;
+        this._scheduleUpdate();
+      });
+    }, 500); // Increased debounce time to reduce backend load
+```
+
+Each group's save keeps its own `catch`, so a group with an invalid sensor still toasts and does
+not stop the others.
+
+Commit:
+
+```
+fix(panel): save every sensor group edited within one debounce window
+
+The save timer was shared by all groups and kept only the one edited
+last, so a second group edited within half a second dropped the first
+group's save: the page showed the edit, the server never got it. Edits
+are now kept per group, and every one of them is saved when the timer
+runs out.
+```
+
+#### Task 4b: distributors
+
+Files: create `frontend/src/views/setup/view-distributor-settings-save.test.ts`; modify
+`frontend/src/views/setup/view-distributor-settings.ts`; rebuilt `dist/irrigation-plus.js`.
+The class is already exported.
+
+Test file: same imports and `beforeAll` shim as 4a, then:
+
+```typescript
+type ViewModule = typeof import("./view-distributor-settings");
+let View: ViewModule["SmartIrrigationViewDistributorSettings"];
+beforeAll(async () => {
+  ({ SmartIrrigationViewDistributorSettings: View } =
+    await import("./view-distributor-settings"));
+});
+
+function distributor(id: number, pause_seconds: number) {
+  return { id, name: `Distributor ${id}`, pause_seconds };
+}
+
+function make(distributors: unknown[]) {
+  const callApi = vi.fn().mockResolvedValue(true);
+  const el: any = new View();
+  el.hass = { language: "en", states: {}, callApi };
+  el.distributors = distributors;
+  return { el, callApi };
+}
+
+// Which distributor each save was for, and the value edited on it.
+function saved(callApi: ReturnType<typeof vi.fn>) {
+  return callApi.mock.calls.map(([method, path, body]) => {
+    expect([method, path]).toEqual(["POST", "irrigation_plus/distributors"]);
+    return [body.id, body.pause_seconds];
+  });
+}
+
+describe("a distributor edit is saved", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("saves every distributor edited inside one debounce window", () => {
+    const { el, callApi } = make([distributor(1, 5), distributor(2, 5)]);
+    el.handleEditDistributor(0, distributor(1, 7));
+    el.handleEditDistributor(1, distributor(2, 9));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([
+      [1, 7],
+      [2, 9],
+    ]);
+  });
+
+  it("does not save a distributor twice once it has been saved", () => {
+    const { el, callApi } = make([distributor(1, 5), distributor(2, 5)]);
+    el.handleEditDistributor(0, distributor(1, 7));
+    vi.advanceTimersByTime(500);
+    el.handleEditDistributor(1, distributor(2, 9));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([
+      [1, 7],
+      [2, 9],
+    ]);
+  });
+});
+```
+
+Field, directly after `private globalDebounceTimer: number | null = null;`:
+
+```typescript
+  // Edited distributors not saved yet, latest per id (handleEditDistributor).
+  private _pendingSaves = new Map<
+    number | undefined,
+    SmartIrrigationDistributor
+  >();
+```
+
+In `handleEditDistributor`, replace from
+`    if (this.globalDebounceTimer) clearTimeout(this.globalDebounceTimer);` down to and including
+the `    }, 500);` that closes the timer with:
+
+```typescript
+    // Wurzel: the one debounce timer kept only the distributor edited last,
+    //   so a second one edited within half a second cancelled the first one's
+    //   save: the page showed the edit, the server never got it.
+    // Fix-Logik: keep the latest copy per distributor and save every one of
+    //   them when the timer runs out, as the zone settings page does.
+    // See view-distributor-settings-save.test.ts.
+    this._pendingSaves.set(updated.id, updated);
+    if (this.globalDebounceTimer) clearTimeout(this.globalDebounceTimer);
+    this.globalDebounceTimer = window.setTimeout(() => {
+      this.globalDebounceTimer = null;
+      // Taken out before saving: an edit made while these are in flight
+      // belongs to the next round.
+      const batch = [...this._pendingSaves.values()];
+      this._pendingSaves.clear();
+      this.isSaving = true;
+      this._saveStatus = "saving";
+      Promise.all(
+        batch.map((d) => saveDistributor(this.hass!, this._configPayload(d))),
+      )
+        .then(() => this._markSaved())
+        .catch((error) => {
+          console.error("Failed to save distributor:", error);
+          this._saveStatus = "idle";
+          showErrorToast(this, this.hass, "common.errors.save_failed", error);
+        })
+        .finally(() => {
+          this.isSaving = false;
+          this._scheduleUpdate();
+        });
+    }, 500);
+```
+
+Commit: as 4a, with "distributor(s)" for "group(s)":
+`fix(panel): save every distributor edited within one debounce window`.
+
+#### Task 4c: modules
+
+Files: create `frontend/src/views/modules/view-modules-save.test.ts`; modify
+`frontend/src/views/modules/view-modules.ts`; rebuilt `dist/irrigation-plus.js`.
+
+Export: after the class's closing `}` at the end of `view-modules.ts`, add a blank line and
+`export { SmartIrrigationViewModules };`.
+
+Test file: same imports and `beforeAll` shim as 4a, then:
+
+```typescript
+type ViewModule = typeof import("./view-modules");
+let View: ViewModule["SmartIrrigationViewModules"];
+beforeAll(async () => {
+  ({ SmartIrrigationViewModules: View } = await import("./view-modules"));
+});
+
+function mod(id: number, name: string) {
+  return { id, name, config: {} };
+}
+
+function make(modules: unknown[]) {
+  const callApi = vi.fn().mockResolvedValue(true);
+  const el: any = new View();
+  el.hass = { language: "en", states: {}, callApi };
+  el.modules = modules;
+  return { el, callApi };
+}
+
+// Which module each save was for, and the name it was saved with.
+function saved(callApi: ReturnType<typeof vi.fn>) {
+  return callApi.mock.calls.map(([method, path, body]) => {
+    expect([method, path]).toEqual(["POST", "irrigation_plus/modules"]);
+    return [body.id, body.name];
+  });
+}
+
+describe("a module edit is saved", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("saves every module edited inside one debounce window", () => {
+    const { el, callApi } = make([mod(1, "PyETO"), mod(2, "Static")]);
+    el.handleEditConfig(0, mod(1, "PyETO east"));
+    el.handleEditConfig(1, mod(2, "Static west"));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([
+      [1, "PyETO east"],
+      [2, "Static west"],
+    ]);
+  });
+
+  it("does not save a module twice once it has been saved", () => {
+    const { el, callApi } = make([mod(1, "PyETO"), mod(2, "Static")]);
+    el.handleEditConfig(0, mod(1, "PyETO east"));
+    vi.advanceTimersByTime(500);
+    el.handleEditConfig(1, mod(2, "Static west"));
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([
+      [1, "PyETO east"],
+      [2, "Static west"],
+    ]);
+  });
+});
+```
+
+Replace the whole `debouncedSave` field, from `  // Debounced save operation for better performance`
+to its closing `  })();`, with:
+
+```typescript
+  // Debounced save operation for better performance
+  // Wurzel: the one debounce timer kept only the module edited last, so a
+  //   second module edited within half a second cancelled the first one's
+  //   save: the page showed the edit, the server never got it.
+  // Fix-Logik: keep the latest copy per module and save every one of them
+  //   when the timer runs out, as the zone settings page does.
+  // See view-modules-save.test.ts.
+  private debouncedSave = (() => {
+    let timeoutId: number | null = null;
+    const pending = new Map<number | undefined, SmartIrrigationModule>();
+    return (module: SmartIrrigationModule) => {
+      pending.set(module.id, module);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = window.setTimeout(() => {
+        timeoutId = null;
+        // Taken out before saving: an edit made while these are in flight
+        // belongs to the next round.
+        const batch = [...pending.values()];
+        pending.clear();
+        batch.forEach((m) => this.saveToHA(m));
+      }, 500); // 500ms debounce
+    };
+  })();
+```
+
+`saveToHA` already toasts a failure itself, as before.
+
+Commit: `fix(panel): save every module edited within one debounce window`, body as 4a.
+
+### Numbers after the addendum (replace the table at the top)
+
+| check | plan | now |
+|---|---|---|
+| `tests/test_zone_view_save.py` | 8 | 11 |
+| `view-zone-settings-save.test.ts` | 8 | 11 |
+| three new `*-save.test.ts` (4a–4c) | — | 2 each |
+| vitest, all files | 24 files / 637 | 27 files / 646 |
+| three-file pytest run (Task 2 step 6 command) | 32 passed, 5 errors | 36 passed, 5 errors |
+| full backend suite, `TZ=UTC` | 7 / 3463 / 9 / 367 | 7 / 3466 / 9 / 367; FAILED/ERROR names identical, 375 = 375 |
+| mutation runner collection | pytest 33, vitest 8 | pytest 36, vitest 11 + 3 × 2 |
+| build | only `dist/irrigation-plus.js` changes | unchanged, after every task |
+
+### Task 6 additions
+
+`mutate.py` runs every vitest file (`VITEST_FILES`: the zone save test and the three new ones).
+Rows 16–27, each with its expected killer:
+
+| # | file | mutation | killed by |
+|---|---|---|---|
+| 16 | websockets.py | `(… in data) != (` → `(… in data) or (` | carries-both pin |
+| 17 | websockets.py | `if stored is not None:` → `if True:` | unknown-id pin |
+| 18 | zone view | `if (zone.id === undefined) return;` removed | no-id vitest |
+| 19 | zone view | the handleEditZone timer's `}, 500);` → `}, 1);` | window vitest |
+| 20 | zone view | `this._editZoneById(zone.id, {` → `this.handleEditZone(index, {` | by-id pytest tripwire |
+| 21 | zone view | `findIndex((z) => z.id === id)` → `findIndex((z) => z.id !== id)` | by-id vitest |
+| 22 | mappings | `_pendingSaves.clear()` before every `set` | two-groups test |
+| 23 | mappings | `_pendingSaves.clear()` after taking the batch removed | not-twice (groups) |
+| 24 | distributors | as 22 | two-distributors test |
+| 25 | distributors | as 23 | not-twice (distributors) |
+| 26 | modules | `pending.clear()` before every `set` | two-modules test |
+| 27 | modules | `pending.clear()` after taking the batch removed | not-twice (modules) |
+
+Expected: `27 killed / 27 applied / 27 total`, every source restored byte-for-byte.
+
+### Task 8 additions
+
+- On today's build, after Step 1: rename two sensor groups within half a second (browser
+  batch), reload. Expected: only the second name stored — the live RED for 4a–4c.
+- On the fix build, after Step 4: the same for two sensor groups, two distributors (if HA-Test
+  has two; otherwise say so) and two modules. Expected: both edits stored after a reload.
+- Restore every name and value afterwards.
