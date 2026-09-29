@@ -5,7 +5,7 @@
     "mutation": "the six new strip entries are gone",
     "expected_killer": "test_a_whole_zone_post_does_not_write_back_what_the_server_writes",
     "result": "killed",
-    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.93s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.84s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_a_whole_zone_post_does_not_write_back_what_the_server_writes"
     ]
@@ -16,7 +16,7 @@
     "mutation": "only days_since_irrigation is gone",
     "expected_killer": "test_a_whole_zone_post_does_not_write_back_what_the_server_writes",
     "result": "killed",
-    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 8.13s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.99s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_a_whole_zone_post_does_not_write_back_what_the_server_writes"
     ]
@@ -27,7 +27,7 @@
     "mutation": "no pair completion",
     "expected_killer": "test_a_lone_bucket_is_clamped..., test_a_lowered_maximum...",
     "result": "killed",
-    "summary": "pytest: =================== 2 failed, 34 passed, 5 errors in 7.63s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 2 failed, 34 passed, 5 errors in 7.83s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_a_lone_bucket_is_clamped_to_the_stored_maximum",
       "FAILED tests/test_zone_view_save.py::test_a_lowered_maximum_clamps_the_stored_level_as_a_statement"
@@ -39,7 +39,7 @@
     "mutation": "completion when both or neither are posted",
     "expected_killer": "test_a_lone_bucket_is_clamped..., test_a_lowered_maximum...",
     "result": "killed",
-    "summary": "pytest: =================== 6 failed, 30 passed, 5 errors in 7.77s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 6 failed, 30 passed, 5 errors in 8.85s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_distributor_integration.py::test_zone_view_accepts_membership_fields",
       "FAILED tests/test_distributor_integration.py::test_zone_view_coerces_latency_margin_to_int",
@@ -55,7 +55,7 @@
     "mutation": "completion overwrites the posted value",
     "expected_killer": "test_a_lone_bucket_is_clamped..., test_a_lowered_maximum...",
     "result": "killed",
-    "summary": "pytest: =================== 3 failed, 33 passed, 5 errors in 8.08s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 3 failed, 33 passed, 5 errors in 8.03s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_a_lone_bucket_is_clamped_to_the_stored_maximum",
       "FAILED tests/test_zone_view_save.py::test_a_lowered_maximum_clamps_the_stored_level_as_a_statement",
@@ -68,7 +68,7 @@
     "mutation": "completion also on create (no id)",
     "expected_killer": "test_a_new_zone_posted_with_a_bucket_and_no_maximum_is_created",
     "result": "killed",
-    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 8.12s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.89s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_a_new_zone_posted_with_a_bucket_and_no_maximum_is_created"
     ]
@@ -79,7 +79,7 @@
     "mutation": "the store completes the pair itself",
     "expected_killer": "test_a_bucket_set_through_the_store_funnel_is_not_clamped",
     "result": "killed",
-    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.81s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.89s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_a_bucket_set_through_the_store_funnel_is_not_clamped"
     ]
@@ -90,9 +90,11 @@
     "mutation": "posted without the zone id",
     "expected_killer": "sends the zone id and the edited field...",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.88s ========================= | vitest: Tests  8 failed | 19 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 8.04s ========================= | vitest: Tests  10 failed | 20 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > does not post an edit twice once it has been sent",
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > drops an unsent edit when the page is left",
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > drops the pending edit of a zone deleted before it is sent",
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > finds its zone by id when a confirmed edit runs later",
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > merges two edits to one zone into one post",
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > saves every zone edited inside one debounce window",
@@ -108,7 +110,7 @@
     "mutation": "one pending set for every zone",
     "expected_killer": "saves every zone edited inside one debounce window",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 8.15s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.85s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > saves every zone edited inside one debounce window"
     ]
@@ -119,7 +121,7 @@
     "mutation": "an edit replaces the zone's pending edits",
     "expected_killer": "merges two edits to one zone into one post",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.58s ========================= | vitest: Tests  2 failed | 25 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.63s ========================= | vitest: Tests  2 failed | 28 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > merges two edits to one zone into one post",
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > waits the full window, and every edit restarts it"
@@ -131,7 +133,7 @@
     "mutation": "pending edits kept after posting",
     "expected_killer": "does not post an edit twice once it has been sent",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.64s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.56s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > does not post an edit twice once it has been sent"
     ]
@@ -142,7 +144,7 @@
     "mutation": "a cleared field stays undefined",
     "expected_killer": "sends a cleared field as null...",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 8.13s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 11.87s ======================== | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > sends a cleared field as null, so the server stores the clear"
     ]
@@ -153,7 +155,7 @@
     "mutation": "the change worked out against the page's copy",
     "expected_killer": "sends every field the edit set, even one the page's copy already shows",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.89s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 9.53s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > sends every field the edit set, even one the page's copy already shows"
     ]
@@ -164,7 +166,7 @@
     "mutation": "a null id selects the text 'null'",
     "expected_killer": "shows the empty option for a cleared id...",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.47s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.59s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > select value for an optional id > shows the empty option for a cleared id, and the id otherwise"
     ]
@@ -175,7 +177,7 @@
     "mutation": "one call site spreads the page's copy again",
     "expected_killer": "test_the_panel_names_what_each_zone_edit_sets",
     "result": "killed",
-    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.79s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.53s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_the_panel_names_what_each_zone_edit_sets"
     ]
@@ -186,7 +188,7 @@
     "mutation": "completion also when both are posted",
     "expected_killer": "test_a_post_that_carries_both_is_saved_as_it_was_posted",
     "result": "killed",
-    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.84s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.45s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_a_post_that_carries_both_is_saved_as_it_was_posted"
     ]
@@ -197,7 +199,7 @@
     "mutation": "the stored-zone guard is gone",
     "expected_killer": "test_a_lone_bucket_for_an_id_the_store_does_not_know_creates_the_zone",
     "result": "killed",
-    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.65s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.54s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_a_lone_bucket_for_an_id_the_store_does_not_know_creates_the_zone"
     ]
@@ -208,7 +210,7 @@
     "mutation": "an id-less zone's edit is posted",
     "expected_killer": "posts nothing for a zone that has no id yet",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.98s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.56s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > posts nothing for a zone that has no id yet"
     ]
@@ -219,7 +221,7 @@
     "mutation": "a 1 ms debounce window",
     "expected_killer": "waits the full window, and every edit restarts it",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.57s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.38s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > waits the full window, and every edit restarts it"
     ]
@@ -230,7 +232,7 @@
     "mutation": "the reset dialog addresses its zone by index",
     "expected_killer": "test_a_confirmed_zone_edit_finds_its_zone_by_id",
     "result": "killed",
-    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.56s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.94s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_a_confirmed_zone_edit_finds_its_zone_by_id"
     ]
@@ -241,7 +243,7 @@
     "mutation": "the helper finds another zone",
     "expected_killer": "finds its zone by id when a confirmed edit runs later",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.90s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.52s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > finds its zone by id when a confirmed edit runs later"
     ]
@@ -252,7 +254,7 @@
     "mutation": "one pending save for every group",
     "expected_killer": "saves every group edited inside one debounce window",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.69s ========================= | vitest: Tests  2 failed | 25 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.36s ========================= | vitest: Tests  2 failed | 28 passed (30)",
     "killed_by": [
       "vitest src/views/mappings/view-mappings-save.test.ts > a sensor group edit is saved > saves every group edited inside one debounce window",
       "vitest src/views/mappings/view-mappings-save.test.ts > a sensor group edit is saved > saves the other groups when one save fails, and reports it"
@@ -264,7 +266,7 @@
     "mutation": "groups' pending saves kept after saving",
     "expected_killer": "does not save a group twice once it has been saved",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.98s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.44s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/mappings/view-mappings-save.test.ts > a sensor group edit is saved > does not save a group twice once it has been saved"
     ]
@@ -275,7 +277,7 @@
     "mutation": "one pending save for every distributor",
     "expected_killer": "saves every distributor edited inside one debounce window",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.71s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.48s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/setup/view-distributor-settings-save.test.ts > a distributor edit is saved > saves every distributor edited inside one debounce window"
     ]
@@ -286,7 +288,7 @@
     "mutation": "distributors' pending saves kept after saving",
     "expected_killer": "does not save a distributor twice once it has been saved",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.60s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.55s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/setup/view-distributor-settings-save.test.ts > a distributor edit is saved > does not save a distributor twice once it has been saved"
     ]
@@ -297,7 +299,7 @@
     "mutation": "one pending save for every module",
     "expected_killer": "saves every module edited inside one debounce window",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 8.20s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.47s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/modules/view-modules-save.test.ts > a module edit is saved > saves every module edited inside one debounce window"
     ]
@@ -308,7 +310,7 @@
     "mutation": "modules' pending saves kept after saving",
     "expected_killer": "does not save a module twice once it has been saved",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.74s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.69s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/modules/view-modules-save.test.ts > a module edit is saved > does not save a module twice once it has been saved"
     ]
@@ -319,7 +321,7 @@
     "mutation": "a deleted zone keeps its pending edit",
     "expected_killer": "drops the pending edit of a zone deleted before it is sent",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 9.63s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.63s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > drops the pending edit of a zone deleted before it is sent"
     ]
@@ -330,7 +332,7 @@
     "mutation": "a deleted group keeps its pending save",
     "expected_killer": "drops the pending save of a group deleted before it is sent",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.94s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.50s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/mappings/view-mappings-save.test.ts > a sensor group edit is saved > drops the pending save of a group deleted before it is sent"
     ]
@@ -341,7 +343,7 @@
     "mutation": "a deleted distributor keeps its pending save",
     "expected_killer": "drops the pending save of a distributor deleted before it is sent",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.93s ========================= | vitest: Tests  2 failed | 25 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 9.01s ========================= | vitest: Tests  2 failed | 28 passed (30)",
     "killed_by": [
       "vitest src/views/setup/view-distributor-settings-save.test.ts > a distributor edit is saved > does not report a save when the only pending save was deleted",
       "vitest src/views/setup/view-distributor-settings-save.test.ts > a distributor edit is saved > drops the pending save of a distributor deleted before it is sent"
@@ -353,7 +355,7 @@
     "mutation": "a deleted module keeps its pending save",
     "expected_killer": "drops the pending save of a module deleted before it is sent",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.82s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.59s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/modules/view-modules-save.test.ts > a module edit is saved > drops the pending save of a module deleted before it is sent"
     ]
@@ -364,7 +366,7 @@
     "mutation": "the reset dialog passes the index as the id",
     "expected_killer": "test_a_confirmed_zone_edit_finds_its_zone_by_id",
     "result": "killed",
-    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.84s ==================== | vitest: Tests  27 passed (27)",
+    "summary": "pytest: =================== 1 failed, 35 passed, 5 errors in 7.92s ==================== | vitest: Tests  30 passed (30)",
     "killed_by": [
       "FAILED tests/test_zone_view_save.py::test_a_confirmed_zone_edit_finds_its_zone_by_id"
     ]
@@ -375,7 +377,7 @@
     "mutation": "the first copy of a group wins",
     "expected_killer": "saves only the latest copy of a group edited twice",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 8.15s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.68s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/mappings/view-mappings-save.test.ts > a sensor group edit is saved > saves only the latest copy of a group edited twice"
     ]
@@ -386,7 +388,7 @@
     "mutation": "the first copy of a distributor wins",
     "expected_killer": "saves only the latest copy of a distributor edited twice",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.65s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 10.38s ======================== | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/setup/view-distributor-settings-save.test.ts > a distributor edit is saved > saves only the latest copy of a distributor edited twice"
     ]
@@ -397,7 +399,7 @@
     "mutation": "the first copy of a module wins",
     "expected_killer": "saves only the latest copy of a module edited twice",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 8.04s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.82s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/modules/view-modules-save.test.ts > a module edit is saved > saves only the latest copy of a module edited twice"
     ]
@@ -408,7 +410,7 @@
     "mutation": "an empty group round still runs",
     "expected_killer": "leaves the saving state alone when the only pending save was deleted",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.62s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.71s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/mappings/view-mappings-save.test.ts > a sensor group edit is saved > leaves the saving state alone when the only pending save was deleted"
     ]
@@ -419,7 +421,7 @@
     "mutation": "an empty distributor round still runs",
     "expected_killer": "does not report a save when the only pending save was deleted",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.81s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 8.16s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/setup/view-distributor-settings-save.test.ts > a distributor edit is saved > does not report a save when the only pending save was deleted"
     ]
@@ -430,9 +432,86 @@
     "mutation": "a failed group save is not reported",
     "expected_killer": "saves the other groups when one save fails, and reports it",
     "result": "killed",
-    "summary": "pytest: ======================== 36 passed, 5 errors in 7.86s ========================= | vitest: Tests  1 failed | 26 passed (27)",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.74s ========================= | vitest: Tests  1 failed | 29 passed (30)",
     "killed_by": [
       "vitest src/views/mappings/view-mappings-save.test.ts > a sensor group edit is saved > saves the other groups when one save fails, and reports it"
+    ]
+  },
+  {
+    "n": 39,
+    "file": "view-zone-settings.ts",
+    "mutation": "deleting a zone clears every pending edit",
+    "expected_killer": "drops the pending edit of a zone deleted before it is sent",
+    "result": "killed",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 13.67s ======================== | vitest: Tests  1 failed | 29 passed (30)",
+    "killed_by": [
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > drops the pending edit of a zone deleted before it is sent"
+    ]
+  },
+  {
+    "n": 40,
+    "file": "view-mappings.ts",
+    "mutation": "deleting a group clears every pending save",
+    "expected_killer": "drops the pending save of a group deleted before it is sent",
+    "result": "killed",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 8.55s ========================= | vitest: Tests  1 failed | 29 passed (30)",
+    "killed_by": [
+      "vitest src/views/mappings/view-mappings-save.test.ts > a sensor group edit is saved > drops the pending save of a group deleted before it is sent"
+    ]
+  },
+  {
+    "n": 41,
+    "file": "view-distributor-settings.ts",
+    "mutation": "deleting a distributor clears every pending save",
+    "expected_killer": "drops the pending save of a distributor deleted before it is sent",
+    "result": "killed",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.89s ========================= | vitest: Tests  1 failed | 29 passed (30)",
+    "killed_by": [
+      "vitest src/views/setup/view-distributor-settings-save.test.ts > a distributor edit is saved > drops the pending save of a distributor deleted before it is sent"
+    ]
+  },
+  {
+    "n": 42,
+    "file": "view-modules.ts",
+    "mutation": "deleting a module clears every pending save",
+    "expected_killer": "drops the pending save of a module deleted before it is sent",
+    "result": "killed",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 8.20s ========================= | vitest: Tests  1 failed | 29 passed (30)",
+    "killed_by": [
+      "vitest src/views/modules/view-modules-save.test.ts > a module edit is saved > drops the pending save of a module deleted before it is sent"
+    ]
+  },
+  {
+    "n": 43,
+    "file": "view-zone-settings.ts",
+    "mutation": "leaving the zone page keeps unsent edits",
+    "expected_killer": "drops an unsent edit when the page is left",
+    "result": "killed",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.83s ========================= | vitest: Tests  1 failed | 29 passed (30)",
+    "killed_by": [
+      "vitest src/views/zones/view-zone-settings-save.test.ts > a zone edit posts what it set > drops an unsent edit when the page is left"
+    ]
+  },
+  {
+    "n": 44,
+    "file": "view-mappings.ts",
+    "mutation": "leaving the groups page keeps unsent saves",
+    "expected_killer": "drops an unsent save when the page is left",
+    "result": "killed",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 7.80s ========================= | vitest: Tests  1 failed | 29 passed (30)",
+    "killed_by": [
+      "vitest src/views/mappings/view-mappings-save.test.ts > a sensor group edit is saved > drops an unsent save when the page is left"
+    ]
+  },
+  {
+    "n": 45,
+    "file": "view-distributor-settings.ts",
+    "mutation": "leaving the distributor page keeps unsent saves",
+    "expected_killer": "drops an unsent save when the page is left",
+    "result": "killed",
+    "summary": "pytest: ======================== 36 passed, 5 errors in 8.27s ========================= | vitest: Tests  1 failed | 29 passed (30)",
+    "killed_by": [
+      "vitest src/views/setup/view-distributor-settings-save.test.ts > a distributor edit is saved > drops an unsent save when the page is left"
     ]
   }
 ]

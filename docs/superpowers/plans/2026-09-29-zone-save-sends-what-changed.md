@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps
-> use checkbox (`- [ ]`) syntax for tracking.
+> use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** A zone settings page left open across a run no longer writes the run's credit
 back when any setting is edited.
@@ -132,7 +132,7 @@ rows before relying on them.
 
 ## Task 0: Worktree and base
 
-- [ ] **Step 1: Confirm the base**
+- [x] **Step 1: Confirm the base**
 
 ```bash
 cd /d/Entwicklung/HASI/HAsmartirrigation && git fetch upstream && git rev-parse --short=8 upstream/master
@@ -144,13 +144,13 @@ on the new base first (memory `rebaseline-when-the-base-moves`) and re-read the 
 this plan edits (the zone view's strip list, the store's clamp, the comment in
 `_book_asserted_bucket`, `handleEditZone`).
 
-- [ ] **Step 2: Create the worktree, the socket plugin, the panel's dependencies**
+- [x] **Step 2: Create the worktree, the socket plugin, the panel's dependencies**
 
 ```bash
 cd /d/Entwicklung/HASI/HAsmartirrigation && git worktree add -b fix/zone-save-sends-what-changed /d/Entwicklung/HASI/issue5-work/wt upstream/master ; cp /d/Entwicklung/HASI/HAsmartirrigation/_local_socket_unblock.py /d/Entwicklung/HASI/issue5-work/wt/ ; cd /d/Entwicklung/HASI/issue5-work/wt/custom_components/irrigation_plus/frontend && npm ci --no-audit --no-fund
 ```
 
-- [ ] **Step 3: Confirm pytest imports this worktree's code**
+- [x] **Step 3: Confirm pytest imports this worktree's code**
 
 A memory warns that a worktree can end up testing another copy of the integration. Measured
 on 2026-09-29 for worktrees outside the repo: it does not. Check it anyway; it takes a second.
@@ -175,7 +175,7 @@ still pass the strip list; the days-between counter among them is reset by every
 - Create: `tests/test_zone_view_save.py`
 - Modify: `custom_components/irrigation_plus/websockets.py:347-382`
 
-- [ ] **Step 1: Write the test file with the first test and a pin**
+- [x] **Step 1: Write the test file with the first test and a pin**
 
 Create `tests/test_zone_view_save.py`:
 
@@ -325,7 +325,7 @@ async def test_an_edit_after_a_credit_keeps_the_credit(coordinator):
         assert after[key] == credited[key], key
 ```
 
-- [ ] **Step 2: Run it; see the first test fail for the right reason**
+- [x] **Step 2: Run it; see the first test fail for the right reason**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_zone_view_save.py -p _local_socket_unblock -q --no-header 2>&1 | grep -E "^E |passed|failed"
@@ -338,7 +338,7 @@ a regression in the fixture (the midnight tracker must be cancelled), not the kn
 The second test is a **pin**: the backend already merges a partial post, so it passes on the
 base. It is here because it is the backend half of the defect, stated as a test.
 
-- [ ] **Step 3: Rewrite the comment and extend the strip list**
+- [x] **Step 3: Rewrite the comment and extend the strip list**
 
 In `custom_components/irrigation_plus/websockets.py`, replace the comment block that starts
 `# The panel's zone settings form saves a zone by POSTing the WHOLE zone object.` and ends
@@ -384,7 +384,7 @@ Then, inside the `for _server_owned in (` tuple, directly after
 Leave the schema entries for `explanation`, `delta`, `number_of_data_points` and
 `current_drainage` where they are: accepted and ignored is the point.
 
-- [ ] **Step 4: Run the new file and the existing strip-list test**
+- [x] **Step 4: Run the new file and the existing strip-list test**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_zone_view_save.py tests/test_distributor_integration.py -p _local_socket_unblock -q --no-header 2>&1 | tail -1
@@ -392,7 +392,7 @@ cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrig
 
 Expected: all passed, no errors.
 
-- [ ] **Step 5: Lint**
+- [x] **Step 5: Lint**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && uvx black custom_components/irrigation_plus/ tests/test_zone_view_save.py ; uvx ruff check custom_components/irrigation_plus/
@@ -400,7 +400,7 @@ cd /d/Entwicklung/HASI/issue5-work/wt && uvx black custom_components/irrigation_
 
 Expected: nothing reformatted, `All checks passed!`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && git add custom_components/irrigation_plus/websockets.py tests/test_zone_view_save.py && git commit -F - <<'EOF'
@@ -429,7 +429,7 @@ the panel posts one of them alone.
 - Modify: `custom_components/irrigation_plus/store.py:1680-1682` (comment)
 - Modify: `custom_components/irrigation_plus/__init__.py:2003-2007` (comment)
 
-- [ ] **Step 1: Append the tests**
+- [x] **Step 1: Append the tests**
 
 Append to `tests/test_zone_view_save.py`:
 
@@ -518,7 +518,7 @@ async def test_a_bucket_set_through_the_store_funnel_is_not_clamped(coordinator)
     assert store.get_zone(zid)[const.ZONE_BUCKET] == 50.0
 ```
 
-- [ ] **Step 2: Run; see two fail for the right reason**
+- [x] **Step 2: Run; see two fail for the right reason**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_zone_view_save.py -p _local_socket_unblock -q --no-header 2>&1 | grep -E "^E +assert|passed|failed"
@@ -529,7 +529,7 @@ raised-maximum, new-zone and funnel tests are **pins**: they pass on the base an
 against a completion that turns every maximum edit into a statement, one that breaks zone
 creation, and one moved into the store.
 
-- [ ] **Step 3: Complete the pair at the view**
+- [x] **Step 3: Complete the pair at the view**
 
 In `custom_components/irrigation_plus/websockets.py`, directly after the strip loop's
 `data.pop(_server_owned, None)` and before `try:`, add:
@@ -562,7 +562,7 @@ In `custom_components/irrigation_plus/websockets.py`, directly after the strip l
 
 The `zone is not None` guard is load-bearing: `store.get_zone(None)` calls `int(None)`.
 
-- [ ] **Step 4: Point the store's clamp comment at the view**
+- [x] **Step 4: Point the store's clamp comment at the view**
 
 In `custom_components/irrigation_plus/store.py`, replace
 
@@ -582,7 +582,7 @@ with
             # review finding J: guard changes[ZONE_BUCKET] presence like the
 ```
 
-- [ ] **Step 5: Correct the comment in `_book_asserted_bucket`**
+- [x] **Step 5: Correct the comment in `_book_asserted_bucket`**
 
 In `custom_components/irrigation_plus/__init__.py`, replace
 
@@ -601,7 +601,7 @@ with
             # that edited some other setting -- must not move anything.
 ```
 
-- [ ] **Step 6: Run the three files**
+- [x] **Step 6: Run the three files**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_zone_view_save.py tests/test_manual_bucket_assertion.py tests/test_distributor_integration.py -p _local_socket_unblock -q --no-header 2>&1 | tail -1
@@ -610,7 +610,7 @@ cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrig
 Expected: `32 passed, 5 errors`. The 5 errors are `test_manual_bucket_assertion.py`'s
 teardowns (`Lingering timer`), the same five the baseline carries. Anything else is new.
 
-- [ ] **Step 7: Lint and commit**
+- [x] **Step 7: Lint and commit**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && uvx black custom_components/irrigation_plus/ tests/test_zone_view_save.py ; uvx ruff check custom_components/irrigation_plus/
@@ -640,7 +640,7 @@ EOF
 - Create: `custom_components/irrigation_plus/frontend/src/views/zones/view-zone-settings-save.test.ts`
 - Modify: `custom_components/irrigation_plus/frontend/src/views/zones/view-zone-settings.ts`
 
-- [ ] **Step 1: Write the panel tests**
+- [x] **Step 1: Write the panel tests**
 
 Create `custom_components/irrigation_plus/frontend/src/views/zones/view-zone-settings-save.test.ts`:
 
@@ -802,7 +802,7 @@ describe("select value for an optional id", () => {
 No `node:` imports in this file: the project has no `@types/node`, and rollup's TypeScript
 plugin type-checks test files too, so each import would print one warning per bundle.
 
-- [ ] **Step 2: Run them; see all eight fail**
+- [x] **Step 2: Run them; see all eight fail**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt/custom_components/irrigation_plus/frontend && npx vitest run src/views/zones/view-zone-settings-save.test.ts 2>&1 | grep -E "×|✓|Tests "
@@ -812,7 +812,7 @@ Expected: `8 failed`. The first test reports `expected [ { name: 'Beet' } ] to d
 [ { id: 1, name: 'Beet' } ]`, the two-zone test gets one post instead of two, the last one
 `_selectValue is not a function`.
 
-- [ ] **Step 3: The type for an edit on the wire**
+- [x] **Step 3: The type for an edit on the wire**
 
 In `view-zone-settings.ts`, after `import "../../components/ip-zone-form";`, add:
 
@@ -824,7 +824,7 @@ type ZoneEdit = {
 };
 ```
 
-- [ ] **Step 4: The per-zone collection**
+- [x] **Step 4: The per-zone collection**
 
 Directly after `private globalDebounceTimer: number | null = null;`, add:
 
@@ -833,7 +833,7 @@ Directly after `private globalDebounceTimer: number | null = null;`, add:
   private _pendingEdits = new Map<number, ZoneEdit>();
 ```
 
-- [ ] **Step 5: Replace `handleEditZone`**
+- [x] **Step 5: Replace `handleEditZone`**
 
 Replace the whole method, from `private handleEditZone(` down to its closing brace (the one
 after the final `this._scheduleUpdate();`), with:
@@ -917,7 +917,7 @@ after the final `this._scheduleUpdate();`), with:
   }
 ```
 
-- [ ] **Step 6: Let `saveToHA` take a partial zone**
+- [x] **Step 6: Let `saveToHA` take a partial zone**
 
 Replace
 
@@ -931,7 +931,7 @@ with
   private async saveToHA(zone: Partial<SmartIrrigationZone>): Promise<void> {
 ```
 
-- [ ] **Step 7: Bind the module and mapping selects through `_selectValue`**
+- [x] **Step 7: Bind the module and mapping selects through `_selectValue`**
 
 Replace
 
@@ -961,7 +961,7 @@ with
                     .value="${live(this._selectValue(zone.mapping))}"
 ```
 
-- [ ] **Step 8: Run the panel checks**
+- [x] **Step 8: Run the panel checks**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt/custom_components/irrigation_plus/frontend && npx vitest run src/views/zones/view-zone-settings-save.test.ts 2>&1 | grep -E "Tests " ; npx vitest run 2>&1 | grep -E "Test Files|Tests " ; npx tsc --noEmit -p . ; echo "tsc exit=$?" ; npm run lint ; echo "lint exit=$?"
@@ -971,7 +971,7 @@ Expected: `8 passed (8)`; `24 passed (24)` files and `637 passed (637)` tests; `
 with no output; `lint exit=0`. The 35 call sites still spread `...zone` at this point; a full
 zone is a valid `Partial`, so it compiles. Task 4 fixes them.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && git add custom_components/irrigation_plus/frontend/src/views/zones/view-zone-settings.ts custom_components/irrigation_plus/frontend/src/views/zones/view-zone-settings-save.test.ts && git commit -F - <<'EOF'
@@ -1000,7 +1000,7 @@ EOF
 - Modify: `tests/test_manual_bucket_assertion.py`, `tests/test_distributor_integration.py` (one docstring each)
 - Modify: `custom_components/irrigation_plus/frontend/dist/irrigation-plus.js` (rebuilt)
 
-- [ ] **Step 1: Add the pin to the backend suite**
+- [x] **Step 1: Add the pin to the backend suite**
 
 CI runs pytest and no panel tests, so the pin on the panel's source lives here. In
 `tests/test_zone_view_save.py`, change the import block to:
@@ -1055,7 +1055,7 @@ The regex is deliberately unbounded between `{` and `...zone`. A first version c
 nested template blocks the indentation alone is longer than 40 characters, so a fix that
 missed exactly those 12 would have passed it.
 
-- [ ] **Step 2: Run the pin; see it list all 35**
+- [x] **Step 2: Run the pin; see it list all 35**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_zone_view_save.py::test_the_panel_names_what_each_zone_edit_sets -p _local_socket_unblock -q --no-header 2>&1 | grep -E "AssertionError|passed|failed" ; /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -c "import re,pathlib;s=pathlib.Path(r'D:/Entwicklung/HASI/issue5-work/wt/custom_components/irrigation_plus/frontend/src/views/zones/view-zone-settings.ts').read_text(encoding='utf-8');print(len(re.findall(r'this\.handleEditZone\(\s*\w+\s*,\s*\{\s*\.\.\.zone\b',s)))"
@@ -1063,7 +1063,7 @@ cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrig
 
 Expected: `1 failed` with `page copy of the zone spread at lines [...]`, and the count `35`.
 
-- [ ] **Step 3: Drop the spread at every call site**
+- [x] **Step 3: Drop the spread at every call site**
 
 The script is kept at `D:\Entwicklung\HASI\issue5-work\drop-zone-spread.cjs`. Recreate it
 from here if it is gone:
@@ -1097,7 +1097,7 @@ endings (the removed span includes the line break before `...zone`, the kept one
 Read the diff once: the plant-type site becomes `this.handleEditZone(index, next);`, the size
 site `this.handleEditZone(index, { [ZONE_SIZE]: v });`, every other site loses one line.
 
-- [ ] **Step 4: Run the pin and the panel checks**
+- [x] **Step 4: Run the pin and the panel checks**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_zone_view_save.py -p _local_socket_unblock -q --no-header 2>&1 | tail -1 ; cd custom_components/irrigation_plus/frontend && npx vitest run src/views/zones/view-zone-settings-save.test.ts 2>&1 | grep -E "Tests " ; npx tsc --noEmit -p . ; echo "tsc exit=$?" ; npm run lint ; echo "lint exit=$?"
@@ -1106,7 +1106,7 @@ cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrig
 Expected: `8 passed`; `8 passed (8)`; `tsc exit=0`; `lint exit=0` (prettier keeps the
 multi-line objects as they are).
 
-- [ ] **Step 5: Correct the two test docstrings that describe the old save**
+- [x] **Step 5: Correct the two test docstrings that describe the old save**
 
 In `tests/test_manual_bucket_assertion.py`, replace
 
@@ -1140,7 +1140,7 @@ with
     learning/calibration state (flow_last_end,
 ```
 
-- [ ] **Step 6: Build and stage the one bundle that changes**
+- [x] **Step 6: Build and stage the one bundle that changes**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt/custom_components/irrigation_plus/frontend && npm run build > /d/Entwicklung/HASI/issue5-work/build.log 2>&1 ; echo "build exit=$? ts-diagnostics=$(grep -c 'TS[0-9]\{4\}' /d/Entwicklung/HASI/issue5-work/build.log)" ; cd /d/Entwicklung/HASI/issue5-work/wt && git update-index --refresh > /dev/null 2>&1 ; for f in irrigation-plus.js irrigation-plus-card.js irrigation-plus-card-legacy.js irrigation-plus-card-impl.js; do git diff --quiet -- custom_components/irrigation_plus/frontend/dist/$f && echo "$f: unchanged" || echo "$f: CHANGED"; done
@@ -1150,7 +1150,7 @@ Expected: `build exit=0 ts-diagnostics=0`; `irrigation-plus.js: CHANGED`, the th
 bundles `unchanged` (they do not import this view). If a card bundle does change, commit it
 too; do not drop a bundle whose content moved.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && git add custom_components/irrigation_plus/frontend/src/views/zones/view-zone-settings.ts tests/test_zone_view_save.py tests/test_manual_bucket_assertion.py tests/test_distributor_integration.py ; git add -f custom_components/irrigation_plus/frontend/dist/irrigation-plus.js ; git diff --cached --name-only | wc -l
@@ -1179,7 +1179,7 @@ EOF
 
 ## Task 5: Gates
 
-- [ ] **Step 1: Full backend suite**
+- [x] **Step 1: Full backend suite**
 
 Run in the background (tool option, not `nohup … &`):
 
@@ -1189,7 +1189,7 @@ cd /d/Entwicklung/HASI/issue5-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrig
 
 Expected: `7 failed, 3463 passed, 9 skipped, … 367 errors`.
 
-- [ ] **Step 2: Diff the failure names against the baseline**
+- [x] **Step 2: Diff the failure names against the baseline**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/measure && grep -E "^(FAILED|ERROR) " branch-full-tzutc.txt | sed 's/ - .*//' | sort -u > branch-names.txt ; grep -E "^(FAILED|ERROR) " /d/Entwicklung/HASI/issue22-work/measure/baseline-1876aa03-tzutc.txt | sed 's/ - .*//' | sort -u > baseline-names.txt ; diff baseline-names.txt branch-names.txt && echo "NAMENS-DIFF LEER" ; wc -l baseline-names.txt branch-names.txt
@@ -1198,7 +1198,7 @@ cd /d/Entwicklung/HASI/issue5-work/measure && grep -E "^(FAILED|ERROR) " branch-
 Expected: `NAMENS-DIFF LEER`, both 375. A non-empty diff is a regression; read it before
 touching anything.
 
-- [ ] **Step 3: Panel gates**
+- [x] **Step 3: Panel gates**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt/custom_components/irrigation_plus/frontend && npx vitest run 2>&1 | grep -E "Test Files|Tests " ; npx tsc --noEmit -p . ; echo "tsc exit=$?" ; npm run build > /d/Entwicklung/HASI/issue5-work/build.log 2>&1 ; echo "build exit=$?" ; cd /d/Entwicklung/HASI/issue5-work/wt && git update-index --refresh > /dev/null 2>&1 ; git diff --quiet -- custom_components/irrigation_plus/frontend/dist/ && echo "committed dist == fresh build"
@@ -1207,19 +1207,19 @@ cd /d/Entwicklung/HASI/issue5-work/wt/custom_components/irrigation_plus/frontend
 Expected: 24 files / 637 tests passed; `tsc exit=0`; `build exit=0`;
 `committed dist == fresh build` (CI's freshness check does the same).
 
-- [ ] **Step 4: Lint**
+- [x] **Step 4: Lint**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && uvx black custom_components/irrigation_plus/ tests/test_zone_view_save.py tests/test_manual_bucket_assertion.py tests/test_distributor_integration.py ; uvx ruff check custom_components/irrigation_plus/ tests/test_zone_view_save.py
 ```
 
-- [ ] **Step 5: The reference checks, on the added lines and the messages**
+- [x] **Step 5: The reference checks, on the added lines and the messages**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && git diff upstream/master...HEAD -U0 -- custom_components tests | grep '^+' | grep -nEi "eifel-joe|issue ?#|befund|spec [A-Z0-9]|task [0-9]|\bN1\b|PR D" ; git log upstream/master..HEAD --format=%B | grep -nEi "eifel-joe|issue ?#|befund|spec [A-Z0-9]|task [0-9]|\bN1\b" ; grep -rn "Eifel-Joe" custom_components/ tests/ ; echo "--- alle drei ohne Ausgabe = sauber"
 ```
 
-- [ ] **Step 6: Commit any formatting churn**
+- [x] **Step 6: Commit any formatting churn**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work/wt && git status --short ; git diff --quiet || { git add custom_components/irrigation_plus tests && git commit -m "style: black" ; }
@@ -1240,7 +1240,7 @@ funnel pin), so the matrix is what proves they are load-bearing.
 - Use: `D:\Entwicklung\HASI\issue5-work\mutate.py` (kept; archived as
   `docs/superpowers/probes/2026-09-29-zone-save-mutations.py`)
 
-- [ ] **Step 1: Check the runner against this branch**
+- [x] **Step 1: Check the runner against this branch**
 
 Its mutation anchors are the exact lines of Tasks 1–4. If Task 5's `black` reformatted any
 of them, the runner reports `anchor appears 0 times -- SKIPPED`; fix the anchor, not the code.
@@ -1248,7 +1248,7 @@ Its suite list must name the files the killers live in:
 `tests/test_zone_view_save.py`, `tests/test_manual_bucket_assertion.py`,
 `tests/test_distributor_integration.py`, plus the vitest file.
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 ```bash
 cd /d/Entwicklung/HASI/issue5-work && sha256sum wt/custom_components/irrigation_plus/websockets.py wt/custom_components/irrigation_plus/store.py wt/custom_components/irrigation_plus/frontend/src/views/zones/view-zone-settings.ts > pre-mutation.sha ; /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe mutate.py /d/Entwicklung/HASI/issue5-work/wt 2>&1 | tail -40 ; sha256sum -c pre-mutation.sha
@@ -1279,7 +1279,7 @@ and three `OK` from `sha256sum -c`. Also check each row's `summary` in
 `issue5-work\mutations.json`: pytest must have collected (33 items) and vitest 8. A run that
 collected nothing kills nothing and survives everything.
 
-- [ ] **Step 3: Read every survivor as a weak test first**
+- [x] **Step 3: Read every survivor as a weak test first**
 
 Either add the assertion that kills it, or record the measurement that shows the mutated code
 behaves identically. An argument is not a measurement.
@@ -1288,12 +1288,12 @@ behaves identically. An argument is not a measurement.
 
 ## Task 7: Review
 
-- [ ] **Step 1:** `superpowers:requesting-code-review` on `git diff upstream/master...HEAD`,
+- [x] **Step 1:** `superpowers:requesting-code-review` on `git diff upstream/master...HEAD`,
   with this plan and the design doc. The reviewer checks: every requirement R1–R7 has a
   change and a test; nothing outside the listed files moved; the comments follow `code-doku`
   (Wurzel, Fix-Logik, NOT-TO-DO) and none still describes the whole-zone save as the
   panel's normal case.
-- [ ] **Step 2:** Every finding goes through `superpowers:receiving-code-review`, verified
+- [x] **Step 2:** Every finding goes through `superpowers:receiving-code-review`, verified
   before it is acted on. A change re-runs Task 5 and, if it touches a mutated line, Task 6.
 
 ---
@@ -1308,7 +1308,7 @@ browser pane with the panel open: in its console,
 **Not** through `ha_get_integration(include_diagnostics=True)`: that prints the weather API
 key in plain text.
 
-- [ ] **Step 1: The live RED, on today's build**
+- [x] **Step 1: The live RED, on today's build**
 
 HA-Test runs `v2026.09.27b3` (verify: `update.smart_irrigation_update` →
 `installed_version`). Choose a test zone (`Test2`, id 3, was used before) and record its
@@ -1324,7 +1324,7 @@ name, module and bucket.
 6. Read the zone again. Expected: the bucket back at the pre-run value, `last_consumed_at` at
    the save time, `pending_bucket_events` empty. That is the defect, live.
 
-- [ ] **Step 2: A throwaway build with the fix** (outward-facing: push and release only after
+- [x] **Step 2: A throwaway build with the fix** (outward-facing: push and release only after
   approval in the chat)
 
 A branch `prerelease/v2026.09.29b1` from the fix branch's HEAD. Bump the version to
@@ -1347,19 +1347,19 @@ and restart HA-Test (announced). Verify `installed_version` = `v2026.09.29b1` an
 entry `loaded`. Reload the panel with Ctrl+F5 (memory `hasi-frontend-refresh-drill`). The
 release, its tag and the branch are throwaway: they can go once the PR is merged.
 
-- [ ] **Step 3: The same sequence on the fix build**
+- [x] **Step 3: The same sequence on the fix build**
 
 Repeat Step 1's six points. Expected: bucket, `last_consumed_at` and
 `pending_bucket_events` stay as the run left them; the name change lands.
 
-- [ ] **Step 4: The three extra checks, on the fix build**
+- [x] **Step 4: The three extra checks, on the fix build**
   - Edit two zones within half a second, reload: both edits are stored.
   - Clear a zone's module, reload: the select shows the empty option, not `null`, and
     `callWS` shows `module: null`.
   - Set the bucket by hand in the form: `last_consumed_at` moves to that moment and the
     ledger empties (JustChr#138 intact).
 
-- [ ] **Step 5: Restore the test zone** (name, module, bucket as recorded in Step 1).
+- [x] **Step 5: Restore the test zone** (name, module, bucket as recorded in Step 1).
   Record the live protocol for the archive:
   `docs/superpowers/reconstructed/2026-09-29-zone-save-live-on-ha-test.md` with the times,
   values and the build SHA.
@@ -1979,3 +1979,25 @@ behaviour).
 | `tsc`, lint, build | 0 / 0 / 0 TS diagnostics; committed `dist` == fresh build; card bundles unchanged |
 | full backend suite, `TZ=UTC` (at `19ef2ae9`; no Python changed since) | 7 / 3466 / 9 / 367, names identical to the baseline, 375 = 375 |
 | mutation matrix | rows 33–38 added (first-copy-wins ×3, empty-round guard ×2, the per-group toast); rows 23/25 re-anchored on the `clear()` line alone. 32/32 killed at `19ef2ae9`; on `c026af72`: **38 killed / 38**, each by its expected test, every row collected pytest 36 and vitest 27, every source restored byte-for-byte (`sha256sum -c` OK ×6). Recorded in `probes/2026-09-29-zone-save-mutations-branch.json`, runner `…-mutations-branch.py` |
+
+### Addendum, part 4: the final review and the live test (2026-09-29)
+
+The whole-branch review (Task 7) found no Critical or Important issue. Folded in as three
+commits: every delete test now also edits a second object and expects its save
+(`9dc0e617`, tests only — a `.clear()` instead of `.delete(id)` passed them before); leaving a
+page drops its unsent edits, since a page put back sent them with the next save, possibly long
+after (`b2136ffb`, zone, groups, distributors; modules never cancel their timer); and the missing
+NOT-TO-DOs, two comments and a test docstring (`34471593`, comments only, bundle unchanged).
+Mutation rows 39–45 added (delete→clear ×4, disconnect keeps unsent ×3).
+
+Final numbers at `34471593`: vitest 27 files / 659; `tsc`, lint, build clean, committed `dist`
+== fresh build; full backend suite `TZ=UTC` 7 / 3466 / 9 / 367, names identical to the
+baseline (375 = 375); mutation matrix **45 killed / 45**, each by its expected test, every row
+collected pytest 36 / vitest 30, sources restored byte-for-byte
+(`probes/2026-09-29-zone-save-mutations-branch.json`).
+
+Live on HA-Test (`reconstructed/2026-09-29-zone-save-live-on-ha-test.md`): RED on
+`v2026.09.27b3` and GREEN on the throwaway `v2026.09.29b1`, with `Grace Test` instead of
+`Test2` (a distributor member: its cycle refreshes the page). A hidden browser pane freezes the
+page and the HA frontend rebuilds the panel on resume — the first two runs proved nothing for
+that reason; a visible pane and a marker on the view element settled it.
