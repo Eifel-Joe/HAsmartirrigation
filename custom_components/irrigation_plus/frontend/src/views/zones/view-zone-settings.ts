@@ -493,6 +493,9 @@ class SmartIrrigationViewZoneSettings extends SubscribeMixin(LitElement) {
   //   only the change posted, that zone's id is where the edit would go.
   // Fix-Logik: the dialog keeps the zone's id and finds the zone again when
   //   it runs; a zone that is gone by then is left alone.
+  // NOT-TO-DO: do not resolve the index when the dialog opens -- it is stale
+  //   by the time the user confirms -- and do not hand the zone's copy back
+  //   to carry the id: that copy is what goes stale.
   // See view-zone-settings-save.test.ts and tests/test_zone_view_save.py.
   private _editZoneById(
     id: number | undefined,

@@ -117,8 +117,9 @@ async def _assert_level_by_hand(c, store, zone):
     """Set the bucket the way a user does: the service / panel path.
 
     Both ``set_bucket`` and the panel's zone save land on the generic branch of
-    ``async_update_zone_config``; nothing between them and the store inspects the
-    bucket. Driving that method is therefore the same write either of them makes.
+    ``async_update_zone_config``. The zone view first adds the stored maximum to
+    a bucket posted alone, so a level above it would be clamped; this one is
+    below it. Driving that method is therefore the same write either makes.
     """
     # Frozen, because the write stamps the moment of the assertion from the
     # clock and the rest of this test lives in a constructed day.

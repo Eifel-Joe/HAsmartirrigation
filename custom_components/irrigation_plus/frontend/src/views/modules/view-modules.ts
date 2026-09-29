@@ -138,6 +138,9 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
   //   save: the page showed the edit, the server never got it.
   // Fix-Logik: keep the latest copy per module and save every one of them
   //   when the timer runs out, as the zone settings page does.
+  // NOT-TO-DO: do not post only the changed fields, as the zone page does:
+  //   these objects carry no field the server writes, so the latest copy
+  //   is the right payload.
   // See view-modules-save.test.ts.
   private debouncedSave = (() => {
     let timeoutId: number | null = null;
