@@ -79,12 +79,17 @@ describe("a distributor edit is saved", () => {
   it("drops the pending save of a distributor deleted before it is sent", () => {
     const { el, callApi } = make([distributor(1, 5), distributor(2, 5)]);
     el.handleEditDistributor(0, distributor(1, 7));
+    el.handleEditDistributor(1, distributor(2, 9));
     el._confirmDeleteId = 1;
     el._confirmDelete();
     vi.advanceTimersByTime(500);
     // The delete posts the id as a number, so this reads the raw bodies.
     expect(callApi.mock.calls.map(([, path, body]) => [path, body])).toEqual([
       ["irrigation_plus/distributors", { id: 1, remove: true }],
+      [
+        "irrigation_plus/distributors",
+        expect.objectContaining({ id: 2, pause_seconds: 9 }),
+      ],
     ]);
   });
 

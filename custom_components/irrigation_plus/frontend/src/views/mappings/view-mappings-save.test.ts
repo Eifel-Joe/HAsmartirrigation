@@ -79,9 +79,13 @@ describe("a sensor group edit is saved", () => {
   it("drops the pending save of a group deleted before it is sent", () => {
     const { el, callApi } = make([group(1, "Garden"), group(2, "Bed")]);
     el.handleEditMapping(0, group(1, "Garden south"));
+    el.handleEditMapping(1, group(2, "Bed north"));
     el.handleRemoveMapping({}, 0);
     vi.advanceTimersByTime(500);
-    expect(saved(callApi)).toEqual([{ id: "1", remove: true }]);
+    expect(saved(callApi)).toEqual([
+      { id: "1", remove: true },
+      group(2, "Bed north"),
+    ]);
   });
 
   it("saves only the latest copy of a group edited twice", () => {

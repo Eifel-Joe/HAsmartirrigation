@@ -78,10 +78,12 @@ describe("a module edit is saved", () => {
   it("drops the pending save of a module deleted before it is sent", () => {
     const { el, callApi } = make([mod(1, "PyETO"), mod(2, "Static")]);
     el.handleEditConfig(0, mod(1, "PyETO east"));
+    el.handleEditConfig(1, mod(2, "Static west"));
     el.handleRemoveModule({}, 0);
     vi.advanceTimersByTime(500);
     expect(callApi.mock.calls.map(([, path, body]) => [path, body])).toEqual([
       ["irrigation_plus/modules", { id: "1", remove: true }],
+      ["irrigation_plus/modules", mod(2, "Static west")],
     ]);
   });
 
