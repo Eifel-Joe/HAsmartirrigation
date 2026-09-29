@@ -23,6 +23,209 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-29 (6) — Eifel-Joe#66: Spec fertig, Vorschlag auf JustChr#181, Folge-Issues #68–#71
+
+### Stand
+
+- **Spec Eifel-Joe#66** geschrieben und vom User freigegeben (abschnittsweise und als Ganzes):
+  `docs/superpowers/specs/2026-09-29-distributor-inlet-open-gate-design.md` (Hauptbaum, untracked) =
+  `archive/design-history` `03425147` (gepusht mit Freigabe), dazu Messprotokoll
+  (`reconstructed/2026-09-29-distributor-inlet-open-count-repro.md`) und Belege
+  (`probes/2026-09-29-inlet-open-repro/`, vorher auf Schlüssel/IPs/URLs/Koordinaten gegrept).
+  Entscheidungen stehen in der Spec, nicht hier. Der **Ort (Claim) ist nur Vorschlag an JustChr**.
+- **JustChr#181:** Vorschlag `5893690481` (15:49 UTC) gepostet, inhaltsgleich (`diff -B`). User-Vorgabe:
+  JustChr Zeit geben — **der Plan entsteht erst nach seiner Antwort**.
+- **Fork (alle Texte vorher freigegeben, gepostet = Entwurf):** neu Eifel-Joe#68 (Aufschieben, `typ:feature`,
+  `schwere:niedrig`), #69 (verpasste Flanken), #70 (Klassik-Sweep über nicht verfügbaren Einlass), #71
+  (veraltete Verteiler-Kopien bei ≥ 2 Verteilern) — #69–#71 `typ:fehler`, `schwere:mittel`, nur gelesen.
+  #66-Stand `5893846555`, Labels unverändert. #42-Body ersetzt (8b, 25b–25d, 43b), vorher geprüft, dass
+  er seit 13:54 UTC unverändert war.
+- 15:59 UTC: #160 und #181 ohne Antwort, #182 offen (CI 5/5 grün, kein Review), `upstream/master` =
+  `1876aa03`. Lese-Worktree `issue66-work/read-wt` entfernt. Kein Code.
+
+### Verworfen
+
+- JustChrs Schweigen nach 2 h als Zustimmung zum Ort zu lesen — er antwortet am Folgemorgen (~05–06 UTC),
+  und wir hatten ihm einen Vorschlag angekündigt (User-Korrektur). Memory [[upstream-silence-is-not-consent]].
+- Die übrigen Alternativen (Ort `_dist_eligible_for_run`, Aufschieben, Übernehmen, Fluss-Sensor als Signal,
+  `count` an der Aus-Flanke) mit Begründung in der Spec.
+
+### Fallen
+
+- **Python `write_text` schreibt unter Windows CRLF**, `gh … --jq .body` liefert LF → Issue-Bodies mit
+  `write_bytes(text.encode("utf-8"))` bauen, sonst meldet der Diff jede Zeile. Skript:
+  `issue66-work\index42\edit42.py` (Ersetzungen mit Trefferzahl-Prüfung).
+- Für den Plan: `_record_skipped_run(None, …)` heißt „alle Zonen der Installation“, und der Dispatcher gibt
+  dem Claim das ganze Plan-Ziel inkl. direkter Zonen (`allowed = target`, `distributor.py:482`) →
+  Schnittmenge mit den Mitgliedern (Spec, Test 6).
+- HA-Kern am Release-Tag lesen: 2026.9.4 überspringt nicht verfügbare Entitäten weiter, loggt aber eine
+  Warnung (2024.12.5: still). Belege `issue66-work\ha-2026.9.4-{service,target}.py`.
+
+### Nächste Schritte
+
+1. **Eifel-Joe#66:** JustChrs Antwort auf `5893690481` abwarten (frühestens 30.09. morgens). Zustimmung →
+   `superpowers:writing-plans` nach der Spec. Besteht er auf `_dist_eligible_for_run` → Spec-Abschnitt
+   „Where the gate sits“ plus R1/R4 und Tests 7/8 anpassen (so in der Status-Zeile der Spec). Einwände
+   wörtlich in #66 (P2).
+2. Eifel-Joe#22: weiter auf JustChrs Antwort zur Minor-Version (#160, `5890113813`) warten, dann
+   Rev-4-Nachtrag + Plan. Rev-3-Plan NICHT ausführen.
+3. JustChr#182: Review abwarten; Einwände wörtlich in Eifel-Joe#5; nach Merge Aufräumen + Prod-Rebuild.
+4. Nach Schwere weiter: #67 reproduzieren; #69 misst sich im #66-Live-Test L3 mit.
+
+### Empfohlene Skills
+
+- `superpowers:writing-plans` für #66 (nach JustChrs Antwort); später `pr-workflow` + Memory
+  `hasi-pr-build-recipe`
+
+## 2026-09-29 (5) — P2-Nachlauf: #62/#63/#46 geschlossen, #67 neu, Index #42 nachgezogen
+
+### Stand
+
+- **Geschlossen** (`completed`, EN/DE-Kommentar, alle Texte vorher freigegeben, gepostet = Entwurf):
+  Eifel-Joe#62 (`JustChr#176` = `213f8d91`, v2026.09.26; JustChrs Rest — veralteter Kommentar über
+  `_plan` — hat er in `41452f67` selbst bereinigt), Eifel-Joe#63 (`JustChr#178` = `d006c99e`; der rote
+  `test-ha-floor` war ein uhrabhängiger Solar-Test, von JustChr in `1bfa9643` festgelegt),
+  Eifel-Joe#46 (Produktfrage „zu Ende laufen lassen“ aus `JustChr#176` vom User angenommen).
+- **Neu: Eifel-Joe#67** — Rest aus #46: ein zweiter rotierender Dispatch ersetzt eine laufende
+  Rotation (`run_chain.py:757` an `1876aa03`). `typ:fehler`, `typ:produktentscheidung`,
+  `schwere:mittel`, `groesse:M`, kein Upstream-Label. Nur gelesen; bestätigt eine Reproduktion die
+  Folgen, auf `hoch` wie #62.
+- **#42** in zwei Body-Ersetzungen (13:39 und 13:54 UTC), beide inhaltsgleich nachgelesen: 2a/8/8a/13a/
+  43a geschlossen, 8b (#66) im 🔴-Abschnitt neu, 24 (#22) auf Wahl B + offene Minor-Frage, DE-Zeile 6
+  (#5) nachgezogen, 25 (#46) geschlossen + 25a (#67) neu, „Watched“: `JustChr#148` zu (Fix war unser
+  `JustChr#144`), `#149` offen.
+- Scan aller offenen Fork-Issues mit Upstream-Label: nichts weiter veraltet. Skript jetzt fest unter
+  `D:\Entwicklung\HASI\issues-work\scan_upstream_refs.py` (Memory `hasi-todo-file`).
+- Der Chip „Catch up the HASI issue index…“ lief in dieser Sitzung; er war schon „gestartet“ und ließ
+  sich nicht zurückziehen. Keine Doppelspuren auf GitHub (je ein Kommentar, kein Issue nach #67).
+  Arbeitsdateien: `D:\Entwicklung\HASI\issues-work\2026-09-29-catchup\`.
+
+### Fallen
+
+- `gh api … --jq '.body'` hängt eine Leerzeile an → Vergleiche Entwurf/gepostet mit `diff -B`.
+- Pipe-Exit-Codes: `git grep … | cut` meldet den Code von `cut` — für Ja/Nein-Prüfungen `git grep -q`.
+
+### Nächste Schritte
+
+- Unverändert aus (4): **Eifel-Joe#66 (hoch) zuerst** — Spec; #22 wartet auf JustChr; danach #67
+  (mittel) reproduzieren und entscheiden lassen.
+
+## 2026-09-29 (4) — Upstream-Antworten gepostet; Eifel-Joe#66 im Modus `count` reproduziert
+
+### Stand
+
+- **Gepostet (User-Freigabe):** Korrektur + Minor-Vorschlag auf JustChr#160
+  (`5890113813`), Übernahme auf JustChr#181 (`5890114252`); beide inhaltsgleich mit den Entwürfen.
+- **P2 gepostet (User-Freigabe), inhaltsgleich geprüft:** Eifel-Joe#22 `5890521160` (Label bleibt
+  `upstream:freigegeben`); Eifel-Joe#66 `5890521597` + Labels `upstream:gemeldet` →
+  `upstream:freigegeben` und **`schwere:mittel` → `schwere:hoch`** (User, wegen des gemessenen
+  stillen Positionsversatzes); Nachmeldung mit Messwerten auf JustChr#181 `5890522697`.
+  Den `ignore`-Fall lässt der User bei der Lesung.
+- **Index-/Schließ-Nachlauf ausgelagert** (Chip „Catch up the HASI issue index…“, #66 jetzt in 🔴):
+  Eifel-Joe#62/#63 offen trotz Merge von JustChr#176/#178 am 28.09.; #42 in sieben Zeilen veraltet,
+  #66 fehlt; #46 klären.
+- **Reproduktion #66, `count`, HA-Test** (`v2026.09.29b1`, auf diesem Pfad = `1876aa03`, per Diff
+  belegt): Protokoll `D:\Entwicklung\HASI\issue66-work\ergebnis-repro-count-2026-09-29.md`.
+  H1–H5 alle bestätigt: Vorrücken an der fremden Ein-Flanke (4 → 5); Claim 40 s nach dem Öffnen,
+  keine Flanke beim Öffnen des offenen Einlasses (Recorder: ein EIN, ein AUS); Gutschrift an
+  Test5 (61 s, 10,17 L), Test4 (Wasser 106 s) bekam nichts; danach gespeichert 6 gegen Modell 5,
+  weiter `synced`. Auslöser `irrigation_plus/irrigate_now` mit `zone_id 6` (gleiche Methode und
+  Gates wie „Alle Zonen“, ohne Grace Test).
+- **HA-Test zurückgestellt:** Position 3, Logger `warning`, Ventil/Master/Sonde aus. Test5 behält
+  +10,17 L (Eimer 0,0).
+
+### Fallen
+
+- **Test4 hat ein Bodenfeuchte-Veto** (`sensor.basilikum_soil_moisture`, 30) → als Sweep-Ziel
+  unbrauchbar, der Zyklus bricht vor dem Öffnen ab. Ziel Test5.
+- **Laufprotokoll ist neueste-zuerst** — nach `ts` sortieren, nicht `[-n:]`.
+- **`ha_eval_template` liefert JSON-förmige Ausgabe schon als Objekt**; `ha_get_history` liegt unter
+  `data.entities[]`. Helfer: `issue66-work\hasi_read.py`, `evaluate_run.py`, `repro_count.py`.
+- **Kein `irrigate_now`-Dienst** — nur Websocket `irrigation_plus/irrigate_now` (über
+  `pr146-work\live\mcp_test.py`); `watch_mode` nur übers Panel (HTTP-View).
+- **Integrations-Eintrag auf HA-Test gibt in `options` den Wetter-API-Schlüssel mit aus** — nie
+  wiedergeben; Skripte drucken nur ausgewählte Felder.
+
+### Nächste Schritte
+
+1. **Eifel-Joe#66 (jetzt `schwere:hoch`) zuerst:** Spec nach `superpowers:brainstorming` — Gate-Ort
+   (Claim `:1195-1212` deckt alle Einstiege vs. `_dist_eligible_for_run`, das auch die
+   Gesamtdauer-Schätzung speist), Signal (Live-Zustand des Einlasses; `inlet_entity` optional),
+   `count`-Vorrücken bei fremder Ein-Flanke, `ignore` (nur gelesen), Fall ohne Flanke. Messprotokoll
+   mit auf `archive/design-history`.
+2. Eifel-Joe#22: JustChrs Antwort zur Minor-Version auf #160 abwarten, dann Rev-4-Nachtrag + Plan.
+3. JustChr#181: auf JustChrs Reaktion zur Messung achten (Einwände wörtlich in Eifel-Joe#66, P2).
+4. JustChr#182 wie gehabt; Index-Chip bei Gelegenheit.
+
+### Empfohlene Skills
+
+- `superpowers:brainstorming` für die #66-Spec; `superpowers:writing-plans` für #22
+
+## 2026-09-29 (3) — JustChr#160: JustChr wählt selbst B, Bot-Antwort zurückgezogen; Rollback-Befund HA ≥ 2026.4; #181 gegengelesen
+
+### Stand
+
+- **JustChr#160:** `watchtower-justchr[bot]` (05:09 UTC, `5884061101`) antwortete, als sei A gewählt.
+  JustChr zog das um 06:08 UTC **selbst** zurück (`5884685278`, Konto `JustChr`, OWNER, nicht editiert;
+  „ohne seine Prüfung rausgegangen“) und wählte **B** — seine Liste deckt sich mit Rev 4 Variante B.
+  Neu von ihm: die Kosten „HAs eigene Zone wechselt → bis zu einer Woche Puffer falsch“ gehören **in
+  den Migrationskommentar** und in die Release-Notes (Rev 4 nennt sie nur in Tabelle R4-3).
+- Seine Prüfstellen an `1876aa03` nachgelesen: `weather_aggregate.py:167`, `:319`, `helpers.py:1015`,
+  `__init__.py:1429` ✓; `STORAGE_VERSION = 14` (`store.py:198`); upstream-stabil `v2026.09.17`
+  (`6d9c69e6`) ohne `coerce_stamp` ✓; `dt_util.as_local` hängt einem naiven Wert nur HAs Zone an ✓.
+- **Bot:** Konto angelegt 28.09. 14:39 UTC, App-Profil 404, einziger Kommentar unter 289 seit Juni,
+  keine Reviews auf #175–#182. Memory [[justchr-watchtower-bot-unreviewed]].
+- **Befund, widerlegt Rev 4 B.5/R4-5:** HA ≥ 2026.4 (home-assistant/core#164340) wirft
+  `UnsupportedStorageVersionError` bei höherem **Major**-Stand; HASI lädt ungeschützt
+  (`__init__.py:191` → `store.py:907`) → Rollback nach 14 → 15 = Setup scheitert. Der Minor-Stand wird
+  nicht geprüft → **14.1 → 14.2** hält den gutmütigen Rollback. Einzige `Store`-Instanz auf
+  `STORAGE_KEY`: `store.py:903`. Memory [[ha-store-major-version-guard]].
+- **Entwurf an JustChr** (Korrektur + Minor-Vorschlag):
+  `D:\Entwicklung\HASI\issue22-work\bot-review\draft-160-minor-version.md` — **nicht gepostet, wartet
+  auf User-Freigabe.** Grep sauber (kein `Eifel`, einzige SHA `1876aa03`). Belege im selben Ordner.
+- **JustChr#181** (05:37 UTC, `5884353117`): Fix = Verteiler-Gate, nicht Zonen-Prädikat; „nur count“;
+  bietet uns das Issue an. Gegengelesen (Agent + eigene Stichproben an `1876aa03`): Kette stimmt;
+  „nur count“ zu eng — `ignore` ist Default (`store.py:517`), ohne Listener → Sweep wässert obendrauf;
+  kantenlose Öffnung (HA-Start `old_state` None, `unavailable` → on, `distributor.py:1013-1015`) in
+  allen Modi unsichtbar; in `count` rückt die Position an der Ein-Flanke vor (`:954`), der Sweep
+  startet dort (`:1417-1418`) → gelesen, nicht gemessen: erste Gutschrift an die Nachbarzone, danach
+  Position +1 bei `synced`. Gate-Ort: `_dist_eligible_for_run` speist auch `skip_conditions.py:593`;
+  `handle_distributor_run_now` (`:1896`) und der Testlauf (`:1788`) umgehen es; der Claim
+  (`:1195-1212`) deckt alle Einstiege.
+- **JustChr#182:** offen, CI 5/5 grün, kein Review, keine Inline-/Issue-Kommentare. `upstream/master`
+  = `1876aa03`.
+- Kein Code, nichts gepostet, keine Labels geändert.
+
+### Verworfen
+
+- Die Bot-Antwort als Wahl A werten — von JustChr selbst zurückgezogen.
+- Eine A/B-Rückfrage — ist beantwortet.
+
+### Fallen
+
+- **Parallele Bash-Aufrufe teilen sich das Arbeitsverzeichnis:** ein `cd` im einen versetzt den
+  anderen (`./.venv/…: No such file`, `sed: can't read`). Absolute Pfade nehmen.
+- `gh api /apps/…` mit führendem `/` → MSYS macht `C:/Program Files/Git/apps/…` daraus; ohne `/`.
+- Rev 4 prüfte HA-Verhalten nur an der lokalen HA 2024.12.5 — HA-Core-Aussagen am Release-Tag lesen.
+
+### Nächste Schritte
+
+1. User entscheidet: Entwurf an JustChr#160 posten? JustChr#181 übernehmen?
+2. Im selben Zug (P2, Texte vorher im Chat freigeben): Stands-Kommentar Eifel-Joe#22 (Label bleibt
+   `upstream:freigegeben`); Kommentar Eifel-Joe#66 mit JustChrs Einwand; bei Zusage auf #181 das Label
+   `upstream:gemeldet` → `upstream:freigegeben`.
+3. Eifel-Joe#22: Spec-Nachtrag zu Rev 4 auf `archive/design-history` (Entscheidung B; Delta 1
+   HA-Zonen-Kosten im Migrationskommentar; Delta 2 Minor statt Major je nach JustChrs Antwort; B.5/R4-5
+   berichtigen), dann `superpowers:writing-plans`. ⛔ Rev-3-Plan weiter NICHT ausführen.
+4. Eifel-Joe#66: Reproduktion auf HA-Test (Sonoff-Emulator), Modus `count`, fremdes Öffnen, dann
+   „Alle Zonen jetzt bewässern“ → Gutschrift und Ringposition messen; den `ignore`-Fall mitnehmen.
+5. JustChr#182 wie gehabt; nach Merge Aufräumen + Prod-Rebuild. Offen: Live-Test Eifel-Joe#64.
+
+### Empfohlene Skills
+
+- `superpowers:writing-plans` für #22; `superpowers:systematic-debugging` für die #66-Reproduktion
+- `pr-workflow` + Memory `hasi-pr-build-recipe`, sobald es upstream geht
+
 ## 2026-09-29 (2) — Eifel-Joe#5 gebaut, live belegt, als JustChr#182 eingereicht
 
 ### Stand
@@ -2916,7 +3119,7 @@ und `pr-workflow`.
 - **MSYS:** Process-Substitution (`<(…)`) scheitert (`/proc/…/fd`), `grep -c` == 0 bricht
   `&&`-Ketten ab. Für Diffs Temp-Dateien nutzen, `diff --strip-trailing-cr` gegen CRLF-Rauschen.
 - **Cloud-Monitoring nicht möglich:** die `schedule`-Skill erzeugt Cloud-Agenten ohne Route
-  ins LAN → erreichen HA-Prod (192.168.20.2) nicht, HA-MCP ist lokal (kein claude.ai-Connector).
+  ins LAN → erreichen HA-Prod (LAN-Adresse: Projekt-`CLAUDE.md`) nicht, HA-MCP ist lokal (kein claude.ai-Connector).
   → Kirschlorbeer-Überwachung bleibt ToDo/Memory-basiert.
 
 ### Nächste Schritte (offen)
