@@ -23,6 +23,57 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-29 (2) — Eifel-Joe#5 gebaut, live belegt, als JustChr#182 eingereicht
+
+### Stand
+
+- **`JustChr#182` offen** (Branch `fix/zone-save-sends-what-changed`, 14 Commits auf `1876aa03`,
+  gepusht; an die Sitzung gebunden). CI: bei Einreichung noch keine Checks (Fork-PR).
+  Eifel-Joe#5: Kommentar + Label `upstream:gemeldet`; Eifel-Joe#42 Zeile 6 nachgezogen.
+- **Umfang gewachsen (User-Entscheid):** derselbe gemeinsame Speicher-Timer auf Sensorgruppen,
+  Verteiler, Modulen ist im selben PR (erst „eigenes Issue", dann „gehört zusammen").
+- **Belege** (alles auf `archive/design-history` `a3d350aa`, gepusht: Plan-Nachtrag Teil 1–4,
+  `reconstructed/2026-09-29-zone-save-live-on-ha-test.md`, `probes/…-mutations-branch.*`):
+  Suite `TZ=UTC` 7 / 3466 / 9 / 367, Namensdiff leer; vitest 27/659; tsc/lint/Build sauber,
+  `dist` frisch; Mutationen **45/45**; live RED auf `v2026.09.27b3`, GREEN auf `v2026.09.29b1`.
+- 12 Review-Befunde eingearbeitet (Liste im Plan-Nachtrag), u. a. der Eimer-Reset-Dialog per ID
+  (sonst Schreiben in die falsche Zone), Löschen/Verlassen verwerfen ungesendete Änderungen.
+- **HA-Test läuft `v2026.09.29b1`** (Wegwerf-Prerelease, Branch `prerelease/v2026.09.29b1`).
+  „Grace Test" wiederhergestellt bis auf Verbrauch (8 → 24 L) und `days_since_irrigation`.
+- **JustChr#160:** `watchtower-justchr[bot]` hat am 29.09. 05:09 UTC geantwortet (beschreibt
+  Weg A, keine ausdrückliche Wahl). User: erst #5 beenden, **dann die Bot-Antwort genau ansehen**.
+
+### Verworfen
+
+- **`Test2` als Live-Zone:** Verteiler-Mitglied, jeder Zyklus schickt `_update_frontend` → die
+  Seite ist danach frisch, der RED beweist nichts. „Grace Test" (Emulator, kein Verteiler).
+- **Eigenes Issue für die Spiegel-Timer:** vom User zurückgenommen.
+
+### Fallen
+
+- **Verborgener Browser-Bereich friert die Seite ein; HA baut das Panel beim Aufwachen neu** —
+  mit frisch geladenen Zonen. Zwei Live-Läufe ungültig. Bereich sichtbar halten, Marker aufs
+  View-Element, `_fetchData` zählen. Memory [[live-test-hidden-browser-pane]].
+- **Browser-Werkzeuge ~0,8 s pro Schritt** — ein 500-ms-Fenster trifft man nur mit
+  `input`-Events auf den Feldern der Seite (im Protokoll offengelegt).
+- **`grep -rn "Eifel-Joe" custom_components/ tests/` ist auf der Basis NICHT leer** (14
+  Upstream-Nennungen als Melder). Maßgeblich: hinzugefügte Zeilen + `Eifel-Joe#`.
+- **Modul-API lehnt `config: null` ab**; `calcmodules/static` behandelt `{}` gleich.
+- Bash-Heredoc mit langem Markdown scheiterte einmal am Parser → Write-Tool + `cat >>`.
+
+### Nächste Schritte
+
+1. **JustChr#160 / Bot-Antwort genau prüfen** (vereinbart), dann über Eifel-Joe#22 entscheiden.
+2. JustChr#182 begleiten: Einwände wörtlich als Kommentar in Eifel-Joe#5 (P2); CI lesen.
+3. Nach Merge: Eifel-Joe#5 schließen; Release/Tag/Branch `v2026.09.29b1` löschen; Worktrees
+   `issue5-work\wt` und `issue5-work\pre-wt` entfernen; Prod-Rebuild.
+4. Offen wie zuvor: Reproduktion zu Eifel-Joe#66; Live-Test zu Eifel-Joe#64.
+
+### Empfohlene Skills
+
+- `superpowers:receiving-code-review` (JustChrs Review zu #182), `pr-workflow`
+- `task-loop` für #22, falls JustChr/Bot eine Richtung vorgibt
+
 ## 2026-09-29 — Eifel-Joe#5: Spec + Plan fertig und einmal komplett geprobt; #22 wartet weiter
 
 ### Stand
