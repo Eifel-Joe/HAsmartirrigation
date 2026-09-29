@@ -160,7 +160,7 @@ class DistributorMixin:
     # --- notify + fail-safe de-arm ----------------------------------------
 
     async def _dist_notify(self, distributor: dict, message: str) -> None:
-        """Surface a halt to the user. Always creates a Home Assistant
+        """Surface a halt or a refusal to the user. Always creates a Home Assistant
         persistent notification (the bell / Notifications panel), keyed per
         distributor so a repeat replaces rather than piles up, and additionally
         forwards to an optional 'domain.service' notify target when one is set
@@ -1205,14 +1205,18 @@ class DistributorMixin:
         Runs after the claim decided not to take the distributor, so it may await.
         The notification reuses the halt's per-distributor id, so a repeat replaces
         it. Its wording stays neutral about who opened the inlet: it can also be
-        the late off report of the integration's own self-closing run.
-        The history names exactly the members that did not get their water. The
-        dispatcher hands the claim the schedule's whole target, direct zones
-        included, so ``only_zone_ids`` is cut down to this distributor's members;
-        without it, every member. Always an explicit list:
-        ``_record_skipped_run(None, ...)`` means every zone of the installation.
-        A test run never waters or credits, so it records nothing.
+        the late off report of the integration's own self-closing run. A failing
+        notification is logged and the refusal goes on: a stale notify target
+        raises ServiceNotFound, and a report must not abort the dispatcher's
+        other distributors or lose the history entry.
+        The history names exactly the members the cycle was for. The dispatcher
+        hands the claim the schedule's whole target, direct zones included, so
+        ``only_zone_ids`` is cut down to this distributor's members; without it,
+        every member. A test run never waters or credits, so it records nothing.
+        NOT-TO-DO: never pass None to _record_skipped_run here -- None means every
+          zone of the installation, not every member.
         siehe test_distributor_inlet_gate.py::test_a_refusal_records_only_the_targeted_members
+        siehe test_distributor_inlet_gate.py::test_a_broken_notify_target_does_not_stop_the_history
         """
         name = distributor.get("name")
         entity_id = distributor.get("inlet_entity")
@@ -1230,7 +1234,13 @@ class DistributorMixin:
         message = template.replace("{name}", str(name)).replace(
             "{entity}", str(entity_id)
         )
-        await self._dist_notify(distributor, message)
+        try:
+            await self._dist_notify(distributor, message)
+        except Exception:  # noqa: BLE001 - a report must not fail the refusal
+            _LOGGER.exception(
+                "Distributor '%s': the inlet-open notification could not be sent",
+                name,
+            )
         if test_run:
             return
         members = [

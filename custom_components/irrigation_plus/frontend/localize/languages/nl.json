@@ -885,7 +885,7 @@
       },
       "notify": {
         "halted": "Verdeler '{name}' gestopt ({reason}). Opnieuw synchroniseren en opnieuw bevestigen vereist.",
-        "inlet_open": "Verdeler '{name}' heeft geen beregeningscyclus gestart: de inlaat {entity} stond open.",
+        "inlet_open": "Verdeler '{name}' heeft geen bewateringscyclus gestart: de inlaat {entity} stond open.",
         "reason": {
           "valve_did_not_open": "klep is niet opengegaan",
           "restart_mid_advance": "herstart tijdens het doorschakelen",

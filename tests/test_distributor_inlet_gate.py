@@ -9,11 +9,14 @@ a refused cycle leaves behind, and the grace after the integration's own close.
 """
 
 import asyncio
+import json
 import logging
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from homeassistant.exceptions import ServiceNotFound
 
 from custom_components.irrigation_plus import const
 from tests.test_distributor_cycle import _dist_cfg, _loop_host, _mem
@@ -200,6 +203,7 @@ async def test_a_refusal_records_every_member_as_an_explicit_list():
     c._record_skipped_run.assert_awaited_once_with(
         [1, 2, 3], const.SKIP_REASON_INLET_OPEN, trigger="schedule"
     )
+    c._dist_members.assert_awaited_once_with(0)
 
 
 async def test_a_refusal_records_only_the_targeted_members():
@@ -255,3 +259,66 @@ async def test_a_distributor_in_flight_is_not_reported_as_an_open_inlet(caplog):
     c.hass.services.async_call.assert_not_awaited()
     c._record_skipped_run.assert_not_awaited()
     assert "did not start a cycle" not in caplog.text
+
+
+async def test_a_broken_notify_target_does_not_stop_the_history(caplog):
+    # A stale notify target raises ServiceNotFound. The refusal must still
+    # return False and record the history instead of raising into the
+    # dispatcher, which would stop the other distributors.
+    c = _gate_host(inlet_state="on")
+
+    async def _service_call(domain, service, data=None, **kwargs):
+        if domain == "notify":
+            raise ServiceNotFound(domain, service)
+
+    c.hass.services.async_call = AsyncMock(side_effect=_service_call)
+
+    with caplog.at_level(logging.ERROR):
+        refused = await c.async_run_distributor_cycle(
+            _gated_cfg(notify_target="notify.gone")
+        )
+
+    assert refused is False
+    c._record_skipped_run.assert_awaited_once_with(
+        [1, 2, 3], const.SKIP_REASON_INLET_OPEN, trigger="schedule"
+    )
+    assert "the inlet-open notification could not be sent" in caplog.text
+
+
+async def test_a_refusal_is_notified_in_the_users_language():
+    c = _gate_host(inlet_state="on")
+    c.hass.config.language = "de"
+
+    await c.async_run_distributor_cycle(_gated_cfg())
+
+    c.hass.services.async_call.assert_awaited_once_with(
+        "persistent_notification",
+        "create",
+        {
+            "title": "Irrigation Plus",
+            "message": "Verteiler 'Garten' hat einen Bewässerungszyklus nicht "
+            "gestartet: sein Einlass switch.inlet war offen.",
+            "notification_id": f"{const.DOMAIN}_distributor_0",
+        },
+    )
+
+
+async def test_a_refusal_with_an_empty_target_records_nothing():
+    # An empty target means "no member", as in the sweep, not "every member".
+    c = _gate_host(inlet_state="on")
+
+    await c.async_run_distributor_cycle(_gated_cfg(), only_zone_ids=[])
+
+    c._record_skipped_run.assert_not_awaited()
+
+
+def test_the_skip_reason_is_a_key_every_language_localizes():
+    # The history renders a skip code through panels.zones.outlook.checks.<code>;
+    # a code without a key there shows up raw.
+    languages = Path(const.__file__).parent / const.LANGUAGE_FILES_DIR
+    files = sorted(languages.glob("*.json"))
+    assert len(files) == 8
+    for path in files:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        checks = data["panels"]["zones"]["outlook"]["checks"]
+        assert const.SKIP_REASON_INLET_OPEN in checks, path.name
