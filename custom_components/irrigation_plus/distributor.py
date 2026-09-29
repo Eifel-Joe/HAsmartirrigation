@@ -1242,6 +1242,7 @@ class DistributorMixin:
           feeds the finish-anchor estimate, which must not depend on the moment it
           runs.
         siehe test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open
+        siehe test_distributor_inlet_gate.py::test_two_claims_scheduled_together_start_exactly_one_sweep
         siehe test_distributor_inlet_gate.py::test_the_grace_runs_out_after_thirty_seconds
         """
         entity_id = distributor.get("inlet_entity")

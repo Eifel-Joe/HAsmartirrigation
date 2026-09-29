@@ -560,3 +560,25 @@ async def test_the_finish_anchor_estimate_does_not_read_the_inlet():
 
     assert closed > 0
     assert opened == closed
+
+
+async def test_two_claims_scheduled_together_start_exactly_one_sweep():
+    # The gate sits between the in-flight check and inflight.add; an await there
+    # would let a second claim through while the first one is past its check.
+    c = _gate_host(inlet_state="off")
+    starts = []
+
+    async def slow_sweep(*args, **kwargs):
+        starts.append(1)
+        await asyncio.sleep(0.01)  # long enough for the second claim to run
+        return True
+
+    c._dist_run_sweep = slow_sweep
+
+    first, second = await asyncio.gather(
+        c.async_run_distributor_cycle(_gated_cfg()),
+        c.async_run_distributor_cycle(_gated_cfg()),
+    )
+
+    assert (first, second) == (True, False)
+    assert len(starts) == 1
