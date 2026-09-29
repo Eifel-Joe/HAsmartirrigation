@@ -15,6 +15,8 @@ now sends only what an edit set. Two things stay with the view:
 """
 
 import datetime
+import pathlib
+import re
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -28,6 +30,60 @@ from custom_components.irrigation_plus.websockets import SmartIrrigationZoneView
 T0 = datetime.datetime(2026, 5, 22, 6, 0, 0)
 SAVED_AT = T0 + datetime.timedelta(hours=3)
 LEDGER = [{"ts": T0.isoformat(), "mm": 1.0}]
+PANEL = (
+    pathlib.Path(__file__).parent.parent
+    / "custom_components"
+    / "irrigation_plus"
+    / "frontend"
+    / "src"
+    / "views"
+    / "zones"
+    / "view-zone-settings.ts"
+)
+
+
+def test_the_panel_names_what_each_zone_edit_sets():
+    """A tripwire on the panel's source, kept here because CI runs pytest only.
+
+    Every settings input calls ``handleEditZone``. Handed ``{ ...zone, [FIELD]: v }``
+    it posted the page's copy of the zone -- a pre-run bucket included, which the
+    backend then booked as a level set by hand. Each call site now passes only
+    what it sets. A tripwire, not a proof: a call site that copies the zone some
+    other way walks straight past it.
+    """
+    src = PANEL.read_text(encoding="utf-8")
+    calls = re.findall(r"this\.handleEditZone\(\s*\w+\s*,", src)
+    # No length limit between the brace and the spread: in the deeper template
+    # blocks the indentation alone is longer than a fixed window would allow.
+    spreading = [
+        src.count("\n", 0, m.start()) + 1
+        for m in re.finditer(
+            r"this\.handleEditZone\(\s*\w+\s*,\s*\{\s*\.\.\.zone\b", src
+        )
+    ]
+    assert calls, "no handleEditZone call found: this pin no longer reads the panel"
+    assert spreading == [], f"page copy of the zone spread at lines {spreading}"
+
+
+def test_a_confirmed_zone_edit_finds_its_zone_by_id():
+    """A confirm dialog runs its edit only when the user confirms.
+
+    By then the page may have re-read its zones with one added or removed, and
+    the index the dialog was opened with can hold another zone. With only the
+    change posted, that zone's id decides which zone is written, so the reset
+    dialog finds its zone again by the id it kept, and no confirmed action may
+    reach handleEditZone with an index. A tripwire, not a proof.
+    """
+    src = PANEL.read_text(encoding="utf-8")
+    by_id = re.findall(
+        r"onConfirm:\s*\(\)\s*=>\s*this\._editZoneById\(\s*zone\.id\b", src
+    )
+    by_index = [
+        src.count("\n", 0, m.start()) + 1
+        for m in re.finditer(r"onConfirm:[^}]*?\bhandleEditZone\b", src)
+    ]
+    assert len(by_id) == 1, "the reset dialog no longer finds its zone by id"
+    assert by_index == [], f"confirmed edit by index at lines {by_index}"
 
 
 @pytest.fixture

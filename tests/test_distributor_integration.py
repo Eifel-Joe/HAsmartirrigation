@@ -343,10 +343,11 @@ async def test_zone_view_coerces_latency_margin_to_int():
 async def test_zone_view_ignores_server_owned_fields():
     """A client zone save must never overwrite server-owned run accounting.
 
-    The panel saves a zone by POSTing the WHOLE zone object; a browser snapshot left
-    open across a run carries a stale water_used_total + run log that would otherwise
-    revert that run's usage total and delete its history entry. The same hazard applies
-    to the flow engine's server-owned learning/calibration state (flow_last_end,
+    A panel still cached in a browser saves a zone by POSTing the WHOLE zone object;
+    a snapshot left open across a run carries a stale water_used_total + run log
+    that would otherwise revert that run's usage total and delete its history
+    entry. The same hazard applies to the flow engine's server-owned
+    learning/calibration state (flow_last_end,
     flow_reset_streak, flow_calibration_samples/_advised) and to the runner-owned
     timestamps (last_consumed_at consumption watermark, last_calculated, last_updated).
     The view strips all of those (plus last_irrigation), so the coordinator only ever

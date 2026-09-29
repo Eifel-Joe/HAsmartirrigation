@@ -226,7 +226,7 @@ async def test_the_mid_window_ledger_is_dropped_with_it(coordinator):
 
 
 async def test_a_save_that_leaves_the_bucket_alone_moves_nothing(coordinator):
-    """The panel POSTs the WHOLE zone on every settings save, bucket included.
+    """A panel still cached in a browser POSTs the WHOLE zone, bucket included.
 
     Editing a throughput must not restart the weather window: the level was not
     stated, it merely rode along unchanged. Without this the watermark would jump

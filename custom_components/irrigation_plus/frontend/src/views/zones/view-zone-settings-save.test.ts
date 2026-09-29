@@ -159,6 +159,16 @@ describe("a zone edit posts what it set", () => {
     vi.advanceTimersByTime(1);
     expect(bodies(callApi)).toEqual([{ id: 1, name: "Beet", size: 12 }]);
   });
+
+  it("finds its zone by id when a confirmed edit runs later", () => {
+    // The reset dialog was opened for zone 2 while it sat at index 1. Zone 1
+    // was removed before the user confirmed, so index 1 now holds zone 3.
+    const { el, callApi } = make([staleZone(2), staleZone(3)]);
+    el._editZoneById(2, { bucket: 0 });
+    vi.advanceTimersByTime(500);
+    expect(bodies(callApi)).toEqual([{ id: 2, bucket: 0 }]);
+    expect(el.zones.map((z: any) => z.bucket)).toEqual([0, -6.2]);
+  });
 });
 
 describe("select value for an optional id", () => {
