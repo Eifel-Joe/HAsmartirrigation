@@ -146,3 +146,131 @@ async def test_an_edit_after_a_credit_keeps_the_credit(coordinator):
         const.ZONE_DAYS_SINCE_IRRIGATION,
     ):
         assert after[key] == credited[key], key
+
+
+async def test_a_lone_bucket_is_clamped_to_the_stored_maximum(coordinator):
+    """The form's bucket input posts the bucket alone; the cap still holds."""
+    c, store = coordinator
+    zid = await _zone(store, bucket=0.0, maximum_bucket=30.0)
+
+    await _post(c.hass, {const.ZONE_ID: zid, const.ZONE_BUCKET: 50.0})
+
+    assert store.get_zone(zid)[const.ZONE_BUCKET] == 30.0
+
+
+async def test_a_lowered_maximum_clamps_the_stored_level_as_a_statement(
+    coordinator,
+):
+    """Lowering the cap below the level clamps the level, as a whole-zone save
+    did: the level moved because someone said where it can be, so the weather
+    window restarts there (``_book_asserted_bucket``).
+    """
+    c, store = coordinator
+    zid = await _zone(store, bucket=20.0, maximum_bucket=30.0)
+
+    await _post(c.hass, {const.ZONE_ID: zid, const.ZONE_MAXIMUM_BUCKET: 10.0})
+
+    after = store.get_zone(zid)
+    assert after[const.ZONE_BUCKET] == 10.0
+    assert after[const.ZONE_MAXIMUM_BUCKET] == 10.0
+    assert after[const.ZONE_LAST_CONSUMED] == SAVED_AT
+    assert after[const.ZONE_PENDING_BUCKET_EVENTS] == []
+
+
+async def test_a_raised_maximum_leaves_the_level_and_the_window_alone(coordinator):
+    """Completing the pair must not turn every maximum edit into a statement."""
+    c, store = coordinator
+    zid = await _zone(store, bucket=20.0, maximum_bucket=30.0)
+
+    await _post(c.hass, {const.ZONE_ID: zid, const.ZONE_MAXIMUM_BUCKET: 40.0})
+
+    after = store.get_zone(zid)
+    assert after[const.ZONE_BUCKET] == 20.0
+    assert after[const.ZONE_MAXIMUM_BUCKET] == 40.0
+    assert after[const.ZONE_LAST_CONSUMED] == T0
+    assert after[const.ZONE_PENDING_BUCKET_EVENTS] == LEDGER
+
+
+async def test_a_new_zone_posted_with_a_bucket_and_no_maximum_is_created(
+    coordinator,
+):
+    """Creating a zone has no stored zone to complete the pair from.
+
+    The setup wizard and the panel's "add zone" both post a bucket without a
+    maximum and without an id. Looking the missing value up would ask the store
+    for zone ``None``, which it cannot answer.
+    """
+    c, store = coordinator
+
+    await _post(
+        c.hass,
+        {
+            const.ZONE_NAME: "New",
+            const.ZONE_SIZE: 10.0,
+            const.ZONE_THROUGHPUT: 5.0,
+            const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+            const.ZONE_BUCKET: 0,
+        },
+    )
+
+    assert [z[const.ZONE_NAME] for z in await store.async_get_zones()] == ["New"]
+
+
+async def test_a_bucket_set_through_the_store_funnel_is_not_clamped(coordinator):
+    """The pair is completed at the panel's boundary only.
+
+    ``set_all_buckets`` posts a level without a maximum and has never been
+    clamped. Completing the pair inside the store would change that for it and
+    for every other writer the store serves.
+    """
+    c, store = coordinator
+    zid = await _zone(store, bucket=0.0, maximum_bucket=30.0)
+
+    with freeze_time(SAVED_AT):
+        await c._async_set_all_buckets(50.0)
+
+    assert store.get_zone(zid)[const.ZONE_BUCKET] == 50.0
+
+
+async def test_a_post_that_carries_both_is_saved_as_it_was_posted(coordinator):
+    """A whole-zone save, or two edits in one debounce window, carry both.
+
+    Nothing is completed then: the stored value must not replace one the
+    post names, or a cap raised together with the level would be lost.
+    """
+    c, store = coordinator
+    zid = await _zone(store, bucket=0.0, maximum_bucket=30.0)
+
+    await _post(
+        c.hass,
+        {
+            const.ZONE_ID: zid,
+            const.ZONE_BUCKET: 35.0,
+            const.ZONE_MAXIMUM_BUCKET: 40.0,
+        },
+    )
+
+    after = store.get_zone(zid)
+    assert after[const.ZONE_BUCKET] == 35.0
+    assert after[const.ZONE_MAXIMUM_BUCKET] == 40.0
+
+
+async def test_a_lone_bucket_for_an_id_the_store_does_not_know_creates_the_zone(
+    coordinator,
+):
+    """An unknown id is a create, so there is no stored zone to complete from."""
+    c, store = coordinator
+
+    await _post(
+        c.hass,
+        {
+            const.ZONE_ID: 7,
+            const.ZONE_NAME: "Imported",
+            const.ZONE_SIZE: 10.0,
+            const.ZONE_THROUGHPUT: 5.0,
+            const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
+            const.ZONE_BUCKET: 0,
+        },
+    )
+
+    assert [z[const.ZONE_ID] for z in await store.async_get_zones()] == [7]

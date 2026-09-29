@@ -389,6 +389,29 @@ class SmartIrrigationZoneView(HomeAssistantView):
             const.ZONE_NUMBER_OF_DATA_POINTS,
         ):
             data.pop(_server_owned, None)
+        # Wurzel: the store clamps the bucket to maximum_bucket only when one
+        #   payload carries both. A whole-zone save always did; a panel edit of
+        #   either now posts that one alone, which would slip past the cap.
+        # Fix-Logik: complete the pair from the stored zone, so the store sees what
+        #   a whole-zone save gave it. A level above the cap is clamped; a cap
+        #   lowered below the level clamps the level, and _book_asserted_bucket
+        #   books that as a statement, as it always did; a cap that leaves the
+        #   level alone moves nothing.
+        # NOT-TO-DO: do not read the missing value inside the store instead. Credits,
+        #   the calculation and set_all_buckets pass through it with the bucket
+        #   alone, and none of them is clamped there today.
+        # See test_zone_view_save.py.
+        if zone is not None and (const.ZONE_BUCKET in data) != (
+            const.ZONE_MAXIMUM_BUCKET in data
+        ):
+            stored = coordinator.store.get_zone(zone)
+            if stored is not None:
+                missing = (
+                    const.ZONE_MAXIMUM_BUCKET
+                    if const.ZONE_BUCKET in data
+                    else const.ZONE_BUCKET
+                )
+                data[missing] = stored.get(missing)
         try:
             await coordinator.async_update_zone_config(zone, data)
         except SmartIrrigationError as err:
