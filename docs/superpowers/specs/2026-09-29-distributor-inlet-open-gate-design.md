@@ -173,10 +173,13 @@ nothing foreign happened.
   raises records nothing either.
 * **Every own close counts:** the end of each leg (`distributor.py:1725`), the halt after a failed
   confirm (`:1595`), the safety close on an exception (`:1255`) and the close after a restart
-  (`:1824`). Only the close that ends a cycle can ever meet the gate — its last leg's, or the
-  safety close; a close in the middle of a sweep is followed by the sweep's own next open. After a
-  halt and after a restart the distributor is uncertain, and the synced guard refuses before the
-  gate is asked.
+  (`:1824`). Only a close that ends a cycle can ever meet the gate — its last leg's, the safety
+  close, or the close after a restart; a close in the middle of a sweep is followed by the sweep's
+  own next open. After a halt, and after a restart in the `pausing` phase, the distributor is
+  uncertain, and the synced guard refuses before the gate is asked. After a restart in the
+  `watering` or `starting` phase it stays synced (`:1813-1816`), and the resume close's grace
+  applies like any other. *(Erratum 2026-09-29, found in the plan's dry run: this said a restart
+  always leaves the distributor uncertain.)*
 * **How long:** a new constant `DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS = VALVE_CONFIRM_TIMEOUT` (30 s),
   one number for how long a valve may take to report. The grace holds while less than 30 s have
   passed since the recorded close.

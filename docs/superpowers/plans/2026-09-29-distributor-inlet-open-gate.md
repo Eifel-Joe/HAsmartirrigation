@@ -22,13 +22,33 @@ languages; rollup, for the two bundles that embed `en.json`.
 
 ---
 
-## This plan has not been run yet
+## This plan was run once before it was handed over
 
-Unlike the plan for the zone save, this one was not applied to a throwaway worktree before it
-was handed over. Every line reference below was read on `0b9a71bd`, and the test hosts were
-read from the tests on that commit, but no count in this plan is measured. Task 0 measures the
-baseline, and each task's RED step is the first contact with the real code: if a RED step
-fails for a reason other than the one stated, stop and read before changing the plan's code.
+On 2026-09-29 Tasks 1–8 were applied to a throwaway worktree on `0b9a71bd`
+(`D:\Entwicklung\HASI\issue66-work\probe-wt`, detached, removed afterwards), each RED and GREEN
+step measured, then the full suite and the mutation matrix. Where the plan text did not hold, the
+**Addendum at the end** says what changed; it wins over the task text. The numbers, so a
+deviation shows at once:
+
+| check | on `0b9a71bd` | with the change |
+|---|---|---|
+| Task 1's test | FAILED at the claim, `assert True is False`; with that assertion removed still FAILED (`_dist_credit_zone` never awaited: the claim dropped the stash) | passed |
+| `test_distributor_inlet_gate.py` with Task 2's tests | 11 failed / 8 passed, all 11 `assert True is False` | 19 passed |
+| … with Task 3's tests | 6 failed / 21 passed (3× `AttributeError` on `SKIP_REASON_INLET_OPEN`); Step 6: 2 failed / 25 passed | 27 passed; with `test_i18n_completeness.py` 94 passed (67 i18n) |
+| … with Task 4's tests | 2 failed / 31 passed, both `assert False is True` | 33 passed |
+| … with Task 5's pins | — | 40 passed at the first run; no host stub was missing |
+| the four distributor suites (Task 2 Step 7, Task 4 Step 8) | — | 207 passed both times; no FAILED/ERROR name outside the baseline |
+| catalogues (Task 3 Step 7) | — | `3	1` per language, not `2	0` (Addendum A3) |
+| `npm run build` | — | exit 0; only `irrigation-plus.js` and `irrigation-plus-card-impl.js` change; committed dist == fresh build |
+| `black --check`, `ruff check` | — | clean after each task; `black` reformatted three places of the plan's code (Addendum A1, A2, A4) |
+| reference greps (Task 7 Step 5) | the third grep is **not** empty on the base | empty with the corrected third grep (Addendum A6) |
+| full backend suite, `TZ=UTC` | 7 failed / 3466 passed / 9 skipped / 367 errors (374 names) | 7 / 3506 / 9 / 367 with the 40 new tests; FAILED/ERROR names identical, 374 = 374 |
+| mutation matrix | — | 18 killed of 18: 17 in the matrix; mutation 5 deadlocks an existing test there (`HANG`, Addendum A7) and is killed by `test_a_distributor_in_flight_is_not_reported_as_an_open_inlet` in its re-run. Mutation 2 kills all six entry pins, mutation 18 the estimate pin. Every source restored byte-for-byte, `sha256sum -c` OK |
+
+Evidence kept outside the repo: `D:\Entwicklung\HASI\issue66-work\measure\baseline-0b9a71bd-tzutc.txt`
+and `baseline-names.txt` (the real run reuses both, Addendum A8), `…\measure\probe-full-tzutc.txt`,
+`…\probe\mutations-probe.json`, `…\probe\mutate.py`, `…\probe\blocks\` (every code block of this
+plan, extracted and applied verbatim).
 
 ---
 
@@ -150,6 +170,9 @@ Expected: both lines point into `D:\Entwicklung\HASI\issue66-work\wt\custom_comp
 
 - [ ] **Step 4: Measure the baseline on the base**
 
+> **Addendum A8:** the dry run measured this on `0b9a71bd` into these very files. If Step 1
+> read `0b9a71bd`, keep them and skip this step.
+
 Run in the background (tool option, not `nohup … &`), then read the file only after the run
 has ended:
 
@@ -182,6 +205,8 @@ member, and that is exactly what the claim must not start.
 - Create: `tests/test_distributor_inlet_gate.py`
 
 - [ ] **Step 1: Write the failing test**
+
+> **Addendum A1:** write the last-but-one assertion as `black` does (wrapped in parentheses).
 
 ```python
 """A distributor cycle never starts while its inlet reports open (#181).
@@ -506,7 +531,8 @@ EOF
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `tests/test_distributor_inlet_gate.py` (add `import logging` to the imports):
+Append to `tests/test_distributor_inlet_gate.py` (add `import logging` to the imports).
+**Addendum A2:** `_NOTICE` on one line, as `black` writes it.
 
 ```python
 _NOTICE = (
@@ -792,7 +818,8 @@ cd /d/Entwicklung/HASI/issue66-work/wt && /d/Entwicklung/HASI/HAsmartirrigation/
 ```
 
 Expected: eight lines `2	0	…/<lang>.json`. Anything else: `git checkout -- <file>` and
-read why.
+read why. **Addendum A3: measured `3	1` per file, and that is right** (the comma after
+`no_demand`, the last key of `checks`).
 
 - [ ] **Step 8: Run the tests and the catalogue checks**
 
@@ -949,6 +976,9 @@ DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS = VALVE_CONFIRM_TIMEOUT
 ```
 
 - [ ] **Step 4: Keep the stamps**
+
+> **Addendum A4 replaces the code of Steps 4 and 5:** a helper `_dist_stamp_own_close` does the
+> stamping, and the `_dist_own_close_times` docstring is corrected.
 
 In `distributor.py`, directly after `_dist_inflight_ids`:
 
@@ -1223,7 +1253,7 @@ EOF
 - [ ] **Step 1: Add the paragraph**
 
 After the section's last paragraph (the one ending "which is exactly why **Set current
-outlet** exists."), add:
+outlet** exists."), add (**Addendum A5:** as one line, like every paragraph of that file):
 
 ```markdown
 Independently of the watch mode, a watering cycle **never starts while the inlet reports open**
@@ -1284,6 +1314,9 @@ cd /d/Entwicklung/HASI/issue66-work/wt && uvx black --check custom_components/ir
 
 - [ ] **Step 5: The reference checks, on the added lines and the messages**
 
+> **Addendum A6:** the third grep below is not empty on the base (upstream's own reporter
+> credits); use `git grep -n "Eifel-Joe#" HEAD -- custom_components tests docs` instead.
+
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && git diff upstream/master...HEAD -U0 -- custom_components tests docs | grep '^+' | grep -nEi "eifel-joe|issue ?#66|#66\b|\bR6\b|\bH2\b|\bL5\b|spec\b|task [0-9]" ; git log upstream/master..HEAD --format=%B | grep -nEi "eifel-joe|#66\b|\bR6\b|spec\b|task [0-9]" ; grep -rn "Eifel-Joe" custom_components/ tests/ docs/ ; echo "--- alle drei ohne Ausgabe = sauber"
 ```
@@ -1309,6 +1342,10 @@ boundaries, the entry and estimate pins); the matrix is what proves they are loa
 - Create: `D:\Entwicklung\HASI\issue66-work\mutate.py` (outside the repository)
 
 - [ ] **Step 1: Write the runner**
+
+> **Addendum A7:** use the runner measured in the dry run (three guards added, among them a
+> timeout; anchors 9, 11, 13, 14 follow A4): copy `issue66-work\probe\mutate.py` and
+> `…\probe\mut5_rerun.py` to `issue66-work\`.
 
 Copy the engine of `D:\Entwicklung\HASI\issue5-work\mutate.py` — `read_src`, `write_src`,
 `run_pytest`, `main` — unchanged, drop `run_vitest` and the `VITEST_FILES` list, make
@@ -1445,6 +1482,9 @@ Every anchor must appear exactly once on the branch; the runner skips and report
 does not. If `black` reformatted an anchored line, adapt the anchor, not the code.
 
 - [ ] **Step 2: Run it**
+
+> **Addendum A7:** the command, the re-run of mutation 5 and the expected output as measured
+> are in A7; they replace the block below.
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work && sha256sum wt/custom_components/irrigation_plus/distributor.py wt/custom_components/irrigation_plus/const.py > pre-mutation.sha ; /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe mutate.py /d/Entwicklung/HASI/issue66-work/wt 2>&1 | tail -40 ; sha256sum -c pre-mutation.sha
@@ -1587,3 +1627,180 @@ gh pr create --repo JustChr/HAsmartirrigation --base master --head Eifel-Joe:fix
 `upstream:gemeldet` (rule P2: a pull request is open); `upstream:freigegeben` stays.
 `Eifel-Joe#69` gets L3's measurement as a comment. The tracking issue `Eifel-Joe#42` gets the
 state change. English first, German below.
+
+---
+
+## Addendum 2026-09-29 (dry run) — where this section differs, it wins
+
+Found by running Tasks 1–8 once on `0b9a71bd` (see *This plan was run once before it was handed
+over*). Every replacement below was applied in the dry run and is what the numbers there were
+measured on.
+
+### A1 — Task 1: one assertion as black writes it (cosmetic)
+
+`black` wraps the 89-character trigger assertion at Task 2's lint step. Write it that way in
+Task 1 Step 1 already:
+
+```python
+    assert (
+        c._dist_credit_zone.await_args.kwargs["trigger"] == const.RUN_TRIGGER_OBSERVED
+    )
+```
+
+### A2 — Task 3 Step 1: `_NOTICE` on one line (cosmetic)
+
+`black` joins the parenthesised string (99 characters; the parentheses do not make it fit):
+
+```python
+_NOTICE = "Distributor 'Garten' did not start a watering cycle: its inlet switch.inlet was open."
+```
+
+### A3 — Task 3 Step 7: the expected numstat is `3	1`, not `2	0`
+
+`no_demand` is the **last** key of `checks`, so appending `inlet_open` after it puts a comma on
+the `no_demand` line: per file one changed line and two added keys. Measured on all eight
+files: `3	1`. The `halted` insertion sits before `reason` and touches no other line. Expected
+output of Step 7: eight lines `3	1	…/<lang>.json`; the check that matters is that the `-` line
+is exactly the `no_demand` line without its comma.
+
+### A4 — Task 4 Steps 4–5: stamp through a one-line helper
+
+As written, the service branch's stamp is 91 characters at that indentation, and `black` turns
+it into
+
+```python
+                self._dist_own_close_times()[
+                    distributor.get("id")
+                ] = self.hass.loop.time()
+```
+
+— a second shape for the same statement next to the classic branch's one-liner, and mutation
+anchors 9 and 14 no longer match. Both call sites use a helper instead (one writer, one line).
+
+**Step 4** becomes (the `_dist_own_close_times` docstring is corrected as well, see A9):
+
+```python
+    def _dist_own_close_times(self) -> dict:
+        """{distributor_id: loop time} of the integration's own last inlet close.
+
+        Read by the inlet gate's grace (#181). In memory only, like the in-flight
+        set: a restart forgets it, which can only cost a refusal (the safe
+        direction), and the resume path's own close stamps afresh. Lazily created
+        so no coordinator __init__ change is needed."""
+        times = getattr(self, "_dist_own_close", None)
+        if times is None:
+            times = self._dist_own_close = {}
+        return times
+
+    def _dist_stamp_own_close(self, distributor: dict) -> None:
+        """Stamp the integration's own close of this inlet: the grace starts now."""
+        self._dist_own_close_times()[distributor.get("id")] = self.hass.loop.time()
+```
+
+**Step 5**: in the replacement `_dist_close_inlet`, the two stamps become
+`self._dist_stamp_own_close(distributor)` — after `await self.hass.services.async_call(...)` inside
+`if stop:`, and after `await self._dist_domain_turn(...)`. Docstring unchanged. Measured: `black`
+leaves it as is; 33 passed, the four distributor suites 207 passed.
+
+### A5 — Task 6: the paragraph on one line
+
+`docs/configuration-distributors.md` writes every paragraph as a single line (on `0b9a71bd`
+not one wrapped paragraph outside the front matter). Insert the Step 1 text as one line; the
+rendering is identical.
+
+### A6 — Task 7 Step 5: the third grep
+
+`grep -rn "Eifel-Joe" custom_components/ tests/ docs/` is **not** empty on the base: JustChr
+names Eifel-Joe as the reporter in `migrate_domain.py`, `self_closing.py`, `test_migrate_domain.py`,
+`test_self_closing.py`, `test_service_watch.py` (plus their `.pyc`). That is upstream's text and
+stays. The third check becomes:
+
+```bash
+git grep -n "Eifel-Joe#" HEAD -- custom_components tests docs
+```
+
+Measured: empty on the base and on the branch; the first two greps are empty on the branch.
+
+### A7 — Task 8: the runner
+
+Three guards added to the engine: it refuses to start while `distributor.py` or `const.py`
+differ from `HEAD`; a run whose summary shows no `passed`/`failed` count is reported `BROKEN`,
+never `survived`; and a run that has not ended after `MUT_TIMEOUT` seconds (default 300; a run
+takes ~17 s) is killed together with its process tree and reported `HANG`. `OUT` takes an
+optional second argument, and `MUT_ONLY="5,9"` limits a run to the listed mutations (for a
+re-run after a review change). The anchors of mutations 9, 11, 13 and 14 follow A4:
+
+```python
+    (9, DIST, "the service no-op stamps too",
+     "                self._dist_stamp_own_close(distributor)\n"
+     "            return\n",
+     "            self._dist_stamp_own_close(distributor)\n"
+     "            return\n",
+     "test_a_service_distributor_without_stop_service_gets_no_grace"),
+    (11, DIST, "the classic close is stamped before it is sent",
+     "        await self._dist_domain_turn(distributor.get(\"inlet_entity\"), False)\n"
+     "        self._dist_stamp_own_close(distributor)\n",
+     "        self._dist_stamp_own_close(distributor)\n"
+     "        await self._dist_domain_turn(distributor.get(\"inlet_entity\"), False)\n",
+     "test_a_close_that_raised_starts_no_grace"),
+    (13, DIST, "the classic close is never stamped",
+     "        await self._dist_domain_turn(distributor.get(\"inlet_entity\"), False)\n"
+     "        self._dist_stamp_own_close(distributor)\n",
+     "        await self._dist_domain_turn(distributor.get(\"inlet_entity\"), False)\n",
+     "test_the_next_cycle_runs_within_the_grace_after_our_own_close"),
+    (14, DIST, "the stop_service close is never stamped",
+     "                await self.hass.services.async_call(domain, service, data)\n"
+     "                self._dist_stamp_own_close(distributor)\n",
+     "                await self.hass.services.async_call(domain, service, data)\n",
+     "test_a_stop_service_close_starts_the_grace"),
+```
+
+**Mutation 5 deadlocks a test, and the engine had no timeout.** Without the in-flight guard,
+`test_distributor_cycle.py::test_second_concurrent_cycle_rejected_by_single_flight_lock` starts its
+second cycle into the same `release.wait()` as the first and never returns; the dry run's matrix
+hung there until the pytest process was killed by hand. With the timeout guard it ends as `HANG`
+(measured with `MUT_ONLY=5 MUT_TIMEOUT=60`: `HANG` after 60 s, no pytest process left behind,
+the source restored). The venv's `python.exe` is a launcher whose child runs pytest, so the guard
+kills the tree (`taskkill /T /F`); a plain `kill()` leaves the child running with the pipes open.
+A hang is a detection — CI would fail on its job timeout — but not a clean one, so mutation 5 is
+read from `mut5_rerun.py`, which applies it alone with exactly that one test deselected
+(`--deselect`). `pytest-timeout` is installed but does not help: on Windows it uses the thread
+method, which ends the whole run, not the one test.
+
+Both scripts as measured: `D:\Entwicklung\HASI\issue66-work\probe\mutate.py` and `…\probe\mut5_rerun.py`
+(first argument = worktree, default `issue66-work\wt`); copy them to `issue66-work\` for the real
+run. Task 8 Step 2 then runs:
+
+```bash
+cd /d/Entwicklung/HASI/issue66-work && sha256sum wt/custom_components/irrigation_plus/distributor.py wt/custom_components/irrigation_plus/const.py > pre-mutation.sha ; PYTHONIOENCODING=utf-8 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe mutate.py /d/Entwicklung/HASI/issue66-work/wt 2>&1 | tail -45 ; PYTHONIOENCODING=utf-8 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe mut5_rerun.py ; sha256sum -c pre-mutation.sha
+```
+
+Expected, as measured: `every source restored byte-for-byte: True`,
+`17 killed / 18 applied / 18 total; HANG: [5]`, then from the re-run
+`KILLED BY test_a_distributor_in_flight_is_not_reported_as_an_open_inlet` and
+`restored byte-for-byte: True`, then two `OK`. Run it in the background (~12 min); do not read
+or evaluate the worktree while it mutates.
+
+### A8 — Task 0 Step 4: reuse the baseline
+
+The dry run measured the baseline on `0b9a71bd` into the real run's file names
+(`issue66-work\measure\baseline-0b9a71bd-tzutc.txt`, `baseline-names.txt`, 374 names). If Step 1
+reads `0b9a71bd`, keep both and skip Step 4; if the base moved, measure again as written.
+
+### A9 — erratum in the design doc (restart), no behaviour change
+
+The design says under *The grace after our own close*: "After a halt and after a restart the
+distributor is uncertain, and the synced guard refuses before the gate is asked." True after a
+halt and after a restart in the `pausing` phase; after a restart in `watering` (and `starting`)
+`async_resume_distributor_cycles` closes the inlet and the distributor **stays synced**
+(`distributor.py:1813-1816` on `0b9a71bd`, `test_distributor_cycle.py::test_resume_mid_watering_stays_synced_closes_inlet`). That close goes
+through `_dist_close_inlet`, so it now stamps a grace like every other own close — consistent
+with R6 ("every own close counts"). Only the wording was wrong; the Step 4 docstring said the
+same and is corrected in A4.
+
+### For the review (Task 9), not changed
+
+The refusal path awaits `_dist_notify`; a `notify_target` whose service does not exist raises
+there, and the claim then raises instead of returning `False` — for a scheduled dispatch that also
+skips the distributors after it in the loop. The halt path (`_dist_mark_uncertain`) has the same
+property today, inside the sweep. Consistent with it, so left as designed; the reviewer decides.
