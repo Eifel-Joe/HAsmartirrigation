@@ -131,7 +131,17 @@ class DistributorMixin:
 
     async def _dist_close_inlet(self, distributor: dict) -> None:
         """Close the inlet. classic: domain-aware close. service: fire stop_service
-        if configured, else rely on the hardware self-close (no-op)."""
+        if configured, else rely on the hardware self-close (no-op).
+
+        A close that was sent is stamped for the inlet gate's grace (#181): a slow
+        or cloud-polled inlet keeps reporting open for a while after it was told to
+        close, and the next cycle must not be refused for our own close. Stamped
+        once the command returned -- a close that raised proves nothing -- and never
+        for the service no-op: without a command nothing shows the valve closed.
+        NOT-TO-DO: do not stamp before the await, and do not stamp the service
+          branch without stop_service.
+        siehe test_distributor_inlet_gate.py::test_a_service_distributor_without_stop_service_gets_no_grace
+        """
         if distributor.get("watering_mode") == const.WATERING_MODE_SERVICE:
             stop = distributor.get("stop_service")
             if stop:
@@ -139,8 +149,10 @@ class DistributorMixin:
                 data = {}
                 data["distributor_id"] = distributor.get("id")
                 await self.hass.services.async_call(domain, service, data)
+                self._dist_stamp_own_close(distributor)
             return
         await self._dist_domain_turn(distributor.get("inlet_entity"), False)
+        self._dist_stamp_own_close(distributor)
 
     # --- position advance --------------------------------------------------
 
@@ -1191,6 +1203,22 @@ class DistributorMixin:
             ids = self._dist_inflight = set()
         return ids
 
+    def _dist_own_close_times(self) -> dict:
+        """{distributor_id: loop time} of the integration's own last inlet close.
+
+        Read by the inlet gate's grace (#181). In memory only, like the in-flight
+        set: a restart forgets it, which can only cost a refusal (the safe
+        direction), and the resume path's own close stamps afresh. Lazily created
+        so no coordinator __init__ change is needed."""
+        times = getattr(self, "_dist_own_close", None)
+        if times is None:
+            times = self._dist_own_close = {}
+        return times
+
+    def _dist_stamp_own_close(self, distributor: dict) -> None:
+        """Stamp the integration's own close of this inlet: the grace starts now."""
+        self._dist_own_close_times()[distributor.get("id")] = self.hass.loop.time()
+
     def _dist_inlet_reports_open(self, distributor: dict) -> str | None:
         """The inlet state that refuses a cycle now, or ``None`` (#181).
 
@@ -1203,6 +1231,9 @@ class DistributorMixin:
           because the valve has not closed yet and the ring has not indexed. Nothing
           else refuses; a distributor without an inlet entity has no signal and keeps
           today's behaviour. Independent of the watch mode and the watering mode.
+        Grace: not within DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS of the integration's
+          own close for this distributor (_dist_close_inlet stamps it). A foreign
+          open inside that window goes unseen, a trade accepted on #181.
         Synchronous on purpose: the claim calls it between its in-flight check and
         ``inflight.add``, where an await would reopen the single-flight window.
         NOT-TO-DO: do not move this into _dist_eligible_for_run. Two entries call the
@@ -1216,6 +1247,16 @@ class DistributorMixin:
             return None
         state = self.hass.states.get(entity_id)
         if state is None or state.state not in const.DISTRIBUTOR_INLET_OPEN_STATES:
+            return None
+        # The state is read first, so the clock is consulted only for an open
+        # report; a close stamped less than the grace ago is our own, still being
+        # reported.
+        closed_at = self._dist_own_close_times().get(distributor.get("id"))
+        if (
+            closed_at is not None
+            and self.hass.loop.time() - closed_at
+            < const.DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS
+        ):
             return None
         return state.state
 

@@ -1265,6 +1265,11 @@ DISTRIBUTOR_REASON_FOREIGN_PULSE = "foreign_inlet_pulse"
 # indexed. Every other state (off, closed, unavailable, unknown, a missing entity)
 # lets it through: "not available" is not "open".
 DISTRIBUTOR_INLET_OPEN_STATES = frozenset({"on", "open", "opening", "closing"})
+# ...except within this many seconds of the integration's own close command for
+# that inlet (#181): a slow or cloud-polled valve keeps reporting open for a while
+# after it was told to close. The same patience VALVE_CONFIRM_TIMEOUT gives a valve
+# to report open.
+DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS = VALVE_CONFIRM_TIMEOUT
 
 # Distributor flow-metering poll interval (seconds) for volume measurement (Part A).
 DISTRIBUTOR_FLOW_POLL_SECONDS = 5

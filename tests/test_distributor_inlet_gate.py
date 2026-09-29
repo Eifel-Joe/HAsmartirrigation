@@ -322,3 +322,81 @@ def test_the_skip_reason_is_a_key_every_language_localizes():
         data = json.loads(path.read_text(encoding="utf-8"))
         checks = data["panels"]["zones"]["outlook"]["checks"]
         assert const.SKIP_REASON_INLET_OPEN in checks, path.name
+
+
+def _grace_host():
+    """A gate host with the REAL _dist_close_inlet (which stamps the close).
+
+    _loop_host stubs _dist_close_inlet as an instance attribute; deleting it
+    restores the method. The actuation underneath is stubbed instead, so the
+    classic close sends nothing real. The clock starts at 1000.0.
+    """
+    c = _gate_host(inlet_state="on", now=1000.0)
+    del c._dist_close_inlet
+    c._dist_domain_turn = AsyncMock()
+    return c
+
+
+async def test_the_next_cycle_runs_within_the_grace_after_our_own_close():
+    c = _grace_host()
+    cfg = _gated_cfg()
+    await c._dist_close_inlet(cfg)
+
+    c.hass.loop.time.return_value = 1029.0  # the inlet still reports on
+    assert await c.async_run_distributor_cycle(cfg) is True
+
+    c._dist_domain_turn.assert_awaited_once_with("switch.inlet", False)
+
+
+async def test_the_grace_runs_out_after_thirty_seconds():
+    c = _grace_host()
+    cfg = _gated_cfg()
+    await c._dist_close_inlet(cfg)
+
+    c.hass.loop.time.return_value = 1031.0
+    assert await c.async_run_distributor_cycle(cfg) is False
+
+
+async def test_a_stop_service_close_starts_the_grace():
+    c = _grace_host()
+    cfg = _gated_cfg(
+        watering_mode=const.WATERING_MODE_SERVICE, stop_service="script.dist_stop"
+    )
+    await c._dist_close_inlet(cfg)
+
+    c.hass.loop.time.return_value = 1029.0
+    assert await c.async_run_distributor_cycle(cfg) is True
+
+    c.hass.services.async_call.assert_any_await(
+        "script", "dist_stop", {"distributor_id": 0}
+    )
+
+
+async def test_a_service_distributor_without_stop_service_gets_no_grace():
+    # Nothing is sent, so nothing proves the valve closed: a start over a
+    # still-open self-closing valve is the defect the gate exists for.
+    c = _grace_host()
+    cfg = _gated_cfg(watering_mode=const.WATERING_MODE_SERVICE, stop_service=None)
+    await c._dist_close_inlet(cfg)
+
+    c.hass.loop.time.return_value = 1001.0
+    assert await c.async_run_distributor_cycle(cfg) is False
+
+
+async def test_the_grace_belongs_to_the_distributor_that_closed():
+    c = _grace_host()
+    await c._dist_close_inlet(_gated_cfg(id=0))
+
+    c.hass.loop.time.return_value = 1001.0
+    assert await c.async_run_distributor_cycle(_gated_cfg(id=1)) is False
+
+
+async def test_a_close_that_raised_starts_no_grace():
+    c = _grace_host()
+    c._dist_domain_turn = AsyncMock(side_effect=RuntimeError("inlet unreachable"))
+    cfg = _gated_cfg()
+    with pytest.raises(RuntimeError):
+        await c._dist_close_inlet(cfg)
+
+    c.hass.loop.time.return_value = 1001.0
+    assert await c.async_run_distributor_cycle(cfg) is False
