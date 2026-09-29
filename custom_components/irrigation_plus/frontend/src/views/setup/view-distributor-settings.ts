@@ -113,6 +113,11 @@ class SmartIrrigationViewDistributorSettings extends SubscribeMixin(
   @state() private _saveStatus: "idle" | "saving" | "saved" = "idle";
   private _savedResetTimer: number | null = null;
   private globalDebounceTimer: number | null = null;
+  // Edited distributors not saved yet, latest per id (handleEditDistributor).
+  private _pendingSaves = new Map<
+    number | undefined,
+    SmartIrrigationDistributor
+  >();
 
   private _updateScheduled = false;
   private _scheduleUpdate() {
@@ -261,11 +266,25 @@ class SmartIrrigationViewDistributorSettings extends SubscribeMixin(
       i === index ? updated : d,
     );
 
+    // Wurzel: the one debounce timer kept only the distributor edited last,
+    //   so a second one edited within half a second cancelled the first one's
+    //   save: the page showed the edit, the server never got it.
+    // Fix-Logik: keep the latest copy per distributor and save every one of
+    //   them when the timer runs out, as the zone settings page does.
+    // See view-distributor-settings-save.test.ts.
+    this._pendingSaves.set(updated.id, updated);
     if (this.globalDebounceTimer) clearTimeout(this.globalDebounceTimer);
     this.globalDebounceTimer = window.setTimeout(() => {
+      this.globalDebounceTimer = null;
+      // Taken out before saving: an edit made while these are in flight
+      // belongs to the next round.
+      const batch = [...this._pendingSaves.values()];
+      this._pendingSaves.clear();
       this.isSaving = true;
       this._saveStatus = "saving";
-      saveDistributor(this.hass!, this._configPayload(updated))
+      Promise.all(
+        batch.map((d) => saveDistributor(this.hass!, this._configPayload(d))),
+      )
         .then(() => this._markSaved())
         .catch((error) => {
           console.error("Failed to save distributor:", error);
@@ -276,7 +295,6 @@ class SmartIrrigationViewDistributorSettings extends SubscribeMixin(
           this.isSaving = false;
           this._scheduleUpdate();
         });
-      this.globalDebounceTimer = null;
     }, 500);
     this._scheduleUpdate();
   }
@@ -287,6 +305,8 @@ class SmartIrrigationViewDistributorSettings extends SubscribeMixin(
     const original = [...this.distributors];
     this.distributors = this.distributors.filter((d) => d.id !== id);
     this._confirmDeleteId = null;
+    // A save still waiting for the timer must not follow the delete.
+    this._pendingSaves.delete(id);
     this.isSaving = true;
     deleteDistributor(this.hass, id)
       .catch((error) => {
