@@ -95,4 +95,13 @@ describe("a distributor edit is saved", () => {
     vi.advanceTimersByTime(500);
     expect(saved(callApi)).toEqual([[1, 70]]);
   });
+
+  it("does not report a save when the only pending save was deleted", async () => {
+    const { el, callApi } = make([distributor(1, 5), distributor(2, 5)]);
+    el.handleEditDistributor(0, distributor(1, 7));
+    el._confirmDeleteId = 1;
+    el._confirmDelete();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(el._saveStatus).toBe("idle");
+  });
 });

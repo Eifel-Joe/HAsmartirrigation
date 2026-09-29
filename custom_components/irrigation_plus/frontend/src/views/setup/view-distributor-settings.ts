@@ -280,6 +280,8 @@ class SmartIrrigationViewDistributorSettings extends SubscribeMixin(
       // belongs to the next round.
       const batch = [...this._pendingSaves.values()];
       this._pendingSaves.clear();
+      // A delete may have taken the only pending entry: nothing to save.
+      if (!batch.length) return;
       this.isSaving = true;
       this._saveStatus = "saving";
       Promise.all(

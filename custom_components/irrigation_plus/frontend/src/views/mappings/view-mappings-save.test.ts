@@ -106,4 +106,14 @@ describe("a sensor group edit is saved", () => {
     expect(el.dispatchEvent).toHaveBeenCalledTimes(1);
     expect(el.isSaving).toBe(false);
   });
+
+  it("leaves the saving state alone when the only pending save was deleted", async () => {
+    const { el, callApi } = make([group(1, "Garden"), group(2, "Bed")]);
+    // The delete stays in flight; its own finally clears the saving state.
+    callApi.mockImplementation(() => new Promise(() => {}));
+    el.handleEditMapping(0, group(1, "Garden south"));
+    el.handleRemoveMapping({}, 0);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(el.isSaving).toBe(true);
+  });
 });

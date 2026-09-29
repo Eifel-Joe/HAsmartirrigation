@@ -304,6 +304,8 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
       // belongs to the next round.
       const batch = [...this._pendingSaves.values()];
       this._pendingSaves.clear();
+      // A delete may have taken the only pending entry: nothing to save.
+      if (!batch.length) return;
       this.isSaving = true;
       Promise.all(
         batch.map((mapping) =>
