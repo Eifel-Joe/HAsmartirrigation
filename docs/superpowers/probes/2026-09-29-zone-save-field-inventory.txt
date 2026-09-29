@@ -1,0 +1,59 @@
+base: 1876aa033b39af3b985eb01ca1ee6d91e69d04df
+handleEditZone calls:          35
+ZoneEntry fields:              49
+form-edited (in ZoneEntry):    31
+strip list (websockets.py):    11
+form-edited AND stripped:      []
+form-edited, not in ZoneEntry: []
+neither form-edited nor stripped:
+    id
+    delta
+    explanation
+    days_since_irrigation
+    number_of_data_points
+    current_drainage
+    irrigation_target_bucket
+form-edited fields:
+    name
+    size
+    throughput
+    state
+    bucket
+    duration
+    module
+    multiplier
+    mapping
+    lead_time
+    maximum_duration
+    maximum_bucket
+    drainage_rate
+    kc
+    plant_type
+    linked_entity
+    bucket_threshold
+    flow_sensor
+    watering_mode
+    run_service
+    duration_field
+    duration_unit
+    stop_service
+    confirm_entity
+    latency_margin
+    observed_entity
+    flow_counter_type
+    soil_moisture_sensor
+    soil_moisture_threshold
+    distributor_id
+    outlet_number
+stripped fields:
+    last_calculated
+    last_consumed_at
+    last_updated
+    last_irrigation
+    water_used_total
+    run_log
+    pending_bucket_events
+    flow_last_end
+    flow_reset_streak
+    flow_calibration_samples
+    flow_calibration_advised
