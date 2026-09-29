@@ -23,6 +23,75 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-29 — Eifel-Joe#5: Spec + Plan fertig und einmal komplett geprobt; #22 wartet weiter
+
+### Stand
+
+- **Tor Eifel-Joe#22 geschlossen, nichts gebaut.** Auf JustChr#160 ist unser `5879455421` weiter der
+  letzte Kommentar, ohne Reaktion; Timeline seit 28.09. ohne Neues; keine neuen PRs aller Autoren
+  (JustChr#148 zu, unabhängig: Fix war #144). `upstream/master` = **`1876aa03`** (neu gefetcht).
+  Kein Kommentar in Eifel-Joe#22 — kein neuer Stand.
+- **Stattdessen Eifel-Joe#5** (User: „die Liste soll auch mal kleiner werden"). Auf
+  `archive/design-history` **`e511dd1a`**, gepusht:
+  `specs/2026-09-29-zone-save-sends-what-changed-design.md`,
+  `plans/2026-09-29-zone-save-sends-what-changed.md`, Belege `probes/2026-09-29-zone-save-*`.
+- **Vom User entschieden:** Weg **B** (Panel sendet nur Geändertes, Denylist +6 Felder), geleerte
+  Felder als `null`, D1 (Aufrufstellen nennen ihre Änderung), D2 (Paar-Ergänzung im View, nicht
+  im Store). **Plan freigegeben.**
+- **Plan einmal komplett geprobt** (Wegwerf-Worktree auf `1876aa03`, danach entfernt): Namensdiff
+  leer 375 = 375, Suite 7 / 3462 / 9 / 367 (mit 7 neuen), vitest 629 → 637, tsc 0, Build ohne
+  TS-Diagnose, nur `dist/irrigation-plus.js` ändert sich, Mutationen 15/15.
+- **Kein Feature-Branch, kein Worktree** — Task 0 legt `issue5-work\wt` an. Die Helfer, die der
+  Plan aufruft, liegen in `D:\Entwicklung\HASI\issue5-work\`: `mutate.py`,
+  `drop-zone-spread.cjs`, `probe_import_origin.py`; Messungen in `measure\`.
+- HA-Test läuft `v2026.09.27b3` (`6a313d7c`) und enthält JustChr#180 **nicht** (gemessen).
+- Offen, unverändert: Reproduktion zu `Eifel-Joe#66`; Live-Test zu `Eifel-Joe#64` (bräuchte einen
+  neuen Wegwerf-Build).
+
+### Verworfen
+
+- **Die Allowlist aus dem Issue-Body als Fix.** Das Formular hat ein eigenes Eimerfeld
+  (`view-zone-settings.ts:1608-1627`), der Eimer stünde also auf jeder Allowlist editierter
+  Felder. Sie behebt das gemeldete Symptom nicht.
+- **altmenorgs Differenz-Helfer** (`11ed18d2`): eine Differenz gegen die veraltete Seitenkopie
+  verschluckt gewollte Schreibungen (die Zustandsauswahl setzt `duration: 0`).
+- **Die Paar-Ergänzung im Store** (altmenorgs Form): änderte jeden Trichter-Schreiber,
+  `set_all_buckets` würde plötzlich geklemmt.
+- **Die Quelltext-Pin in vitest:** CI fährt kein vitest; `node:`-Importe im TS-Test hätten den
+  Build 12 TS2591-Warnungen ausgeben lassen.
+
+### Fallen
+
+- **Die Zonen-Seite erfährt von einer Gutschrift nie:** sie hört auf `_update_frontend`
+  (`websockets.py:83-105`), der Lauf sendet nur `_config_updated` (`irrigation.py:2903`). Gilt
+  für jede Frage „warum zeigt die Seite den alten Stand".
+- **Ein Tripwire mit festem Zeichenfenster** (`[^)]{0,40}`) fand nur 23 der 35 Stellen — die
+  Einrückung allein ist länger. Pins vor dem Einsatz gegen eine bekannte Zahl kalibrieren.
+- **`store.get_zone(None)` wirft** (`int(None)`): jeder View-Code, der die gespeicherte Zone
+  nachliest, braucht den Anlege-Fall (Assistent und „Zone hinzufügen" posten ohne `id`).
+- **Lingering timer bei neuen Coordinator-Fixtures:** der Konstruktor armiert den
+  Mitternachts-Tracker; `c._track_midnight_time_unsub()` im Teardown hält die Datei fehlerfrei.
+- **`M` auf unberührten Card-Bundles nach `npm run build`** ist `autocrlf`; `git diff --quiet`
+  entscheidet.
+- **Die Memory-Warnung „im Worktree testet pytest fremden Code"** gilt für
+  `D:\Entwicklung\HASI\*-work\wt` nicht — gemessen mit `probe_import_origin.py`.
+
+### Nächste Schritte
+
+1. `/clear`, dann den Plan ausführen, Task 0 zuerst (ist `upstream/master` noch `1876aa03`?
+   Sonst Baseline neu messen und die vier Anker neu lesen, bevor eine Zeilennummer gilt).
+2. Eifel-Joe#22 nur weiter, wenn JustChr auf #160 antwortet — das Tor gilt unverändert.
+3. Nach dem PR: Kommentar + Label `upstream:gemeldet` in Eifel-Joe#5, Eifel-Joe#42 nachziehen
+   (Plan Task 9, Texte vorher im Chat freigeben).
+
+### Empfohlene Skills
+
+- `superpowers:subagent-driven-development` + `superpowers:test-driven-development`
+- `code-doku` — die Kommentare stehen wörtlich im Plan
+- `superpowers:requesting-code-review` / `superpowers:receiving-code-review` (Task 7)
+- `pr-workflow` + Memory `hasi-pr-build-recipe` (Task 9)
+- `superpowers:verification-before-completion` vor jedem „fertig"
+
 ## 2026-09-28 (10) — Eifel-Joe#22: Rev-3-Plan verworfen, Revision 4 geschrieben, JustChr soll A oder B wählen
 
 ### Stand
