@@ -23,6 +23,75 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-29 (7) — JustChr antwortet auf alle drei; 🟠-Block nachgeprüft; Eifel-Joe#66 Spec-Nachtrag + Plan freigegeben
+
+### Stand
+
+- **JustChr (16:56–16:58 UTC, Konto `JustChr`):**
+  - `JustChr#182` gemergt als `0b9a71bd`, byte-gleich mit `34471593` → Eifel-Joe#5 geschlossen
+    (Kommentar `5895128919`). Auf Prod erst mit dem nächsten Rebuild.
+  - `JustChr#181` (`5894821774`): Claim als Ort angenommen, Zusatz Nachfrist nach eigenem
+    Schließbefehl → wörtlich in Eifel-Joe#66 (`5895129943`).
+  - `JustChr#160` (`5894821423`): Minor-Bump 14.1 → 14.2 freigegeben, Wunsch: Test über den
+    zweiargumentigen Migrationspfad; Sperre ab HA **2026.3** (an den Tags gelesen, Memory
+    `ha-store-major-version-guard` korrigiert) → wörtlich in Eifel-Joe#22 (`5895130590`).
+- **Nachprüfung 🟠-Block** gegen `1876aa03` (`0b9a71bd` berührt die Pfade nicht), Belege in den
+  Issue-Kommentaren: Eifel-Joe#8, Eifel-Joe#9, Eifel-Joe#10, Eifel-Joe#11 bestehen; Eifel-Joe#44
+  besteht nur rotierend → `prod-scharf` entfernt, nach 🟡; Eifel-Joe#47 durch `JustChr#173`
+  erledigt → geschlossen, Reste auf Eifel-Joe#34/Eifel-Joe#49. Eifel-Joe#57 `schwere:mittel`,
+  Eifel-Joe#58 `schwere:niedrig` eingeordnet; Blockade-Vermerk Eifel-Joe#55 gestrichen.
+  Eifel-Joe#42-Body + Stand-Kommentar `5895265983`. Alle Texte vorher freigegeben, gepostet =
+  Entwurf (per JSON verglichen).
+- **Eifel-Joe#66:** Spec-Nachtrag (R6: 30 s Nachfrist nur nach gesendetem Schließbefehl, Test 10,
+  Live L5) und Plan `docs/superpowers/plans/2026-09-29-distributor-inlet-open-gate.md`
+  freigegeben; beide auf `archive/design-history` `0d07e344` (gepusht). Plan **nicht
+  probegelaufen**.
+- Kein Code. Lese-Worktree `recheck-work\read-wt` entfernt; `D:\Entwicklung\HASI\recheck-work\`
+  bleibt als Beleg (gepostete Texte, Index-Diff `texts\index42\diff.txt`, JustChr-Kopien,
+  `storage.py` an den HA-Tags 2026.2.0/2026.3.0/2026.4.0).
+
+### Verworfen
+
+- Warten im Sweep statt Nachfrist, Stempel nur beim letzten Schließen — Begründung in der Spec
+  (Optionstabelle „The grace after our own close").
+- Uhr `dt_util.utcnow()`/`freezer` → `self.hass.loop.time()` (Modul-Konvention
+  `distributor.py:951/978`, im Mock-Host steuerbar); Konstante `DIST_…` →
+  `DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS`.
+
+### Fallen
+
+- `grep -c $'\r'` innerhalb `$(...)` bekommt unter Git Bash ein leeres Muster und zählt jede
+  Zeile → CR per Python `bytes.count(b"\r")` prüfen.
+- `gh api … --jq .body` hängt ein Zeilenende an → gepostet/lokal per JSON vergleichen, nicht per
+  Datei-diff.
+- Python-Ausgabe mit Emoji → `PYTHONIOENCODING=utf-8`, sonst `UnicodeEncodeError` (cp1252).
+- Funktionsauszug per awk: `async def` in die Abbruchbedingung, sonst läuft er in die nächste
+  Methode (Scheinabweichung beim Vergleich zu Eifel-Joe#8).
+- Die Einstiegs-Tests (Dispatcher, Irrigate now, Member-Lauf, run_now) mocken alle den Claim;
+  nur der Testlauf erreicht ihn echt → Pins in Task 5 des Plans.
+- Der Auto-Mode-Klassifikator fiel am Sitzungsende zeitweise aus („no verdict") → betroffene
+  Bash-Aufrufe später wiederholen.
+
+### Nächste Schritte
+
+1. **Eifel-Joe#66:** neue Sitzung → Plan zuerst im Wegwerf-Worktree **probelaufen**
+   (User-Vorgabe), Messwerte in den Plan (Abschnitt „This plan has not been run yet" ersetzen,
+   wie beim Plan zu Eifel-Joe#5), dann Umsetzung nach Plan.
+2. **Prod-Rebuild** mit `JustChr#182` (Eifel-Joe#5 ist bis dahin auf Prod scharf) + Aufräumen
+   `issue5-work` (2 Worktrees, Branch lokal + origin, `prerelease/v2026.09.29b1` samt Release) —
+   eigene Sitzung, Memory `hasi-production-on-upstream`.
+3. **Eifel-Joe#22:** Rev-4-Nachtrag (Minor 14.1 → 14.2, zweiargumentiger Test) + Plan — eigene
+   Sitzung. Rev-3-Plan NICHT ausführen.
+4. Danach nach Eifel-Joe#42: 🟠 Eifel-Joe#8 (zuerst Spec), Eifel-Joe#9, Eifel-Joe#10,
+   Eifel-Joe#11.
+
+### Empfohlene Skills
+
+- `task-loop`; für Eifel-Joe#66 `superpowers:subagent-driven-development` bzw.
+  `superpowers:executing-plans`, `superpowers:test-driven-development`,
+  `superpowers:using-git-worktrees`, `code-doku`; am Ende `pr-workflow` + Memory
+  `hasi-pr-build-recipe`.
+
 ## 2026-09-29 (6) — Eifel-Joe#66: Spec fertig, Vorschlag auf JustChr#181, Folge-Issues #68–#71
 
 ### Stand
