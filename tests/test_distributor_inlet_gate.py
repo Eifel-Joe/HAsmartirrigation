@@ -282,7 +282,7 @@ async def test_a_broken_notify_target_does_not_stop_the_history(caplog):
     c._record_skipped_run.assert_awaited_once_with(
         [1, 2, 3], const.SKIP_REASON_INLET_OPEN, trigger="schedule"
     )
-    assert "the inlet-open notification could not be sent" in caplog.text
+    assert "could not forward the notification to notify.gone" in caplog.text
 
 
 async def test_a_refusal_is_notified_in_the_users_language():

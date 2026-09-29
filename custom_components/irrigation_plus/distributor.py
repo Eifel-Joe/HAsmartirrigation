@@ -165,7 +165,24 @@ class DistributorMixin:
         distributor so a repeat replaces rather than piles up, and additionally
         forwards to an optional 'domain.service' notify target when one is set
         (test feedback FB4: the panel notification is unconditional, the notify
-        target is an extra, optional channel)."""
+        target is an extra, optional channel).
+
+        Wurzel: the forward was awaited unguarded, and Home Assistant raises
+          ServiceNotFound at once for a target that no longer exists (a phone
+          registered again under a new notify service). Every caller raised with
+          it: a refused cycle stopped the dispatcher before its other
+          distributors and lost its history entry, a halt in a sweep did the
+          same after its safety close, and the restart reconcile left the
+          remaining distributors' inlets as they were.
+        Fix: a failing optional channel is logged and skipped; the panel
+          notification above is already there.
+        NOT-TO-DO: do not narrow the except to ServiceNotFound -- a target whose
+          schema rejects the message raises vol.Invalid, a corrupt non-str target
+          AttributeError in _dist_split_service. Do not widen it to BaseException:
+          a cancellation must still cancel.
+        siehe test_distributor.py::test_notify_a_failing_target_is_logged_not_raised
+        siehe test_distributor_cycle.py::test_resume_goes_on_after_a_failing_notify_target
+        """
         await self.hass.services.async_call(
             "persistent_notification",
             "create",
@@ -180,9 +197,18 @@ class DistributorMixin:
         target = distributor.get("notify_target")
         if not target:
             return
-        domain, service = self._dist_split_service(target)
-        if domain and service:
-            await self.hass.services.async_call(domain, service, {"message": message})
+        try:
+            domain, service = self._dist_split_service(target)
+            if domain and service:
+                await self.hass.services.async_call(
+                    domain, service, {"message": message}
+                )
+        except Exception:  # noqa: BLE001 - an optional channel must not fail its caller
+            _LOGGER.exception(
+                "Distributor '%s': could not forward the notification to %s",
+                distributor.get("name"),
+                target,
+            )
 
     async def _dist_mark_uncertain(self, distributor: dict, reason: str) -> None:
         """Fail-safe: mark the position uncertain AND clear commissioning_confirmed
@@ -1205,10 +1231,9 @@ class DistributorMixin:
         Runs after the claim decided not to take the distributor, so it may await.
         The notification reuses the halt's per-distributor id, so a repeat replaces
         it. Its wording stays neutral about who opened the inlet: it can also be
-        the late off report of the integration's own self-closing run. A failing
-        notification is logged and the refusal goes on: a stale notify target
-        raises ServiceNotFound, and a report must not abort the dispatcher's
-        other distributors or lose the history entry.
+        the late off report of the integration's own self-closing run. A stale
+        notify target does not stop the refusal: _dist_notify logs a failing
+        optional channel and goes on.
         The history names exactly the members the cycle was for. The dispatcher
         hands the claim the schedule's whole target, direct zones included, so
         ``only_zone_ids`` is cut down to this distributor's members; without it,
@@ -1234,13 +1259,7 @@ class DistributorMixin:
         message = template.replace("{name}", str(name)).replace(
             "{entity}", str(entity_id)
         )
-        try:
-            await self._dist_notify(distributor, message)
-        except Exception:  # noqa: BLE001 - a report must not fail the refusal
-            _LOGGER.exception(
-                "Distributor '%s': the inlet-open notification could not be sent",
-                name,
-            )
+        await self._dist_notify(distributor, message)
         if test_run:
             return
         members = [

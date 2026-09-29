@@ -4,6 +4,7 @@ import asyncio
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from homeassistant.exceptions import ServiceNotFound
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from custom_components.irrigation_plus import const
@@ -550,6 +551,32 @@ async def test_resume_mid_pausing_marks_uncertain():
     c._dist_close_inlet.assert_awaited_once()
     c._dist_clear_cycle.assert_awaited_once_with(0)
     c._dist_mark_uncertain.assert_awaited_once()  # advance completion unknown
+
+
+async def test_resume_goes_on_after_a_failing_notify_target():
+    # A stale notify target raises ServiceNotFound. The halt notification of the
+    # first distributor must not stop the reconcile of the next one.
+    paused = _dist_cfg(
+        id=0,
+        notify_target="notify.gone",
+        active_cycle={"outlet": 2, "phase": "pausing"},
+    )
+    watering = _dist_cfg(id=1, active_cycle={"outlet": 3, "phase": "watering"})
+    c = _recon_host([paused, watering])
+    del c._dist_mark_uncertain  # the real halt, which notifies
+    c.hass.config.language = "en"
+
+    async def _service_call(domain, service, data=None, **kwargs):
+        if domain == "notify":
+            raise ServiceNotFound(domain, service)
+
+    c.hass.services.async_call = AsyncMock(side_effect=_service_call)
+
+    await c.async_resume_distributor_cycles()
+
+    closed = [call.args[0]["id"] for call in c._dist_close_inlet.await_args_list]
+    assert closed == [0, 1]
+    c.store.async_update_distributor.assert_any_await(1, {"current_outlet": 4})
 
 
 # --- E1: early-stop after the last due outlet -----------------------------
