@@ -129,16 +129,30 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
     }
   }
 
+  // Edited modules not saved yet, latest copy per id (see debouncedSave).
+  private _pendingSaves = new Map<number | undefined, SmartIrrigationModule>();
+
   // Debounced save operation for better performance
+  // Wurzel: the one debounce timer kept only the module edited last, so a
+  //   second module edited within half a second cancelled the first one's
+  //   save: the page showed the edit, the server never got it.
+  // Fix-Logik: keep the latest copy per module and save every one of them
+  //   when the timer runs out, as the zone settings page does.
+  // See view-modules-save.test.ts.
   private debouncedSave = (() => {
     let timeoutId: number | null = null;
     return (module: SmartIrrigationModule) => {
+      this._pendingSaves.set(module.id, module);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
       timeoutId = window.setTimeout(() => {
-        this.saveToHA(module);
         timeoutId = null;
+        // Taken out before saving: an edit made while these are in flight
+        // belongs to the next round.
+        const batch = [...this._pendingSaves.values()];
+        this._pendingSaves.clear();
+        batch.forEach((m) => this.saveToHA(m));
       }, 500); // 500ms debounce
     };
   })();
@@ -197,6 +211,8 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
     try {
       const moduleToRemove = this.modules[index];
       const moduleid = moduleToRemove?.id;
+      // A save still waiting for the timer must not follow the delete.
+      this._pendingSaves.delete(moduleid);
 
       // Optimistic update
       const originalModules = this.modules;
@@ -559,3 +575,5 @@ class SmartIrrigationViewModules extends SubscribeMixin(LitElement) {
     `;
   }
 }
+
+export { SmartIrrigationViewModules };
