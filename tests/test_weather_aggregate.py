@@ -107,11 +107,11 @@ class TestSelectWindowAcceptsBothTimestampForms:
 class TestTheEntryPointsSurviveAnAwareNow:
     """An aware ``now`` must not detonate either, and must land in the rows' frame.
 
-    Every caller passes ``now`` naive on HA's clock -- the daily calculation and the
-    live estimate both read ``local_naive_now()`` -- and so does the default. An aware
-    ``now`` is read on HA's clock, the frame of the rows it is compared against: its
-    naive twin is the instant's wall time there. Written in UTC, and in scenes whose
-    result depends on ``now``, so that a dropped zone shows.
+    Every caller passes ``now`` naive on HA's clock -- the daily calculation reads
+    ``local_naive_now()``, the live estimate ``dt_util.now()`` made naive -- and so does
+    the default. An aware ``now`` is read on HA's clock, the frame of the rows it is
+    compared against: its naive twin is the instant's wall time there. Written in UTC,
+    and in scenes whose result depends on ``now``, so that a dropped zone shows.
     """
 
     def test_aggregate_window_accepts_an_aware_now(self):

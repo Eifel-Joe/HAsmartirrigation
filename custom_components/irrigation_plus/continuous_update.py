@@ -374,8 +374,9 @@ class ContinuousUpdateMixin:
             return
 
         # Naive on HA's clock, exactly like the interval path's RETRIEVED_AT -- the
-        # two write into the SAME buffer and aggregate_window compares the stamps
-        # against a watermark in that frame, so a tz-aware value here would raise.
+        # two write into the SAME buffer, whose stamps are compared with naive values
+        # (the coalescing against the zones' watermark, the prune against its cutoff),
+        # where a tz-aware one would raise.
         timestamp = local_naive_now()
         ha_unit = new_state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
         system_is_metric = self.hass.config.units is METRIC_SYSTEM

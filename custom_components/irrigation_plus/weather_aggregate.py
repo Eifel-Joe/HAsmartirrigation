@@ -346,10 +346,10 @@ def aggregate_window(
         The aggregated weather dict (including ``MAPPING_DATA_MULTIPLIER``), or
         None when there is nothing to aggregate.
     """
-    # `now` arrives naive on HA's clock from every caller -- the daily calculation and
-    # the live estimate both read local_naive_now() -- and the default is that clock
-    # too. An aware `now` is read on HA's clock by the store coercion, the frame of the
-    # row stamps it is compared against; a naive one comes back untouched.
+    # `now` arrives naive on HA's clock from every caller -- the daily calculation reads
+    # local_naive_now(), the live estimate dt_util.now() made naive -- and the default
+    # is that clock too. An aware `now` is read on HA's clock by the store coercion, the
+    # frame of the row stamps it is compared against; a naive one comes back untouched.
     # NOT-TO-DO: do not add a provenance parameter here: with one frame on every path
     #   there is nothing left for it to choose.
     # siehe tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow
@@ -906,10 +906,10 @@ def build_hourly_rows(
     both the window and the carry-forward. The caller then keeps the daily form,
     so the failure mode is today's behaviour rather than a fabricated series.
     """
-    # `now` arrives naive on HA's clock from every caller -- the daily calculation and
-    # the live estimate both read local_naive_now() -- and the default is that clock
-    # too. An aware `now` is read on HA's clock by the store coercion, the frame of the
-    # row stamps it is compared against; a naive one comes back untouched.
+    # `now` arrives naive on HA's clock from every caller -- the daily calculation reads
+    # local_naive_now(), the live estimate dt_util.now() made naive -- and the default
+    # is that clock too. An aware `now` is read on HA's clock by the store coercion, the
+    # frame of the row stamps it is compared against; a naive one comes back untouched.
     # NOT-TO-DO: do not add a provenance parameter here: with one frame on every path
     #   there is nothing left for it to choose.
     # siehe tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow
@@ -1093,10 +1093,10 @@ def build_substeps(
     then keeps the single-shot behaviour, so the failure mode is the status quo
     rather than a fabricated series.
     """
-    # `now` arrives naive on HA's clock from every caller -- the daily calculation and
-    # the live estimate both read local_naive_now() -- and the default is that clock
-    # too. An aware `now` is read on HA's clock by the store coercion, the frame of the
-    # row stamps it is compared against; a naive one comes back untouched.
+    # `now` arrives naive on HA's clock from every caller -- the daily calculation reads
+    # local_naive_now(), the live estimate dt_util.now() made naive -- and the default
+    # is that clock too. An aware `now` is read on HA's clock by the store coercion, the
+    # frame of the row stamps it is compared against; a naive one comes back untouched.
     # NOT-TO-DO: do not add a provenance parameter here: with one frame on every path
     #   there is nothing left for it to choose.
     # siehe tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow

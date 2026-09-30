@@ -125,8 +125,9 @@ class TestBookingACredit:
 
 class TestReadingTheLedger:
     def test_aware_stamps_are_flattened_to_naive_local(self):
-        """The window they are placed on is built from naive datetime.now(),
-        and comparing the two raises rather than misplacing anything."""
+        """The window they are placed on is built from naive stamps on HA's clock
+        (local_naive_now()), and comparing the two raises rather than misplacing
+        anything."""
         aware = "2026-05-22T10:00:00+00:00"
         ((stamp, mm),) = pending_bucket_events(
             {const.ZONE_PENDING_BUCKET_EVENTS: [{"ts": aware, "mm": 4.0}]}
