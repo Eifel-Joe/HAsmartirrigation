@@ -618,7 +618,7 @@ def _lift_legacy_stamps(data: dict) -> None:
     Fix: the writers stamp ``local_naive_now()`` from 14.2 on; this rewrites what an
       older release left, in one pass, so a zone's watermark and the buffer rows it is
       compared with move together.
-    Assumptions, both accepted upstream and named in the release notes:
+    Assumptions, both accepted in #160 and meant for the release notes:
       - the process zone at the upgrade is the one the stamps were written in -- a
         process ``TZ`` changed between writing and upgrading is misread;
       - after this, a change of HA's own time zone misreads up to a week of buffer:

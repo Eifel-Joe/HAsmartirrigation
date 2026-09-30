@@ -194,8 +194,9 @@ def _parse_stored_as_ha_local(value):
 
     Wurzel: it read a stored stamp as HA-local while the store wrote it on the PROCESS's
       clock (a bare ``datetime.now()``) -- on Docker/Core without ``TZ=`` the whole UTC
-      offset apart. On the proxy path that pushed the anchor onto the next calendar day,
-      so a whole day's ET was subtracted right after the daily calc.
+      offset apart. On the proxy path that moved the anchor by the offset -- west of UTC
+      onto the next calendar day, so a whole day's ET was subtracted right after the
+      daily calc.
     Fix: none here -- the store moved to this reader's frame. The writers read
       ``local_naive_now()`` and the store's 14.2 migration moved older stamps, so a naive
       value is HA-local and an aware one is converted with ``dt_util.as_local``: the

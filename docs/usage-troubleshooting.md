@@ -46,7 +46,8 @@ the two zones already agree, nothing moves. So leave the container's time zone (
 on a Core install, the machine's) as it is until Home Assistant has started once with the
 new release, and change it afterwards if you want to. If you change it in the same step,
 the first calculation afterwards covers a period that is too long or too short by the
-difference between the two zones, and the figures settle within a calculation or two.
+difference between the container's old and new time zone, and the figures settle within a
+calculation or two.
 
 Changing the time zone in Home Assistant itself has the same effect: the times already
 recorded carry no zone of their own, so the stored readings, which reach back up to a

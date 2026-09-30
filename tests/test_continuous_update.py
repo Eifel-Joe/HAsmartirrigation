@@ -478,8 +478,8 @@ class TestStateChanged:
         assert set(rows[0]) == {const.MAPPING_TEMPERATURE, const.RETRIEVED_AT}
         assert rows[0][const.MAPPING_TEMPERATURE] == 21.5
         assert isinstance(rows[0][const.RETRIEVED_AT], datetime.datetime)
-        # Naive local, like the poll path — aggregate_window compares it against
-        # a naive watermark and would raise on an aware value.
+        # Naive on HA's clock, like the poll path — the coalescing and the prune
+        # compare it with naive values and would raise on an aware one.
         assert rows[0][const.RETRIEVED_AT].tzinfo is None
         assert store.mappings[1][const.MAPPING_DATA_LAST_ENTRY] == {
             const.MAPPING_TEMPERATURE: 21.5

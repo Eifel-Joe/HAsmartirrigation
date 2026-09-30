@@ -1013,7 +1013,8 @@ def _process_timezone():
     ``tzlocal()`` rather than ``datetime.now().astimezone().tzinfo``: the latter is
     TODAY's fixed offset, and a stamp from the other side of a DST change is then read
     an hour off -- the buffer keeps seven days. Its own function so the suite can
-    substitute it: ``time.tzset()`` does not exist on Windows.
+    substitute it: ``time.tzset()`` does not exist on Windows. Its one caller is the
+    store migration (``lift_legacy_stamp``); nothing writes on this clock any more.
     siehe tests/test_time_provenance.py::test_a_fresh_process_reads_its_zone_per_date
     """
     return dateutil_tz.tzlocal()
@@ -1067,6 +1068,8 @@ def local_naive_now() -> datetime:
       this clock.
     NOT-TO-DO: do not return it aware. A naive/aware mix inside the live estimate's
       blanket ``except`` switches the estimate off instead of raising.
+    NOT-TO-DO: ``dt_util.naive_now()`` (newer Home Assistant) is not this clock: it is
+      the SYSTEM's local time, the process clock again.
     siehe tests/test_weather_buffer_one_frame.py and
       tests/test_time_provenance.py::test_local_naive_now_is_has_wall_clock_without_a_zone
     """
