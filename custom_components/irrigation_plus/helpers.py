@@ -1069,6 +1069,26 @@ def local_naive_now() -> datetime:
     return dt_util.now().replace(tzinfo=None)
 
 
+def lift_legacy_stamp(value):
+    """One stamp of a pre-14.2 store, moved from the process's clock onto HA's.
+
+    String in, string out: ``async_load`` converts nothing, so the loaded shape must
+    stay what the file held. A naive value is read in the process zone at its own date's
+    offset, an aware one as the instant it names; anything else -- ``None``, an
+    unparseable string, a non-string -- comes back exactly as found. Why and when this
+    runs: ``store._lift_legacy_stamps``.
+    """
+    if not isinstance(value, str):
+        return value
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=_process_timezone())
+    return dt_util.as_local(parsed).replace(tzinfo=None).isoformat()
+
+
 class CannotConnect(exceptions.HomeAssistantError):
     """Error to indicate we cannot connect."""
 

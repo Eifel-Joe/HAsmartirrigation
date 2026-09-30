@@ -90,7 +90,7 @@ async def test_migration_v10_adds_distributors_and_zone_fields(hass):
         "modules": [],
         "mappings": [],
     }
-    migrated = await store._async_migrate_func(10, old)
+    migrated = await store._async_migrate_major(10, old)
     assert migrated["distributors"] == []
     for z in migrated["zones"]:
         assert z["distributor_id"] is None

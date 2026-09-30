@@ -188,7 +188,7 @@ from .const import (
     ZONE_THROUGHPUT,
     ZONE_WATER_USED_TOTAL,
 )
-from .helpers import as_datetime, loadModules, zone_depth_default
+from .helpers import as_datetime, lift_legacy_stamp, loadModules, zone_depth_default
 from .localize import localize
 
 _LOGGER = logging.getLogger(__name__)
@@ -196,6 +196,9 @@ _LOGGER = logging.getLogger(__name__)
 DATA_REGISTRY = f"{DOMAIN}_storage"
 STORAGE_KEY = f"{DOMAIN}.storage"
 STORAGE_VERSION = 14
+# Minor 2: the five weather-buffer stamps are naive on HA's clock (up to minor 1 they
+# were on the process's). A MINOR bump on purpose -- see _lift_legacy_stamps.
+STORAGE_MINOR_VERSION = 2
 # Coalescing window (seconds) for the whole-document store write. Every
 # async_schedule_save() reserializes the ENTIRE store — config, zones, modules
 # and every sensor group's reading buffer — and replaces the file, so at 0 a
@@ -600,10 +603,68 @@ def _migrate_schedule_to_v14(old: dict) -> dict:
     return new
 
 
+def _lift_legacy_stamps(data: dict) -> None:
+    """Move the five weather-buffer stamps of a pre-14.2 store onto HA's clock, once.
+
+    Wurzel: up to 14.1 they were written by a bare ``datetime.now()`` -- the PROCESS's
+      clock -- while every reader compares them with HA-local values. On Docker/Core
+      without ``TZ=`` the two differ by the whole UTC offset.
+    Fix: the writers stamp ``local_naive_now()`` from 14.2 on; this rewrites what an
+      older release left, in one pass, so a zone's watermark and the buffer rows it is
+      compared with move together.
+    Assumptions, both accepted upstream and named in the release notes:
+      - the process zone at the upgrade is the one the stamps were written in -- a
+        process ``TZ`` changed between writing and upgrading is misread;
+      - after this, a change of HA's own time zone misreads up to a week of buffer:
+        the stamps carry no offset.
+    Why the MINOR version: since HA 2026.3 a Store refuses a stored major version above
+      its own, so a major bump would turn a rollback into a failed setup. A release that
+      knows 14.1 opens a 14.2 file, runs its own migrate function (whose steps stop at
+      13) and saves it back as 14.1: one window read off by the offset, then healed. A
+      later re-upgrade moves that file again -- one more window.
+    NOT-TO-DO: detect the frame from the data. A DST fall-back and a container ``TZ``
+      fix leave byte-identical traces in a naive series.
+    NOT-TO-DO: ``dt_util.as_local`` on a naive value only attaches HA's zone; it cannot
+      know the process's, so it moves nothing.
+    siehe tests/test_store_stamp_migration.py
+    """
+    for zone in data.get("zones") or []:
+        if not isinstance(zone, dict):
+            continue
+        for key in (ZONE_LAST_CALCULATED, ZONE_LAST_CONSUMED, ZONE_LAST_UPDATED):
+            if key in zone:
+                zone[key] = lift_legacy_stamp(zone[key])
+    for mapping in data.get("mappings") or []:
+        if not isinstance(mapping, dict):
+            continue
+        if MAPPING_DATA_LAST_UPDATED in mapping:
+            mapping[MAPPING_DATA_LAST_UPDATED] = lift_legacy_stamp(
+                mapping[MAPPING_DATA_LAST_UPDATED]
+            )
+        rows = mapping.get(MAPPING_DATA)
+        if isinstance(rows, list):
+            for row in rows:
+                if isinstance(row, dict) and RETRIEVED_AT in row:
+                    row[RETRIEVED_AT] = lift_legacy_stamp(row[RETRIEVED_AT])
+
+
 class MigratableStore(Store):
     """Store subclass that supports migration for Irrigation Plus storage."""
 
-    async def _async_migrate_func(self, old_version, data: dict):
+    async def _async_migrate_func(self, old_major_version, old_minor_version, data):
+        """Home Assistant's migrate hook in its three-argument form: majors, then minors.
+
+        Three parameters so that HA passes the stored minor version at all -- it calls a
+        two-parameter function with the major only. The major steps are unchanged in
+        ``_async_migrate_major``; a release that knows only 14.1 runs exactly those on a
+        14.2 file (see ``_lift_legacy_stamps``).
+        """
+        data = await self._async_migrate_major(old_major_version, data)
+        if (old_major_version, old_minor_version) < (14, 2):
+            _lift_legacy_stamps(data)
+        return data
+
+    async def _async_migrate_major(self, old_version, data: dict):
         """Migration function for Irrigation Plus storage.
 
         This function ALWAYS runs on version mismatch to ensure config compatibility.
@@ -900,7 +961,9 @@ class SmartIrrigationStorage:
         # write time to decide which payload to emit; see _data_to_save_scheduled.
         self._buffers_dirty = False
         self._unsub_stop = None
-        self._store = MigratableStore(hass, STORAGE_VERSION, STORAGE_KEY)
+        self._store = MigratableStore(
+            hass, STORAGE_VERSION, STORAGE_KEY, minor_version=STORAGE_MINOR_VERSION
+        )
 
     async def async_load(self) -> None:
         """Load the registry of schedule entries."""

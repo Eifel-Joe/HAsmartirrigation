@@ -52,7 +52,7 @@ def test_config_has_master_defaults():
 async def test_migration_seeds_master_defaults(hass):
     reg = await async_get_registry(hass)
     data = {"config": {}, "zones": []}
-    await reg._store._async_migrate_func(9, data)
+    await reg._store._async_migrate_major(9, data)
     cfg = data["config"]
     assert cfg["master_entity"] is None
     assert cfg["master_settle_seconds"] == 10

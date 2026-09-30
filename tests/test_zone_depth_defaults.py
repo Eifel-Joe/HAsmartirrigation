@@ -80,7 +80,7 @@ class TestMigrationV12:
     """
 
     async def test_imperial_unconverted_defaults_are_repaired(self):
-        out = await _store(metric=False)._async_migrate_func(11, _zones())
+        out = await _store(metric=False)._async_migrate_major(11, _zones())
         z = out["zones"][0]
         assert z[const.ZONE_MAXIMUM_BUCKET] == pytest.approx(24 / MM_PER_INCH)
         assert z[const.ZONE_DRAINAGE_RATE] == pytest.approx(20.0 / MM_PER_INCH)
@@ -88,14 +88,14 @@ class TestMigrationV12:
 
     async def test_metric_is_untouched(self):
         # Metric stores mm, so the constants are already correct there.
-        out = await _store(metric=True)._async_migrate_func(11, _zones())
+        out = await _store(metric=True)._async_migrate_major(11, _zones())
         z = out["zones"][0]
         assert z[const.ZONE_MAXIMUM_BUCKET] == const.CONF_DEFAULT_MAXIMUM_BUCKET
         assert z[const.ZONE_BUCKET_THRESHOLD] == const.CONF_DEFAULT_BUCKET_THRESHOLD
 
     async def test_deliberate_values_are_untouched(self):
         # Only an EXACT match with the raw constant is treated as unconverted.
-        out = await _store(metric=False)._async_migrate_func(
+        out = await _store(metric=False)._async_migrate_major(
             11,
             _zones(
                 **{
@@ -112,6 +112,6 @@ class TestMigrationV12:
 
     async def test_is_idempotent(self):
         store = _store(metric=False)
-        once = await store._async_migrate_func(11, _zones())
-        twice = await store._async_migrate_func(11, once)
+        once = await store._async_migrate_major(11, _zones())
+        twice = await store._async_migrate_major(11, once)
         assert twice["zones"][0] == once["zones"][0]
