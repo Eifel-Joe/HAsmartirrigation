@@ -1,15 +1,16 @@
 """Which zone the live estimate reads each kind of naive timestamp in.
 
-Two kinds reach it and they need opposite answers:
+Two kinds reach it:
 
-- **stored** stamps (`last_calculated`, `last_updated`) were written by a bare
-  ``datetime.now()``, so naive means the PROCESS's zone;
+- **stored** stamps (`last_calculated`, `last_updated`) are written on HA's clock
+  (``local_naive_now()``), and the store's 14.2 migration moved the ones older
+  releases wrote on the PROCESS's clock;
 - **client** rows (the hourly forecast series) are site-local clock times off a
   weather API, so naive means HA's configured zone, and always did.
 
-These tests are characterisation, not aspiration. They pin what the code does
-**today**, including the half that is wrong, so that the change which inverts it is
-visible as a decision rather than as drift. The wrong half is marked as such.
+Both therefore read in HA's zone. The stored half used to be wrong: a bare
+``datetime.now()`` wrote the process's clock, and on a container without ``TZ=`` this
+reader was the whole UTC offset off.
 """
 
 import datetime
@@ -50,36 +51,29 @@ def test_a_client_forecast_row_is_read_in_ha_local(split_zones):
     assert got == datetime.datetime(2026, 9, 21, 12, 0)
 
 
-def test_a_stored_stamp_is_still_read_in_ha_local_today(split_zones):
-    """⚠️ THE DEFECT, pinned deliberately.
+def test_a_stored_stamp_is_read_on_has_clock(split_zones):
+    """The store now holds what this reader always assumed.
 
-    ``_parse_stored_as_ha_local`` applies the CLIENT rule to a STORED stamp: an aware
-    value is converted with ``dt_util.as_local``, and a naive one is taken as HA-local
-    by every consumer downstream. A stored stamp is process-local, so on a container
-    without ``TZ=`` this reads it as the whole UTC offset away from the instant it
-    marks.
-
-    This test exists so that the change which inverts it cannot happen quietly. It is
-    NOT asserting the right answer -- it is asserting the current one, and it is meant
-    to be replaced, not preserved.
+    ``_parse_stored_as_ha_local`` reads a stored stamp as HA-local: an aware value
+    through ``dt_util.as_local``, a naive one as it is. Stamps used to be written on the
+    process's clock, so on a container without ``TZ=`` that was the whole UTC offset
+    off. Written on HA's clock now, and migrated there at 14.2, the reading is right --
+    and the store provenance gives the same answer.
     """
     aware = datetime.datetime(2026, 9, 21, 10, 0, tzinfo=UTC)
 
     got = live_estimate._parse_stored_as_ha_local(aware)
 
-    assert got == datetime.datetime(2026, 9, 21, 12, 0), "today's reading, not the right one"
-    # What the store provenance would say, for the size of the error:
-    assert helpers.coerce_stamp(aware, helpers.STAMP_FROM_STORE) == datetime.datetime(
-        2026, 9, 21, 10, 0
-    )
+    assert got == datetime.datetime(2026, 9, 21, 12, 0)
+    assert helpers.coerce_stamp(aware, helpers.STAMP_FROM_STORE) == got
 
 
 def test_a_naive_stored_stamp_passes_through_either_way(split_zones):
-    """The reason the defect is invisible: today every stored stamp is naive.
+    """Every stored stamp is naive, and a naive value is already in the frame.
 
-    Both rules leave a naive value alone, so the two readings only diverge once the
-    write side starts producing aware stamps -- which is why the reader change and the
-    writer change cannot be split the other way round.
+    Both rules leave it alone. What put a naive stamp in the right frame is the write
+    side and the store migration, not this reader -- which is why the defect was
+    invisible here while it lasted.
     """
     naive = datetime.datetime(2026, 9, 21, 10, 0)
 

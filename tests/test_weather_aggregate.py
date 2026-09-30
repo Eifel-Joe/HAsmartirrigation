@@ -3,6 +3,7 @@
 import datetime
 
 import pytest
+from homeassistant.util import dt as dt_util
 
 from custom_components.irrigation_plus import const, helpers
 from custom_components.irrigation_plus.weather_aggregate import (
@@ -25,16 +26,15 @@ def _r(offset_h, **vals):
 class TestSelectWindowAcceptsBothTimestampForms:
     """An AWARE stamp must not detonate here, and must land where its naive twin does.
 
-    Every stamp in the buffer is naive today, so these tests add a case rather than
-    change one. They exist because the write side is about to start producing aware
-    stamps: without them, the first aware value reaching this function raises
+    Every stamp in the buffer is naive, so these tests add a case rather than change
+    one: without them, the first aware value reaching this function raises
     ``can't compare offset-naive and offset-aware datetimes`` inside a blanket
     ``except``, which does not crash anything -- it silently switches the live
     estimate off with a plausible "last calculated" still on display.
 
-    A stored stamp's naive form is the PROCESS's zone, so an aware one is read there.
-    The process zone is substituted rather than set, because ``time.tzset()`` does not
-    exist on Windows.
+    A stored stamp's naive form is HA's clock (the writers use ``local_naive_now()``
+    and the store's 14.2 migration moved older stamps), so an aware one is read on
+    HA's clock, and its naive twin is the same wall time in HA's zone.
     """
 
     @staticmethod
@@ -42,11 +42,11 @@ class TestSelectWindowAcceptsBothTimestampForms:
         naive = T0 + datetime.timedelta(hours=offset_h)
         return {const.RETRIEVED_AT: naive.replace(tzinfo=tz), **vals}
 
-    def test_an_aware_retrieved_at_splits_where_its_naive_twin_does(self, monkeypatch):
-        monkeypatch.setattr(helpers, "_process_timezone", lambda: UTC)
+    def test_an_aware_retrieved_at_splits_where_its_naive_twin_does(self):
+        ha = dt_util.get_default_time_zone()
         wm = T0 + datetime.timedelta(hours=2)
         naive_rows = [_r(h, Temperature=10 + h) for h in (0, 1, 2, 3, 4)]
-        aware_rows = [self._aware(h, UTC, Temperature=10 + h) for h in (0, 1, 2, 3, 4)]
+        aware_rows = [self._aware(h, ha, Temperature=10 + h) for h in (0, 1, 2, 3, 4)]
 
         n_boundary, n_window = select_window(naive_rows, wm)
         a_boundary, a_window = select_window(aware_rows, wm)
@@ -58,31 +58,37 @@ class TestSelectWindowAcceptsBothTimestampForms:
         assert (a_boundary is None) == (n_boundary is None)
         assert a_boundary["Temperature"] == n_boundary["Temperature"]
 
-    def test_an_aware_watermark_splits_where_its_naive_twin_does(self, monkeypatch):
-        monkeypatch.setattr(helpers, "_process_timezone", lambda: UTC)
+    def test_an_aware_watermark_splits_where_its_naive_twin_does(self):
         rows = [_r(h, Temperature=10 + h) for h in (0, 1, 2, 3, 4)]
         naive_wm = T0 + datetime.timedelta(hours=2)
 
         _, n_window = select_window(rows, naive_wm)
-        _, a_window = select_window(rows, naive_wm.replace(tzinfo=UTC))
+        _, a_window = select_window(
+            rows, naive_wm.replace(tzinfo=dt_util.get_default_time_zone())
+        )
 
         assert [r["Temperature"] for r in a_window] == [
             r["Temperature"] for r in n_window
         ]
 
-    def test_an_aware_stamp_is_read_in_the_process_zone_not_has(self, monkeypatch):
-        """The provenance is what decides, and it is the store's here.
+    def test_an_aware_stamp_is_read_on_has_clock_not_the_process_s(self, monkeypatch):
+        """HA's clock decides, not the process's.
 
-        With the container at UTC+2, an 06:00 UTC stamp is 08:00 on the process clock,
-        so it falls AFTER an 07:00 watermark rather than before it. Reading it as
-        HA-local would put it on the other side of the split.
+        With the user at UTC+2 and the container at UTC, an 06:00 UTC stamp is 08:00 on
+        the user's clock, so it falls AFTER an 07:00 watermark. Read on the process's
+        clock it would be 06:00, on the other side of the split.
         """
         plus_two = datetime.timezone(datetime.timedelta(hours=2))
-        monkeypatch.setattr(helpers, "_process_timezone", lambda: plus_two)
-        rows = [self._aware(0, UTC, Temperature=10)]  # 06:00 UTC == 08:00 process
-        wm = T0 + datetime.timedelta(hours=1)  # 07:00 naive process time
+        monkeypatch.setattr(helpers, "_process_timezone", lambda: UTC)
+        before = dt_util.get_default_time_zone()
+        dt_util.set_default_time_zone(plus_two)
+        try:
+            rows = [self._aware(0, UTC, Temperature=10)]  # 06:00 UTC == 08:00 HA
+            wm = T0 + datetime.timedelta(hours=1)  # 07:00 on HA's clock
 
-        boundary, window = select_window(rows, wm)
+            boundary, window = select_window(rows, wm)
+        finally:
+            dt_util.set_default_time_zone(before)
 
         assert boundary is None, "08:00 is not at or before 07:00"
         assert len(window) == 1
@@ -91,47 +97,42 @@ class TestSelectWindowAcceptsBothTimestampForms:
 class TestTheEntryPointsSurviveAnAwareNow:
     """An aware ``now`` must not detonate either, and must land in the rows' frame.
 
-    ``now`` is the one input on these three functions whose provenance depends on the
-    CALLER: the daily calculation passes its own process clock, the live estimate
-    passes HA-local, and one live-estimate call site passes nothing at all and takes
-    the default. Nothing in the signature says which, and that is what makes this
-    input the fragile one.
-
-    The entry point cannot know, so it reads an unnamed aware ``now`` in the frame of
-    the rows it is about to be compared against -- the only frame in which that
-    comparison means anything. Naive values, which is all of them today, are untouched.
+    Every caller passes ``now`` naive on HA's clock -- the daily calculation and the
+    live estimate both read ``local_naive_now()`` -- and so does the default. An aware
+    ``now`` is read on HA's clock, the frame of the rows it is compared against, so its
+    naive twin is the same wall time in HA's zone.
     """
 
-    def test_aggregate_window_accepts_an_aware_now(self, monkeypatch):
-        monkeypatch.setattr(helpers, "_process_timezone", lambda: UTC)
+    def test_aggregate_window_accepts_an_aware_now(self):
         rows = [_r(0, Temperature=10), _r(1, Temperature=12)]
         cfg = {}
         naive_now = T0 + datetime.timedelta(hours=2)
+        aware_now = naive_now.replace(tzinfo=dt_util.get_default_time_zone())
 
         plain = aggregate_window(rows, None, cfg, now=naive_now)
-        aware = aggregate_window(rows, None, cfg, now=naive_now.replace(tzinfo=UTC))
+        aware = aggregate_window(rows, None, cfg, now=aware_now)
 
         assert aware == plain
 
-    def test_build_substeps_accepts_an_aware_now(self, monkeypatch):
-        monkeypatch.setattr(helpers, "_process_timezone", lambda: UTC)
+    def test_build_substeps_accepts_an_aware_now(self):
         rows = [_r(0, Precipitation=0.0), _r(1, Precipitation=1.0)]
         cfg = {}
         naive_now = T0 + datetime.timedelta(hours=2)
+        aware_now = naive_now.replace(tzinfo=dt_util.get_default_time_zone())
 
         plain = build_substeps(rows, None, cfg, now=naive_now)
-        aware = build_substeps(rows, None, cfg, now=naive_now.replace(tzinfo=UTC))
+        aware = build_substeps(rows, None, cfg, now=aware_now)
 
         assert aware == plain
 
-    def test_build_hourly_rows_accepts_an_aware_now(self, monkeypatch):
-        monkeypatch.setattr(helpers, "_process_timezone", lambda: UTC)
+    def test_build_hourly_rows_accepts_an_aware_now(self):
         rows = [_r(0, Temperature=10), _r(1, Temperature=12)]
         cfg = {}
         naive_now = T0 + datetime.timedelta(hours=2)
+        aware_now = naive_now.replace(tzinfo=dt_util.get_default_time_zone())
 
         plain = build_hourly_rows(rows, None, cfg, now=naive_now)
-        aware = build_hourly_rows(rows, None, cfg, now=naive_now.replace(tzinfo=UTC))
+        aware = build_hourly_rows(rows, None, cfg, now=aware_now)
 
         assert aware == plain
 

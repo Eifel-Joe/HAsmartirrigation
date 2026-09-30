@@ -998,9 +998,11 @@ def as_datetime(value) -> datetime | None:
     return parse_datetime(value)
 
 
-# The two things a NAIVE timestamp can mean on the weather-buffer paths. They are
-# separate values rather than one flag because the coercion below refuses anything
-# it does not recognise, and a typo must not silently pick one of the two rules.
+# The two kinds of stamp on the weather-buffer paths: written by this integration
+# (store) and read off a weather API (client). Both are naive on HA's clock now and
+# coerce alike; they stay separate values so every call site keeps saying which kind
+# it holds, and because the coercion refuses anything it does not recognise -- a
+# typo must not silently pick a rule.
 STAMP_FROM_STORE = "stamp-from-store"
 STAMP_FROM_CLIENT = "stamp-from-client"
 
@@ -1018,30 +1020,22 @@ def _process_timezone():
 
 
 def coerce_stamp(value, provenance) -> datetime | None:
-    """Normalise a timestamp to the NAIVE form its path uses, by its provenance.
+    """Normalise a timestamp to the naive frame the weather-buffer paths use: HA's clock.
 
-    Wurzel: a naive stamp on these paths means one of two opposite things, and
-      nothing said which. ``STAMP_FROM_STORE`` values were written by a bare
-      ``datetime.now()``, so naive means the PROCESS's zone. ``STAMP_FROM_CLIENT``
-      values are site-local clock times off a weather API and have always meant HA's
-      configured zone. The two agree on HA OS and Supervised -- which is where this
-      gets tested -- and differ by the whole UTC offset on Docker/Core without
-      ``TZ=``. A flat rule in either direction is wrong for one of the two groups.
-    Fix: name the provenance at every place a stamp is produced or read, and make it
-      a REQUIRED argument so a caller cannot stay silent about which kind it holds.
-    Direction, and it is deliberate: this normalises to NAIVE, not to aware. Every
-      stamp on these paths is naive today, so a naive input is returned untouched and
-      no number can move. What changes is that an AWARE input no longer detonates --
-      and an aware input is what the write-side change will start producing.
-    NOT-TO-DO: do not give ``provenance`` a default. The whole requirement is that a
-      future reader cannot coerce a forecast row as if it were a buffer stamp, and a
-      default is exactly how that happens.
-    NOT-TO-DO: do not let this raise. Its callers sit inside a blanket ``except``
-      that turns a raise into the live estimate quietly going unavailable with a
-      plausible "last calculated" still on display, so an unreadable value is no
-      stamp and the caller keeps its fallback.
-    Beleg: fed 10:00 UTC with the process at UTC and HA at Europe/Berlin, the two
-      provenances give 10:00 and 12:00 -- the offset apart, which is the error size.
+    Wurzel: a naive stamp on these paths meant one of two opposite things. Stored
+      stamps were written by a bare ``datetime.now()`` (the PROCESS's zone); client rows
+      are site-local clock times off a weather API (HA's zone). On Docker/Core without
+      ``TZ=`` the two differ by the whole UTC offset.
+    Fix: stored stamps are on HA's clock now -- the writers read ``local_naive_now()``
+      and the store's 14.2 migration moved older ones -- so both provenances mean one
+      frame: a naive value comes back untouched, an aware one is read on HA's clock.
+      Both names stay, so every call site still says which kind of stamp it holds.
+    NOT-TO-DO: do not give ``provenance`` a default. A caller must not be able to stay
+      silent about which kind it holds.
+    NOT-TO-DO: do not let this raise. Its callers sit inside a blanket ``except`` that
+      turns a raise into the live estimate quietly going unavailable with a plausible
+      "last calculated" still on display, so an unreadable value is no stamp and the
+      caller keeps its fallback.
     siehe tests/test_time_provenance.py
     """
     if provenance not in (STAMP_FROM_STORE, STAMP_FROM_CLIENT):
@@ -1056,8 +1050,6 @@ def coerce_stamp(value, provenance) -> datetime | None:
         return None
     if parsed.tzinfo is None:
         return parsed
-    if provenance == STAMP_FROM_STORE:
-        return parsed.astimezone(_process_timezone()).replace(tzinfo=None)
     return dt_util.as_local(parsed).replace(tzinfo=None)
 
 

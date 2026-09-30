@@ -1,20 +1,21 @@
-"""The two time provenances, named.
+"""The two time provenances, named -- and, since the store's 14.2 migration, one clock.
 
-A naive timestamp on these paths means one of two different things, and nothing in
-the code said which:
+A naive timestamp on these paths used to mean one of two different things:
 
-- a **stored** stamp was written by a bare ``datetime.now()``, so naive means the
-  zone the PROCESS was in;
-- a **client** row is a site-local clock time that came out of a weather API, so
-  naive means HA's configured zone, and always did.
+- a **stored** stamp was written by a bare ``datetime.now()``, so naive meant the zone
+  the PROCESS was in;
+- a **client** row is a site-local clock time that came out of a weather API, so naive
+  means HA's configured zone, and always did.
 
-The two agree on HA OS and Supervised, which is why the seam went unnoticed. On
-Docker or Core without ``TZ=`` they differ by the whole UTC offset.
+The two agree on HA OS and Supervised, which is why the seam went unnoticed; on Docker or
+Core without ``TZ=`` they differed by the whole UTC offset. Stored stamps are now written
+on HA's clock (``local_naive_now()``) and the store migration moved the older ones, so
+both provenances read the same way. The names stay: every call site still says which kind
+it holds.
 
-These tests pin the vocabulary only. Coercion here normalises TO the naive form each
-path already uses -- it does not make anything aware. Turning a stamp aware would
-raise ``can't compare offset-naive and offset-aware`` inside a blanket ``except``,
-i.e. silently disable the live estimate, which is the opposite of a fix.
+Coercion normalises to the NAIVE form both paths use -- it does not make anything aware.
+An aware stamp inside the live estimate's blanket ``except`` would raise
+``can't compare offset-naive and offset-aware`` there, i.e. silently disable the estimate.
 """
 
 import datetime
@@ -53,28 +54,28 @@ def split_zones(monkeypatch):
     dt_util.set_default_time_zone(UTC)
 
 
-def test_the_same_instant_coerces_differently_per_provenance(split_zones):
-    """One aware instant, two provenances, two naive results the UTC offset apart.
+def test_an_aware_instant_is_read_on_has_clock_under_either_provenance(split_zones):
+    """One aware instant, both provenances, one answer: 12:00 on the user's clock.
 
-    This is the whole point of naming them: 10:00 UTC is 10:00 on the process clock
-    and 12:00 on the user's, and a reader with one rule cannot be right about both.
+    Stored stamps are on HA's clock now, so the store provenance reads an aware one
+    there too -- the answer the client provenance always gave. On the process's clock
+    it was 10:00, the whole offset away.
     """
     instant = datetime.datetime(2026, 9, 21, 10, 0, tzinfo=UTC)
 
     stored = coerce_stamp(instant, STAMP_FROM_STORE)
     client = coerce_stamp(instant, STAMP_FROM_CLIENT)
 
-    assert stored == datetime.datetime(2026, 9, 21, 10, 0)
+    assert stored == datetime.datetime(2026, 9, 21, 12, 0)
     assert client == datetime.datetime(2026, 9, 21, 12, 0)
-    assert client - stored == datetime.timedelta(hours=2)
     assert stored.tzinfo is None and client.tzinfo is None
 
 
 def test_a_naive_value_is_returned_unchanged_under_either_provenance(split_zones):
-    """What makes this change behaviour-preserving, so it is a test and not a claim.
+    """A naive stamp is already in the frame, so nothing moves it.
 
-    Every stamp on these paths is naive today, so if naive values passed through
-    untouched then no number can move -- and that is exactly what must hold.
+    Every stamp a writer produces is naive on HA's clock, and so is every stamp the
+    store migration leaves; coercing one again must not shift it.
     """
     naive = datetime.datetime(2026, 9, 21, 12, 0)
 
