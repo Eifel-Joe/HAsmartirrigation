@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from freezegun import freeze_time
 from homeassistant.const import CONF_ELEVATION, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
@@ -645,8 +646,11 @@ class TestCoalescing:
         assert len(rows) == 1
         assert rows[0][const.MAPPING_TEMPERATURE] == 20.0
         assert rows[0][const.MAPPING_HUMIDITY] == 55.0
-        # Keeps the FIRST reading's stamp, not the merged-in one.
-        assert rows[0][const.RETRIEVED_AT] == datetime.datetime(2026, 8, 8, 12, 0, 0)
+        # Keeps the FIRST reading's stamp, not the merged-in one -- on HA's clock, the
+        # frame every weather-buffer stamp is written in.
+        assert rows[0][const.RETRIEVED_AT] == dt_util.as_local(
+            datetime.datetime(2026, 8, 8, 12, 0, 0, tzinfo=datetime.UTC)
+        ).replace(tzinfo=None)
         # Carry-forward still updates for both fields regardless of row placement.
         assert store.mappings[1][const.MAPPING_DATA_LAST_ENTRY] == {
             const.MAPPING_TEMPERATURE: 20.0,

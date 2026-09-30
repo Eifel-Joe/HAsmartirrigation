@@ -9,7 +9,7 @@ Protected by tests/test_calculate_module.py (calculate_module characterization).
 
 import functools
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import homeassistant.util.dt as dt_util
 from homeassistant.core import callback
@@ -27,7 +27,7 @@ from .et_estimate import (
 )
 from .forecast_window import expected_rain
 from .helpers import as_datetime as _as_datetime
-from .helpers import convert_between, loadModules
+from .helpers import convert_between, loadModules, local_naive_now
 from .localize import localize
 from .weather_aggregate import (
     aggregate_window,
@@ -264,7 +264,7 @@ class CalculationMixin:
         longer exists).
         """
         _LOGGER.info("Clearing all weatherdata")
-        now = datetime.now()
+        now = local_naive_now()
         # The deadband's reference values are not part of the store, so emptying
         # the buffers above does not touch them; left stale they suppress the
         # readings that would refill those buffers. See
@@ -376,7 +376,7 @@ class CalculationMixin:
         if mapping_id is None:
             return
         if now is None:
-            now = datetime.now()
+            now = local_naive_now()
         mapping = self.store.get_mapping(mapping_id)
         if not mapping:
             return
@@ -429,7 +429,7 @@ class CalculationMixin:
         _LOGGER.info("Calculating all automatic zones")
         zones = await self.store.async_get_zones()
 
-        now = datetime.now()
+        now = local_naive_now()
         forecastdata = None
         touched_mappings = set()
         for zone in zones:
@@ -495,7 +495,7 @@ class CalculationMixin:
         """
         _LOGGER.debug("async_calculate_zone: Calculating zone %s", zone_id)
         if now is None:
-            now = datetime.now()
+            now = local_naive_now()
         zone = self.store.get_zone(zone_id)
         if zone is None:
             return
@@ -931,7 +931,7 @@ class CalculationMixin:
         # window end land in different hours and silently drop the calculation
         # back to the single-shot path.
         if now is None:
-            now = datetime.now()
+            now = local_naive_now()
         # precip = 0
         ha_config_is_metric = self.hass.config.units is METRIC_SYSTEM
         bucket = zone.get(const.ZONE_BUCKET)

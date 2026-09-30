@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from freezegun import freeze_time
+from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
@@ -229,7 +230,10 @@ async def test_a_lowered_maximum_clamps_the_stored_level_as_a_statement(
     after = store.get_zone(zid)
     assert after[const.ZONE_BUCKET] == 10.0
     assert after[const.ZONE_MAXIMUM_BUCKET] == 10.0
-    assert after[const.ZONE_LAST_CONSUMED] == SAVED_AT
+    # The moment of the save, on HA's clock -- the frame the window is measured in.
+    assert after[const.ZONE_LAST_CONSUMED] == dt_util.as_local(
+        SAVED_AT.replace(tzinfo=datetime.UTC)
+    ).replace(tzinfo=None)
     assert after[const.ZONE_PENDING_BUCKET_EVENTS] == []
 
 

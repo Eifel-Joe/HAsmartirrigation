@@ -42,7 +42,7 @@ from .et_hourly import (
     solar_elevation_sin,
     svp_from_t,
 )
-from .helpers import STAMP_FROM_STORE, coerce_stamp
+from .helpers import STAMP_FROM_STORE, coerce_stamp, local_naive_now
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -346,22 +346,14 @@ def aggregate_window(
         The aggregated weather dict (including ``MAPPING_DATA_MULTIPLIER``), or
         None when there is nothing to aggregate.
     """
-    # `now` is the one input here whose provenance depends on the CALLER: the daily
-    # calculation passes its own process clock, the live estimate passes HA-local, and
-    # one live-estimate call site passes nothing and lands on this default. Nothing in
-    # the signature can say which, so the coercion is the store's -- the frame of the
-    # row stamps this value is about to be compared against, and the only frame in
-    # which that comparison means anything. A naive value, which is every one of them
-    # today, comes back untouched.
-    # NOT-TO-DO: do not add a provenance parameter here to "solve" it. Measured: `now=`
-    #   appears 94 times across 9 test files, so a required argument is ~94 test edits
-    #   in a change whose whole point is that it moves no number.
+    # `now` arrives naive on HA's clock from every caller -- the daily calculation and
+    # the live estimate both read local_naive_now() -- and the default is that clock
+    # too. An aware `now` is read on HA's clock by the store coercion, the frame of the
+    # row stamps it is compared against; a naive one comes back untouched.
+    # NOT-TO-DO: do not add a provenance parameter here: with one frame on every path
+    #   there is nothing left for it to choose.
     # siehe tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow
-    now = (
-        coerce_stamp(now, STAMP_FROM_STORE)
-        if now is not None
-        else datetime.datetime.now()
-    )
+    now = coerce_stamp(now, STAMP_FROM_STORE) if now is not None else local_naive_now()
     mappings_config = mappings_config or {}
 
     boundary, window = select_window(readings, watermark)
@@ -914,22 +906,14 @@ def build_hourly_rows(
     both the window and the carry-forward. The caller then keeps the daily form,
     so the failure mode is today's behaviour rather than a fabricated series.
     """
-    # `now` is the one input here whose provenance depends on the CALLER: the daily
-    # calculation passes its own process clock, the live estimate passes HA-local, and
-    # one live-estimate call site passes nothing and lands on this default. Nothing in
-    # the signature can say which, so the coercion is the store's -- the frame of the
-    # row stamps this value is about to be compared against, and the only frame in
-    # which that comparison means anything. A naive value, which is every one of them
-    # today, comes back untouched.
-    # NOT-TO-DO: do not add a provenance parameter here to "solve" it. Measured: `now=`
-    #   appears 94 times across 9 test files, so a required argument is ~94 test edits
-    #   in a change whose whole point is that it moves no number.
+    # `now` arrives naive on HA's clock from every caller -- the daily calculation and
+    # the live estimate both read local_naive_now() -- and the default is that clock
+    # too. An aware `now` is read on HA's clock by the store coercion, the frame of the
+    # row stamps it is compared against; a naive one comes back untouched.
+    # NOT-TO-DO: do not add a provenance parameter here: with one frame on every path
+    #   there is nothing left for it to choose.
     # siehe tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow
-    now = (
-        coerce_stamp(now, STAMP_FROM_STORE)
-        if now is not None
-        else datetime.datetime.now()
-    )
+    now = coerce_stamp(now, STAMP_FROM_STORE) if now is not None else local_naive_now()
 
     effective, start, end = _effective_series(readings, watermark, now)
     if effective is None:
@@ -1109,22 +1093,14 @@ def build_substeps(
     then keeps the single-shot behaviour, so the failure mode is the status quo
     rather than a fabricated series.
     """
-    # `now` is the one input here whose provenance depends on the CALLER: the daily
-    # calculation passes its own process clock, the live estimate passes HA-local, and
-    # one live-estimate call site passes nothing and lands on this default. Nothing in
-    # the signature can say which, so the coercion is the store's -- the frame of the
-    # row stamps this value is about to be compared against, and the only frame in
-    # which that comparison means anything. A naive value, which is every one of them
-    # today, comes back untouched.
-    # NOT-TO-DO: do not add a provenance parameter here to "solve" it. Measured: `now=`
-    #   appears 94 times across 9 test files, so a required argument is ~94 test edits
-    #   in a change whose whole point is that it moves no number.
+    # `now` arrives naive on HA's clock from every caller -- the daily calculation and
+    # the live estimate both read local_naive_now() -- and the default is that clock
+    # too. An aware `now` is read on HA's clock by the store coercion, the frame of the
+    # row stamps it is compared against; a naive one comes back untouched.
+    # NOT-TO-DO: do not add a provenance parameter here: with one frame on every path
+    #   there is nothing left for it to choose.
     # siehe tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow
-    now = (
-        coerce_stamp(now, STAMP_FROM_STORE)
-        if now is not None
-        else datetime.datetime.now()
-    )
+    now = coerce_stamp(now, STAMP_FROM_STORE) if now is not None else local_naive_now()
 
     effective, start, end = _effective_series(readings, watermark, now)
     if effective is None:
