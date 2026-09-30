@@ -49,6 +49,9 @@
 - **HA-Test:** core-2026.9.3, HA OS 18.3, Europe/Berlin → Major-Sperre aktiv, Live-Test L2 übt sie.
 - **Kein Produktionscode** im echten Branch; der Rev-3-Worktree `issue22-work\wt` ist unverändert
   (Task 0 verschiebt ihn nach `_erledigt`).
+- **Plan und Außenaktionen vom User freigegeben.** Stands-Kommentar Eifel-Joe#22 `5910516906`
+  (gepostet = freigegeben, JSON-Vergleich 6083 = 6083 Zeichen; Label bleibt `upstream:freigegeben`);
+  `archive/design-history` mit Nachtrag, Plan, Probe-Skripten und diesem Stand gepusht.
 
 ### Verworfen
 
@@ -73,12 +76,11 @@
 
 ### Nächste Schritte
 
-1. **Freigabe** des Plans und der gebündelten Außenaktionen: Push `archive/design-history`
-   (Nachtrag, Plan, Probe-Skripte, dieser Stand) + Stands-Kommentar Eifel-Joe#22
-   (`issue22-work\texts\comment-22-plan-2026-09-30.md`).
-2. **Umsetzung in eigener Sitzung**: Plan Task 0 → 11, `superpowers:subagent-driven-development` +
-   TDD; Task 10 (Live-Test HA-Test) und Task 11 (PR) mit Freigaben.
-3. Danach production neu bauen mit allem Neuen (upstream + JustChr#185 + dieser PR + Branding),
+1. **Umsetzung in eigener Sitzung**: Plan Task 0 → 11, `superpowers:subagent-driven-development` +
+   TDD; Task 10 (Live-Test HA-Test) und Task 11 (PR) mit Freigaben. Vorher `git fetch upstream`:
+   steht `upstream/master` nicht mehr auf `0b9a71bd`, zuerst Plan Task 0 Schritt 1 (Anker neu lesen,
+   Baseline neu messen).
+2. Danach production neu bauen mit allem Neuen (upstream + JustChr#185 + dieser PR + Branding),
    Fork-Release, HA-Prod-Update (Neustart nur mit Ja).
 
 ### Empfohlene Skills
