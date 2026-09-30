@@ -447,9 +447,9 @@ class LiveEstimateMixin:
             if when is None:
                 continue
             if when.tzinfo is not None:
-                # A forecast row is site-local clock time off an API: naive means HA's
-                # zone here, and always did. Named rather than open-coded so it cannot
-                # be mistaken for the store's rule, which is the opposite.
+                # An aware forecast row lands on HA's clock, the hour the zone is priced
+                # for; a naive one is already HA-local. The provenance is named so the
+                # call site says which kind of stamp it holds.
                 when = coerce_stamp(when, STAMP_FROM_CLIENT)
             try:
                 temp = float(temp)
@@ -490,9 +490,9 @@ class LiveEstimateMixin:
             if when is None or rate is None:
                 continue
             if when.tzinfo is not None:
-                # A forecast row is site-local clock time off an API: naive means HA's
-                # zone here, and always did. Named rather than open-coded so it cannot
-                # be mistaken for the store's rule, which is the opposite.
+                # An aware forecast row lands on HA's clock, the hour the zone is priced
+                # for; a naive one is already HA-local. The provenance is named so the
+                # call site says which kind of stamp it holds.
                 when = coerce_stamp(when, STAMP_FROM_CLIENT)
             out.append((when, float(rate)))
         return out or None
@@ -528,9 +528,9 @@ class LiveEstimateMixin:
             if when is None or temp is None:
                 continue
             if when.tzinfo is not None:
-                # A forecast row is site-local clock time off an API: naive means HA's
-                # zone here, and always did. Named rather than open-coded so it cannot
-                # be mistaken for the store's rule, which is the opposite.
+                # An aware forecast row lands on HA's clock, the hour the zone is priced
+                # for; a naive one is already HA-local. The provenance is named so the
+                # call site says which kind of stamp it holds.
                 when = coerce_stamp(when, STAMP_FROM_CLIENT)
             out.append((when, float(temp)))
         return out or None

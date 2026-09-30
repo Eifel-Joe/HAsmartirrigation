@@ -148,8 +148,8 @@ def test_a_fresh_process_reads_its_zone_per_date():
 def test_coercing_without_naming_a_provenance_is_an_error():
     """No default provenance, so a caller cannot stay silent about which kind it holds.
 
-    The two kinds read alike since the store's 14.2 migration; the name at every call
-    site is what still says which stamps a future difference between them would touch.
+    The two kinds read alike since the aware branch moved to HA's clock; the name at
+    every call site is what still says which stamps a future difference would touch.
     """
     with pytest.raises(TypeError):
         coerce_stamp(datetime.datetime(2026, 9, 21, 12, 0))

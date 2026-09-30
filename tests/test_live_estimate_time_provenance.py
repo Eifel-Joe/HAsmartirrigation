@@ -15,6 +15,7 @@ reader was the whole UTC offset off.
 
 import datetime
 import zoneinfo
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from homeassistant.util import dt as dt_util
@@ -86,10 +87,10 @@ class TestTheForecastReadersUseTheClientRule:
     """The three row conversions, exercised THROUGH the functions that hold them.
 
     They sit behind ``if when.tzinfo is not None``, so only an aware forecast row
-    reaches them and no other fixture supplies one. An aware row lands on HA's clock,
-    the hour the zone is priced for. Since the store's 14.2 migration both provenances
-    read alike, so what these pin is the reading at the three call sites, not the name
-    they pass.
+    reaches them, and no other fixture in this file supplies one. An aware row lands on
+    HA's clock, the hour the zone is priced for. Both provenances read an aware stamp
+    alike since that branch moved to HA's clock, so what these pin is the reading at
+    the three call sites, not the name they pass.
     """
 
     @staticmethod
@@ -114,11 +115,33 @@ class TestTheForecastReadersUseTheClientRule:
 
         assert out == [(datetime.datetime(2026, 9, 21, 12, 0), 17.0)]
 
+    async def test_the_weather_entity_reader_localises_to_ha(self, split_zones):
+        """The third site: the rows ``weather.get_forecasts`` returns, as ISO strings."""
+        entries = [
+            {"datetime": "2026-09-21T10:00:00+00:00", "temperature": 17.0},
+            {"datetime": "2026-09-21T11:00:00+00:00", "temperature": 18.0},
+        ]
+        hass = Mock()
+        hass.states.get = Mock(return_value=Mock(attributes={}))
+        hass.services.async_call = AsyncMock(
+            return_value={"weather.home": {"forecast": entries}}
+        )
+        host = type("Host", (), {"hass": hass})()
+
+        out = await live_estimate.LiveEstimateMixin._read_hourly_forecast(
+            host, "weather.home"
+        )
+
+        assert out == [
+            (datetime.datetime(2026, 9, 21, 12, 0), 17.0),
+            (datetime.datetime(2026, 9, 21, 13, 0), 18.0),
+        ]
+
     def test_a_naive_forecast_row_is_left_alone(self, split_zones):
         """The branch is guarded on ``tzinfo``, so a naive row never reaches it.
 
-        Pinned because it is what keeps this change from moving any number: every
-        forecast row a client produces today is already naive HA-local.
+        A naive row is already in the frame every reader shares, HA's wall clock, so
+        nothing may shift it.
         """
         naive = datetime.datetime(2026, 9, 21, 12, 0)
         client = self._client("get_hourly_precipitation_forecast", [(naive, 1.5)])
