@@ -1590,7 +1590,7 @@ config entry `loaded`. Reload the panel with Ctrl+F5.
 
 ## Task 11: Archive, PR text, PR, issues
 
-- [ ] **Step 1: Archive the design history (rule P1)**
+- [x] **Step 1: Archive the design history (rule P1)**
 
 Into `pr139-work/archive-wt`: this plan with its boxes ticked, `mutations.json` as
 `docs/superpowers/probes/2026-09-30-distributor-inlet-gate-mutations.json`, the runner as
@@ -1605,7 +1605,7 @@ cd /d/Entwicklung/HASI/issue66-work/wt && git diff upstream/master...HEAD --name
 Expected: only paths under `custom_components/irrigation_plus/`, `tests/` and
 `docs/configuration-distributors.md`.
 
-- [ ] **Step 2: The PR body, shown in the chat for approval**
+- [x] **Step 2: The PR body, shown in the chat for approval**
 
 Nothing goes to GitHub without approval in the chat, corrections included. Structure:
 `## Problem` / `## Fix` / `## Testing`: the defect as measured (credit to the neighbour,
@@ -1616,14 +1616,14 @@ Then the `🤖 Generated with [Claude Code](https://claude.com/claude-code)` foo
 reference to this fork's issues. Re-run Task 7 Step 5's greps with the body file as a third
 target.
 
-- [ ] **Step 3: Push and open the PR, after approval**
+- [x] **Step 3: Push and open the PR, after approval**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && git push -u origin fix/distributor-inlet-open-gate
 gh pr create --repo JustChr/HAsmartirrigation --base master --head Eifel-Joe:fix/distributor-inlet-open-gate --title "fix(distributor): do not start a cycle while the inlet reports open" --body-file /d/Entwicklung/HASI/issue66-work/pr-body.md
 ```
 
-- [ ] **Step 4: Our issues, after approval**
+- [x] **Step 4: Our issues, after approval**
 
 `Eifel-Joe#66` gets a comment with the PR link and, in the same move, the label
 `upstream:gemeldet` (rule P2: a pull request is open); `upstream:freigegeben` stays.
@@ -2015,3 +2015,20 @@ and raw logs under `docs/superpowers/probes/2026-09-30-inlet-gate-live/`.
 **For Eifel-Joe#69 (Step 4):** the unseen on edge left the stored position one behind at the close, still
 `synced`, and the credit was lost; the seen one kept the position right, but its stash (the credit) did not
 survive the restart.
+
+### A16 — Task 11 as run (2026-09-30)
+
+Archive commit `1fea6206` (protocol, probes, mutation runner and results, Task 10 ticked, A15). Feature
+branch checked: only `custom_components/irrigation_plus/`, `tests/` and
+`docs/configuration-distributors.md`; the three reference greps (A6) empty on the diff, the commit
+messages and the PR body; the only issue number in the diff is `#181`. `black` and ruff clean, 0 behind
+`upstream/master` (`0b9a71bd`) at the push.
+
+Everything outward went out in one approval (the user asked for fewer rounds): push of
+`fix/distributor-inlet-open-gate` (now tracking `origin`), **`JustChr#185`** opened with the approved body
+(posted = draft, compared as JSON); `Eifel-Joe#66` comment `5904562370` + `upstream:gemeldet`;
+`Eifel-Joe#69` comment `5904563106` (the L3 measurement) + `schwere:mittel` → `schwere:hoch`, as its body
+prescribed for a confirmed desync; `Eifel-Joe#42` body (8b status, `Eifel-Joe#69` moved up as 8c,
+`Eifel-Joe#72` added as 25e, English and German) + comment `5904564317`. Every posted text equals its draft.
+The body carried one addition beyond the plan's list, approved with it: the two restart findings of L3, as a
+description without a reference to this fork's issue.

@@ -23,6 +23,67 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-30 (2) — Eifel-Joe#66: Live-Test L1–L5 bestanden, JustChr#185 offen, Issues + Archiv nachgezogen
+
+### Stand
+
+- **Basis unverändert** (`upstream/master` = `0b9a71bd`, 0 behind) → keine neue Baseline.
+- **Wegwerf-Build `v2026.09.30b1`** (`7cb8d9c7` = `2c221a7a` + Versionsstring in 7 Dateien, byte-geprüft),
+  Branch `prerelease/v2026.09.30b1` (origin), Pre-Release mit ZIP (Download byte-gleich), per HACS auf
+  **HA-Test installiert — läuft dort weiter**. Worktree `issue66-work\pre-wt`.
+- **Live L1–L5 alle wie erwartet** (Protokoll: `docs/superpowers/reconstructed/2026-09-30-distributor-inlet-open-gate-live-on-ha-test.md`,
+  Abweichungen: Plan-Nachtrag A15). L3 in zwei Varianten (User-Entscheid): ungesehene Flanke → Position
+  **einen zurück, `synced`**; gesehene Flanke vor Neustart → Position stimmt; Gutschrift in beiden verloren.
+- **`JustChr#185` offen** (Branch `fix/distributor-inlet-open-gate`, 12 Commits, trackt jetzt `origin`;
+  an die Sitzung gebunden). Body = Entwurf. CI: bei Einreichung keine Checks (Fork-PR, JustChr muss freigeben).
+- **Issues:** Eifel-Joe#66 Kommentar + `upstream:gemeldet`; Eifel-Joe#69 L3-Messung + **`schwere:hoch`**;
+  Eifel-Joe#42 Body (8b Status, #69 → 8c, #72 → 25e) + Kommentar. Alles gepostet = Entwurf (JSON).
+- **Archiv:** `1fea6206` (Protokoll, Belege, Mutations-Runner/-Ergebnisse, Task 10, A15) + Schluss-Commit
+  (Task 11, A16, dieser Eintrag). Plan hat keine offenen Kästchen mehr.
+- HA-Test zurückgesetzt wie vorgefunden (Verdrahtung, `count`, Position 3, No-op-Skript gelöscht,
+  `off_delay` 0, Logger `warning`, Meldung weg). Bleibt: Build + Verlauf/Gutschriften der Mitglieder.
+
+### Verworfen
+
+- **Erster L3-Versuch** mit `sonoff_emu_valve`: `initial: false` → nach jedem Neustart `off`. Neu mit
+  `grace_emu_valve` (behält den Zustand).
+- **Freigaben selbst eintragen** (`update-config`): vom Auto-Mode-Klassifikator als Selbstmodifikation
+  blockiert. Der User hat die Regeln selbst in `D:\Entwicklung\HASI\.claude\settings.local.json`
+  eingetragen (`mcp__HA-Test`, `mcp__Claude_Browser`, `Bash(…python.exe D:/Entwicklung/HASI/issue66-work/live/live66.py:*)`).
+
+### Fallen
+
+- **Neue Berechtigungsregeln greifen nicht in der laufenden Sitzung** (danach trotzdem Rückfragen).
+  unbestätigt: in der nächsten Sitzung wirksam.
+- **`$?` hinter `$(…)` in derselben `echo`-Zeile** ist der Status der Ersetzung — meine erste
+  Bundle-Prüfung meldete fälschlich „unverändert".
+- **MCP-`ha_read_file` liefert UTF-8 als Latin-1** (Zeichensalat) → vor dem Vergleich `.encode("latin-1")`.
+  Ebenso zeigen Benachrichtigungen über MCP `Ã¤`; im UI korrekt.
+- **`ha_config_set_script` auf HA-Test verlangt `BestPracticeKey`** (Strict-Modus): erst
+  `ha_get_skill_guide(skill=home-assistant-best-practices, file=SKILL.md)`, Schlüssel rotiert stündlich.
+- **Verteiler mit Stop-Dienst stoppt am Zielvolumen**: bei Messfühler 10 L/min enden 61-s-Abschnitte nach 20 s.
+- **`watch_mode`/Verdrahtung nur über HTTP-View** → Browser-Bereich muss bei HA-Test angemeldet sein
+  (User), dann `hass.callApi("POST", "irrigation_plus/distributors", {id: 0, …})`.
+- User will **weniger Freigaberunden**: Außenwirksames gebündelt in EINER Freigabe vorlegen; HA-Test ist
+  Wegwerf — keine Zeitplan-Fristen dort (Memory `ha-test-no-schedule-caution`).
+
+### Nächste Schritte
+
+1. **`JustChr#185` begleiten:** CI lesen, sobald JustChr die Workflows freigibt; Einwände wörtlich in
+   Eifel-Joe#66 (Regel P2); Nachbesserung als neuer Commit.
+2. **Prod-Rebuild** (Memory `hasi-production-on-upstream`: production trägt ALLE Eigenentwicklungen, auch
+   offene PRs) — mit `JustChr#182` (gemergt) **und `fix/distributor-inlet-open-gate`**; eigene Sitzung.
+3. **Nach dem Merge von #185:** Eifel-Joe#66 schließen; `issue66-work\pre-wt` + `prerelease/v2026.09.30b1`
+   (lokal + origin) + Release/Tag `v2026.09.30b1` löschen; `issue66-work\wt` entfernen. Offen wie zuvor:
+   Aufräumen `issue5-work`.
+4. Danach nach Eifel-Joe#42: **Eifel-Joe#69 (jetzt 8c, hoch)** — Regel für die Schließ-Flanke mit dem
+   Wettlauf im Blick entwerfen; Eifel-Joe#22 (Rev-4-Nachtrag).
+
+### Empfohlene Skills
+
+- `pr-workflow` + `superpowers:receiving-code-review` (JustChrs Review zu #185); für den Prod-Rebuild
+  Memory `hasi-production-on-upstream`; für Eifel-Joe#69 `task-loop` + `superpowers:brainstorming`.
+
 ## 2026-09-30 — Eifel-Joe#66: Plan probegelaufen, Tasks 0–9 umgesetzt, finales Review „Yes"
 
 ### Stand
@@ -43,9 +104,11 @@
   PR-Body: A12, Upgrade-Wirkung (Einlass-Entität, die im Ruhezustand `on/open/opening/closing` meldet,
   verweigert jeden Zyklus), zwei Ursachen des 30-s-Blindfensters (Fremd-Öffnung = Trade #181; eigener
   Close, der im Hintergrund scheitert).
-- **Entwürfe zur Freigabe** (nicht gepostet): Kommentar an Eifel-Joe#71
-  (`issue66-work\issues\comment-71-halt-overwritten.md`), neues Issue Resume-Schleife
-  (`issue66-work\issues\new-issue-resume-loop.md`).
+- **Mit Freigabe erledigt:** Archiv-Push `09f3d19c..122fd55a`; Kommentar an Eifel-Joe#71
+  (`5902127893`, Folge der veralteten Kopie: Ablehnung überschreibt Halt-Meldung); **neues Issue
+  Eifel-Joe#72** (Neustart-Abgleich: ein werfendes Schließen stoppt die übrigen Verteiler und das
+  Entry-Setup; `typ:fehler`, `schwere:mittel`, `groesse:S`). Gepostet = Entwurf (per JSON verglichen).
+  Eifel-Joe#42 kennt #72 noch nicht → mit Task 11 nachziehen.
 
 ### Verworfen
 
@@ -71,12 +134,12 @@
 
 ### Nächste Schritte
 
-1. **Freigaben:** Archiv-Push (Plan A10–A14 + dieser Eintrag), Kommentar Eifel-Joe#71, neues Issue
-   Resume-Schleife (Labels vorschlagen: `typ:fehler`, `schwere:mittel`, `groesse:S`).
+1. (erledigt) Freigaben Archiv-Push, Kommentar #71, Issue #72.
 2. **Neue Sitzung: Task 10 Live-Test auf HA-Test** (Plan Task 10, L1–L5; Wegwerf-Build
    `prerelease/v2026.09.30b1` aus `2c221a7a` — Push + Release nur mit Freigabe).
 3. Danach **Task 11:** PR-Body (s. o.) zur Freigabe, Greps (A6) auch über den Body, PR, Issues
-   (Eifel-Joe#66 `upstream:gemeldet`, #69 L3-Messung, #42).
+   (Eifel-Joe#66 `upstream:gemeldet`, #69 L3-Messung, #42 inkl. neuem #72); Archiv (Plan-Haken
+   Task 10/11, Live-Protokoll, `mutations.json`, Runner) nach Regel P1.
 4. Nebenher weiter offen: Prod-Rebuild mit JustChr#182 + Aufräumen `issue5-work`; Eifel-Joe#22.
 
 ### Empfohlene Skills
