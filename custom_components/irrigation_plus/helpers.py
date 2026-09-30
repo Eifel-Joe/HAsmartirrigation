@@ -1084,7 +1084,7 @@ def lift_legacy_stamp(value):
     ``store._lift_legacy_stamps``.
     NOT-TO-DO: do not let the conversion raise. This runs inside the store's load: a
       raise fails setup on every start, and the file stays at 14.1 for the next one.
-    siehe tests/test_store_stamp_migration.py::test_what_it_cannot_read_is_left_exactly_as_found
+    siehe tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_what_it_cannot_read_is_left_exactly_as_found
     """
     if not isinstance(value, str):
         return value

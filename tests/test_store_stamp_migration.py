@@ -178,7 +178,7 @@ class TestTheFiveStampsMoveOntoHAsClock:
                     const.ZONE_LAST_UPDATED: 12345,
                 },
                 {const.ZONE_ID: 2},
-                # Beyond the datetime range once converted: no zone can hold them.
+                # Beyond the datetime range once converted between this fixture's zones.
                 {
                     const.ZONE_ID: 3,
                     const.ZONE_LAST_CALCULATED: "9999-12-31T23:59:59",
