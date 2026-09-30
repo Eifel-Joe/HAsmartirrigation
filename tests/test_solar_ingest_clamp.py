@@ -38,6 +38,11 @@ F = const.W_TO_MJ_DAY_FACTOR
 
 SUMMER_NOON = datetime.datetime(2026, 6, 21, 13, 30)
 SUMMER_NIGHT = datetime.datetime(2026, 6, 21, 2, 0)
+# SUMMER_NIGHT as an instant, for the classes that freeze the clock. The
+# coordinator's clamp pairs HA's wall clock with HA's own UTC offset, so it judges
+# the instant, whatever zone HA is in: 02:00 at the site is 06:00 UTC. A bare
+# "02:00" is UTC wall time under freezegun -- an hour after dusk here.
+SUMMER_NIGHT_UTC = SUMMER_NIGHT - datetime.timedelta(hours=TZ)
 
 
 def _clamp(w_m2, when):
@@ -154,7 +159,7 @@ class TestBothIngestionPaths:
         ) == pytest.approx(300.0 * F)
 
 
-@freeze_time("2026-06-21 02:00:00")
+@freeze_time(SUMMER_NIGHT_UTC)
 class TestOnlyRatesAreCeilinged:
     """The ceiling is an hourly clear-sky reference, so only a rate can meet it.
 
@@ -291,7 +296,7 @@ class TestOnlyRatesAreCeilinged:
         assert merged[const.MAPPING_SOLRAD] == pytest.approx(900.0 * F)
 
 
-@freeze_time("2026-06-21 02:00:00")
+@freeze_time(SUMMER_NIGHT_UTC)
 class TestTheRowThePollAppends:
     """The whole poll pipeline, because that is the level the ceiling used to sit at.
 

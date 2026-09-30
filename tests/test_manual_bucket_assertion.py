@@ -26,6 +26,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from freezegun import freeze_time
+from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
@@ -113,6 +114,18 @@ async def _zone(c, store, *, rain_mm, et=1.0):
     return zone
 
 
+def _when_ha_reads(naive):
+    """The instant at which HA's clock reads ``naive``.
+
+    The constructed day is on HA's clock: its rows are naive stamps, the frame
+    every weather-buffer stamp is written in, and the assertion stamps HA's clock
+    too. Frozen at the bare naive time instead -- UTC wall time under freezegun --
+    the statement would land hours early, with HA on US/Pacific as every test
+    here has it.
+    """
+    return naive.replace(tzinfo=dt_util.get_default_time_zone())
+
+
 async def _assert_level_by_hand(c, store, zone):
     """Set the bucket the way a user does: the service / panel path.
 
@@ -121,9 +134,10 @@ async def _assert_level_by_hand(c, store, zone):
     a bucket posted alone, so a level above it would be clamped; this one is
     below it. Driving that method is therefore the same write either makes.
     """
-    # Frozen, because the write stamps the moment of the assertion from the
-    # clock and the rest of this test lives in a constructed day.
-    with freeze_time(T0 + timedelta(hours=ASSERTED_AT_HOUR)):
+    # Frozen at the instant HA's clock reads that hour, because the write stamps
+    # the moment of the assertion from HA's clock and the rest of this test lives
+    # in a constructed day on it.
+    with freeze_time(_when_ha_reads(T0 + timedelta(hours=ASSERTED_AT_HOUR))):
         await c.async_update_zone_config(
             zone_id=zone[const.ZONE_ID], data={const.ZONE_BUCKET: ASSERTED_LEVEL}
         )
@@ -144,7 +158,7 @@ async def _assert_level_by_service(c, store, zone):
         const.SERVICE_ENTITY_ID: [entity_id],
         const.ATTR_NEW_BUCKET_VALUE: ASSERTED_LEVEL,
     }
-    with freeze_time(T0 + timedelta(hours=ASSERTED_AT_HOUR)):
+    with freeze_time(_when_ha_reads(T0 + timedelta(hours=ASSERTED_AT_HOUR))):
         await c.handle_set_zone(call)
     return store.get_zone(zone[const.ZONE_ID])
 
@@ -236,7 +250,7 @@ async def test_a_save_that_leaves_the_bucket_alone_moves_nothing(coordinator):
     c, store = coordinator
     zone = await _zone(c, store, rain_mm=0.0)
     before = store.get_zone(zone[const.ZONE_ID]).get(const.ZONE_LAST_CONSUMED)
-    with freeze_time(T0 + timedelta(hours=ASSERTED_AT_HOUR)):
+    with freeze_time(_when_ha_reads(T0 + timedelta(hours=ASSERTED_AT_HOUR))):
         await c.async_update_zone_config(
             zone_id=zone[const.ZONE_ID],
             data={
