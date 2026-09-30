@@ -1012,6 +1012,7 @@ def _process_timezone():
     TODAY's fixed offset, and a stamp from the other side of a DST change is then read
     an hour off -- the buffer keeps seven days. Its own function so the suite can
     substitute it: ``time.tzset()`` does not exist on Windows.
+    siehe tests/test_time_provenance.py::test_a_fresh_process_reads_its_zone_per_date
     """
     return dateutil_tz.tzlocal()
 

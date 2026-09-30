@@ -18,6 +18,10 @@ i.e. silently disable the live estimate, which is the opposite of a fix.
 """
 
 import datetime
+import os
+import pathlib
+import subprocess
+import sys
 import zoneinfo
 
 import pytest
@@ -105,6 +109,39 @@ def test_the_process_zone_is_read_with_its_own_rules():
         datetime.datetime(2026, 7, 15, 12, 0),
     ):
         assert tz.utcoffset(day) == day.astimezone().utcoffset(), day
+
+
+# Run by the test below in a fresh interpreter: the offsets, in hours, that the process
+# zone gives a date in January and one in July.
+PRINT_THE_PROCESS_ZONE_OFFSETS = """
+import datetime
+from custom_components.irrigation_plus import helpers
+tz = helpers._process_timezone()
+for month in (1, 7):
+    print(tz.utcoffset(datetime.datetime(2026, month, 15, 12, 0)).total_seconds() / 3600)
+"""
+
+
+def test_a_fresh_process_reads_its_zone_per_date():
+    """The same property where the suite runs at UTC -- on CI, and under ``TZ=UTC``.
+
+    The test above is idle there. A fresh interpreter reads ``TZ`` when it starts, on
+    Windows too, so a child started at ``EST5EDT`` -- a POSIX zone string with US rules --
+    has DST whatever the parent's zone: -5 h in January, -4 h in July. Today's fixed
+    offset, UTC, or a fixed standard offset each read one of the two dates wrong.
+    """
+    child = subprocess.run(
+        [sys.executable, "-c", PRINT_THE_PROCESS_ZONE_OFFSETS],
+        cwd=pathlib.Path(__file__).resolve().parent.parent,
+        env={**os.environ, "TZ": "EST5EDT"},
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+    assert child.returncode == 0, child.stderr
+    assert child.stdout.split()[-2:] == ["-5.0", "-4.0"]
 
 
 def test_coercing_without_naming_a_provenance_is_an_error():
