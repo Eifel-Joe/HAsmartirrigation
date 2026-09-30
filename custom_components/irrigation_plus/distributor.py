@@ -1239,8 +1239,8 @@ class DistributorMixin:
           today's behaviour. Independent of the watch mode and the watering mode.
         Grace: not within DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS of the integration's
           own close for this distributor (_dist_close_inlet stamps it). A foreign
-          open inside that window goes unseen, a trade accepted on #181, and so
-          does a close of ours whose service failed in the background.
+          open inside that window goes unseen, a trade accepted on #181; so does
+          a close of ours whose service failed in the background.
         Synchronous on purpose: the claim calls it between its in-flight check and
         ``inflight.add``, where an await would reopen the single-flight window.
         NOT-TO-DO: do not move this into _dist_eligible_for_run. Two entries call the
