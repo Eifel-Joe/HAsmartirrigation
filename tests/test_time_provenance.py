@@ -128,7 +128,7 @@ def test_a_fresh_process_reads_its_zone_per_date():
     The test above is idle there. A fresh interpreter reads ``TZ`` when it starts, on
     Windows too, so a child started at ``EST5EDT`` -- a POSIX zone string with US rules --
     has DST whatever the parent's zone: -5 h in January, -4 h in July. Today's fixed
-    offset, UTC, or a fixed standard offset each read one of the two dates wrong.
+    offset, UTC, or a fixed standard offset each read at least one of the dates wrong.
     """
     child = subprocess.run(
         [sys.executable, "-c", PRINT_THE_PROCESS_ZONE_OFFSETS],
