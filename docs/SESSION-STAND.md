@@ -23,6 +23,68 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-30 — Eifel-Joe#66: Plan probegelaufen, Tasks 0–9 umgesetzt, finales Review „Yes"
+
+### Stand
+
+- **Probelauf** (User-Vorgabe) im Wegwerf-Worktree `issue66-work\probe-wt` (detached auf `0b9a71bd`,
+  danach entfernt): Tasks 1–8, jedes RED/GREEN wie vorhergesagt; volle Suite 7/3506/9/367 mit den 374
+  Baseline-Namen; Matrix 18/18. Plan: Abschnitt „This plan was run once …" + Nachtrag A1–A9, Spec-Erratum
+  (Neustart-Satz) — beides freigegeben und auf `archive/design-history` `09f3d19c` gepusht.
+- **Umsetzung** subagent-driven (Sonnet-Implementer, Spec-Check teils mechanisch per Skript, Quality-
+  Reviews Sonnet, Final-Review Opus): Branch `fix/distributor-inlet-open-gate` in `issue66-work\wt`,
+  **12 Commits, nichts gepusht**. Commits, Zahlen und alle Abweichungen: Plan, Nachtrag A10–A14 +
+  „Execution record". Endstand `2c221a7a`: volle Suite 7/**3521**/9/367, Namen identisch; Matrix
+  **36/36** (MUT 5 per Einzellauf, Deadlock); dist == Frischbau; Lint sauber (auch CI-Versionen).
+- **User-Entscheidungen dieser Sitzung:** Planänderungen A1–A9 frei; Spec-Erratum + Archiv-Push; **A12:
+  Notify-Guard an der Wurzel** (`_dist_notify`, deckt Ablehnung, Halt im Sweep, Neustart-Abgleich,
+  warn-Watch) — ändert Upstream-Verhalten im Halt-Pfad, **im PR-Body benennen**.
+- **Finales Review:** „Yes, ready for the PR"; Befunde in `842a4cec`/`2c221a7a` eingearbeitet. Für den
+  PR-Body: A12, Upgrade-Wirkung (Einlass-Entität, die im Ruhezustand `on/open/opening/closing` meldet,
+  verweigert jeden Zyklus), zwei Ursachen des 30-s-Blindfensters (Fremd-Öffnung = Trade #181; eigener
+  Close, der im Hintergrund scheitert).
+- **Entwürfe zur Freigabe** (nicht gepostet): Kommentar an Eifel-Joe#71
+  (`issue66-work\issues\comment-71-halt-overwritten.md`), neues Issue Resume-Schleife
+  (`issue66-work\issues\new-issue-resume-loop.md`).
+
+### Verworfen
+
+- 3b-Guard nur im Ablehnungspfad → ersetzt durch den Wurzel-Guard (A12, „ein Schutz statt zwei").
+- Review-Vorschläge mit Begründung abgelehnt: Grace auch ohne `stop_service` (R6), `isinstance`-Guard
+  (unerreichbar), „never claim"-Wortlaut (Restfenster steht in der Spec) — Tabellen in A10/A11/A13.
+
+### Fallen
+
+- **`git worktree add -b X upstream/master` setzt `upstream/master` als Tracking** → ein nacktes
+  `git push` zielte auf JustChr. Sofort `git branch --unset-upstream`.
+- **Bash-Tool: `\\n` in Heredoc-Python kam als echter Zeilenumbruch an** (auch `\\E` → Warnungen) →
+  Blöcke mit Backslashes per Write-Tool in eine Datei, dann per Python einspleißen.
+- **MUT 5 deadlockt** `test_second_concurrent_cycle_rejected_by_single_flight_lock` → Runner mit Timeout
+  + `taskkill /T /F` (venv-`python.exe` ist Launcher, das Kind hält die Pipes); `pytest-timeout` unter
+  Windows beendet den ganzen Lauf. Einzellauf `mut5_rerun.py` mit `--deselect`.
+- Mutationsläufe nie parallel zur vollen Suite im selben Worktree; parallele pytest-Läufe können
+  `WinError 10055` (socketpair) werfen — Flake, allein grün.
+- `difflib.SequenceMatcher` auf den 500-KB-Einzeiler-Bundles hängt → Präfix/Suffix-Vergleich.
+- Sonnet-Implementer schreiben den Trailer `Claude Sonnet 5.5` (ihre Attributionsregel) — akzeptiert,
+  upstream squasht.
+- Subagenten auf dem Worktree nie parallel laufen lassen, solange ein Reviewer darin Tests fährt.
+
+### Nächste Schritte
+
+1. **Freigaben:** Archiv-Push (Plan A10–A14 + dieser Eintrag), Kommentar Eifel-Joe#71, neues Issue
+   Resume-Schleife (Labels vorschlagen: `typ:fehler`, `schwere:mittel`, `groesse:S`).
+2. **Neue Sitzung: Task 10 Live-Test auf HA-Test** (Plan Task 10, L1–L5; Wegwerf-Build
+   `prerelease/v2026.09.30b1` aus `2c221a7a` — Push + Release nur mit Freigabe).
+3. Danach **Task 11:** PR-Body (s. o.) zur Freigabe, Greps (A6) auch über den Body, PR, Issues
+   (Eifel-Joe#66 `upstream:gemeldet`, #69 L3-Messung, #42).
+4. Nebenher weiter offen: Prod-Rebuild mit JustChr#182 + Aufräumen `issue5-work`; Eifel-Joe#22.
+
+### Empfohlene Skills
+
+- `task-loop`; für Task 10 Memories `hasi-livetest-capability-boundary`, `verify-ha-system`,
+  `hasi-sonoff-emulator-testsystem`, `ha-no-auto-restart`; für Task 11 `pr-workflow` + Memory
+  `hasi-pr-build-recipe`.
+
 ## 2026-09-29 (7) — JustChr antwortet auf alle drei; 🟠-Block nachgeprüft; Eifel-Joe#66 Spec-Nachtrag + Plan freigegeben
 
 ### Stand

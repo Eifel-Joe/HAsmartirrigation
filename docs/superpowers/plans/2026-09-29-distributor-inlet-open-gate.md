@@ -140,7 +140,7 @@ on it.
 
 ## Task 0: Worktree, base, baseline
 
-- [ ] **Step 1: Confirm the base**
+- [x] **Step 1: Confirm the base**
 
 ```bash
 cd /d/Entwicklung/HASI/HAsmartirrigation && git fetch upstream && git rev-parse --short=8 upstream/master
@@ -151,7 +151,7 @@ the base, and the line numbers in this plan were read on `0b9a71bd`. Re-read the
 plan edits (`_dist_close_inlet`, the claim's guards, the `SKIP_REASON_*` block, the
 `DISTRIBUTOR_WATCH_MODE_*` block) and the sister-path table, then go on.
 
-- [ ] **Step 2: Create the worktree, the socket plugin, the import probe, the panel's
+- [x] **Step 2: Create the worktree, the socket plugin, the import probe, the panel's
   dependencies**
 
 ```bash
@@ -160,7 +160,7 @@ mkdir -p /d/Entwicklung/HASI/issue66-work/measure /d/Entwicklung/HASI/issue66-wo
 
 `probe_import_origin.py` is copied because `issue5-work` is due to be cleaned up.
 
-- [ ] **Step 3: Confirm pytest imports this worktree's code**
+- [x] **Step 3: Confirm pytest imports this worktree's code**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && PYTHONPATH=/d/Entwicklung/HASI/issue66-work TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor_cycle.py --co -q -p probe_import_origin -p _local_socket_unblock | grep IMPORT-ORIGIN
@@ -168,7 +168,7 @@ cd /d/Entwicklung/HASI/issue66-work/wt && PYTHONPATH=/d/Entwicklung/HASI/issue66
 
 Expected: both lines point into `D:\Entwicklung\HASI\issue66-work\wt\custom_components`.
 
-- [ ] **Step 4: Measure the baseline on the base**
+- [x] **Step 4: Measure the baseline on the base**
 
 > **Addendum A8:** the dry run measured this on `0b9a71bd` into these very files. If Step 1
 > read `0b9a71bd`, keep them and skip this step.
@@ -204,7 +204,7 @@ member, and that is exactly what the claim must not start.
 **Files:**
 - Create: `tests/test_distributor_inlet_gate.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 > **Addendum A1:** write the last-but-one assertion as `black` does (wrapped in parentheses).
 
@@ -306,7 +306,7 @@ async def test_a_foreign_open_keeps_its_credit_when_a_cycle_is_asked_for_meanwhi
     c.store.async_update_distributor.assert_awaited_once_with(0, {"current_outlet": 3})
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor_inlet_gate.py -p _local_socket_unblock -q --no-header
@@ -316,7 +316,7 @@ Expected: 1 failed, at the claim's line, with `assert True is False` — today t
 the distributor over the open inlet. If it fails anywhere else (the handler, the pulse's
 store write, the dispatcher), the host is wrong; fix the host before going on.
 
-- [ ] **Step 3: No commit**
+- [x] **Step 3: No commit**
 
 The test stays red until Task 2, which commits it together with the gate (one commit per
 green task).
@@ -332,7 +332,7 @@ green task).
   `async_run_distributor_cycle`; the claim's guards, `:1197-1204`)
 - Test: `tests/test_distributor_inlet_gate.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_distributor_inlet_gate.py` (Task 1 created the file, its imports and
 the helpers `_gated_cfg`, `_gate_host`, `_evt`; add `import pytest` to the imports):
@@ -398,7 +398,7 @@ async def test_the_claim_refuses_in_every_watch_and_watering_mode(
     c._dist_run_sweep.assert_not_awaited()
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor_inlet_gate.py -p _local_socket_unblock -q --no-header
@@ -409,7 +409,7 @@ Expected: `test_the_claim_refuses_while_the_inlet_reports_open` (4 cases) and
 `assert True is False`; the pass-through tests (8 cases) pass already; Task 1's test still
 fails.
 
-- [ ] **Step 3: Add the constant**
+- [x] **Step 3: Add the constant**
 
 In `const.py`, directly after `DISTRIBUTOR_REASON_FOREIGN_PULSE = "foreign_inlet_pulse"`:
 
@@ -422,7 +422,7 @@ In `const.py`, directly after `DISTRIBUTOR_REASON_FOREIGN_PULSE = "foreign_inlet
 DISTRIBUTOR_INLET_OPEN_STATES = frozenset({"on", "open", "opening", "closing"})
 ```
 
-- [ ] **Step 4: Add the check**
+- [x] **Step 4: Add the check**
 
 In `distributor.py`, directly before `async def async_run_distributor_cycle(`:
 
@@ -456,7 +456,7 @@ In `distributor.py`, directly before `async def async_run_distributor_cycle(`:
         return state.state
 ```
 
-- [ ] **Step 5: Call it in the claim**
+- [x] **Step 5: Call it in the claim**
 
 In `async_run_distributor_cycle`, replace
 
@@ -482,11 +482,11 @@ with
         inflight.add(dist_id)
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Same command as Step 2. Expected: every test in the file passes, **including Task 1's**.
 
-- [ ] **Step 7: Run the distributor suites for regressions**
+- [x] **Step 7: Run the distributor suites for regressions**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor.py tests/test_distributor_cycle.py tests/test_distributor_dispatch.py tests/test_distributor_integration.py -p _local_socket_unblock -q --no-header
@@ -497,7 +497,7 @@ Expected: no failure that is not in `baseline-names.txt`. The existing hosts giv
 tests that set `inlet_entity` stay green for that reason. If one fails, read why before
 touching it.
 
-- [ ] **Step 8: Lint, then commit**
+- [x] **Step 8: Lint, then commit**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && uvx black custom_components/irrigation_plus/ tests/test_distributor_inlet_gate.py ; uvx ruff check custom_components/irrigation_plus/ tests/test_distributor_inlet_gate.py ; git add custom_components/irrigation_plus/const.py custom_components/irrigation_plus/distributor.py tests/test_distributor_inlet_gate.py ; git diff --cached --name-only
@@ -529,7 +529,7 @@ EOF
 - Rebuild: `frontend/dist/irrigation-plus.js`, `frontend/dist/irrigation-plus-card-impl.js`
 - Test: `tests/test_distributor_inlet_gate.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_distributor_inlet_gate.py` (add `import logging` to the imports).
 **Addendum A2:** `_NOTICE` on one line, as `black` writes it.
@@ -634,14 +634,14 @@ async def test_a_distributor_in_flight_is_not_reported_as_an_open_inlet(caplog):
     assert "did not start a cycle" not in caplog.text
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Same command as Task 2 Step 2. Expected: six FAIL — the log, the notification and the
 history entry do not exist yet (`AttributeError` on `const.SKIP_REASON_INLET_OPEN` for the
 three that name it). Two pass already: `…records_nothing_when_no_member_was_targeted` and the
 in-flight test. They are pins, killed by mutations 17 and 5 in Task 8.
 
-- [ ] **Step 3: Add the skip reason**
+- [x] **Step 3: Add the skip reason**
 
 In `const.py`, directly after `SKIP_REASON_DAYS_BETWEEN = "days_between"`:
 
@@ -652,7 +652,7 @@ In `const.py`, directly after `SKIP_REASON_DAYS_BETWEEN = "days_between"`:
 SKIP_REASON_INLET_OPEN = "inlet_open"
 ```
 
-- [ ] **Step 4: Add the refusal path**
+- [x] **Step 4: Add the refusal path**
 
 In `distributor.py`, directly after `_dist_inlet_reports_open`:
 
@@ -715,7 +715,7 @@ In `distributor.py`, directly after `_dist_inlet_reports_open`:
         )
 ```
 
-- [ ] **Step 5: Call it from the claim**
+- [x] **Step 5: Call it from the claim**
 
 Replace the two lines Task 2 added to the claim,
 
@@ -742,13 +742,13 @@ with
 and extend the comment above them by one line:
 `# The refusal awaits only after this decision, holding nothing.`
 
-- [ ] **Step 6: Run the tests — the notification test still fails**
+- [x] **Step 6: Run the tests — the notification test still fails**
 
 Expected: everything passes except `test_a_refusal_is_logged_and_notified` and
 `test_a_refusal_is_forwarded_to_the_notify_target`: `localize` does not find the key yet and
 hands back `panels.distributors.notify.inlet_open` itself.
 
-- [ ] **Step 7: Add both keys in all eight languages**
+- [x] **Step 7: Add both keys in all eight languages**
 
 Write `D:\Entwicklung\HASI\issue66-work\add_keys.py`:
 
@@ -821,7 +821,7 @@ Expected: eight lines `2	0	…/<lang>.json`. Anything else: `git checkout -- <fi
 read why. **Addendum A3: measured `3	1` per file, and that is right** (the comma after
 `no_demand`, the last key of `checks`).
 
-- [ ] **Step 8: Run the tests and the catalogue checks**
+- [x] **Step 8: Run the tests and the catalogue checks**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_distributor_inlet_gate.py tests/test_i18n_completeness.py -p _local_socket_unblock -q --no-header
@@ -830,7 +830,7 @@ cd /d/Entwicklung/HASI/issue66-work/wt && TZ=UTC /d/Entwicklung/HASI/HAsmartirri
 Expected: all pass. `test_i18n_completeness.py` checks the keys in both directions, the
 named placeholders (`{name}`, `{entity}`) and that no language kept the English text.
 
-- [ ] **Step 9: Rebuild the panel and stage the two bundles**
+- [x] **Step 9: Rebuild the panel and stage the two bundles**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt/custom_components/irrigation_plus/frontend && npm run build > /d/Entwicklung/HASI/issue66-work/build.log 2>&1 ; echo "build exit=$?" ; cd /d/Entwicklung/HASI/issue66-work/wt && git update-index --refresh > /dev/null 2>&1 ; for f in custom_components/irrigation_plus/frontend/dist/*.js; do git diff --quiet -- "$f" && echo "unchanged $f" || echo "CHANGED   $f"; done
@@ -839,7 +839,7 @@ cd /d/Entwicklung/HASI/issue66-work/wt/custom_components/irrigation_plus/fronten
 Expected: `build exit=0`; `CHANGED` exactly for `irrigation-plus.js` and
 `irrigation-plus-card-impl.js` (the two that embed `en.json`); the two card stubs unchanged.
 
-- [ ] **Step 10: Lint, then commit**
+- [x] **Step 10: Lint, then commit**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && uvx black custom_components/irrigation_plus/ tests/test_distributor_inlet_gate.py ; uvx ruff check custom_components/irrigation_plus/ tests/test_distributor_inlet_gate.py ; git add custom_components/irrigation_plus/const.py custom_components/irrigation_plus/distributor.py custom_components/irrigation_plus/frontend/localize/languages/ tests/test_distributor_inlet_gate.py ; git add -f custom_components/irrigation_plus/frontend/dist/irrigation-plus.js custom_components/irrigation_plus/frontend/dist/irrigation-plus-card-impl.js ; git diff --cached --name-only | wc -l
@@ -874,7 +874,7 @@ EOF
   a new method after `_dist_inflight_ids`; `_dist_inlet_reports_open`)
 - Test: `tests/test_distributor_inlet_gate.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_distributor_inlet_gate.py`:
 
@@ -957,13 +957,13 @@ async def test_a_close_that_raised_starts_no_grace():
     assert await c.async_run_distributor_cycle(cfg) is False
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Same command as Task 2 Step 2. Expected: `test_the_next_cycle_runs_within_the_grace…` and
 `test_a_stop_service_close_starts_the_grace` FAIL with `assert False is True`; the four
 others pass already (they are the grace's boundaries, killed by mutations 7–10 in Task 8).
 
-- [ ] **Step 3: Add the constant**
+- [x] **Step 3: Add the constant**
 
 In `const.py`, directly after `DISTRIBUTOR_INLET_OPEN_STATES = …`:
 
@@ -975,7 +975,7 @@ In `const.py`, directly after `DISTRIBUTOR_INLET_OPEN_STATES = …`:
 DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS = VALVE_CONFIRM_TIMEOUT
 ```
 
-- [ ] **Step 4: Keep the stamps**
+- [x] **Step 4: Keep the stamps**
 
 > **Addendum A4 replaces the code of Steps 4 and 5:** a helper `_dist_stamp_own_close` does the
 > stamping, and the `_dist_own_close_times` docstring is corrected.
@@ -996,7 +996,7 @@ In `distributor.py`, directly after `_dist_inflight_ids`:
         return times
 ```
 
-- [ ] **Step 5: Stamp a sent close**
+- [x] **Step 5: Stamp a sent close**
 
 Replace `_dist_close_inlet` with:
 
@@ -1029,7 +1029,7 @@ Replace `_dist_close_inlet` with:
         self._dist_own_close_times()[distributor.get("id")] = self.hass.loop.time()
 ```
 
-- [ ] **Step 6: Honour the grace in the check**
+- [x] **Step 6: Honour the grace in the check**
 
 In `_dist_inlet_reports_open`, replace the last line, `return state.state`, with:
 
@@ -1055,18 +1055,18 @@ and add one paragraph to its docstring, before `Synchronous on purpose`:
           open inside that window goes unseen, a trade accepted on #181.
 ```
 
-- [ ] **Step 7: Run the tests to verify they pass**
+- [x] **Step 7: Run the tests to verify they pass**
 
 Same command as Task 2 Step 2. Expected: all pass.
 
-- [ ] **Step 8: Run the distributor suites for regressions**
+- [x] **Step 8: Run the distributor suites for regressions**
 
 Same command as Task 2 Step 7. Expected: no failure outside `baseline-names.txt`. The real
 `_dist_close_inlet` now reads `hass.loop.time()`; on a `Mock` host that returns a `Mock`,
 which is stored and only ever compared after an open report — which a `Mock` state never
 is.
 
-- [ ] **Step 9: Lint, then commit**
+- [x] **Step 9: Lint, then commit**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && uvx black custom_components/irrigation_plus/ tests/test_distributor_inlet_gate.py ; uvx ruff check custom_components/irrigation_plus/ tests/test_distributor_inlet_gate.py ; git add custom_components/irrigation_plus/const.py custom_components/irrigation_plus/distributor.py tests/test_distributor_inlet_gate.py ; git diff --cached --name-only
@@ -1101,7 +1101,7 @@ place that was rejected) in Task 8 are what show they are load-bearing.
 **Files:**
 - Test: `tests/test_distributor_inlet_gate.py`
 
-- [ ] **Step 1: Write the pins**
+- [x] **Step 1: Write the pins**
 
 Add to the imports:
 
@@ -1219,14 +1219,14 @@ async def test_the_finish_anchor_estimate_does_not_read_the_inlet():
     assert opened == closed
 ```
 
-- [ ] **Step 2: Run them**
+- [x] **Step 2: Run them**
 
 Same command as Task 2 Step 2. Expected: all pass. A failure here is not a RED to fix in
 production code: it means a host stub is missing for that entry (the entry's own guards,
 e.g. the member run's `active_cycle` check at `irrigation.py:3438-3445`). Read the traceback,
 fix the host, never the gate.
 
-- [ ] **Step 3: Lint, then commit**
+- [x] **Step 3: Lint, then commit**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && uvx black custom_components/irrigation_plus/ tests/test_distributor_inlet_gate.py ; uvx ruff check custom_components/irrigation_plus/ tests/test_distributor_inlet_gate.py ; git add tests/test_distributor_inlet_gate.py ; git diff --cached --name-only
@@ -1242,6 +1242,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 ```
 
+> **Addendum A10:** after Task 5's commit, Task 5b adds one more pin in a commit of its own.
+
 ---
 
 ## Task 6: Documentation
@@ -1250,7 +1252,7 @@ EOF
 - Modify: `docs/configuration-distributors.md`, section *Watching the inlet for foreign
   pulses* (`:69-79` on `0b9a71bd`)
 
-- [ ] **Step 1: Add the paragraph**
+- [x] **Step 1: Add the paragraph**
 
 After the section's last paragraph (the one ending "which is exactly why **Set current
 outlet** exists."), add (**Addendum A5:** as one line, like every paragraph of that file):
@@ -1265,7 +1267,7 @@ mode this needs a stop script. Re-sync only while the inlet is closed. A self-cl
 distributor without an inlet entity has no such protection.
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && git add docs/configuration-distributors.md ; git commit -F - <<'EOF'
@@ -1279,7 +1281,7 @@ EOF
 
 ## Task 7: Gates
 
-- [ ] **Step 1: Full backend suite**
+- [x] **Step 1: Full backend suite**
 
 Run in the background (tool option), read the file only after the run has ended:
 
@@ -1291,7 +1293,7 @@ Expected: the baseline's passed count plus the number of tests collected from
 `tests/test_distributor_inlet_gate.py` (count them with `--co -q`), the same failed and
 error counts.
 
-- [ ] **Step 2: Diff the failure names against the baseline**
+- [x] **Step 2: Diff the failure names against the baseline**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/measure && grep -E "^(FAILED|ERROR) tests/" branch-full-tzutc.txt | sed 's/ - .*//' | sort -u > branch-names.txt ; diff baseline-names.txt branch-names.txt && echo "NAMENS-DIFF LEER" ; wc -l baseline-names.txt branch-names.txt
@@ -1300,19 +1302,19 @@ cd /d/Entwicklung/HASI/issue66-work/measure && grep -E "^(FAILED|ERROR) tests/" 
 Expected: `NAMENS-DIFF LEER`. A non-empty diff is a regression; read it before touching
 anything.
 
-- [ ] **Step 3: The committed dist equals a fresh build**
+- [x] **Step 3: The committed dist equals a fresh build**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt/custom_components/irrigation_plus/frontend && npm run build > /d/Entwicklung/HASI/issue66-work/build-gate.log 2>&1 ; echo "build exit=$?" ; cd /d/Entwicklung/HASI/issue66-work/wt && git update-index --refresh > /dev/null 2>&1 ; git diff --quiet -- custom_components/irrigation_plus/frontend/dist/ && echo "committed dist == fresh build"
 ```
 
-- [ ] **Step 4: Lint**
+- [x] **Step 4: Lint**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && uvx black --check custom_components/irrigation_plus/ tests/test_distributor_inlet_gate.py ; uvx ruff check custom_components/irrigation_plus/ tests/test_distributor_inlet_gate.py
 ```
 
-- [ ] **Step 5: The reference checks, on the added lines and the messages**
+- [x] **Step 5: The reference checks, on the added lines and the messages**
 
 > **Addendum A6:** the third grep below is not empty on the base (upstream's own reporter
 > credits); use `git grep -n "Eifel-Joe#" HEAD -- custom_components tests docs` instead.
@@ -1321,7 +1323,7 @@ cd /d/Entwicklung/HASI/issue66-work/wt && uvx black --check custom_components/ir
 cd /d/Entwicklung/HASI/issue66-work/wt && git diff upstream/master...HEAD -U0 -- custom_components tests docs | grep '^+' | grep -nEi "eifel-joe|issue ?#66|#66\b|\bR6\b|\bH2\b|\bL5\b|spec\b|task [0-9]" ; git log upstream/master..HEAD --format=%B | grep -nEi "eifel-joe|#66\b|\bR6\b|spec\b|task [0-9]" ; grep -rn "Eifel-Joe" custom_components/ tests/ docs/ ; echo "--- alle drei ohne Ausgabe = sauber"
 ```
 
-- [ ] **Step 6: Commit any formatting churn**
+- [x] **Step 6: Commit any formatting churn**
 
 ```bash
 cd /d/Entwicklung/HASI/issue66-work/wt && git status --short ; git diff --quiet || { git add custom_components/irrigation_plus tests && git commit -m "style: black" ; }
@@ -1341,7 +1343,7 @@ boundaries, the entry and estimate pins); the matrix is what proves they are loa
 **Files:**
 - Create: `D:\Entwicklung\HASI\issue66-work\mutate.py` (outside the repository)
 
-- [ ] **Step 1: Write the runner**
+- [x] **Step 1: Write the runner**
 
 > **Addendum A7:** use the runner measured in the dry run (three guards added, among them a
 > timeout; anchors 9, 11, 13, 14 follow A4): copy `issue66-work\probe\mutate.py` and
@@ -1481,7 +1483,7 @@ MUTATIONS = [
 Every anchor must appear exactly once on the branch; the runner skips and reports any that
 does not. If `black` reformatted an anchored line, adapt the anchor, not the code.
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 > **Addendum A7:** the command, the re-run of mutation 5 and the expected output as measured
 > are in A7; they replace the block below.
@@ -1495,7 +1497,7 @@ two `OK` from `sha256sum -c`. Check each row's `summary` in `issue66-work\mutati
 pytest must have collected. A run that collected nothing kills nothing and survives
 everything.
 
-- [ ] **Step 3: Read every survivor as a weak test first**
+- [x] **Step 3: Read every survivor as a weak test first**
 
 Either add the assertion that kills it, or record the measurement that shows the mutated code
 behaves identically. An argument is not a measurement.
@@ -1504,11 +1506,11 @@ behaves identically. An argument is not a measurement.
 
 ## Task 9: Review
 
-- [ ] **Step 1:** `superpowers:requesting-code-review` on `git diff upstream/master...HEAD`,
+- [x] **Step 1:** `superpowers:requesting-code-review` on `git diff upstream/master...HEAD`,
   with this plan and the design doc. The reviewer checks: every requirement R1–R6 of the
   design has a change and a test; nothing outside the listed files moved; the comments follow
   `code-doku` (Wurzel, Fix, NOT-TO-DO, siehe); no tracker reference slipped in.
-- [ ] **Step 2:** Every finding goes through `superpowers:receiving-code-review`, verified
+- [x] **Step 2:** Every finding goes through `superpowers:receiving-code-review`, verified
   before it is acted on. A change re-runs Task 7 and, if it touches a mutated line, Task 8.
 
 ---
@@ -1804,3 +1806,188 @@ The refusal path awaits `_dist_notify`; a `notify_target` whose service does not
 there, and the claim then raises instead of returning `False` — for a scheduled dispatch that also
 skips the distributors after it in the loop. The halt path (`_dist_mark_uncertain`) has the same
 property today, inside the sweep. Consistent with it, so left as designed; the reviewer decides.
+
+### A10 — after the code review of Tasks 1–2 (during execution): Task 5b, mutations 19–22
+
+The per-task quality review of `c1ec30e5` (Tasks 1–2) found no defect in the gate; one finding is
+taken, the rest are answered here.
+
+**Taken — Task 5b.** Nothing pinned "no `await` between the in-flight check and `inflight.add`",
+which the gate's docstring states and which Tasks 3–4 edit around: the existing
+`test_second_concurrent_cycle_rejected_by_single_flight_lock` calls its second claim only after
+the first has registered, so an inserted `await asyncio.sleep(0)` survived all distributor suites
+(measured by the reviewer on a scratch copy). Task 5b, a commit of its own after Task 5, appends
+`test_two_claims_scheduled_together_start_exactly_one_sweep` (two claims through `asyncio.gather`,
+a sweep that yields; exactly one starts) and a second `siehe` line in the docstring of
+`_dist_inlet_reports_open`. Full suite then 3466 + 41 = 3507 passed. The runner gains mutations
+19 (a yield before `inflight.add`), 20 (a test run skips the gate), 21 (a forced member run skips
+the gate) and 22 (the gate asked before the in-flight guard) — the last three because the reviewer
+saw them survive on Task 2's commit alone and they must die once Tasks 3 and 5 are in. Anchors in
+`issue66-work\probe\mutate.py`.
+
+**Answered, not taken:**
+
+| finding | why not |
+|---|---|
+| grace from the sweep's end also for service mode without `stop_service` | contradicts R6, a user decision: no command, no evidence the valve closed; a start over a still-open self-closing valve is the measured defect |
+| a refusal notice for a cycle that would have found nothing to water (soil veto, nothing due) | the claim cannot know the sweep's later exits; recording every targeted member follows the rain-delay convention the design chose |
+| `isinstance(inlet_entity, str)` guard like `_dist_refresh_inlet_watch` | unreachable: the websocket validates `cv.string`; a non-string would raise before `inflight.add`, leaking nothing |
+| comment "never start over an open inlet" → "never claim while it reads open" | the residual window between claim and first open is listed in the design (*Explicitly not in this work*); the comment names the intent |
+| cross-reference `closing` to the five private `("on", "open", "opening")` sets; `open → closing → closed` decodes no close edge | the const comment says why `closing` blocks; the close-edge gap is Eifel-Joe#69 |
+| test module docstring and `_gate_host` describe later tasks; commit subject without `(#181)` | the file is built task by task; upstream squashes |
+
+### A11 — after the code review of Task 3 (during execution): Task 3b, mutations 23–27
+
+The review of `a8299a97` decided the question left open under *For the review (Task 9)*: the
+refusal awaited `_dist_notify` unguarded, and Home Assistant's `async_call` raises
+`ServiceNotFound` synchronously for a service that does not exist (a phone re-registered under a
+new `notify.mobile_app_…` name). The reviewer measured it through the real dispatcher: distributor
+A with an open inlet and a stale `notify_target`, distributor B closed — the dispatcher raised,
+**B did not sweep**, and A's members got no history entry; before this branch the same state was a
+silent `return False` and B watered. A report path must not stop another distributor's watering
+(same class as the memory "Nebensächlicher Fetch darf die View nicht reißen"). The halt path in
+`_dist_mark_uncertain` shares the property but raises after its own state write; it is upstream's
+and stays untouched here.
+
+**Task 3b**, a commit of its own after Task 3 (instructions: `issue66-work\prompts\t3-fix.md`):
+`_dist_notify` in the refusal path inside `try/except Exception` with `_LOGGER.exception`; the
+docstring says so, names "the members the cycle was for" (not "that did not get their water":
+every targeted member is recorded, due or not) and labels the `None` trap as `NOT-TO-DO`;
+`_dist_notify`'s first docstring line reads "a halt or a refusal". Tests:
+`test_a_broken_notify_target_does_not_stop_the_history` (RED before the guard),
+`test_a_refusal_is_notified_in_the_users_language` (de), `test_a_refusal_with_an_empty_target_records_nothing`,
+`test_the_skip_reason_is_a_key_every_language_localizes`, and `_dist_members.assert_awaited_once_with(0)`
+in the every-member test — each kills a mutant the reviewer saw survive. Dutch: `beregeningscyclus` →
+`bewateringscyclus` ("bewater-" 56× in `nl.json`, "beregen-" 13×). Full suite then 3466 + 31 = 3497
+after 3b; the later counts in this plan grow by four (Task 5: 3510, Task 5b: 3511).
+
+Mutation runner: 16's anchor moves into the `try` (the notify replaced by `pass`); new 23 (the
+guard removed: a failing notification propagates), 24 (the notice ignores the user's language),
+25 (`if only_zone_ids:` — an empty target records every member), 26 (the skip code has no catalogue
+key), 27 (`_dist_members` asked for another distributor).
+
+Not taken: `int()` coercion pins (the dispatcher passes ints; low value); the trigger for
+`distributor_run_now` and irrigate-now without a duration stays `schedule` (the claim only sees
+`force_water`; the history table does not render the trigger).
+
+### A12 — the sister path of A11 (user decision, 2026-09-29): Task 3c, the guard at the root
+
+Task 3b's implementer found, and the re-review of `a2ae6bf2` measured, the same pattern in the halt
+path: `_dist_mark_uncertain` awaits `_dist_notify` unguarded. With a stale target,
+`async_resume_distributor_cycles` stopped after the first distributor — the next one's inlet was
+never reconciled — and the error escaped the entry setup (`__init__.py:241`); a halt inside a sweep
+aborted the dispatcher's other distributors. `_dist_notify`'s docstring itself calls the notify
+target "an extra, optional channel". The user chose the root fix in this pull request (rule:
+mirror bugs go into the same fix) over a separate issue: **Task 3c** guards only the optional
+forward inside `_dist_notify` (`try/except Exception`, logged with the target; `NOT-TO-DO`: not
+narrowed to `ServiceNotFound` — a schema rejection raises `vol.Invalid`, a corrupt target
+`AttributeError`; not widened to `BaseException` — a cancellation must cancel) and **drops the 3b
+guard** in the refusal path — one guard instead of two. Tests: `test_notify_a_failing_target_is_logged_not_raised`
+and `test_notify_a_cancellation_still_cancels` in `test_distributor.py`,
+`test_resume_goes_on_after_a_failing_notify_target` in `test_distributor_cycle.py` (the reviewer's
+measured case: two distributors across a restart), the gate test's log text adjusted. Instructions:
+`issue66-work\prompts\t3c-fix.md`. Full suite after 3c: 3497 + 3 = 3500; later counts grow by three
+(Task 4: 3506, Task 5: 3513, Task 5b: 3514); the four distributor suites 210.
+
+This changes upstream behaviour in the halt path, so the PR body names it.
+
+Mutation runner, final list for Task 8: 16 back on its plan anchor (the refusal calls `_dist_notify`
+plainly again); 23 becomes "the forward unguarded" (the root guard removed), plus 28 "the guard
+widened to `BaseException`" (killer: the cancellation pin); 24–27 as in A11.
+
+**Task 3d** (re-review of `a1088266`: "Ready to merge? Yes", one Minor taken): the NOT-TO-DO "do not
+narrow to ServiceNotFound" had no killer — the reviewer measured three surviving mutants (narrowed
+to `ServiceNotFound`; to `(ServiceNotFound, vol.Invalid)`; `_dist_split_service` moved out of the
+`try`). `test_notify_a_failing_target_is_logged_not_raised` is parametrised over `ServiceNotFound`
+and `vol.Invalid`, `test_notify_a_corrupt_target_is_logged_not_raised` (target `5`) is added, and the
+docstring's `siehe` lines name every pin. Mutations 29–31 in the runner. Instructions:
+`issue66-work\prompts\t3d-fix.md`. Full suite after 3d: 3502; the four distributor suites 212;
+later: Task 4 3508, Task 5 3515, Task 5b 3516.
+
+Not taken, separate issue proposed: a stale `stop_service` in `async_resume_distributor_cycles`
+still stops the reconcile of the remaining distributors (measured by the reviewer on `a1088266`) —
+an actuator, not an optional channel; isolating each distributor in that loop is a design question
+of its own.
+
+### A13 — after the code review of Task 4 (during execution): Task 4b, mutations 32–35
+
+Task 4 went in as planned (`5d6fcfaf`: RED 2/35, GREEN 37, suites 212, full suite 3508, names
+identical; the spec check rebuilt all three files byte-exact from base + blocks). The quality review
+found the production code correct — stamp only after a returned command, per distributor, expiring
+by construction on a monotonic clock, every own close through `_dist_close_inlet` — and four agreed
+decisions unpinned, each a mutant that survived all 249 tests of the five distributor suites:
+
+| mutant | new pin (Task 4b) |
+|---|---|
+| a `stop_service` close stamped before it is sent | `test_a_stop_service_that_raised_starts_no_grace` |
+| the first close keeps its stamp (`setdefault`) | `test_a_later_close_restarts_the_grace` |
+| the grace still holds at exactly 30 s (`<=`) | `test_the_grace_is_over_at_exactly_thirty_seconds` |
+| every stamp kept under distributor 0 (the falsy id) | `test_the_grace_runs_for_a_distributor_that_is_not_number_zero` |
+
+Plus two `siehe` lines (`_dist_close_inlet` → the raising-close test; `_dist_inlet_reports_open` →
+the 30 s test). Mutations 32–35 in the runner. Instructions: `issue66-work\prompts\t4b-fix.md`. Gate
+file 41, full suite 3512; later: Task 5 48 / 3519, Task 5b 49 / 3520. Not taken: the classic branch
+stamps even when `_dist_domain_turn` sends nothing for an empty inlet entity — unobservable, the
+gate returns before it reads the stamp.
+
+### A14 — the final review (Task 9, 2026-09-30) and its fix commit
+
+Opus reviewer over `upstream/master...dbefa0a7`: **"Yes, ready for the PR"**, no Critical, no
+Important. Measured independently: full suite on a `git archive` copy 7 / 3520 / 9 / 367 with the
+374 baseline names; lint with the exact CI versions (black 26.5.1, ruff 0.16.9) clean including the
+three test files; both bundles equal the base plus exactly the two English insertions; upstream CI
+on `0b9a71bd` (run 36601325803: HA 2026.2.3, pytest 9.0.0, pytest-asyncio 1.3.0) already runs the
+same constructs (`ServiceNotFound(domain, service)`, `hass.data = {}` dispatcher hosts) green.
+
+Six Minor findings; fix commit `842a4cec` (instructions `issue66-work\prompts\t9-fix.md`):
+
+| # | finding | taken as |
+|---|---|---|
+| 1 | a close command that *returns* was accepted, not executed: a service failing in its background task is only logged, the stamp is set, and the gate overlooks that still-open inlet until the grace ends (probe on real `hass`, HA 2024.12.5) | behaviour stays (R6: "sent"); `_dist_close_inlet` docstring now `Wurzel:`/`Fix:` and says so; the `Grace:` paragraph names it next to the accepted trade; **the PR body names it** |
+| 2 | a refusal can overwrite an open halt notification (same id) when the dispatcher claims B from its stale copy after B was halted during A's sweep (probe) | no code: the root is the stale-copies issue Eifel-Joe#71 — a comment there, text approved first |
+| 3 | the grace for `closing` unpinned (mutant M-C survived) | the grace test parametrised over `on`/`closing`; mutation 36 |
+| 4 | `_dist_notify`'s `Wurzel:` told the branch's intermediate state (the unguarded refusal never existed upstream) and missed the warn-mode watch | rewritten to upstream's callers; the refusal named as the new caller that would fail the same way |
+| 5 | the docs paragraph: a refused test run writes no history; the grace counts from the sent command | paragraph corrected |
+| 6 | `siehe` for the finish-anchor NOT-TO-DO | added |
+
+For the PR body (reviewer): name A12 (the halt path's behaviour change), the **upgrade effect** (an
+inlet entity that idles in `on`/`open`/`opening`/`closing` will refuse every cycle, with a
+notification), and finding 1 as a second reason for the 30 s blind window.
+
+### Execution record (2026-09-29/30)
+
+Branch `fix/distributor-inlet-open-gate` in `issue66-work\wt` from `0b9a71bd`, twelve commits, none
+pushed (the branch has no upstream tracking: `git worktree add -b … upstream/master` had set
+`upstream/master` as its upstream, removed with `git branch --unset-upstream` right after creation):
+
+| commit | content | full suite (`TZ=UTC`) |
+|---|---|---|
+| `c1ec30e5` | Tasks 1–2: the gate | 7 / 3485 / 9 / 367 |
+| `a8299a97` | Task 3: log, notification, history, eight languages, dist | 3493 |
+| `a2ae6bf2` | 3b: guard + four pins, Dutch wording (A11) | 3497 |
+| `a1088266` | 3c: the guard at the root in `_dist_notify`, the 3b guard dropped (A12) | 3500 |
+| `04fca3d3` | 3d: pins for every failure the guard takes (A12) | 3502 |
+| `5d6fcfaf` | Task 4: the grace, with the A4 helper | 3508 |
+| `f72da9b8` | 4b: four grace pins (A13) | 3512 |
+| `3c1d3550` | Task 5: entry and estimate pins | 3519 |
+| `56819851` | 5b: two claims start one sweep (A10) | 3520 |
+| `dbefa0a7` | Task 6: the docs paragraph | 3520 |
+| `842a4cec` | final-review fixes (A14) | 3521 |
+| `2c221a7a` | the re-review's optional nit: a semicolon keeps the #181 trade apart from the failed close | docstring only; code AST-identical to `842a4cec`, gate 50 passed, lint clean |
+
+Re-review of `842a4cec` (same Opus reviewer): **"Yes, ready for the pull request"**, no new finding;
+code AST-identical to `dbefa0a7` apart from docstrings; every new sentence checked against the code
+and against `homeassistant/core.py` of 2026.2.3 (non-blocking `async_call` raises only
+`ServiceNotFound` and `vol.Invalid`; anything else is caught and logged in the background task);
+full suite on a copy of `842a4cec` 7 / 3521 / 9 / 367, names identical. A first parallel run of the
+reviewer showed one extra `ERROR at setup of tests/test_master.py::test_storage_version_is_14`
+(`OSError: [WinError 10055]`, socketpair buffer exhausted by parallel pytest runs); green alone and
+on the rerun — a local flake, not a regression.
+
+Every run: 7 failed / 9 skipped / 367 errors with the 374 baseline names (`issue66-work\measure\*-names.txt`).
+Every RED as predicted. Lint clean after each commit; committed dist == fresh build (Task 7).
+Reference greps (A6) empty; the only issue number in the diff is `#181`. Mutation matrix on
+`dbefa0a7`: 34 of 35 killed in `mutations.log`, mutation 5 `HANG` there and killed in
+`mut5-rerun.log` (by the in-flight test and the 5b pin); mutation 36 (added with `842a4cec`) killed
+by the `[closing]` case (`mutations-36.json`) — **36 of 36**. Runner and results under
+`issue66-work\` (`mutate.py`, `mut5_rerun.py`, `mutations.json`, `mutations.log`, `mut5-rerun.log`).
