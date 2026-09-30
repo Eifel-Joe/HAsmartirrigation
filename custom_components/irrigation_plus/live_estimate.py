@@ -211,7 +211,11 @@ def _parse_stored_as_ha_local(value):
             return None
     if isinstance(value, datetime.datetime):
         if value.tzinfo is not None:
-            return dt_util.as_local(value).replace(tzinfo=None)
+            try:
+                return dt_util.as_local(value).replace(tzinfo=None)
+            except OverflowError:
+                # At the edge of the datetime range there is no local form.
+                return None
         return value
     return None
 

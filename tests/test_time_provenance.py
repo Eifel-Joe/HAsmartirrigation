@@ -156,7 +156,7 @@ def test_coercing_without_naming_a_provenance_is_an_error():
 
 
 def test_an_unusable_value_is_no_stamp_rather_than_a_raise(split_zones):
-    """None and junk give None.
+    """None, junk and a stamp no zone conversion survives give None.
 
     ``parse_datetime`` lets ``fromisoformat``'s ValueError out, and these call sites
     sit inside a blanket ``except`` that turns a raise into the live estimate quietly
@@ -167,6 +167,8 @@ def test_an_unusable_value_is_no_stamp_rather_than_a_raise(split_zones):
     assert coerce_stamp("not a date", STAMP_FROM_STORE) is None
     assert coerce_stamp("not a date", STAMP_FROM_CLIENT) is None
     assert coerce_stamp(object(), STAMP_FROM_STORE) is None
+    assert coerce_stamp("9999-12-31T23:59:59+00:00", STAMP_FROM_STORE) is None
+    assert coerce_stamp("0001-01-01T00:00:00+05:00", STAMP_FROM_CLIENT) is None
 
 
 def test_the_two_provenances_are_distinct_values():

@@ -1050,7 +1050,11 @@ def coerce_stamp(value, provenance) -> datetime | None:
         return None
     if parsed.tzinfo is None:
         return parsed
-    return dt_util.as_local(parsed).replace(tzinfo=None)
+    try:
+        return dt_util.as_local(parsed).replace(tzinfo=None)
+    except OverflowError:
+        # At the edge of the datetime range an aware stamp has no local form.
+        return None
 
 
 def local_naive_now() -> datetime:
@@ -1075,18 +1079,22 @@ def lift_legacy_stamp(value):
     String in, string out: ``async_load`` converts nothing, so the loaded shape must
     stay what the file held. A naive value is read in the process zone at its own date's
     offset, an aware one as the instant it names; anything else -- ``None``, an
-    unparseable string, a non-string -- comes back exactly as found. Why and when this
-    runs: ``store._lift_legacy_stamps``.
+    unparseable string, a non-string, a stamp at the edge of the datetime range that no
+    zone conversion survives -- comes back exactly as found. Why and when this runs:
+    ``store._lift_legacy_stamps``.
+    NOT-TO-DO: do not let the conversion raise. This runs inside the store's load: a
+      raise fails setup on every start, and the file stays at 14.1 for the next one.
+    siehe tests/test_store_stamp_migration.py::test_what_it_cannot_read_is_left_exactly_as_found
     """
     if not isinstance(value, str):
         return value
     try:
         parsed = datetime.fromisoformat(value)
-    except ValueError:
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=_process_timezone())
+        return dt_util.as_local(parsed).replace(tzinfo=None).isoformat()
+    except (ValueError, OverflowError, OSError):
         return value
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=_process_timezone())
-    return dt_util.as_local(parsed).replace(tzinfo=None).isoformat()
 
 
 class CannotConnect(exceptions.HomeAssistantError):

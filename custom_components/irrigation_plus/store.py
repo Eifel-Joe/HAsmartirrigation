@@ -430,7 +430,7 @@ class Config:
     )
     distributors_enabled = attr.ib(type=bool, default=CONF_DEFAULT_DISTRIBUTORS_ENABLED)
     # Continuous (event-driven) sensor ingestion + its per-sensor-group debounce
-    # in milliseconds. Both MUST also be setdefault'ed in _async_migrate_func:
+    # in milliseconds. Both MUST also be setdefault'ed in _async_migrate_major:
     # that function ends by filtering data["config"] against
     # attr.fields_dict(Config), so an attribute without a migration default is
     # simply absent (and a stored value for a key with no attribute is dropped).
@@ -626,6 +626,9 @@ def _lift_legacy_stamps(data: dict) -> None:
       fix leave byte-identical traces in a naive series.
     NOT-TO-DO: ``dt_util.as_local`` on a naive value only attaches HA's zone; it cannot
       know the process's, so it moves nothing.
+    NOT-TO-DO: an ``except`` around this pass. It is not idempotent: a pass cut short
+      would be saved as 14.2 with the rest never lifted. Each stamp guards itself
+      (``lift_legacy_stamp``).
     siehe tests/test_store_stamp_migration.py
     """
     for zone in data.get("zones") or []:

@@ -83,6 +83,18 @@ def test_a_naive_stored_stamp_passes_through_either_way(split_zones):
     assert helpers.coerce_stamp(naive, helpers.STAMP_FROM_CLIENT) == naive
 
 
+def test_a_stored_stamp_beyond_the_datetime_range_is_no_stamp(split_zones):
+    """An aware stamp at the edge of the range has no local form: no stamp, no raise.
+
+    Raised, it would reach the live estimate's blanket ``except`` and switch the
+    estimate off.
+    """
+    edge = "9999-12-31T23:59:59+00:00"
+
+    assert live_estimate._parse_stored_as_ha_local(edge) is None
+    assert helpers.coerce_stamp(edge, helpers.STAMP_FROM_STORE) is None
+
+
 class TestTheForecastReadersUseTheClientRule:
     """The three row conversions, exercised THROUGH the functions that hold them.
 

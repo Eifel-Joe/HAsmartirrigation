@@ -152,9 +152,18 @@ class TestTheFiveStampsMoveOntoHAsClock:
     async def test_an_aware_stamp_is_read_as_the_instant_it_names(
         self, hass, utc_container_berlin_user
     ):
-        out = await _migrate(hass, 14, 1, _data(stamp="2026-07-15T10:00:00+00:00"))
+        """An offset that is neither zone's, so reading it in either would show."""
+        out = await _migrate(hass, 14, 1, _data(stamp="2026-07-15T10:00:00+05:00"))
 
-        assert _stamps(out) == ["2026-07-15T12:00:00"] * 5
+        assert _stamps(out) == ["2026-07-15T07:00:00"] * 5
+
+    async def test_the_microseconds_a_stamp_carries_are_kept(
+        self, hass, utc_container_berlin_user
+    ):
+        """Every real stamp has them: HA's JSON writes ``isoformat()`` in full."""
+        out = await _migrate(hass, 14, 1, _data(stamp="2026-07-15T10:00:00.123456"))
+
+        assert _stamps(out) == ["2026-07-15T12:00:00.123456"] * 5
 
     async def test_what_it_cannot_read_is_left_exactly_as_found(
         self, hass, utc_container_berlin_user
@@ -169,7 +178,14 @@ class TestTheFiveStampsMoveOntoHAsClock:
                     const.ZONE_LAST_UPDATED: 12345,
                 },
                 {const.ZONE_ID: 2},
-                "not a zone",
+                # Beyond the datetime range once converted: no zone can hold them.
+                {
+                    const.ZONE_ID: 3,
+                    const.ZONE_LAST_CALCULATED: "9999-12-31T23:59:59",
+                    const.ZONE_LAST_CONSUMED: "0001-01-01T00:00:00+05:00",
+                },
+                # A string that names a field: ``in`` finds it, indexing it would raise.
+                const.ZONE_LAST_CALCULATED,
             ],
             "mappings": [
                 # The field's legacy attrs default was the string "[]".
@@ -183,6 +199,7 @@ class TestTheFiveStampsMoveOntoHAsClock:
                     ],
                     const.MAPPING_DATA_LAST_UPDATED: None,
                 },
+                const.MAPPING_DATA_LAST_UPDATED,
             ],
         }
         before = copy.deepcopy(data)
@@ -195,9 +212,12 @@ class TestTheFiveStampsMoveOntoHAsClock:
     async def test_a_store_at_14_2_or_later_is_left_alone(
         self, hass, utc_container_berlin_user
     ):
-        """The rewrite is not idempotent: run on an HA-local store it moves it again."""
-        for minor in (2, 3):
-            out = await _migrate(hass, 14, minor, _data(stamp="2026-07-15T12:00:00"))
+        """The rewrite is not idempotent: run on an HA-local store it moves it again.
+
+        A later major counts as later, whatever its minor.
+        """
+        for major, minor in ((14, 2), (14, 3), (15, 1)):
+            out = await _migrate(hass, major, minor, _data(stamp="2026-07-15T12:00:00"))
 
             assert _stamps(out) == ["2026-07-15T12:00:00"] * 5
 
