@@ -1,0 +1,50 @@
+references parsed: 718
+unchanged: 614   moved (text identical): 80   problems: 0
+unresolved file names (not in the package): ['common.py', 'data.ts', 'datetime.ts', 'event.py', 'json.py', 'storage.py', 'zones.ts']
+__init__.py:2017  -> 2019                          # Naive local time, the convention every other writer of this
+__init__.py:2022  -> 2024                          # (see tests/test_datetime_platform_shadowing.py).
+__init__.py:2023  -> 2025                          const.ZONE_LAST_CONSUMED: dt_datetime.now(),
+__init__.py:2109  -> 2111                          await self.async_calculate_zone(zone_id, forecastdata, run_start=run_s
+__init__.py:2114  -> 2116                          await self._async_calculate_all()
+__init__.py:2131  -> 2133                          await self.handle_clear_weatherdata(None)
+__init__.py:2150  -> 2152                          entry = await self.store.async_create_zone(data)
+__init__.py:2152  -> 2154                          async_dispatcher_send(self.hass, const.DOMAIN + "_register_entity", en
+__init__.py:2162  -> 2164                          self.hass.async_create_task(self.async_guard_ledger_staleness())
+store.py:1700  -> 1704                          valid_fields = set(attr.fields_dict(type(old)).keys())
+store.py:1702  -> 1706                          new = self.zones[zone_id] = attr.evolve(old, **filtered_changes)
+store.py:1802  -> 1806                          async def async_get_mappings(self):
+store.py:1807  -> 1811                          return [attr.asdict(val) for val in self.mappings.values()]
+store.py:1884  -> 1888                          self.buffers.setdefault(mapping_id, []).append(reading)
+store.py:1889  -> 1893                          def get_enabled_zone_watermarks(self, mapping_id: int):
+store.py:1921  -> 1925                          watermark = as_datetime(zone.last_consumed_at)
+store.py:1938  -> 1942                          watermarks, _any_unconsumed = self.get_enabled_zone_watermarks(mapping
+store.py:1939  -> 1943                          return min(watermarks) if watermarks else None
+store.py:1941  -> 1945                          @callback
+store.py:1980  -> 1984                          # A row loaded from disk still carries RETRIEVED_AT as the ISO
+store.py:1984  -> 1988                          # the very first reading after a restart raises.
+store.py:1985  -> 1989                          newest_at = as_datetime(newest.get(RETRIEVED_AT))
+store.py:1989  -> 1993                          and newest_at >= coalesce_before
+store.py:1990  -> 1994                          and (min_watermark is None or newest_at > min_watermark)
+store.py:1993  -> 1997                          for field in mergeable_fields:
+store.py:1994  -> 1998                          newest[field] = reading[field]
+store.py:1997  -> 2001                          buffer.append(reading)
+store.py:1998  -> 2002                          self._buffers_dirty = True
+store.py:1999  -> 2003                          return True
+store.py:2014  -> 2018                          self.buffers[mapping_id] = _as_buffer(readings)
+store.py:2019  -> 2023                          def set_mapping_last_entry_value(self, mapping_id: int, key: str, valu
+store.py:2051  -> 2055                          self.mappings[mapping_id] = attr.evolve(entry, data_last_entry=last_en
+store.py:2064  -> 2068                          self.buffers[int(new_mapping.id)] = _as_buffer(readings)
+store.py:2091  -> 2095                          self.set_mapping_buffer(mapping_id, changes.pop(MAPPING_DATA))
+store.py:2110  -> 2114                          new = self.mappings[mapping_id] = attr.evolve(old, **changes)
+websockets.py:384   -> 416                           await coordinator.async_update_zone_config(zone, data)
+websockets.py:385   -> 417                           except SmartIrrigationError as err:
+websockets.py:489   -> 521                           async def websocket_get_zones(hass: HomeAssistant, connection, msg):
+websockets.py:493   -> 525                           connection.send_result(msg["id"], zones)
+websockets.py:521   -> 553                           async def websocket_get_mappings(hass: HomeAssistant, connection, msg)
+websockets.py:526   -> 558                           connection.send_result(msg["id"], mappings)
+websockets.py:566   -> 598                           sorted_data = sorted(
+websockets.py:568   -> 600                           key=lambda x: _safe_parse_datetime(x.get(const.RETRIEVED_AT)),
+websockets.py:570   -> 602                           )
+websockets.py:577   -> 609                           retrieval_time = data_point.get(const.RETRIEVED_AT)
+websockets.py:589   -> 621                           retrieval_time_str = _to_iso(retrieval_time)
+websockets.py:1102  -> 1134                          today = dt_util.now().date()

@@ -16,6 +16,11 @@ no production code changed.
 **Status:** decided on everything except the on-disk form of the five stamps (R4-3), which is
 JustChr's convention to decide. Recommendation: **Variant B**. **No plan until he answers.**
 
+> **Addendum 2026-09-30 (end of this file) — where it differs, it wins.** JustChr chose **B**.
+> The migration keys on the store's **minor** version (14.1 → 14.2), not 14 → 15: since HA
+> 2026.3 a higher *major* version makes a rolled-back release fail setup. Line numbers moved
+> to `0b9a71bd` in three files only (A6).
+
 ---
 
 ## Why Revision 3 cannot be built as planned
@@ -288,3 +293,163 @@ Re-run on 2026-09-28 from the archived copies: result lines identical to the rec
 - `exc_info=True` on `_intraday_for_zone`'s blanket `except`, plus first failure per refresh at
   WARNING. JustChr said yes, independent of both PRs. Own PR.
 - The `TZ=` documentation — shipped as `JustChr#164`.
+
+---
+
+## Addendum 2026-09-30 — B chosen; the migration keys on the minor version; lines on `0b9a71bd`
+
+Where this addendum differs from the text above, **it wins**. Nothing above is deleted, so the
+reasoning that led here stays readable. Variant A and its list are out.
+
+### A1 — The decision: Variant B
+
+On `JustChr#160` (comment `5884685278`, 2026-09-29 06:08 UTC, account `JustChr`, OWNER) JustChr
+chose **B** and took the scope as R4-1, R4-2 and "Variant B" list it: the five fields in one
+pass, watermark and buffer together, legacy stamps read as process-local at their own offset;
+writers on `dt_util.now().replace(tzinfo=None)`; `_process_timezone()` on `tzlocal()`; the solar
+clamp; the matrix, red on master. An automated reply an hour earlier
+(`watchtower-justchr[bot]`, `5884061101`) had answered as if A were chosen; he retracted it in
+the same comment. His two additions, both for the migration comment (A5) and the release notes:
+
+- the process-`TZ` assumption, in his words: a process `TZ` changed between writing and
+  upgrading is misread;
+- the cost R4-3 names: after the migration, a change of HA's **own** configured zone misreads
+  up to a week of buffer.
+
+### A2 — The migration keys on the minor version: 14.1 → 14.2
+
+Supersedes B.1's "Migration 14 → 15 … run when `old_version < 15`", B.5, R4-5 and the Scope
+line "`STORAGE_VERSION` 15".
+
+**What B.5 got wrong.** It said a rolled-back release opens the migrated file, its migrate
+function passes the unknown version through, and HA saves it as 14. That was checked against
+the local HA 2024.12.5 only. Since **HA 2026.3.0** (home-assistant/core#164340)
+`Store._async_load_data` raises `UnsupportedStorageVersionError` when the stored **major**
+version is above `max_readable_version`, which defaults to the store's own version
+(`homeassistant/helpers/storage.py:282-283` and `:441-443` at the tags 2026.3.0 and 2026.4.0,
+absent at 2026.2.0 — read at the tags). HASI passes no `max_readable_version` (`store.py:903`)
+and loads the store unguarded during setup (`__init__.py:191` → `store.py:907`). After
+14 → 15, a rollback to 09.17 on current HA therefore fails setup until the user upgrades again
+or restores a backup. We first said 2026.4; JustChr corrected it to 2026.3
+(`5894821423`), and the files at the tags confirm him.
+
+**What holds instead.** The guard compares the major version only. A differing minor version
+sends the file through the migrate function, and HA passes the minor only to a migrate
+function with **three** parameters: `len(inspect.signature(self._async_migrate_func).parameters)
+== 2` → `(version, data)`, else `(version, minor_version, data)` (`storage.py:453-463` at
+2026.3.0/2026.4.0, `:409-419` at 2024.12.5). A file without `minor_version` is read as minor 1
+(`:431-433` resp. `:391-393`). So:
+
+- `STORAGE_VERSION` stays **14**. A new `STORAGE_MINOR_VERSION = 2` is passed as
+  `minor_version=` to `MigratableStore` (`store.py:903`). The convention "`STORAGE_VERSION`
+  stays put" (`store.py:473` and siblings) is kept.
+- The stamp step runs when `(old_major_version, old_minor_version) < (14, 2)`: every store
+  written before this change, older majors included. The literal `(14, 2)` names the version at
+  which the stamps changed meaning; it must not be spelled with `STORAGE_VERSION` /
+  `STORAGE_MINOR_VERSION`, which will move again.
+- **Rollback to 09.17** — JustChr checked it (`5894821423`), re-read here on `6d9c69e6`: 09.17's
+  `_async_migrate_func(self, old_version, data)` has two parameters, so HA calls it with
+  `(14, data)`. Its version branches are `== 3` and `<= 4` … `<= 13`; none runs, only the
+  always-run config tail (setdefaults, strip of unknown config keys). Zones and buffers pass
+  through, and HA saves the file back as 14.1 (`async_save` writes the store's own
+  `minor_version`, `storage.py:468-475` at 2026.4.0). The old code then reads HA-local stamps as
+  process-local: **one window misread by the offset on an affected install, then healed** —
+  the behaviour JustChr based the decision on.
+- **Re-upgrade** after such a rollback: the file is 14.1 again, the step runs again and shifts
+  every stamp in it — those the rolled-back release wrote (correctly) and those the new release
+  had written before the rollback (a second time): one more window. Documented (A5), not
+  handled.
+- CI's floor HA (2025.5.0) and the local test HA (2024.12.5) have no guard; the minor route
+  behaves the same there.
+
+### A3 — The migrate function's shape
+
+HA picks the call form by the parameter count, so seeing the minor needs the three-parameter
+form. The existing body stays **unchanged** under a new name, `_async_migrate_major(self,
+old_version, data)`; a new `_async_migrate_func(self, old_major_version, old_minor_version,
+data)` runs it and then the stamp step. Rejected: changing the signature in place.
+
+| | split (chosen) | signature changed in place |
+|---|---|---|
+| 24 direct two-argument calls in 8 test files (the major steps v3–v13), plus 2 docstrings naming the function | renamed to `_async_migrate_major`; every assertion unchanged | each gets a `1` as minor and then also runs the stamp step on a fixture written for a major step |
+| A4's test | calls the body 09.17 runs at version 14 | would need its own copy of it |
+| diff in `store.py` | one renamed `def`, one new method | one changed `def` |
+
+`test_import_storage_visibility.py:76` defines its own three-parameter pass-through and is not
+affected.
+
+### A4 — JustChr's test: a 14.2 store through the two-argument path
+
+His request (`5894821423`): a test that feeds a 14.2 store through the **two-argument** path,
+the way 09.17 will see it, and asserts that the buffers come back untouched.
+
+- **The store as 09.17 opens it:** a test-local subclass of `MigratableStore` with major 14,
+  minor 1 (HA's default) and a **two-parameter** `_async_migrate_func(old_version, data)` that
+  records its arguments and delegates to `_async_migrate_major`. HA's own dispatch picks the
+  path.
+- **The 14.2 file is produced, not written by hand:** a 14.1 document goes through the real new
+  store's `async_load` — the migration runs, HA saves 14.2 into `hass_storage` — and that saved
+  file is what the 09.17-shaped store then loads.
+- **Asserted:** the migrate function ran once, with `(14, <data>)` — the major only; zones and
+  mappings come back equal to the 14.2 file (the three zone stamps, every row's `retrieved`,
+  `data_last_updated`); the file is saved back as version 14, minor 1; nothing raises.
+- **What it cannot show, said in its docstring:** it runs today's `_async_migrate_major`, not
+  09.17's source. Diffed on 2026-09-30: 09.17's function (`6d9c69e6`, `store.py:593-846`) and
+  today's (`0b9a71bd`, `:606-864`) differ by one config `setdefault`
+  (`CONF_FORECAST_WEATHER_ENTITY`) and in nothing that touches zones or mappings. Rejected:
+  vendoring 09.17's function into the tests — 254 lines, and it would still hydrate against
+  today's `Config` and constants, so it would not be 09.17 either. Locally and on CI's floor
+  job there is no guard; CI's job on the newest HA runs this test through the guarded code.
+
+### A5 — The migration comment
+
+One comment beside the step, after skill `code-doku`: **Wurzel** — legacy stamps were written
+by a bare `datetime.now()`, so they are process-local, and every reader compares them with
+HA-local values. **Fix** — one pass over the five fields: naive → process zone at its own
+offset (`tzlocal()`, R4-2) → HA-local → naive; aware → HA-local; string in, string out;
+anything unparseable, `None` or not a string left exactly as found. **Assumptions**, both from
+A1: a process `TZ` changed between writing and upgrading is misread; after the migration a
+change of HA's own zone misreads up to a week of buffer, because the stamps carry no offset.
+**Rollback and re-upgrade** as in A2. **NOT-TO-DO:** detection (`D4`, R4-4); a "repair" to
+`DEFAULT_TIME_ZONE` (`dt_util.as_local` attaches HA's zone to a naive value and cannot know
+the process's); a major bump (A2). **siehe** the tests. The PR body names both assumptions for
+the release notes.
+
+After B, `_process_timezone()` has one caller left, this step (`coerce_stamp`'s aware branch
+moves to `dt_util.as_local`, B.2); its docstring says so.
+
+### A6 — Line numbers: `1876aa03` → `0b9a71bd`
+
+`upstream/master` = `0b9a71bd` (re-fetched 2026-09-30). Only three backend files changed
+(`git diff --stat`): `store.py` (+4 lines after 1680, a comment), `__init__.py` (+2 after 2007,
+a comment), `websockets.py` (+9 after 380, +23 after 382, the zone POST). Every other cited file
+is unchanged. Scripted check of every `file:line` reference in this spec and in the inventory
+(718, repeats and continuation references `, :NNN` included): 614 unchanged, 80 moved with
+identical text, **0 mismatches** (`probes/2026-09-30-weather-buffer-remap-refs.py`, output
+beside it). The parser skips a continuation after a word (`:312-317 accept, :366-382`);
+`websockets.py:382` checked by hand: now `:391`, same text. The moves that matter here:
+
+| at `1876aa03` | at `0b9a71bd` |
+|---|---|
+| `store.py:1921`, `:1939`, `:1985`, `:1989`, `:1990`, `:1980-1984` | `:1925`, `:1943`, `:1989`, `:1993`, `:1994`, `:1984-1988` |
+| `__init__.py:2023` (writer), `:2017-2022` (its comment), `:2109`, `:2162` | `:2025`, `:2019-2024`, `:2111`, `:2164` |
+| `websockets.py:382`, `:384`, `:385`, `:489-493`, `:566-570`, `:577-589` | `:391`, `:416`, `:417`, `:521-525`, `:598-602`, `:609-621` |
+
+Unchanged and exact: `store.py:198`, `:603-862`, `:903`, `:907`, `:1653`; `__init__.py:191`,
+`:1429-1430`, `:1506`, `:1516`, `:1632`, `:1644`, `:1799`; all of `helpers.py`,
+`calculation.py`, `continuous_update.py`, `weather_aggregate.py`, `live_estimate.py`,
+`auto_calc.py`, `sensor.py`.
+
+### A7 — Not settled here: how the suite reacts
+
+Revision 4 calls B's fixture churn "small". That was reasoned, not measured, and B brings two
+sources Revision 4 did not count: every test that puts a 14.1 document into `hass_storage` now
+runs the stamp step, and every test that reads a writer's stamp back gets HA's clock (US/Pacific
+under the `hass` fixture) instead of the process's (UTC under `TZ=UTC` and on CI). The plan's
+dry run measures both on `0b9a71bd` before the plan is handed over.
+
+### A8 — The end-to-end criterion and its pins, updated
+
+As in "End-to-end criterion" above, with: the legacy store state is a **14.1** document
+(`"minor_version": 1`, or none, which HA reads as 1); "runs only below 15" → **runs only below
+14.2**; and A4's two-argument test joins the supporting pins.
