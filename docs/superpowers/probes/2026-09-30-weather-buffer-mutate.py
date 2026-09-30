@@ -153,6 +153,25 @@ def apply_mutation(edits):
         write(rel, text.replace(old, new), crlf)
 
 
+def run_with_timeout(cmd, env, cwd=None, timeout=None):
+    """stdout of ``cmd``, or None when it outlives the timeout (a mutation can deadlock a test).
+
+    The venv's ``python.exe`` on Windows is only a launcher: pytest runs in a child process.
+    ``kill()`` would stop the launcher and leave pytest running with our pipes open, so the
+    whole tree of THIS process id is killed -- nothing is matched by name.
+    """
+    proc = subprocess.Popen(cmd, cwd=cwd or WT, env=env, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+                            errors="replace")
+    try:
+        out, _ = proc.communicate(timeout=timeout or TIMEOUT)
+        return out
+    except subprocess.TimeoutExpired:
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
+        proc.communicate()
+        return None
+
+
 def run_tests(tz_utc=True):
     env = dict(os.environ)
     if tz_utc:
@@ -161,14 +180,11 @@ def run_tests(tz_utc=True):
         env.pop("TZ", None)
     cmd = [PY, "-m", "pytest", *TESTS, "-p", "_local_socket_unblock", "-q", "--no-header",
            "--tb=no", "-rf", "-p", "no:cacheprovider"]
-    try:
-        out = subprocess.run(cmd, cwd=WT, env=env, capture_output=True, text=True,
-                             encoding="utf-8", errors="replace", timeout=TIMEOUT)
-    except subprocess.TimeoutExpired:
-        # subprocess.run kills its own child on the timeout; nothing else is touched.
+    stdout = run_with_timeout(cmd, env)
+    if stdout is None:
         return "HANG", [], ""
-    summary = [line for line in out.stdout.splitlines() if re.match(r"^=+ .* in [\d.]+s", line)]
-    failed = sorted({m.group(1) for m in re.finditer(r"^FAILED (\S+)", out.stdout, re.M)})
+    summary = [line for line in stdout.splitlines() if re.match(r"^=+ .* in [\d.]+s", line)]
+    failed = sorted({m.group(1) for m in re.finditer(r"^FAILED (\S+)", stdout, re.M)})
     collected = bool(summary) and "no tests ran" not in summary[-1]
     if not collected:
         return "NOT-RUN", failed, summary[-1] if summary else out.stdout[-300:]
@@ -176,6 +192,18 @@ def run_tests(tz_utc=True):
 
 
 def main():
+    if os.environ.get("MUT_SELFTEST_TIMEOUT"):
+        # Exercise the timeout path alone: a child that sleeps past a short timeout.
+        started = subprocess.run(["tasklist"], capture_output=True, text=True).stdout.count("python")
+        out = run_with_timeout([PY, "-c", "import time; time.sleep(60)"], dict(os.environ),
+                               cwd=pathlib.Path.cwd(), timeout=3)
+        after = subprocess.run(["tasklist"], capture_output=True, text=True).stdout.count("python")
+        print(f"timeout path returned {'HANG' if out is None else 'OUTPUT'}; "
+              f"python processes before {started}, after {after}")
+        quick = run_with_timeout([PY, "-c", "print('collected fine')"], dict(os.environ),
+                                 cwd=pathlib.Path.cwd(), timeout=30)
+        print(f"normal path returned {quick!r}")
+        return
     only = set(filter(None, os.environ.get("MUT_ONLY", "").split(",")))
     sources = [p.relative_to(WT).as_posix() for p in (WT / PKG).rglob("*.py")]
     snapshot = {rel: sha(rel) for rel in sources}

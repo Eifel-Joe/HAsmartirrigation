@@ -2477,9 +2477,11 @@ No commit: nothing has changed.
 Each mutation must be killed by at least one named test. The runner is archived beside this
 plan, `docs/superpowers/probes/2026-09-30-weather-buffer-mutate.py` on `archive/design-history`.
 It applies one mutation at a time (exact match, line endings kept), runs the eight test files
-this change touches under `TZ=UTC` with a 300 s timeout, restores the touched file byte for
-byte, and at the end compares every source's sha256 with a snapshot taken before the first
-mutation. Fourteen hand-written mutations (M01–M14: the helpers, the migration, the version
+this change touches under `TZ=UTC` with a 300 s timeout — a mutation can deadlock a test; on a
+timeout the runner kills the whole process tree of its own pytest by PID and reports `HANG`
+(memory `mutation-survivor-suspects-the-test`) — restores the touched file byte for byte, and
+at the end compares every source's sha256 with a snapshot taken before the first mutation.
+`MUT_SELFTEST_TIMEOUT=1` runs only the runner's own check of that timeout path. Fourteen hand-written mutations (M01–M14: the helpers, the migration, the version
 numbers), then the 19 clock sites each reverted on its own the way a regression would look —
 the stdlib clock imported and called by its usual name (S01–S19). M02 (`_process_timezone`
 back to a fixed offset) runs twice, with and without `TZ=UTC`: only a DST zone shows it
@@ -2646,6 +2648,13 @@ once and asserts the stamp it leaves (`TestEveryWriterStampsHAsClock`: both poll
 weather-data reset, a source change, a sensor burst, the baseline seed), and the live path
 asserts the call without `now` as well. Second run: 15 of the 19 sites are killed by a
 behavioural test too; the census alone keeps the four defaults no in-repo caller reaches.
+
+**D8 — The runner's timeout path was wrong in the dry run, and fixed after it.** It used
+`subprocess.run(timeout=…)`, which on Windows kills only the venv launcher and leaves pytest
+running with the pipes open. No mutation hung in either run, so the numbers above stand; the
+archived runner now uses `Popen` and kills its own process tree by PID. Checked alone:
+`MUT_SELFTEST_TIMEOUT=1` → `timeout path returned HANG; python processes before 14, after 14`,
+`normal path returned 'collected fine\n'`.
 
 **For the review (Task 9), not changed:** `test_aggregate_window_accepts_an_aware_now` and
 `test_build_hourly_rows_accepts_an_aware_now` pass on both sides (Task 3 Step 2); they pin
