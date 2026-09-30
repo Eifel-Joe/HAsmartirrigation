@@ -1,0 +1,6 @@
+=== L2 re-sync
+06:37:21 after set_outlet 6             ha=06:37:21.489 sonoff=off(lc 06:37:01.697) grace=off(lc 06:31:12.398) outlet=6(lc 06:37:21.459) watering=off(lc 06:31:14.508) master=off run=off(lt 20:31:08.495) grun=off(lt 13:26:13.256) noop_lt=None probe=0.0
+=== L3a: open in ignore
+distributor: {"current_outlet": 6, "position_state": "synced", "commissioning_confirmed": true, "watch_mode": "ignore", "active_cycle": {}, "inlet_entity": "input_boolean.sonoff_emu_valve", "run_service": "script.sonoff_emu_run", "stop_service": null, "duration_field": "seconds", "watering_mode": "service"}
+06:37:24 sonoff_emu_valve ON + probe    ha=06:37:23.771 sonoff=on(lc 06:37:23.704) grace=off(lc 06:31:12.398) outlet=6(lc 06:37:21.459) watering=off(lc 06:31:14.508) master=off run=off(lt 20:31:08.495) grun=off(lt 13:26:13.256) noop_lt=None probe=10.0
+06:37:27 snap                           ha=06:37:26.901 sonoff=on(lc 06:37:23.704) grace=off(lc 06:31:12.398) outlet=6(lc 06:37:21.459) watering=off(lc 06:31:14.508) master=off run=off(lt 20:31:08.495) grun=off(lt 13:26:13.256) noop_lt=None probe=10.0

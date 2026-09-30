@@ -1535,7 +1535,7 @@ measurement are in `D:\Entwicklung\HASI\issue66-work\` (`hasi_read.py`, `repro_c
 `evaluate_run.py`). Record for every step: the time, the claim's outcome, the notification,
 the members' history, the stored position and `position_state`.
 
-- [ ] **Step 1: A throwaway build with the fix** (outward-facing: push and release only after
+- [x] **Step 1: A throwaway build with the fix** (outward-facing: push and release only after
   approval in the chat)
 
 A branch `prerelease/v2026.09.30b1` (or the day it is built) from the fix branch's HEAD. Bump
@@ -1554,21 +1554,21 @@ HACS sees a new fork release only after its repository information is refreshed.
 on HA-Test through HACS and restart HA-Test (announced). Verify `installed_version` and the
 config entry `loaded`. Reload the panel with Ctrl+F5.
 
-- [ ] **Step 2: L1 `count`** — declare position 4, open the inlet by hand, *Irrigate now* on
+- [x] **Step 2: L1 `count`** — declare position 4, open the inlet by hand, *Irrigate now* on
   zone 6 (Test5). Expected: no claim (`watering_now`, the master and the run script stay
   off); the notification *Distributor 'Gardena1' did not start a watering cycle: its inlet
   input_boolean.sonoff_emu_valve was open.*; Test5's history shows *skipped — Distributor
   inlet open*. Close the inlet after at least 30 s open. Expected: Test4 (outlet 4) gets the
   observed credit; stored position 5 = model 5, `synced`.
-- [ ] **Step 3: L2 `ignore`** — switch the watch mode to *Ignore* in the panel, open the
+- [x] **Step 3: L2 `ignore`** — switch the watch mode to *Ignore* in the panel, open the
   inlet, *Irrigate now* on zone 6. Expected: refused, as in L1. Close the inlet; re-sync the
   position (the foreign pulse desynchronises the ring in `ignore`, as documented).
-- [ ] **Step 4: L3 no edge** — open the inlet, restart HA-Test (announced), then *Irrigate
+- [x] **Step 4: L3 no edge** — open the inlet, restart HA-Test (announced), then *Irrigate
   now* on zone 6. Expected: refused. Record what the later close does to the position: that
   is the first measurement for the missed-edge issue (Eifel-Joe#69).
-- [ ] **Step 5: L4 no false refusal** — inlet closed, *Irrigate now* on zone 6. Expected: a
+- [x] **Step 5: L4 no false refusal** — inlet closed, *Irrigate now* on zone 6. Expected: a
   normal cycle with its terminal advance.
-- [ ] **Step 6: L5 the grace after our own close** — rewire Gardena1 for this step only:
+- [x] **Step 6: L5 the grace after our own close** — rewire Gardena1 for this step only:
   `inlet_entity` = `input_boolean.grace_emu_valve`, `run_service` = `script.grace_emu_run`
   (`duration_field` = `seconds`), `input_number.grace_emu_off_delay` = 45, and as
   `stop_service` a do-nothing script created for the test (announce it before creating it on
@@ -1579,7 +1579,7 @@ config entry `loaded`. Reload the panel with Ctrl+F5.
     another member. Expected: the second cycle starts.
   - **L5b:** a fresh run; the second *Irrigate now* 31–44 s after the leg's end, the inlet
     still `on`. Expected: refused, with the notification and the history entry.
-- [ ] **Step 7: Restore everything as found** — the L5 wiring (`inlet_entity`,
+- [x] **Step 7: Restore everything as found** — the L5 wiring (`inlet_entity`,
   `run_service`, `stop_service`, `duration_field`), `grace_emu_off_delay` back to 0, the
   no-op script deleted, the watch mode back to `count`, the position re-synced, the valve and
   the master off. Record the live protocol for the archive:
@@ -1991,3 +1991,27 @@ Reference greps (A6) empty; the only issue number in the diff is `#181`. Mutatio
 `mut5-rerun.log` (by the in-flight test and the 5b pin); mutation 36 (added with `842a4cec`) killed
 by the `[closing]` case (`mutations-36.json`) — **36 of 36**. Runner and results under
 `issue66-work\` (`mutate.py`, `mut5_rerun.py`, `mutations.json`, `mutations.log`, `mut5-rerun.log`).
+
+### A15 — Task 10 as run (2026-09-30)
+
+`upstream/master` still `0b9a71bd`, so the baseline stands (A8). Build `v2026.09.30b1` = `7cb8d9c7`:
+`2c221a7a` plus the version string in seven files (each file checked equal to its `2c221a7a` content
+with the version replaced); prerelease with `irrigation_plus.zip` from the SHA (downloaded back
+byte-identical), installed through HACS, HA-Test restarted; five core files on HA-Test byte-identical
+with the ZIP. Every check of Steps 2–6 came out as expected; the protocol with all times:
+`docs/superpowers/reconstructed/2026-09-30-distributor-inlet-open-gate-live-on-ha-test.md`, the helper
+and raw logs under `docs/superpowers/probes/2026-09-30-inlet-gate-live/`.
+
+| step | plan | as run | why |
+|---|---|---|---|
+| 3, 4, 6, 7 | watch mode and wiring "in the panel" | the panel's own endpoint, `POST /api/irrigation_plus/distributors` with `{id: 0, …}`, from the logged-in page | the server path of the save button (`async_upsert_distributor` → `_dist_refresh_inlet_watch`); the MCP tools reach no HTTP view |
+| 2–6 | the notification in English | in German | HA-Test runs German; the notice follows the user's language (`test_a_refusal_is_notified_in_the_users_language`) |
+| 4 | open the inlet, restart | first attempt discarded: `input_boolean.sonoff_emu_valve` is created with `initial: false` and came back `off`. Run on `input_boolean.grace_emu_valve` (keeps its state) with `script.grace_emu_run`, in **two variants (user decision)**: the on edge unseen (opened in `ignore`, `count` armed while open, restart) and seen (opened in `count`, restart) | read literally, `count` sees the on edge before the restart; case 1 of Eifel-Joe#69 needs an edge no listener saw |
+| 5 | as set up | Gardena1 wired back to `sonoff_emu_valve` / `sonoff_emu_run` first | L5 needs the grace set anyway; L4 on the measurement's own wiring |
+| 6 | legs of 61 s; the valve reports closed 45 s after the leg | legs of 20 s; the inlet reported `on` for ~86 s after the own close | with a stop service the member stops at its target volume (reached at the probe's 10 L/min); the window the test needs, only longer |
+| 6 | L5a within 30 s; L5b 31–44 s | L5a claimed 10.15 s after the own close; L5b refused 35.09 s after it | — |
+| 7 | restore as found | wiring, watch mode, off delay, no-op script (deleted), position 3, valves, master, probe, logger, notification: restored | left as is: HA-Test runs `v2026.09.30b1`; the members' history and credits |
+
+**For Eifel-Joe#69 (Step 4):** the unseen on edge left the stored position one behind at the close, still
+`synced`, and the credit was lost; the seen one kept the position right, but its stash (the credit) did not
+survive the restart.

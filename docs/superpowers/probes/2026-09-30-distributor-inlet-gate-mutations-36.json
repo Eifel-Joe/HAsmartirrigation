@@ -1,0 +1,27 @@
+[
+  {
+    "n": 13,
+    "file": "distributor.py",
+    "mutation": "the classic close is never stamped",
+    "expected_killer": "test_the_next_cycle_runs_within_the_grace_after_our_own_close",
+    "result": "killed",
+    "summary": "======================= 4 failed, 258 passed in 19.00s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_later_close_restarts_the_grace",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_grace_runs_for_a_distributor_that_is_not_number_zero",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_next_cycle_runs_within_the_grace_after_our_own_close[closing]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_next_cycle_runs_within_the_grace_after_our_own_close[on]"
+    ]
+  },
+  {
+    "n": 36,
+    "file": "distributor.py",
+    "mutation": "the grace does not cover an inlet that reports closing",
+    "expected_killer": "test_the_next_cycle_runs_within_the_grace_after_our_own_close[closing]",
+    "result": "killed",
+    "summary": "======================= 1 failed, 261 passed in 19.02s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_next_cycle_runs_within_the_grace_after_our_own_close[closing]"
+    ]
+  }
+]

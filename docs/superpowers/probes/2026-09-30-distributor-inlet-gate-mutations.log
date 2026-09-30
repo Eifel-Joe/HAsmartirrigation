@@ -1,0 +1,136 @@
+measuring the unmutated branch in D:/Entwicklung/HASI/issue66-work/wt ...
+  ============================ 261 passed in 19.10s =============================
+  pre-existing failures/errors: 0
+MUT  1 closing no longer blocks                           KILLED by 1 test(s)
+         test_the_claim_refuses_while_the_inlet_reports_open[closing]
+MUT  2 the gate is never consulted                        KILLED by 31 test(s)
+         test_a_broken_notify_target_does_not_stop_the_history
+         test_a_close_that_raised_starts_no_grace
+         test_a_foreign_open_keeps_its_credit_when_a_cycle_is_asked_for_meanwhile
+         test_a_member_run_with_a_duration_meets_the_gate
+         test_a_refusal_is_forwarded_to_the_notify_target
+         test_a_refusal_is_logged_and_notified
+         test_a_refusal_is_notified_in_the_users_language
+         test_a_refusal_records_every_member_as_an_explicit_list
+         test_a_refusal_records_only_the_targeted_members
+         test_a_refused_forced_member_run_is_recorded_as_manual
+         test_a_refused_test_run_records_no_history
+         test_a_scheduled_dispatch_meets_the_gate
+         test_a_service_distributor_without_stop_service_gets_no_grace
+         test_a_stop_service_that_raised_starts_no_grace
+         test_distributor_run_now_meets_the_gate
+         test_irrigate_now_on_a_member_meets_the_gate
+         test_the_claim_refuses_in_every_watch_and_watering_mode[classic-count]
+         test_the_claim_refuses_in_every_watch_and_watering_mode[classic-ignore]
+         test_the_claim_refuses_in_every_watch_and_watering_mode[classic-warn]
+         test_the_claim_refuses_in_every_watch_and_watering_mode[service-count]
+         test_the_claim_refuses_in_every_watch_and_watering_mode[service-ignore]
+         test_the_claim_refuses_in_every_watch_and_watering_mode[service-warn]
+         test_the_claim_refuses_while_the_inlet_reports_open[closing]
+         test_the_claim_refuses_while_the_inlet_reports_open[on]
+         test_the_claim_refuses_while_the_inlet_reports_open[open]
+         test_the_claim_refuses_while_the_inlet_reports_open[opening]
+         test_the_grace_belongs_to_the_distributor_that_closed
+         test_the_grace_is_over_at_exactly_thirty_seconds
+         test_the_grace_runs_out_after_thirty_seconds
+         test_the_test_run_meets_the_gate
+         test_water_all_zones_meets_the_gate
+MUT  3 a missing entity blocks                            KILLED by 1 test(s)
+         test_the_claim_lets_a_cycle_through_when_the_inlet_entity_does_not_exist
+MUT  4 the claim is taken before the gate                 KILLED by 9 test(s)
+         test_a_member_run_with_a_duration_meets_the_gate
+         test_a_scheduled_dispatch_meets_the_gate
+         test_distributor_run_now_meets_the_gate
+         test_irrigate_now_on_a_member_meets_the_gate
+         test_the_claim_refuses_while_the_inlet_reports_open[closing]
+         test_the_claim_refuses_while_the_inlet_reports_open[on]
+         test_the_claim_refuses_while_the_inlet_reports_open[open]
+         test_the_claim_refuses_while_the_inlet_reports_open[opening]
+         test_water_all_zones_meets_the_gate
+MUT  5 no in-flight guard: the gate answers for our own sweep HANG
+MUT  6 the history uses the whole target, direct zones included KILLED by 2 test(s)
+         test_a_refusal_records_nothing_when_no_member_was_targeted
+         test_a_refusal_records_only_the_targeted_members
+MUT  7 a test run records history                         KILLED by 2 test(s)
+         test_a_refused_test_run_records_no_history
+         test_the_test_run_meets_the_gate
+MUT  8 the grace never ends                               KILLED by 2 test(s)
+         test_the_grace_is_over_at_exactly_thirty_seconds
+         test_the_grace_runs_out_after_thirty_seconds
+MUT  9 the service no-op stamps too                       KILLED by 1 test(s)
+         test_a_service_distributor_without_stop_service_gets_no_grace
+MUT 10 the grace is shared by every distributor           KILLED by 1 test(s)
+         test_the_grace_belongs_to_the_distributor_that_closed
+MUT 11 the classic close is stamped before it is sent     KILLED by 1 test(s)
+         test_a_close_that_raised_starts_no_grace
+MUT 12 a forced member run recorded as schedule           KILLED by 2 test(s)
+         test_a_member_run_with_a_duration_meets_the_gate
+         test_a_refused_forced_member_run_is_recorded_as_manual
+MUT 13 the classic close is never stamped                 KILLED by 3 test(s)
+         test_a_later_close_restarts_the_grace
+         test_the_grace_runs_for_a_distributor_that_is_not_number_zero
+         test_the_next_cycle_runs_within_the_grace_after_our_own_close
+MUT 14 the stop_service close is never stamped            KILLED by 1 test(s)
+         test_a_stop_service_close_starts_the_grace
+MUT 15 an empty inlet entity is looked up                 KILLED by 2 test(s)
+         test_the_claim_lets_a_cycle_through_without_an_inlet_entity[None]
+         test_the_claim_lets_a_cycle_through_without_an_inlet_entity[]
+MUT 16 the refusal sends no notification                  KILLED by 5 test(s)
+         test_a_broken_notify_target_does_not_stop_the_history
+         test_a_refusal_is_forwarded_to_the_notify_target
+         test_a_refusal_is_logged_and_notified
+         test_a_refusal_is_notified_in_the_users_language
+         test_a_refused_test_run_records_no_history
+MUT 17 an empty member list is still recorded             KILLED by 2 test(s)
+         test_a_refusal_records_nothing_when_no_member_was_targeted
+         test_a_refusal_with_an_empty_target_records_nothing
+MUT 18 the eligibility predicate asks the inlet too (the rejected place) KILLED by 5 test(s)
+         test_a_member_run_with_a_duration_meets_the_gate
+         test_a_scheduled_dispatch_meets_the_gate
+         test_irrigate_now_on_a_member_meets_the_gate
+         test_the_finish_anchor_estimate_does_not_read_the_inlet
+         test_water_all_zones_meets_the_gate
+MUT 19 a yield between the in-flight check and inflight.add KILLED by 1 test(s)
+         test_two_claims_scheduled_together_start_exactly_one_sweep
+MUT 20 a test run skips the gate                          KILLED by 2 test(s)
+         test_a_refused_test_run_records_no_history
+         test_the_test_run_meets_the_gate
+MUT 21 a forced member run skips the gate                 KILLED by 2 test(s)
+         test_a_member_run_with_a_duration_meets_the_gate
+         test_a_refused_forced_member_run_is_recorded_as_manual
+MUT 22 the gate asked before the in-flight guard          KILLED by 1 test(s)
+         test_a_distributor_in_flight_is_not_reported_as_an_open_inlet
+MUT 23 the optional notify forward unguarded again        KILLED by 5 test(s)
+         test_notify_a_corrupt_target_is_logged_not_raised
+         test_notify_a_failing_target_is_logged_not_raised[its_schema_rejects_the_message]
+         test_notify_a_failing_target_is_logged_not_raised[the_service_no_longer_exists]
+         test_resume_goes_on_after_a_failing_notify_target
+         test_a_broken_notify_target_does_not_stop_the_history
+MUT 24 the refusal notice ignores the user's language     KILLED by 1 test(s)
+         test_a_refusal_is_notified_in_the_users_language
+MUT 25 an empty target records every member               KILLED by 1 test(s)
+         test_a_refusal_with_an_empty_target_records_nothing
+MUT 26 the skip code has no catalogue key                 KILLED by 1 test(s)
+         test_the_skip_reason_is_a_key_every_language_localizes
+MUT 27 the members of another distributor are recorded    KILLED by 1 test(s)
+         test_a_refusal_records_every_member_as_an_explicit_list
+MUT 28 the notify guard widened to BaseException          KILLED by 1 test(s)
+         test_notify_a_cancellation_still_cancels
+MUT 29 the notify guard narrowed to ServiceNotFound       KILLED by 2 test(s)
+         test_notify_a_corrupt_target_is_logged_not_raised
+         test_notify_a_failing_target_is_logged_not_raised[its_schema_rejects_the_message]
+MUT 30 the notify guard narrowed to ServiceNotFound and vol.Invalid KILLED by 1 test(s)
+         test_notify_a_corrupt_target_is_logged_not_raised
+MUT 31 the target split outside the notify guard          KILLED by 1 test(s)
+         test_notify_a_corrupt_target_is_logged_not_raised
+MUT 32 a stop_service close stamped before it is sent     KILLED by 1 test(s)
+         test_a_stop_service_that_raised_starts_no_grace
+MUT 33 the first close keeps its stamp                    KILLED by 1 test(s)
+         test_a_later_close_restarts_the_grace
+MUT 34 the grace still holds at exactly 30 s              KILLED by 1 test(s)
+         test_the_grace_is_over_at_exactly_thirty_seconds
+MUT 35 every stamp kept under distributor 0               KILLED by 1 test(s)
+         test_the_grace_runs_for_a_distributor_that_is_not_number_zero
+
+every source restored byte-for-byte: True
+34 killed / 35 applied / 35 total; HANG: [5]

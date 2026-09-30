@@ -1,0 +1,445 @@
+[
+  {
+    "n": 1,
+    "file": "const.py",
+    "mutation": "closing no longer blocks",
+    "expected_killer": "test_the_claim_refuses_while_the_inlet_reports_open[closing]",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.46s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open[closing]"
+    ]
+  },
+  {
+    "n": 2,
+    "file": "distributor.py",
+    "mutation": "the gate is never consulted",
+    "expected_killer": "every refusal test",
+    "result": "killed",
+    "summary": "======================= 31 failed, 230 passed in 20.26s =======================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_broken_notify_target_does_not_stop_the_history",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_close_that_raised_starts_no_grace",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_foreign_open_keeps_its_credit_when_a_cycle_is_asked_for_meanwhile",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_member_run_with_a_duration_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_is_forwarded_to_the_notify_target",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_is_logged_and_notified",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_is_notified_in_the_users_language",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_records_every_member_as_an_explicit_list",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_records_only_the_targeted_members",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refused_forced_member_run_is_recorded_as_manual",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refused_test_run_records_no_history",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_scheduled_dispatch_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_service_distributor_without_stop_service_gets_no_grace",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_stop_service_that_raised_starts_no_grace",
+      "FAILED tests/test_distributor_inlet_gate.py::test_distributor_run_now_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_irrigate_now_on_a_member_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_in_every_watch_and_watering_mode[classic-count]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_in_every_watch_and_watering_mode[classic-ignore]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_in_every_watch_and_watering_mode[classic-warn]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_in_every_watch_and_watering_mode[service-count]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_in_every_watch_and_watering_mode[service-ignore]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_in_every_watch_and_watering_mode[service-warn]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open[closing]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open[on]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open[open]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open[opening]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_grace_belongs_to_the_distributor_that_closed",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_grace_is_over_at_exactly_thirty_seconds",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_grace_runs_out_after_thirty_seconds",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_test_run_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_water_all_zones_meets_the_gate"
+    ]
+  },
+  {
+    "n": 3,
+    "file": "distributor.py",
+    "mutation": "a missing entity blocks",
+    "expected_killer": "test_the_claim_lets_a_cycle_through_when_the_inlet_entity_does_not_exist",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.38s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_lets_a_cycle_through_when_the_inlet_entity_does_not_exist"
+    ]
+  },
+  {
+    "n": 4,
+    "file": "distributor.py",
+    "mutation": "the claim is taken before the gate",
+    "expected_killer": "test_the_claim_refuses_while_the_inlet_reports_open (id left in flight)",
+    "result": "killed",
+    "summary": "======================= 9 failed, 252 passed in 20.42s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_member_run_with_a_duration_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_scheduled_dispatch_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_distributor_run_now_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_irrigate_now_on_a_member_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open[closing]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open[on]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open[open]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open[opening]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_water_all_zones_meets_the_gate"
+    ]
+  },
+  {
+    "n": 5,
+    "file": "distributor.py",
+    "mutation": "no in-flight guard: the gate answers for our own sweep",
+    "expected_killer": "test_a_distributor_in_flight_is_not_reported_as_an_open_inlet",
+    "result": "HANG",
+    "summary": "HANG"
+  },
+  {
+    "n": 6,
+    "file": "distributor.py",
+    "mutation": "the history uses the whole target, direct zones included",
+    "expected_killer": "test_a_refusal_records_only_the_targeted_members",
+    "result": "killed",
+    "summary": "======================= 2 failed, 259 passed in 20.64s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_records_nothing_when_no_member_was_targeted",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_records_only_the_targeted_members"
+    ]
+  },
+  {
+    "n": 7,
+    "file": "distributor.py",
+    "mutation": "a test run records history",
+    "expected_killer": "test_a_refused_test_run_records_no_history",
+    "result": "killed",
+    "summary": "======================= 2 failed, 259 passed in 20.08s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refused_test_run_records_no_history",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_test_run_meets_the_gate"
+    ]
+  },
+  {
+    "n": 8,
+    "file": "distributor.py",
+    "mutation": "the grace never ends",
+    "expected_killer": "test_the_grace_runs_out_after_thirty_seconds",
+    "result": "killed",
+    "summary": "======================= 2 failed, 259 passed in 20.31s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_grace_is_over_at_exactly_thirty_seconds",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_grace_runs_out_after_thirty_seconds"
+    ]
+  },
+  {
+    "n": 9,
+    "file": "distributor.py",
+    "mutation": "the service no-op stamps too",
+    "expected_killer": "test_a_service_distributor_without_stop_service_gets_no_grace",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.19s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_service_distributor_without_stop_service_gets_no_grace"
+    ]
+  },
+  {
+    "n": 10,
+    "file": "distributor.py",
+    "mutation": "the grace is shared by every distributor",
+    "expected_killer": "test_the_grace_belongs_to_the_distributor_that_closed",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.43s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_grace_belongs_to_the_distributor_that_closed"
+    ]
+  },
+  {
+    "n": 11,
+    "file": "distributor.py",
+    "mutation": "the classic close is stamped before it is sent",
+    "expected_killer": "test_a_close_that_raised_starts_no_grace",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.12s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_close_that_raised_starts_no_grace"
+    ]
+  },
+  {
+    "n": 12,
+    "file": "distributor.py",
+    "mutation": "a forced member run recorded as schedule",
+    "expected_killer": "test_a_refused_forced_member_run_is_recorded_as_manual",
+    "result": "killed",
+    "summary": "======================= 2 failed, 259 passed in 20.44s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_member_run_with_a_duration_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refused_forced_member_run_is_recorded_as_manual"
+    ]
+  },
+  {
+    "n": 13,
+    "file": "distributor.py",
+    "mutation": "the classic close is never stamped",
+    "expected_killer": "test_the_next_cycle_runs_within_the_grace_after_our_own_close",
+    "result": "killed",
+    "summary": "======================= 3 failed, 258 passed in 20.45s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_later_close_restarts_the_grace",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_grace_runs_for_a_distributor_that_is_not_number_zero",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_next_cycle_runs_within_the_grace_after_our_own_close"
+    ]
+  },
+  {
+    "n": 14,
+    "file": "distributor.py",
+    "mutation": "the stop_service close is never stamped",
+    "expected_killer": "test_a_stop_service_close_starts_the_grace",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.29s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_stop_service_close_starts_the_grace"
+    ]
+  },
+  {
+    "n": 15,
+    "file": "distributor.py",
+    "mutation": "an empty inlet entity is looked up",
+    "expected_killer": "test_the_claim_lets_a_cycle_through_without_an_inlet_entity",
+    "result": "killed",
+    "summary": "======================= 2 failed, 259 passed in 20.40s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_lets_a_cycle_through_without_an_inlet_entity[None]",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_claim_lets_a_cycle_through_without_an_inlet_entity[]"
+    ]
+  },
+  {
+    "n": 16,
+    "file": "distributor.py",
+    "mutation": "the refusal sends no notification",
+    "expected_killer": "test_a_refusal_is_logged_and_notified, test_a_refused_test_run_records_no_history",
+    "result": "killed",
+    "summary": "======================= 5 failed, 256 passed in 20.39s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_broken_notify_target_does_not_stop_the_history",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_is_forwarded_to_the_notify_target",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_is_logged_and_notified",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_is_notified_in_the_users_language",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refused_test_run_records_no_history"
+    ]
+  },
+  {
+    "n": 17,
+    "file": "distributor.py",
+    "mutation": "an empty member list is still recorded",
+    "expected_killer": "test_a_refusal_records_nothing_when_no_member_was_targeted",
+    "result": "killed",
+    "summary": "======================= 2 failed, 259 passed in 20.31s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_records_nothing_when_no_member_was_targeted",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_with_an_empty_target_records_nothing"
+    ]
+  },
+  {
+    "n": 18,
+    "file": "distributor.py",
+    "mutation": "the eligibility predicate asks the inlet too (the rejected place)",
+    "expected_killer": "the estimate pin of Task 5",
+    "result": "killed",
+    "summary": "======================= 5 failed, 256 passed in 20.19s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_member_run_with_a_duration_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_scheduled_dispatch_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_irrigate_now_on_a_member_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_finish_anchor_estimate_does_not_read_the_inlet",
+      "FAILED tests/test_distributor_inlet_gate.py::test_water_all_zones_meets_the_gate"
+    ]
+  },
+  {
+    "n": 19,
+    "file": "distributor.py",
+    "mutation": "a yield between the in-flight check and inflight.add",
+    "expected_killer": "test_two_claims_scheduled_together_start_exactly_one_sweep",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.32s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_two_claims_scheduled_together_start_exactly_one_sweep"
+    ]
+  },
+  {
+    "n": 20,
+    "file": "distributor.py",
+    "mutation": "a test run skips the gate",
+    "expected_killer": "test_the_test_run_meets_the_gate, test_a_refused_test_run_records_no_history",
+    "result": "killed",
+    "summary": "======================= 2 failed, 259 passed in 20.06s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refused_test_run_records_no_history",
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_test_run_meets_the_gate"
+    ]
+  },
+  {
+    "n": 21,
+    "file": "distributor.py",
+    "mutation": "a forced member run skips the gate",
+    "expected_killer": "test_a_member_run_with_a_duration_meets_the_gate, test_a_refused_forced_member_run_is_recorded_as_manual",
+    "result": "killed",
+    "summary": "======================= 2 failed, 259 passed in 20.26s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_member_run_with_a_duration_meets_the_gate",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refused_forced_member_run_is_recorded_as_manual"
+    ]
+  },
+  {
+    "n": 22,
+    "file": "distributor.py",
+    "mutation": "the gate asked before the in-flight guard",
+    "expected_killer": "test_a_distributor_in_flight_is_not_reported_as_an_open_inlet",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 21.46s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_distributor_in_flight_is_not_reported_as_an_open_inlet"
+    ]
+  },
+  {
+    "n": 23,
+    "file": "distributor.py",
+    "mutation": "the optional notify forward unguarded again",
+    "expected_killer": "test_notify_a_failing_target_is_logged_not_raised, test_resume_goes_on_after_a_failing_notify_target, test_a_broken_notify_target_does_not_stop_the_history",
+    "result": "killed",
+    "summary": "======================= 5 failed, 256 passed in 20.73s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor.py::test_notify_a_corrupt_target_is_logged_not_raised",
+      "FAILED tests/test_distributor.py::test_notify_a_failing_target_is_logged_not_raised[its_schema_rejects_the_message]",
+      "FAILED tests/test_distributor.py::test_notify_a_failing_target_is_logged_not_raised[the_service_no_longer_exists]",
+      "FAILED tests/test_distributor_cycle.py::test_resume_goes_on_after_a_failing_notify_target",
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_broken_notify_target_does_not_stop_the_history"
+    ]
+  },
+  {
+    "n": 24,
+    "file": "distributor.py",
+    "mutation": "the refusal notice ignores the user's language",
+    "expected_killer": "test_a_refusal_is_notified_in_the_users_language",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.29s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_is_notified_in_the_users_language"
+    ]
+  },
+  {
+    "n": 25,
+    "file": "distributor.py",
+    "mutation": "an empty target records every member",
+    "expected_killer": "test_a_refusal_with_an_empty_target_records_nothing",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.33s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_with_an_empty_target_records_nothing"
+    ]
+  },
+  {
+    "n": 26,
+    "file": "const.py",
+    "mutation": "the skip code has no catalogue key",
+    "expected_killer": "test_the_skip_reason_is_a_key_every_language_localizes",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.27s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_skip_reason_is_a_key_every_language_localizes"
+    ]
+  },
+  {
+    "n": 27,
+    "file": "distributor.py",
+    "mutation": "the members of another distributor are recorded",
+    "expected_killer": "test_a_refusal_records_every_member_as_an_explicit_list",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.53s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_refusal_records_every_member_as_an_explicit_list"
+    ]
+  },
+  {
+    "n": 28,
+    "file": "distributor.py",
+    "mutation": "the notify guard widened to BaseException",
+    "expected_killer": "test_notify_a_cancellation_still_cancels",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.29s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor.py::test_notify_a_cancellation_still_cancels"
+    ]
+  },
+  {
+    "n": 29,
+    "file": "distributor.py",
+    "mutation": "the notify guard narrowed to ServiceNotFound",
+    "expected_killer": "test_notify_a_failing_target_is_logged_not_raised[its_schema_rejects_the_message], test_notify_a_corrupt_target_is_logged_not_raised",
+    "result": "killed",
+    "summary": "======================= 2 failed, 259 passed in 20.39s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor.py::test_notify_a_corrupt_target_is_logged_not_raised",
+      "FAILED tests/test_distributor.py::test_notify_a_failing_target_is_logged_not_raised[its_schema_rejects_the_message]"
+    ]
+  },
+  {
+    "n": 30,
+    "file": "distributor.py",
+    "mutation": "the notify guard narrowed to ServiceNotFound and vol.Invalid",
+    "expected_killer": "test_notify_a_corrupt_target_is_logged_not_raised",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.42s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor.py::test_notify_a_corrupt_target_is_logged_not_raised"
+    ]
+  },
+  {
+    "n": 31,
+    "file": "distributor.py",
+    "mutation": "the target split outside the notify guard",
+    "expected_killer": "test_notify_a_corrupt_target_is_logged_not_raised",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.28s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor.py::test_notify_a_corrupt_target_is_logged_not_raised"
+    ]
+  },
+  {
+    "n": 32,
+    "file": "distributor.py",
+    "mutation": "a stop_service close stamped before it is sent",
+    "expected_killer": "test_a_stop_service_that_raised_starts_no_grace",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.62s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_stop_service_that_raised_starts_no_grace"
+    ]
+  },
+  {
+    "n": 33,
+    "file": "distributor.py",
+    "mutation": "the first close keeps its stamp",
+    "expected_killer": "test_a_later_close_restarts_the_grace",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.16s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_a_later_close_restarts_the_grace"
+    ]
+  },
+  {
+    "n": 34,
+    "file": "distributor.py",
+    "mutation": "the grace still holds at exactly 30 s",
+    "expected_killer": "test_the_grace_is_over_at_exactly_thirty_seconds",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.12s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_grace_is_over_at_exactly_thirty_seconds"
+    ]
+  },
+  {
+    "n": 35,
+    "file": "distributor.py",
+    "mutation": "every stamp kept under distributor 0",
+    "expected_killer": "test_the_grace_runs_for_a_distributor_that_is_not_number_zero",
+    "result": "killed",
+    "summary": "======================= 1 failed, 260 passed in 20.53s ========================",
+    "killed_by": [
+      "FAILED tests/test_distributor_inlet_gate.py::test_the_grace_runs_for_a_distributor_that_is_not_number_zero"
+    ]
+  }
+]

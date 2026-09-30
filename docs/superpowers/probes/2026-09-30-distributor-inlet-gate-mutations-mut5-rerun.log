@@ -1,0 +1,5 @@
+reference (deselected): ===================== 260 passed, 1 deselected in 19.37s ====================== | failures: 0
+mutated: ================ 2 failed, 258 passed, 1 deselected in 20.20s =================
+  KILLED BY test_a_distributor_in_flight_is_not_reported_as_an_open_inlet
+  KILLED BY test_two_claims_scheduled_together_start_exactly_one_sweep
+restored byte-for-byte: True
