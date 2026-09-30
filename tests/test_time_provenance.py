@@ -21,6 +21,7 @@ import datetime
 import zoneinfo
 
 import pytest
+from freezegun import freeze_time
 from homeassistant.util import dt as dt_util
 
 from custom_components.irrigation_plus import helpers
@@ -77,6 +78,33 @@ def test_a_naive_value_is_returned_unchanged_under_either_provenance(split_zones
     assert coerce_stamp(naive, STAMP_FROM_CLIENT) == naive
     assert coerce_stamp("2026-09-21T12:00:00", STAMP_FROM_STORE) == naive
     assert coerce_stamp("2026-09-21T12:00:00", STAMP_FROM_CLIENT) == naive
+
+
+def test_local_naive_now_is_has_wall_clock_without_a_zone(split_zones):
+    """The clock every weather-buffer stamp is written in and compared against."""
+    with freeze_time("2026-09-21 10:00:00"):
+        now = helpers.local_naive_now()
+
+    assert now == datetime.datetime(2026, 9, 21, 12, 0)
+    assert now.tzinfo is None
+
+
+def test_the_process_zone_is_read_with_its_own_rules():
+    """Each date at its own offset, not today's offset for every date.
+
+    ``datetime.now().astimezone().tzinfo`` is a FIXED offset frozen at the moment of the
+    call; in summer it reads a January stamp an hour off. The process zone cannot be set
+    on Windows (no ``time.tzset()``), so this compares with what the C library says for
+    each date. On a machine at UTC both are 0 and the check is idle; where the zone has
+    DST it catches the fixed offset.
+    """
+    tz = helpers._process_timezone()
+
+    for day in (
+        datetime.datetime(2026, 1, 15, 12, 0),
+        datetime.datetime(2026, 7, 15, 12, 0),
+    ):
+        assert tz.utcoffset(day) == day.astimezone().utcoffset(), day
 
 
 def test_coercing_without_naming_a_provenance_is_an_error():

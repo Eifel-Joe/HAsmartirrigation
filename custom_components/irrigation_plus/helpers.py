@@ -7,6 +7,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from dateutil import tz as dateutil_tz
 from homeassistant import exceptions
 from homeassistant.const import (
     PERCENTAGE,
@@ -1005,14 +1006,14 @@ STAMP_FROM_CLIENT = "stamp-from-client"
 
 
 def _process_timezone():
-    """The zone a bare ``datetime.now()`` writes in -- the PROCESS's, not HA's.
+    """The zone a bare ``datetime.now()`` wrote in -- the PROCESS's, with its DST rules.
 
-    Its own function for one reason: the suite has to be able to substitute it.
-    ``time.tzset()`` does not exist on Windows, so a test cannot set the real process
-    zone, and a test that only runs on CI is one we never watch go from red to green
-    ourselves.
+    ``tzlocal()`` rather than ``datetime.now().astimezone().tzinfo``: the latter is
+    TODAY's fixed offset, and a stamp from the other side of a DST change is then read
+    an hour off -- the buffer keeps seven days. Its own function so the suite can
+    substitute it: ``time.tzset()`` does not exist on Windows.
     """
-    return datetime.now().astimezone().tzinfo
+    return dateutil_tz.tzlocal()
 
 
 def coerce_stamp(value, provenance) -> datetime | None:
@@ -1057,6 +1058,21 @@ def coerce_stamp(value, provenance) -> datetime | None:
     if provenance == STAMP_FROM_STORE:
         return parsed.astimezone(_process_timezone()).replace(tzinfo=None)
     return dt_util.as_local(parsed).replace(tzinfo=None)
+
+
+def local_naive_now() -> datetime:
+    """HA's wall clock, naive: the one frame every weather-buffer stamp is in.
+
+    Wurzel: the buffer's stamps were written by a bare ``datetime.now()`` -- the
+      PROCESS's clock -- and read against HA's (the live estimate, the solar geometry).
+      On Docker/Core without ``TZ=`` the two differ by the whole UTC offset.
+    Fix: every writer of those stamps, and every ``now`` they are compared with, reads
+      this.
+    NOT-TO-DO: do not return it aware. A naive/aware mix inside the live estimate's
+      blanket ``except`` switches the estimate off instead of raising.
+    siehe tests/test_weather_buffer_one_frame.py
+    """
+    return dt_util.now().replace(tzinfo=None)
 
 
 class CannotConnect(exceptions.HomeAssistantError):
