@@ -190,7 +190,7 @@ class _HourlyCarry(NamedTuple):
 
 
 def _parse_stored_as_ha_local(value):
-    """A stored last_calculated/last_updated read as naive on HA's clock.
+    """A stored last_calculated/last_consumed_at read as naive on HA's clock.
 
     Wurzel: it read a stored stamp as HA-local while the store wrote it on the PROCESS's
       clock (a bare ``datetime.now()``) -- on Docker/Core without ``TZ=`` the whole UTC

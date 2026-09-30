@@ -2,7 +2,7 @@
 
 Two kinds reach it:
 
-- **stored** stamps (`last_calculated`, `last_updated`) are written on HA's clock
+- **stored** stamps (`last_calculated`, `last_consumed_at`) are written on HA's clock
   (``local_naive_now()``), and the store's 14.2 migration moved the ones older
   releases wrote on the PROCESS's clock;
 - **client** rows (the hourly forecast series) are site-local clock times off a
@@ -27,7 +27,7 @@ BERLIN = zoneinfo.ZoneInfo("Europe/Berlin")
 
 @pytest.fixture
 def split_zones(monkeypatch):
-    """Container at UTC, user at Europe/Berlin -- the case that separates the two.
+    """Container at UTC, user at Europe/Berlin: the process's clock is not HA's.
 
     HA's own setter is used and the zone is restored to UTC rather than to whatever
     was found: the test plugin's cleanup asserts UTC at teardown.
@@ -85,13 +85,11 @@ def test_a_naive_stored_stamp_passes_through_either_way(split_zones):
 class TestTheForecastReadersUseTheClientRule:
     """The three row conversions, exercised THROUGH the functions that hold them.
 
-    These exist because the mutation that swaps their provenance to the store's rule
-    killed nothing: the vocabulary had a test, but nothing drove an aware row through
-    the three call sites. They sit behind ``if when.tzinfo is not None``, so only an
-    aware forecast row reaches them and no existing fixture supplies one.
-
-    Swapped to the store's rule, on a container without ``TZ=`` every forecast row would
-    shift by the whole UTC offset and the suite would have agreed.
+    They sit behind ``if when.tzinfo is not None``, so only an aware forecast row
+    reaches them and no other fixture supplies one. An aware row lands on HA's clock,
+    the hour the zone is priced for. Since the store's 14.2 migration both provenances
+    read alike, so what these pin is the reading at the three call sites, not the name
+    they pass.
     """
 
     @staticmethod

@@ -42,7 +42,7 @@ BERLIN = zoneinfo.ZoneInfo("Europe/Berlin")
 
 @pytest.fixture
 def split_zones(monkeypatch):
-    """The container at UTC, the user at Europe/Berlin -- the case that separates them.
+    """The container at UTC, the user at Europe/Berlin: the process's clock is not HA's.
 
     HA's own setter is used for the zone, and it is restored to UTC rather than to
     whatever was found: the test plugin's cleanup check asserts UTC at teardown, and
@@ -148,8 +148,8 @@ def test_a_fresh_process_reads_its_zone_per_date():
 def test_coercing_without_naming_a_provenance_is_an_error():
     """No default provenance, so a caller cannot stay silent about which kind it holds.
 
-    That is the requirement this function exists to satisfy: a future reader must not
-    be able to coerce a forecast row as if it were a buffer stamp.
+    The two kinds read alike since the store's 14.2 migration; the name at every call
+    site is what still says which stamps a future difference between them would touch.
     """
     with pytest.raises(TypeError):
         coerce_stamp(datetime.datetime(2026, 9, 21, 12, 0))
@@ -170,11 +170,16 @@ def test_an_unusable_value_is_no_stamp_rather_than_a_raise(split_zones):
 
 
 def test_the_two_provenances_are_distinct_values():
-    """They are compared by identity in the coercion, so they must not collapse."""
+    """Two kinds, two values: collapsed into one, a call site could no longer say which."""
     assert STAMP_FROM_STORE != STAMP_FROM_CLIENT
 
 
 def test_an_unknown_provenance_is_refused(split_zones):
-    """A typo'd provenance must not silently pick one of the two rules."""
+    """A typo'd provenance is refused, not read as one of the two kinds.
+
+    Before anything else, so that a typo shows even where the value is no stamp at all.
+    """
     with pytest.raises(ValueError):
         coerce_stamp(datetime.datetime(2026, 9, 21, 10, 0, tzinfo=UTC), "site-local")
+    with pytest.raises(ValueError):
+        coerce_stamp(None, "site-local")
