@@ -1,0 +1,649 @@
+{
+  "results": [
+    {
+      "id": "M01",
+      "what": "local_naive_now returns the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_continuous_update.py::TestCoalescing::test_burst_of_different_fields_merges_into_one_row",
+        "tests/test_continuous_update.py::TestCoalescing::test_watermark_advance_between_readings_forces_a_new_row",
+        "tests/test_continuous_update.py::TestCoalescing::test_watermark_refusal_appends_new_row_for_a_late_field",
+        "tests/test_store_operations.py::TestZoneOperations::test_new_zone_anchors_last_consumed_at",
+        "tests/test_time_provenance.py::test_local_naive_now_is_has_wall_clock_without_a_zone",
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_a_burst_of_sensor_events",
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_a_sensor_group_switching_its_source",
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_clearing_the_weather_data",
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_the_baseline_a_new_sensor_subscription_seeds",
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_the_poll_of_every_group",
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_the_poll_of_one_zone",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock",
+        "tests/test_weather_buffer_one_frame.py::TestTheDailyPath::test_a_store_an_older_release_left",
+        "tests/test_weather_buffer_one_frame.py::TestTheDailyPath::test_a_store_this_release_wrote",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_an_older_release_left",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_this_release_wrote",
+        "tests/test_weather_buffer_one_frame.py::TestTheSolarClampReadsTheUsersClock::test_a_bright_early_afternoon_is_judged_at_its_own_hour",
+        "tests/test_zone_view_save.py::test_a_lowered_maximum_clamps_the_stored_level_as_a_statement"
+      ],
+      "summary": "======================= 18 failed, 155 passed in 21.40s ======================="
+    },
+    {
+      "id": "M02",
+      "what": "_process_timezone back to today's fixed offset (needs a DST zone)",
+      "verdict": "UTC:KILLED / no-TZ:KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_time_provenance.py::test_a_fresh_process_reads_its_zone_per_date",
+        "tests/test_time_provenance.py::test_the_process_zone_is_read_with_its_own_rules",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 3 failed, 170 passed in 22.49s ========================"
+    },
+    {
+      "id": "M02b",
+      "what": "_process_timezone returns UTC",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_time_provenance.py::test_a_fresh_process_reads_its_zone_per_date"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.46s ========================"
+    },
+    {
+      "id": "M02c",
+      "what": "_process_timezone returns a fixed standard offset",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_time_provenance.py::test_a_fresh_process_reads_its_zone_per_date"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 21.79s ========================"
+    },
+    {
+      "id": "M03",
+      "what": "coerce_stamp: an aware stored stamp on the process's clock again",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_live_estimate_time_provenance.py::test_a_stored_stamp_beyond_the_datetime_range_is_no_stamp",
+        "tests/test_live_estimate_time_provenance.py::test_a_stored_stamp_is_read_on_has_clock",
+        "tests/test_time_provenance.py::test_an_aware_instant_is_read_on_has_clock_under_either_provenance",
+        "tests/test_time_provenance.py::test_an_unusable_value_is_no_stamp_rather_than_a_raise",
+        "tests/test_weather_aggregate.py::TestSelectWindowAcceptsBothTimestampForms::test_an_aware_retrieved_at_splits_where_its_naive_twin_does",
+        "tests/test_weather_aggregate.py::TestSelectWindowAcceptsBothTimestampForms::test_an_aware_stamp_is_read_on_has_clock_not_the_process_s",
+        "tests/test_weather_aggregate.py::TestSelectWindowAcceptsBothTimestampForms::test_an_aware_watermark_splits_where_its_naive_twin_does",
+        "tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow::test_aggregate_window_accepts_an_aware_now",
+        "tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow::test_build_hourly_rows_accepts_an_aware_now",
+        "tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow::test_build_substeps_accepts_an_aware_now"
+      ],
+      "summary": "======================= 10 failed, 163 passed in 21.47s ======================="
+    },
+    {
+      "id": "M04",
+      "what": "lift_legacy_stamp leaves a naive stamp as it is",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestARolledBackReleaseOpensTheFile::test_a_14_2_file_comes_back_untouched_and_is_saved_as_14_1",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_older_major_is_moved_as_well",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_each_stamp_is_read_at_its_own_dates_offset",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_every_stamp_moves_by_the_offset_in_one_pass",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_the_microseconds_a_stamp_carries_are_kept",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_14_1_file_is_moved_and_saved_as_14_2",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_file_without_a_minor_version_counts_as_14_1",
+        "tests/test_weather_buffer_one_frame.py::TestTheDailyPath::test_a_store_an_older_release_left",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_an_older_release_left"
+      ],
+      "summary": "======================= 9 failed, 164 passed in 21.72s ========================"
+    },
+    {
+      "id": "M05",
+      "what": "lift_legacy_stamp reads a naive stamp in the machine's zone, not the seam",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_each_stamp_is_read_at_its_own_dates_offset"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 21.72s ========================"
+    },
+    {
+      "id": "M06",
+      "what": "lift_legacy_stamp returns a datetime, not a string",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_aware_stamp_is_read_as_the_instant_it_names",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_older_major_is_moved_as_well",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_each_stamp_is_read_at_its_own_dates_offset",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_every_stamp_moves_by_the_offset_in_one_pass",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_the_microseconds_a_stamp_carries_are_kept",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_14_1_file_is_moved_and_saved_as_14_2",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_file_without_a_minor_version_counts_as_14_1"
+      ],
+      "summary": "======================= 7 failed, 166 passed in 20.92s ========================"
+    },
+    {
+      "id": "M07",
+      "what": "the stamp step keyed on 14.1 instead of 14.2",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestARolledBackReleaseOpensTheFile::test_a_14_2_file_comes_back_untouched_and_is_saved_as_14_1",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_aware_stamp_is_read_as_the_instant_it_names",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_each_stamp_is_read_at_its_own_dates_offset",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_every_stamp_moves_by_the_offset_in_one_pass",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_the_microseconds_a_stamp_carries_are_kept",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_14_1_file_is_moved_and_saved_as_14_2",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_file_without_a_minor_version_counts_as_14_1",
+        "tests/test_weather_buffer_one_frame.py::TestTheDailyPath::test_a_store_an_older_release_left",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_an_older_release_left"
+      ],
+      "summary": "======================= 9 failed, 164 passed in 20.99s ========================"
+    },
+    {
+      "id": "M08",
+      "what": "the stamp step on every load, 14.2 included",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_a_store_at_14_2_or_later_is_left_alone"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.28s ========================"
+    },
+    {
+      "id": "M09",
+      "what": "STORAGE_MINOR_VERSION stays 1",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestARolledBackReleaseOpensTheFile::test_a_14_2_file_comes_back_untouched_and_is_saved_as_14_1",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_14_1_file_is_moved_and_saved_as_14_2",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_file_without_a_minor_version_counts_as_14_1",
+        "tests/test_weather_buffer_one_frame.py::TestTheDailyPath::test_a_store_an_older_release_left",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_an_older_release_left"
+      ],
+      "summary": "======================= 5 failed, 168 passed in 26.68s ========================"
+    },
+    {
+      "id": "M10",
+      "what": "a MAJOR bump instead (STORAGE_VERSION 15)",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestARolledBackReleaseOpensTheFile::test_a_14_2_file_comes_back_untouched_and_is_saved_as_14_1",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_14_1_file_is_moved_and_saved_as_14_2",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_file_without_a_minor_version_counts_as_14_1",
+        "tests/test_weather_buffer_one_frame.py::TestTheDailyPath::test_a_store_an_older_release_left",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_an_older_release_left"
+      ],
+      "summary": "======================= 5 failed, 168 passed in 22.58s ========================"
+    },
+    {
+      "id": "M11",
+      "what": "the buffer rows are not moved",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_aware_stamp_is_read_as_the_instant_it_names",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_older_major_is_moved_as_well",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_each_stamp_is_read_at_its_own_dates_offset",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_every_stamp_moves_by_the_offset_in_one_pass",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_the_microseconds_a_stamp_carries_are_kept",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_14_1_file_is_moved_and_saved_as_14_2"
+      ],
+      "summary": "======================= 6 failed, 167 passed in 22.31s ========================"
+    },
+    {
+      "id": "M12",
+      "what": "data_last_updated is not moved",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_aware_stamp_is_read_as_the_instant_it_names",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_older_major_is_moved_as_well",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_every_stamp_moves_by_the_offset_in_one_pass",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_the_microseconds_a_stamp_carries_are_kept",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_14_1_file_is_moved_and_saved_as_14_2"
+      ],
+      "summary": "======================= 5 failed, 168 passed in 23.06s ========================"
+    },
+    {
+      "id": "M13",
+      "what": "last_calculated is not moved",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_aware_stamp_is_read_as_the_instant_it_names",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_older_major_is_moved_as_well",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_every_stamp_moves_by_the_offset_in_one_pass",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_the_microseconds_a_stamp_carries_are_kept",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_14_1_file_is_moved_and_saved_as_14_2"
+      ],
+      "summary": "======================= 5 failed, 168 passed in 23.01s ========================"
+    },
+    {
+      "id": "M14",
+      "what": "the hook never runs the stamp step",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestARolledBackReleaseOpensTheFile::test_a_14_2_file_comes_back_untouched_and_is_saved_as_14_1",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_aware_stamp_is_read_as_the_instant_it_names",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_older_major_is_moved_as_well",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_each_stamp_is_read_at_its_own_dates_offset",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_every_stamp_moves_by_the_offset_in_one_pass",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_the_microseconds_a_stamp_carries_are_kept",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_14_1_file_is_moved_and_saved_as_14_2",
+        "tests/test_store_stamp_migration.py::TestThroughHomeAssistantsLoad::test_a_file_without_a_minor_version_counts_as_14_1",
+        "tests/test_weather_buffer_one_frame.py::TestTheDailyPath::test_a_store_an_older_release_left",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_an_older_release_left"
+      ],
+      "summary": "======================= 10 failed, 163 passed in 22.91s ======================="
+    },
+    {
+      "id": "M15",
+      "what": "select_window drops an aware watermark's zone instead of reading it",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_aggregate.py::TestSelectWindowAcceptsBothTimestampForms::test_an_aware_watermark_splits_where_its_naive_twin_does"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.10s ========================"
+    },
+    {
+      "id": "M16",
+      "what": "aggregate_window drops an aware now's zone instead of reading it",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow::test_aggregate_window_accepts_an_aware_now"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.50s ========================"
+    },
+    {
+      "id": "M17",
+      "what": "build_hourly_rows drops an aware now's zone instead of reading it",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow::test_build_hourly_rows_accepts_an_aware_now"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 23.71s ========================"
+    },
+    {
+      "id": "M18",
+      "what": "build_substeps drops an aware now's zone instead of reading it",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_aggregate.py::TestTheEntryPointsSurviveAnAwareNow::test_build_substeps_accepts_an_aware_now"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.28s ========================"
+    },
+    {
+      "id": "M23",
+      "what": "lift_legacy_stamp re-reads an aware stamp in the process zone",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_an_aware_stamp_is_read_as_the_instant_it_names",
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_what_it_cannot_read_is_left_exactly_as_found"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 21.34s ========================"
+    },
+    {
+      "id": "M24",
+      "what": "lift_legacy_stamp drops the microseconds",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_the_microseconds_a_stamp_carries_are_kept"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 20.67s ========================"
+    },
+    {
+      "id": "M25",
+      "what": "the stamp step checks the minor only",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_a_store_at_14_2_or_later_is_left_alone"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.15s ========================"
+    },
+    {
+      "id": "M26",
+      "what": "no dict guard for a zone in the stamp step",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_what_it_cannot_read_is_left_exactly_as_found"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.36s ========================"
+    },
+    {
+      "id": "M27",
+      "what": "no dict guard for a mapping in the stamp step",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_what_it_cannot_read_is_left_exactly_as_found"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.83s ========================"
+    },
+    {
+      "id": "M28",
+      "what": "lift_legacy_stamp lets an out-of-range conversion raise",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_what_it_cannot_read_is_left_exactly_as_found"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.14s ========================"
+    },
+    {
+      "id": "M29",
+      "what": "coerce_stamp lets an out-of-range conversion raise",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_live_estimate_time_provenance.py::test_a_stored_stamp_beyond_the_datetime_range_is_no_stamp",
+        "tests/test_time_provenance.py::test_an_unusable_value_is_no_stamp_rather_than_a_raise"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 21.66s ========================"
+    },
+    {
+      "id": "M30",
+      "what": "_parse_stored_as_ha_local lets an out-of-range conversion raise",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_live_estimate_time_provenance.py::test_a_stored_stamp_beyond_the_datetime_range_is_no_stamp"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.35s ========================"
+    },
+    {
+      "id": "M31",
+      "what": "the live refresh reads the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_an_older_release_left",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_this_release_wrote"
+      ],
+      "summary": "======================= 3 failed, 170 passed in 21.22s ========================"
+    },
+    {
+      "id": "M32",
+      "what": "clearing the weather data does not stamp the watermark",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_clearing_the_weather_data"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 21.61s ========================"
+    },
+    {
+      "id": "M33",
+      "what": "a sensor group switching its source does not stamp the watermark",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_a_sensor_group_switching_its_source"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.44s ========================"
+    },
+    {
+      "id": "M20",
+      "what": "the weather-entity reader drops an aware row's zone",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_live_estimate_time_provenance.py::TestTheForecastReadersUseTheClientRule::test_the_weather_entity_reader_localises_to_ha"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.40s ========================"
+    },
+    {
+      "id": "M21",
+      "what": "the weather-entity reader reads an aware row at UTC wall time",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_live_estimate_time_provenance.py::TestTheForecastReadersUseTheClientRule::test_the_weather_entity_reader_localises_to_ha"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.29s ========================"
+    },
+    {
+      "id": "M22",
+      "what": "the weather-entity reader leaves an aware row aware",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_live_estimate_time_provenance.py::TestTheForecastReadersUseTheClientRule::test_the_weather_entity_reader_localises_to_ha"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.33s ========================"
+    },
+    {
+      "id": "M19",
+      "what": "coerce_stamp returns None before refusing an unknown provenance",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_time_provenance.py::test_an_unknown_provenance_is_refused"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.30s ========================"
+    },
+    {
+      "id": "S01",
+      "what": "calculation.py:268 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_clearing_the_weather_data",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 22.77s ========================"
+    },
+    {
+      "id": "S02",
+      "what": "calculation.py:380 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.76s ========================"
+    },
+    {
+      "id": "S03",
+      "what": "calculation.py:433 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock",
+        "tests/test_weather_buffer_one_frame.py::TestTheDailyPath::test_a_store_this_release_wrote",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_this_release_wrote"
+      ],
+      "summary": "======================= 3 failed, 170 passed in 22.43s ========================"
+    },
+    {
+      "id": "S04",
+      "what": "calculation.py:499 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock",
+        "tests/test_weather_buffer_one_frame.py::TestTheDailyPath::test_a_store_an_older_release_left",
+        "tests/test_weather_buffer_one_frame.py::TestTheDailyPath::test_a_store_this_release_wrote"
+      ],
+      "summary": "======================= 3 failed, 170 passed in 22.64s ========================"
+    },
+    {
+      "id": "S05",
+      "what": "calculation.py:930 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 22.94s ========================"
+    },
+    {
+      "id": "S06",
+      "what": "continuous_update.py:253 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_the_baseline_a_new_sensor_subscription_seeds",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 23.33s ========================"
+    },
+    {
+      "id": "S07",
+      "what": "continuous_update.py:380 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_continuous_update.py::TestCoalescing::test_burst_of_different_fields_merges_into_one_row",
+        "tests/test_continuous_update.py::TestCoalescing::test_watermark_advance_between_readings_forces_a_new_row",
+        "tests/test_continuous_update.py::TestCoalescing::test_watermark_refusal_appends_new_row_for_a_late_field",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 4 failed, 169 passed in 23.57s ========================"
+    },
+    {
+      "id": "S08",
+      "what": "continuous_update.py:523 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_a_burst_of_sensor_events",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 23.58s ========================"
+    },
+    {
+      "id": "S09",
+      "what": "__init__.py:1423 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock",
+        "tests/test_weather_buffer_one_frame.py::TestTheSolarClampReadsTheUsersClock::test_a_bright_early_afternoon_is_judged_at_its_own_hour"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 26.83s ========================"
+    },
+    {
+      "id": "S10",
+      "what": "__init__.py:1500 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_the_poll_of_one_zone",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 22.36s ========================"
+    },
+    {
+      "id": "S11",
+      "what": "__init__.py:1510 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_the_poll_of_one_zone",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 21.65s ========================"
+    },
+    {
+      "id": "S12",
+      "what": "__init__.py:1626 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_the_poll_of_every_group",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 22.35s ========================"
+    },
+    {
+      "id": "S13",
+      "what": "__init__.py:1638 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_the_poll_of_every_group",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 21.75s ========================"
+    },
+    {
+      "id": "S14",
+      "what": "__init__.py:1793 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestEveryWriterStampsHAsClock::test_a_sensor_group_switching_its_source",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 21.77s ========================"
+    },
+    {
+      "id": "S15",
+      "what": "__init__.py:2015 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock",
+        "tests/test_zone_view_save.py::test_a_lowered_maximum_clamps_the_stored_level_as_a_statement"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 21.89s ========================"
+    },
+    {
+      "id": "S16",
+      "what": "store.py:1725 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_store_operations.py::TestZoneOperations::test_new_zone_anchors_last_consumed_at",
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 2 failed, 171 passed in 22.29s ========================"
+    },
+    {
+      "id": "S17",
+      "what": "weather_aggregate.py:356 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_an_older_release_left",
+        "tests/test_weather_buffer_one_frame.py::TestTheLivePath::test_a_store_this_release_wrote"
+      ],
+      "summary": "======================= 3 failed, 170 passed in 21.40s ========================"
+    },
+    {
+      "id": "S18",
+      "what": "weather_aggregate.py:916 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 21.71s ========================"
+    },
+    {
+      "id": "S19",
+      "what": "weather_aggregate.py:1103 back on the process clock",
+      "verdict": "KILLED",
+      "restored": true,
+      "killed_by": [
+        "tests/test_weather_buffer_one_frame.py::TestNoProcessClockOnTheBufferPaths::test_none_of_them_reads_the_process_clock"
+      ],
+      "summary": "======================= 1 failed, 172 passed in 25.51s ========================"
+    }
+  ],
+  "all_restored": true
+}

@@ -453,3 +453,14 @@ dry run measures both on `0b9a71bd` before the plan is handed over.
 As in "End-to-end criterion" above, with: the legacy store state is a **14.1** document
 (`"minor_version": 1`, or none, which HA reads as 1); "runs only below 15" → **runs only below
 14.2**; and A4's two-argument test joins the supporting pins.
+
+### A9 — Correction (2026-09-30, from the final review): CI does not run the guard
+
+A4 says "CI's job on the newest HA runs this test through the guarded code". It does not. Upstream
+CI (run 36682134381 on master, 2026-09-30) installs HA 2025.5.0 (floor) and HA 2026.2.3 (newest, on
+Python 3.13); the guard arrived with 2026.3.0, and HA from 2026.3.0 on requires Python ≥ 3.14.2
+(`pyproject.toml` at the tags). So the two-argument test runs on CI without the guard, like locally.
+The rollback on a guarded Home Assistant was shown live instead, on HA-Test 2026.9.3 (the plan's
+Task 10; protocol `docs/superpowers/reconstructed/2026-09-30-weather-buffer-one-frame-live-on-ha-test.md`):
+14.1 → 14.2, rollback to the previous build 14.2 → 14.1 without `UnsupportedStorageVersionError`,
+14.1 → 14.2 again.

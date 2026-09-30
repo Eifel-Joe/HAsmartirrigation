@@ -2659,3 +2659,299 @@ archived runner now uses `Popen` and kills its own process tree by PID. Checked 
 **For the review (Task 9), not changed:** `test_aggregate_window_accepts_an_aware_now` and
 `test_build_hourly_rows_accepts_an_aware_now` pass on both sides (Task 3 Step 2); they pin
 "an aware `now` does not raise", not its frame.
+
+---
+
+## Addendum — execution, 2026-09-30 (wins over the task text above)
+
+Recorded while the plan was executed (subagent-driven, one implementer per task, a mechanical
+spec check against a scripted reference, a quality review per task). Evidence:
+`D:\Entwicklung\HASI\issue22-work\measure\impl\`, prompts in `…\prompts\`, reviews in `…\review\`.
+
+**E1 — The base moved: `0b9a71bd` → `6654a0ac`** (upstream release v2026.09.28, JustChr#183–#185).
+Every file this plan edits is byte-identical to `0b9a71bd` except three, whose changes lie outside
+the edited text: `helpers.py` (upstream's `schedule_targets_zone` after `class CannotConnect`;
+every line up to `:1062` unchanged), `const.py` (+4 lines before `RETRIEVED_AT`, now `:738`),
+`sensor.py` (+1 import; `_to_aware_datetime`'s docstring text at `:607`). The plan applied by
+`probe/apply_task.py` onto `6654a0ac` (`issue22-work\ref-wt`) gives exactly the dry run's diff,
+28 files, +1194/−345. New baseline under `TZ=UTC`: `7 failed, 3538 passed, 9 skipped, 380 errors`,
+387 names — the 13 new names are upstream's new tests in `test_live_estimate_replayed_balance.py`,
+all the known lingering-timer teardown error (380 of 380 errors are `ERROR at teardown`).
+
+**E2 — The spec check is mechanical.** `ref-wt` holds one commit per task, built by
+`apply_task.py` from this plan's own blocks; `probe/spec_check.py <task> <ref>` compares the
+implementer's HEAD with it (`git diff`, both worktrees share the object store), the commit message
+with the plan's heredoc, the added lines with the tracker grep, and `git status`. The two new test
+files were created with `probe/plan_blocks.py get`, not typed.
+
+**E3 — Task 1's quality review is part of Task 5's**, where the file is committed and turns green.
+
+**E4 — Task 2's review (sonnet): one gap closed, two docstring corrections, two items left.**
+- *I1, accepted.* `_process_timezone()`'s per-date DST behaviour was pinned only by
+  `test_the_process_zone_is_read_with_its_own_rules`, which is idle wherever the process runs at
+  UTC — CI, and every run under `TZ=UTC`. Measured at `TZ=UTC`: `tzutc()` and a fixed standard
+  offset survived the committed tests; the old form was caught only by the source census (Task 1's
+  file, uncommitted until Task 5). New test `test_a_fresh_process_reads_its_zone_per_date`: a child
+  interpreter started with `TZ=EST5EDT` prints the process zone's January and July offsets
+  (`-5.0 -4.0`). Placed in `tests/test_time_provenance.py` beside its idle twin rather than in a new
+  file (the reviewer's suggestion), because the mutation runner of Task 8 runs that file: M02 gets a
+  behavioural killer at `TZ=UTC` without changing the runner's file list. `_process_timezone`'s
+  docstring names it (`siehe`). The reviewer's mutants P2 (`tzutc()`) and P5 (fixed standard
+  offset) join Task 8.
+- *M1, accepted as a rewording only.* `local_naive_now`: "reads this" → "reads this clock". Three
+  sites (`auto_calc.py:96`, `live_estimate.py:1293`, `:1731`) read the same clock through the same
+  expression and were right before this series; converting them would widen the change against the
+  scope table, so they stay.
+- *M2, accepted.* `local_naive_now`'s `siehe` also names
+  `tests/test_time_provenance.py::test_local_naive_now_is_has_wall_clock_without_a_zone`.
+- *M3, no change.* On Windows `tzlocal().utcoffset()` raises `OSError` before 1970 and after 3000;
+  Home Assistant runs on Linux.
+- *Handed to Task 4's review:* `lift_legacy_stamp` guards only `fromisoformat`; an extreme stamp
+  (`0001-01-01T00:00:00` with a positive process offset, `9999-12-31T23:59:59` with UTC or a
+  negative one) raises `OverflowError` in the conversion, and a raise in `async_load` fails setup.
+- Commits `03f8a1a8` (the test, the `siehe`) and `ff97fe87` (M1, M2), each byte-identical to the
+  prescribed blocks applied by script (`probe/apply_t2fix.py`). RED by mutation on a copy: P1, P2,
+  P5 each `8 passed` with the committed tests at `TZ=UTC`, `1 failed, 8 passed` with the new one
+  (child offsets `-4.0 -4.0`, `0.0 0.0`, `-5.0 -5.0`); full suite `7 / 3541 / 9 / 380`, names
+  identical. Re-review: I1 closed; checked under pytest-cov's subprocess hook, HA's
+  `verify_cleanup` and pytest-socket; the child takes ~5–8 s. One wording fix from it, `6729f621`
+  ("each read one of the two dates wrong" — UTC reads both wrong).
+- Counts after the fix (and see E5 for the runner): +1 test — Task 3's three-file run `6 failed, 41 passed` / `47 passed`;
+  Task 5 Step 9 `183 passed, 12 errors`; full suite `3541` after Tasks 2–3, `3550` after Task 4,
+  `3562` after Tasks 5–6. `helpers.py` lines after `_process_timezone` move by +1, after
+  `local_naive_now` by +2 (Task 6 Step 3's expected lines are recomputed from the rebuilt reference).
+
+**E5 — The mutation runner for this run: `probe/mutate-impl.py`**, a copy of the archived
+`2026-09-30-weather-buffer-mutate.py` (`a1ce4914`) with three changes: the review mutants M02b
+(`_process_timezone` returns `tzutc()`) and M02c (a fixed standard offset); the `NOT-RUN` branch
+read `out.stdout`, a name that does not exist there (a `NameError` instead of the verdict) — now
+`stdout`; and it writes `mutations-result-impl.json`, so the dry run's `mutations-result.json`
+beside it stays as evidence.
+
+**E6 — Task 3's review (sonnet): ready; two test fixes, one deferred, two declined.**
+- Task 3 itself: `dbbae447`, spec check PASS (tree == reference, message verbatim), RED
+  `6 failed, 41 passed`, GREEN `47 passed`, full suite `7 / 3541 / 9 / 380`, names identical.
+- *Minor 2, accepted (commit X):* every aware twin was built in HA's own zone, where
+  `dt_util.as_local` is the identity, and two entry-point scenes did not read `now` at all — four
+  mutants that DROP the zone instead of converting (the watermark in `select_window`, `now` in
+  the three entry points) left both files at `41 passed` (measured, `probe/t3fix_red.py`). The
+  twins are now the same instant written in UTC, in scenes whose result depends on `now`; the
+  test names stay.
+- *Minor 3 + H7, accepted (commit Y):* four test docstrings still argued from the difference of
+  the two provenances; an unknown provenance is refused before anything else, now pinned for
+  `None` too (the swapped order survived); `_parse_stored_as_ha_local` and its test module named
+  `last_updated`, which the live estimate never reads — its callers pass `last_calculated` and
+  `last_consumed_at`.
+- *Minor 4, deferred:* `coerce_stamp`'s conversion sits outside its `try`, so an aware stamp at
+  the edge of the datetime range raises `OverflowError` against its own "do not let this raise"
+  (pre-existing). The same pattern as `lift_legacy_stamp` (E4) — one fix for both after Task 4
+  (the sister-path rule).
+- *Minor 5, declined:* `_parse_stored_as_ha_local` delegating to `coerce_stamp` — equivalent on 28
+  inputs in 3 zones (measured by the reviewer); the scope table keeps the reader as it is.
+- *Minor 6, declined:* an aware WATERMARK passes `select_window` but raises in the three entry
+  points; production watermarks are always naive, pre-existing, not reachable.
+- *Minor 1 and 7:* statements true only at the end of the series (squashed upstream); the three
+  `weather_aggregate` comment blocks are rewritten by Task 5 in the commit that switches their
+  defaults, `auto_calc.py:93-95` by Task 6 — checked in those tasks' reviews.
+- Mutants M15–M19 (the four drop-the-zone call sites, the check order) join Task 8
+  (`probe/mutate-impl.py`, which now also takes an n-th-occurrence edit).
+- Fix commits `03f90333` (X) and `223e0ae7` (Y), byte-identical to the prescribed blocks
+  (`probe/apply_fix.py`); RED on a copy: MS1–MS4 and H7 each `41 passed` with the old tests,
+  `1 failed, 40 passed` with the new ones, each failing exactly its own test; full suite
+  `7 / 3541 / 9 / 380`, names identical.
+- *Re-review (ready):* three identical production comments in `live_estimate.py` (`:450`, `:493`,
+  `:531`) still called the store's rule "the opposite"; `TestTheForecastReadersUseTheClientRule`
+  claimed three call sites and pinned two — the weather-entity reader `_read_hourly_forecast` was
+  pinned by nothing (dropping an aware row's zone, reading it at UTC wall time, leaving it aware:
+  each `15 passed`, measured with `probe/t3fix2_red.py`); a test's rationale called client rows
+  naive, while the clients hand back aware rows; two docstrings dated the equal reading to the
+  migration instead of the aware branch. All four in commit `b10f51d0` (a new test
+  `test_the_weather_entity_reader_localises_to_ha`, from the reviewer's scratch test): RED E1–E3
+  each `15 passed` → `1 failed, 15 passed`; full suite `7 / 3542 / 9 / 380`, names identical. No
+  third review round: the reviewer's verdict was already "ready", the fix is mechanical and
+  mutation-proven, and Task 9 reviews the whole branch. Mutants M20–M22 join Task 8.
+- Counts from here: +2 tests over the plan (`3551` after Task 4, `3563` after Tasks 5–6; Task 5
+  Step 9 `184 passed, 12 errors`).
+
+**E7 — Task 4's review (opus): ready with fixes; one commit.**
+- Task 4 itself: `88637a36`, spec check PASS, RED (collection error on `STORAGE_MINOR_VERSION`),
+  GREEN `184 passed`, full suite `7 / 3551 / 9 / 380`, names identical. The reviewer confirmed the
+  design against HA's `storage.py` at 2024.12.5, 2025.5.0, 2026.2.x, 2026.3.0 and 2026.9.4: the
+  parameter-count dispatch is identical throughout; the major guard exists from 2026.3.0 and checks
+  the major only; the rollback test goes through HA's own dispatch and fails on a major bump
+  (15.1); every document reaches the lift once (setup, or the raw-copy domain import just before
+  it); no reader shifts a stamp twice; the one-time major-step pass on a v14 file changes no value.
+- *I1, accepted:* `lift_legacy_stamp` guarded only the parse; `9999-12-31T23:59:59` (UTC process,
+  HA east of UTC) or `0001-01-01T00:00:00+05:00` raised `OverflowError` out of the store's load —
+  setup failed on every start, the file stayed at 14.1, the failed task stayed cached (reviewer's
+  demo test on a copy). Reachable only from a hand-edited or foreign `.storage` file. The conversion
+  is inside the guard now (`ValueError`, `OverflowError`, `OSError` → value as found), with a
+  NOT-TO-DO against an `except` around the whole pass (a pass cut short would be saved as 14.2).
+  Sister paths, same fix: `coerce_stamp` (the Task 3 review's deferred Minor 4) and
+  `_parse_stored_as_ha_local` → `None`.
+- *I2, accepted:* the aware-stamp test used `+00:00` under a UTC process — the wrong reading gave the
+  right number (mutant H3 survived). Now `+05:00`, expecting `07:00`.
+- *I3, accepted:* the config comment named `_async_migrate_func`; now `_async_migrate_major`.
+- *M1, partly:* pinned the microseconds (H7), a later major `(15, 1)` (S2), and junk only the dict
+  guards stop — a zone and a mapping that are strings naming a field (S5, S6). Left: a store without
+  `zones` (S9, hydration accepts it but the lift's `.get` is idiomatic) and the order of the lift and
+  the major steps (S12, equivalent).
+- *M2, no change:* a naive stamp from the repeated hour of a DST fall-back is read at the first
+  pass's offset — inherent to a naive series, bounded to one hour a year, and only where the process
+  zone has DST and differs from HA's.
+- *M3, declined:* a log line from the lift naming the zones — at the default level it is as
+  invisible as HA's own INFO line.
+- *M4, noted:* the assumptions must be named in the release notes — the PR body (Task 11) carries
+  them for JustChr's release text.
+- Fix commit `a7682892`, byte-identical to the prescribed edits: RED on the unfixed code `3 failed,
+  24 passed` (each an `OverflowError`), GREEN `27 passed`; mutation RED (`probe/t4fix_red.py`): H3, H7,
+  S2, S5, S6 survive the old tests (`25 passed`) and each dies by the new ones (H3 twice: re-labelled in
+  UTC, the aware year-1 junk stamp becomes convertible); G1–G3 (each guard reverted) die by their own
+  test; full suite `7 / 3553 / 9 / 380`, names identical.
+- Mutants M23–M30 join Task 8; M03–M06 re-anchored (the conversion sits inside a `try` now).
+- *Re-review (ready):* each guard is as wide as it should be — `OSError` in the lift only matters on
+  Windows (unpinned there, harmless), `OverflowError` alone is right for the two readers (their zones
+  are fixed offsets or zoneinfo, no `localtime`). Two comment lines corrected in `1ca33f28` (the
+  `siehe` lacked the test's class and did not resolve as a node id; "no zone can hold them" is true
+  only between that fixture's zones). Declined: a WARNING split for `OverflowError`/`OSError` in the
+  lift (no known trigger on Linux, would add behaviour and a test), and code for two hand-edited
+  file shapes that fail only because every 14.1 file now passes the major steps once (`"data": null`,
+  a non-integer `minor_version`) — HA writes neither.
+
+**E8 — Task 5.** `50c4cf96`, spec check PASS (tree == reference, message verbatim). Every replace
+count as stated before it ran. RED `15 failed` — the matrix as offsets on the older release's
+store (daily window `[1.0]`, live window without `now` `1.0`) and on a freshly written one (daily
+rows 10.5–12.5, live window `5.0`), the six writers at 10:00, the clamp `70.37…` (814.5 W/m²), the
+census with 19 sites (`__init__.py:1429, 1506, 1516, 1632, 1644, 1799, 2025`, `calculation.py:267,
+379, 432, 498, 934`, `continuous_update.py:252, 378, 521`, `store.py:1719`, `weather_aggregate.py:363,
+931, 1126` — lines moved against the plan by Task 4 and the review fixes); the three writer tests
+on the process clock. GREEN `15 passed`, the census empty; neighbours `186 passed, 12 errors` (the
+baseline's `test_solar_ingest_clamp.py` teardown errors); full suite `7 / 3565 / 9 / 380`, names
+identical. The criterion file went in with this commit; its review is part of Task 5's (E3).
+
+**E9 — Task 5's review (opus): with fixes; the production change correct and complete.** All 19
+sites read `local_naive_now()`; no aware/naive mix introduced; nothing outside the census modules
+writes or compares the five stamps (the scope table holds at today's lines); each of the 15
+production-reachable sites is killed by a behavioural test when reverted to a clock the census
+cannot see (`dt_util.utcnow()` without its zone) — the 4 survivors are the defaults no production
+caller reaches (`calculation.py` prune and `calculate_module`, `build_hourly_rows`, `build_substeps`).
+The Task 3 carry-over (the three `now` comment blocks) is done.
+- *Important 1, accepted (package A, separate commit):* the switch silently moved the scenes of
+  tests that build their own stamps in the frozen instant's frame — under freezegun that is UTC wall
+  time, HA runs US/Pacific. Still green, but the #33 coalescing tests lost their at-the-watermark
+  edge (the fake's `>` made `>=`: base `2 failed`, head `7 passed`), the manual-bucket tests their
+  "stated at hour 12" (`RAIN_AT_HOUR = 6`: base `5 passed`, head `2 failed`), the solar clamp's night
+  classes their "middle of the night" (02:00 → 19:00 the evening before). "Failure names identical to
+  the baseline" cannot see tests that stay green; the plan updated only the three that went red.
+- *Important 2, accepted (`d55b5d01`):* the live path's own clock read was pinned by nothing — `_live`
+  rebuilt `now` in the test; it takes it from `_fetch_intraday_inputs` now. The census covers
+  `live_estimate.py` and `auto_calc.py` and sees `utcnow`. With them: the writer scenes built an hour
+  before the writer (two writers could not be told from the creation stamp), and the freshly written
+  store checks its calculation ran (`_async_calculate_all` swallows a zone's exception). RED on a
+  copy (`probe/t5fix_red.py`): LIVE, CLEAR, SWITCH, CENSUS each `12 passed` on the old file; on the
+  new one LIVE fails both live cells and the census, CLEAR and SWITCH their writer test, CENSUS the
+  census. Full suite `7 / 3565 / 9 / 380`, names identical.
+- *Minor 3 + 4, accepted (`a74fde55`):* the shadowing guard's text and messages (they advised the
+  `dt_datetime` alias, i.e. the process clock), `distributor.py`'s pointer to a note Task 5 removed,
+  the live estimate's clock in the three `now` blocks and one test docstring (`dt_util.now()` made
+  naive, not `local_naive_now()`), the event path's comment (the aware-stamp raise is in the
+  coalescing and the prune, no longer in `aggregate_window`), two test docstrings. Left:
+  `distributor.py`'s premise that a sibling `datetime.py` shadows a plain import there (pre-existing,
+  upstream's code, not made false by this series).
+- *Minor 5, 6, 8* folded into `d55b5d01` (see Important 2; black on the criterion file).
+- *Minor 7 and the fall-back hour:* for the PR text — the mid-window credits now land on the window's
+  own clock; naive HA wall-clock stamps repeat the fall-back hour (as on HA OS all along), which for
+  a UTC container replaces a whole-offset error with a one-hour night-time ambiguity twice a year.
+- Not pinned behaviourally, census only: `auto_calc.py`'s staleness cutoff on HA's clock (right
+  before this series, now in the census).
+- Mutants M31–M33 (the live refresh's clock; clearing and a source switch not stamping) join Task 8.
+- *Important 1, done (`e12f781b`, opus implementer, its own judgment):* 26 inventory tests classified,
+  12 affected and restored — by building each scene in HA's frame, not by pinning HA to UTC (that
+  would have killed the Task 5 clock pin in `test_zone_view_save.py` and moved nothing for the
+  clamp): the three TestCoalescing watermark tests build the watermark at
+  `dt_util.as_local(<frozen UTC>).replace(tzinfo=None)`, the disabled-zone test replays the refusal
+  scene with the zone disabled (it was vacuous on the base, meaningful now); the manual-bucket and
+  zone-view tests freeze the instant HA reads the scene's hour (`_when_ha_reads`); the solar night
+  classes freeze 06:00 UTC = 02:00 at the site (5 h into the floor, 4.3 h before its end). Mutation
+  proof (`review\t5fixA\`): fake_edge_inclusive, ledger_keeps_credits_before_the_statement,
+  clamp_judges_7h_late — base kill / head survive / fixed kill; fake_counts_disabled — base survive /
+  head kill / fixed kill; clamp_reads_process_clock and sensor_row_on_process_clock newly killed; two
+  accidental head sensitivities given up (statement_stamped_2h_early, clamp_judges_3h_early). Full
+  suite `7 / 3565 / 9 / 380`, names identical. Left, pre-existing and not caused by this series:
+  `test_the_whole_orchestration_runs_without_a_weather_client` passes only through the skew clamp
+  (its module's "every case supplies its own now" is false for it on the base already).
+- The branch's diff grew by six files over the plan's 28 (`distributor.py` comment,
+  `test_datetime_platform_shadowing.py`, `test_manual_bucket_assertion.py`,
+  `test_mid_window_bucket_credit.py`, `test_solar_ingest_clamp.py`, `test_store_buffers.py`): 34 files,
+  +1465/−405 (production and docs +286/−241, tests +1179/−164) with Task 6 applied (reference).
+- Review re-check (ready): every fix closes its finding, each rebuilt scene confirmed by moving its
+  edge; the 19-site coverage unchanged (15 of 15 reachable, the same 4 defaults). One docstring reflow
+  from it, `86f889d6`; three nits left (one old-style freeze without an assertion, the duplicated
+  `_when_ha_reads` helper far from any DST change, the PR-text note).
+
+**E10 — Task 6.** `3edcd015`, spec check PASS; the grep hits exactly the expected lines (only
+`helpers.py`'s moved: `:1011, :1013, :1026, :1063, :1064, :1077`); full suite `7 / 3565 / 9 / 380`,
+names identical. Review (sonnet): behaviourally inert (the six files' AST without docstrings equals
+the parent's), every comment true, all 35 `siehe` and 46 test references resolve. *I1, accepted:* the
+user note did not say when the conversion runs — the first start with the new release, not the
+download — nor that nothing moves where the container's zone already equals HA's, nor the Core case;
+"the next one is right again" held for the window length only. *M1, accepted:* the solar comment gave
+one hour's figures for an error that was the whole offset. *M2, M4, accepted:* the other way to the
+old symptom (changing HA's own zone) and plain words for an end user. *M3, declined:* a lasting line
+on the update page for a one-time upgrade concern — the release notes carry it. All in `ad52e31e`
+(`calculation.py`'s AST unchanged).
+
+**E11 — Task 7 (gates) on `3edcd015`, `ad52e31e` behaviour-identical:** `black --check` "69 files
+would be left unchanged", `ruff` "All checks passed!"; the full suite of Task 6's run, `7 / 3565 / 9 /
+380`, names identical to the 387 of the baseline (3565 = 3538 + 27: the plan's 23 new tests plus 4
+from review fixes); tracker greps over the diff and the 18 commit messages empty; the diff against
+`upstream/master`: 34 files, exactly the expected list, no frontend, `dist/` or `manifest.json`.
+
+**E12 — Task 8, the mutation matrix** (`probe/mutate-impl.py` on a `git archive` copy of `3edcd015`,
+so no reviewer ever read a mutated tree; pytest imports the copy's code — `IMPORT-ORIGIN` checked; the
+runner's eight test files unmutated `173 passed`, no baseline errors among them; the timeout self-test
+`HANG`, python processes 14 before and after): **54 of 54 killed** — M01–M33 with M02b/c (35) and the
+19 clock sites — every one with a named failing test, every source restored byte for byte. Killed by
+the census alone: S02, S05, S18, S19, the four defaults no production caller reaches (as in the dry
+run). M02 (today's fixed offset) now dies at `TZ=UTC` by the child-process test as well, where the dry
+run had only the census. Results: `measure/impl/mutations-run.txt`, `mutations-result-impl.json`.
+
+**E13 — Task 9, the final review (opus): ready for the pull request, with fixes; no production
+defect.** It re-derived the design against HA's `storage.py` at seven tags (2024.12.5 … 2026.10.0b0),
+diffed `_async_migrate_major` against v2026.09.17's function (only the `forecast_weather_entity`
+setdefault differs), checked all 23 `siehe` targets, the 34-file scope, the tracker greps.
+- *I1, accepted:* no automated test runs HA's major-version guard. Upstream CI (run 36682134381)
+  installs HA 2025.5.0 (floor) and 2026.2.3 (newest, Python 3.13); the guard came with 2026.3.0,
+  which needs Python ≥ 3.14.2. The design's A4 sentence "CI's job on the newest HA runs this test
+  through the guarded code" is wrong (corrected in the spec, A9). The only test of the rollback on a
+  guarded HA is the live test (E14); the PR says so.
+- *M1–M4, M8, accepted (`c5cda941`):* `_process_timezone` names its one caller; the migration's
+  assumptions point at #160; the user note's error is the container's old against its new zone; a
+  test comment named `aggregate_window` where the coalescing and the prune raise; the proxy path's
+  anchor moved by the offset, onto the next day only west of UTC.
+- *S1, accepted, verified first:* HA 2026.9.4 has `dt_util.naive_now()` — "a naive datetime in
+  system local time", the process clock under a name that reads like `local_naive_now` (absent at
+  2026.3.0, present at 2026.9.4 and 2026.10.0b0, read at the tags). A NOT-TO-DO in `local_naive_now`
+  (`c5cda941`) and the census flags a call to it (`6e061bbc`; on a copy a planted call survives the old
+  census and fails the new one, `['live_estimate.py:225']`).
+- *M5 (quote the current red):* measured on a copy of `6654a0ac` with the final criterion file:
+  12 failed — daily rows 10.5–12.5 (older store), live window 5.0 h (older store), the freshly written
+  store's calculation stamps 10:00 instead of 12:00 (both paths), six writers at 10:00, the clamp
+  70.37 (814.5 W/m²), the census 20 sites. The PR quotes these.
+- *M6, for the PR:* the pass runs once on the event loop, 6–14 µs per stamp measured here.
+- *M7, kept:* 13 of the 18 commits carry the implementers' truthful `Claude Sonnet 5.5` trailer.
+- *S2, declined:* rollback advice in the user doc — the release notes carry it.
+- Final head `6e061bbc`: full suite `7 / 3565 / 9 / 380`, names identical to the 387 of the baseline;
+  `black`/`ruff` clean; tracker greps over the diff and 20 commit messages empty.
+
+**E14 — Task 10, live on HA-Test** (protocol:
+`docs/superpowers/reconstructed/2026-09-30-weather-buffer-one-frame-live-on-ha-test.md`). Pre-release
+`v2026.09.30b2` (`fabda3c0` = `6e061bbc` + the version string in seven files; ZIP from the SHA,
+downloaded back byte-identical). Method changed against the plan (approved in the chat): a restart
+resets `logger.set_level`, the migration runs at boot, `.storage/` is unreadable through MCP — so each
+step disables the entry before the restart and enables it after setting the storage logger to `info`;
+the store is loaded, and migrated, at the enable. On HA 2026.9.3 (guard active): L1 `from 14.1 to
+14.2`; L2 back to `v2026.09.30b1` `from 14.2 to 14.1`, no `UnsupportedStorageVersionError`, loaded;
+L3 `from 14.1 to 14.2`; every `last_calculated` unchanged (HA OS: the identity). Left on b2 by the
+user's choice. Found on the way: `git archive` here writes CRLF into the ZIP (`core.autocrlf=true`) —
+so did every fork release; harmless.

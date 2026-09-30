@@ -23,6 +23,79 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-30 (4) — Eifel-Joe#22: umgesetzt, reviewt, live getestet; PR JustChr#186 offen
+
+### Stand
+
+- **Basis gewandert:** `upstream/master` `0b9a71bd` → `6654a0ac` (v2026.09.28, JustChr#183–#185). Die
+  Plan-Dateien waren unverändert bis auf drei Randstellen; der Plan per `apply_task.py` auf die neue
+  Basis = 28 Dateien +1194/−345 wie im Probelauf. Neue Baseline 7/3538/9/380, 387 Namen
+  (`issue22-work\measure\impl\`).
+- **Branch `fix/weather-buffer-one-frame`** (Worktree `issue22-work\wt`), 20 Commits auf `6654a0ac`,
+  Kopf `6e061bbc`: Tasks 1–6 nach Plan (subagent-driven: je Task eine kuratierte Auftragsdatei in
+  `issue22-work\prompts\`, Spec-Check per Skript gegen einen Referenz-Worktree `issue22-work\ref-wt`,
+  Quality-Review je Task), dazu 11 Review-Fix-Commits. Alles steht als Nachtrag E1–E14 am Plan im Archiv.
+- **Vier Review-Funde, alle vor dem PR geschlossen:** (1) die DST-Regeln von `_process_timezone` waren
+  nur gepinnt, wo der Prozess selbst DST hat → Kindprozess-Test mit `TZ=EST5EDT`; (2) ein Stempel am
+  Rand des Datumsbereichs warf aus der Migration → Setup-Ausfall bei jedem Start → Wächter in
+  `lift_legacy_stamp`, `coerce_stamp`, `_parse_stored_as_ha_local`; (3) die Uhr-Umstellung verschob still
+  die Szenen bestehender Tests (Coalescing am Wasserstand, Eimer von Hand, Solar-Nacht) → in HAs Rahmen
+  neu gebaut, jede Kante per Mutation belegt; (4) die Uhrlesung des Live-Pfads war ungepinnt → das
+  Kriterium nimmt `now` aus `_fetch_intraday_inputs`. Dazu Doku/Kommentare und `dt_util.naive_now()`
+  (HA 2026.9: Systemzeit trotz des Namens) im Zensus.
+- **Gates auf `6e061bbc`:** volle Suite 7/3565/9/380, Namen identisch (3565 = 3538 + 27 neue Tests);
+  black/ruff sauber; 34 Dateien +1485/−410; Tracker-Greps über Diff und 20 Messages leer.
+  Mutationsmatrix 54/54, nur die 4 unerreichbaren Defaults allein per Zensus.
+- **Abschluss-Review (opus):** bereit. Wichtiger Fund: Upstream-CI fährt HA 2025.5.0 und 2026.2.3 —
+  keiner hat die Major-Sperre (ab 2026.3, braucht Python ≥ 3.14.2). Spec-Satz A4 korrigiert (A9); der
+  Live-Test ist der einzige Beleg der Sperre.
+- **Live-Test HA-Test** (core-2026.9.3): Pre-Release `v2026.09.30b2` auf dem Fork (`fabda3c0`),
+  L1 14.1→14.2, L2 Rollback auf b1 14.2→14.1 ohne `UnsupportedStorageVersionError`, L3 14.1→14.2, die
+  Integration jedes Mal geladen. Methode geändert (Eintrag vor dem Neustart deaktivieren, nach
+  `logger.set_level` aktivieren) und so freigegeben. HA-Test bleibt auf b2 (User-Wahl).
+- **Außen:** PR `JustChr#186` offen; Kommentar auf Eifel-Joe#22, Index-Zeile in Eifel-Joe#42; Archiv
+  gepusht (mit Nachtrag E1–E14, Spec-A9, Live-Protokoll, Skripten).
+
+### Verworfen
+
+- Die verschobenen Test-Szenen per UTC-Pin reparieren: hätte den Uhr-Pin in `test_zone_view_save`
+  getötet und die Klemme nicht bewegt → Szenen in HAs Rahmen gebaut.
+- Den Kindprozess-Pin in eine eigene Datei: der Mutations-Runner fährt `test_time_provenance.py` → dort.
+- Die Inline-Kopien von HAs Uhr (`auto_calc.py`, `live_estimate.py`) auf `local_naive_now()` umstellen:
+  Scope; stattdessen Docstring „reads this clock".
+- WARNING-Log bei Überlauf in der Migration; Rollback-Hinweis in der Nutzerdoku (die Release-Notes
+  tragen ihn).
+
+### Fallen
+
+- **Backslashes im Bash-Heredoc** (Python mit `\\n`) werden gefressen → Code per Write-Tool, dann Skript.
+- **`rm -rf` auf das aktuelle Arbeitsverzeichnis** blockiert die Sicherheitsprüfung — dann läuft der
+  GANZE Befehl nicht, auch ein Commit vorher in derselben Kette. Liegen geblieben:
+  `issue22-work\review\t9fix\copy`, `issue22-work\review\prbase` (Scratch, vom User zu löschen).
+- **Runner-Wertung:** `" error"` in der Zusammenfassung zählt als KILLED — keine Testdatei mit
+  Baseline-Teardown-Fehlern in den Runner (`test_solar_ingest_clamp.py` 12, `test_manual_bucket_assertion.py` 5).
+- **`git archive` schreibt hier CRLF** (`core.autocrlf=true`): Dateigröße auf HA-Test = Blob + Zeilenzahl.
+- **freezegun + `hass`-Fixture:** der eingefrorene Moment ist UTC-Wandzeit, HA läuft auf US/Pacific →
+  Schreiber auf HAs Uhr stempeln 7 h früher; Tests mit eigenen Stempeln im Frozen-Rahmen bleiben grün,
+  verlieren aber ihre Kante. „Namen identisch" sieht das nie.
+- Implementer (Sonnet) schreiben `Co-Authored-By: Claude Sonnet 5.5` — akzeptiert, upstream squasht.
+
+### Nächste Schritte
+
+1. JustChrs Review abwarten (Kommentare am PR und auf JustChr#160 prüfen; Schweigen ≠ Zustimmung);
+   Änderungswünsche als neue Commits auf den PR-Branch (`pr-workflow`).
+2. Nach dem Merge: Eifel-Joe#22 schließen (Regel P2), `issue22-work` nach `_erledigt`, Worktrees
+   `ref-wt` und `pre-wt` entfernen, Branch `prerelease/v2026.09.30b2` bleibt als Pre-Release-Quelle;
+   dann production-Rebuild mit allem Neuen (Memory `hasi-production-on-upstream`), HA-Prod-Update
+   (Neustart nur mit Ja).
+3. Optional an JustChr, separat: ein CI-Job auf Python 3.14 / HA ≥ 2026.3, damit die Major-Sperre im CI
+   läuft.
+
+### Empfohlene Skills
+
+- `pr-workflow`, `superpowers:receiving-code-review`; Memories `hasi-production-on-upstream`,
+  `upstream-silence-is-not-consent`, `check-before-duplicating-work`.
+
 ## 2026-09-30 (3) — Eifel-Joe#22: Rev-4-Nachtrag freigegeben, Plan geschrieben und probegelaufen
 
 ### Stand
@@ -51,7 +124,11 @@
   (Task 0 verschiebt ihn nach `_erledigt`).
 - **Plan und Außenaktionen vom User freigegeben.** Stands-Kommentar Eifel-Joe#22 `5910516906`
   (gepostet = freigegeben, JSON-Vergleich 6083 = 6083 Zeichen; Label bleibt `upstream:freigegeben`);
-  `archive/design-history` mit Nachtrag, Plan, Probe-Skripten und diesem Stand gepusht.
+  `archive/design-history` mit Nachtrag, Plan, Probe-Skripten und diesem Stand gepusht
+  (`2a669c0f..0c8e13c1`). **Danach lokal `a1ce4914`, NICHT gepusht:** der Mutations-Runner tötet
+  bei einem Hänger jetzt seinen eigenen Prozessbaum per PID (Plan-Befund D8; im Probelauf hing
+  nichts, die Zahlen stehen). Geht mit der nächsten Archiv-Freigabe mit; die Umsetzung liest den
+  Runner ohnehin aus `pr139-work\archive-wt`.
 
 ### Verworfen
 
