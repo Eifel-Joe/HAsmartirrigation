@@ -23,6 +23,15 @@ def _r(offset_h, **vals):
     return {const.RETRIEVED_AT: T0 + datetime.timedelta(hours=offset_h), **vals}
 
 
+def _in_utc(naive):
+    """The instant ``naive`` names on HA's clock, written in UTC.
+
+    A twin in HA's own zone passes whether a coercion converts it or merely drops its
+    zone; written in UTC, only a conversion lands it where its naive twin is.
+    """
+    return naive.replace(tzinfo=dt_util.get_default_time_zone()).astimezone(UTC)
+
+
 class TestSelectWindowAcceptsBothTimestampForms:
     """An AWARE stamp must not detonate here, and must land where its naive twin does.
 
@@ -34,7 +43,8 @@ class TestSelectWindowAcceptsBothTimestampForms:
 
     A stored stamp's naive form is HA's clock (the writers use ``local_naive_now()``
     and the store's 14.2 migration moved older stamps), so an aware one is read on
-    HA's clock, and its naive twin is the same wall time in HA's zone.
+    HA's clock: its naive twin is the instant's wall time there. The aware twins are
+    written in UTC, so that only a conversion lands them where the naive ones are.
     """
 
     @staticmethod
@@ -43,10 +53,12 @@ class TestSelectWindowAcceptsBothTimestampForms:
         return {const.RETRIEVED_AT: naive.replace(tzinfo=tz), **vals}
 
     def test_an_aware_retrieved_at_splits_where_its_naive_twin_does(self):
-        ha = dt_util.get_default_time_zone()
         wm = T0 + datetime.timedelta(hours=2)
         naive_rows = [_r(h, Temperature=10 + h) for h in (0, 1, 2, 3, 4)]
-        aware_rows = [self._aware(h, ha, Temperature=10 + h) for h in (0, 1, 2, 3, 4)]
+        aware_rows = [
+            {**row, const.RETRIEVED_AT: _in_utc(row[const.RETRIEVED_AT])}
+            for row in naive_rows
+        ]
 
         n_boundary, n_window = select_window(naive_rows, wm)
         a_boundary, a_window = select_window(aware_rows, wm)
@@ -63,9 +75,7 @@ class TestSelectWindowAcceptsBothTimestampForms:
         naive_wm = T0 + datetime.timedelta(hours=2)
 
         _, n_window = select_window(rows, naive_wm)
-        _, a_window = select_window(
-            rows, naive_wm.replace(tzinfo=dt_util.get_default_time_zone())
-        )
+        _, a_window = select_window(rows, _in_utc(naive_wm))
 
         assert [r["Temperature"] for r in a_window] == [
             r["Temperature"] for r in n_window
@@ -99,41 +109,55 @@ class TestTheEntryPointsSurviveAnAwareNow:
 
     Every caller passes ``now`` naive on HA's clock -- the daily calculation and the
     live estimate both read ``local_naive_now()`` -- and so does the default. An aware
-    ``now`` is read on HA's clock, the frame of the rows it is compared against, so its
-    naive twin is the same wall time in HA's zone.
+    ``now`` is read on HA's clock, the frame of the rows it is compared against: its
+    naive twin is the instant's wall time there. Written in UTC, and in scenes whose
+    result depends on ``now``, so that a dropped zone shows.
     """
 
     def test_aggregate_window_accepts_an_aware_now(self):
         rows = [_r(0, Temperature=10), _r(1, Temperature=12)]
         cfg = {}
         naive_now = T0 + datetime.timedelta(hours=2)
-        aware_now = naive_now.replace(tzinfo=dt_util.get_default_time_zone())
 
-        plain = aggregate_window(rows, None, cfg, now=naive_now)
-        aware = aggregate_window(rows, None, cfg, now=aware_now)
+        plain = aggregate_window(rows, T0, cfg, now=naive_now)
+        aware = aggregate_window(rows, T0, cfg, now=_in_utc(naive_now))
 
+        assert plain[const.MAPPING_DATA_MULTIPLIER] > 0
         assert aware == plain
 
     def test_build_substeps_accepts_an_aware_now(self):
         rows = [_r(0, Precipitation=0.0), _r(1, Precipitation=1.0)]
         cfg = {}
         naive_now = T0 + datetime.timedelta(hours=2)
-        aware_now = naive_now.replace(tzinfo=dt_util.get_default_time_zone())
 
         plain = build_substeps(rows, None, cfg, now=naive_now)
-        aware = build_substeps(rows, None, cfg, now=aware_now)
+        aware = build_substeps(rows, None, cfg, now=_in_utc(naive_now))
 
+        assert plain
         assert aware == plain
 
     def test_build_hourly_rows_accepts_an_aware_now(self):
-        rows = [_r(0, Temperature=10), _r(1, Temperature=12)]
+        fields = {
+            const.MAPPING_TEMPERATURE: 20.0,
+            const.MAPPING_HUMIDITY: 50.0,
+            const.MAPPING_WINDSPEED: 2.0,
+            const.MAPPING_SOLRAD: 2.5,
+        }
+        rows = [_r(h, **fields) for h in (0, 1, 2)]
         cfg = {}
-        naive_now = T0 + datetime.timedelta(hours=2)
-        aware_now = naive_now.replace(tzinfo=dt_util.get_default_time_zone())
+        naive_now = T0 + datetime.timedelta(hours=3, minutes=30)
+        site = {
+            "latitude": 50.0,
+            "longitude": 6.0,
+            "elevation": 200.0,
+            "tz_offset_h": -7.0,
+            "tz": dt_util.get_default_time_zone(),
+        }
 
-        plain = build_hourly_rows(rows, None, cfg, now=naive_now)
-        aware = build_hourly_rows(rows, None, cfg, now=aware_now)
+        plain = build_hourly_rows(rows, None, cfg, now=naive_now, **site)
+        aware = build_hourly_rows(rows, None, cfg, now=_in_utc(naive_now), **site)
 
+        assert plain
         assert aware == plain
 
 
