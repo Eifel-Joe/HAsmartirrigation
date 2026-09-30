@@ -90,9 +90,9 @@ class AutoCalcMixin:
         """
         if not self._before_run_calc_active():
             return
-        # Naive local, because that is what the store holds: calculation.py
-        # stamps last_calculated with a bare datetime.now(). Comparing in that
-        # space is what _parse_stored_as_ha_local exists for.
+        # Naive on HA's clock, because that is what the store holds: calculation.py
+        # stamps last_calculated with local_naive_now(), and _parse_stored_as_ha_local
+        # reads it in the same frame.
         cutoff = dt_util.now().replace(tzinfo=None) - timedelta(
             hours=const.AUTO_CALC_MAX_LEDGER_AGE_HOURS
         )

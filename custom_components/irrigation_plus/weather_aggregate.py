@@ -334,7 +334,7 @@ def aggregate_window(
         watermark: the zone's ``last_consumed_at`` (datetime) or None.
         mappings_config: the mapping's ``MAPPING_MAPPINGS`` dict (sources +
             per-sensor aggregate overrides).
-        now: override for "now" (testing); defaults to ``datetime.now()``.
+        now: override for "now" (testing); defaults to ``local_naive_now()``, HA's clock.
         last_entry: optional ``MAPPING_DATA_LAST_ENTRY`` used to backfill missing
             sensors for continuous-update mappings.
         time_weighted: aggregate AVERAGE fields over time instead of over stored

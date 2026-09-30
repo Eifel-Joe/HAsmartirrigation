@@ -27,36 +27,22 @@ For those interested, [here's the function that does this most of the conversion
 
 ## Docker or Core: the container's time zone {#container-timezone}
 
-If you run Home Assistant in Docker, or as a Core install in a virtual environment, check that the
-container's time zone matches the one you set in Home Assistant. These are two separate settings,
-and nothing warns you when they disagree.
+The integration stamps its weather readings on the clock you set in Home Assistant, under
+**Settings → System → General**. The time zone of the container Home Assistant runs in
+does not change the calculation.
 
-Home Assistant OS and Supervised keep the two in step for you, so this cannot happen there — which
-is also why it is easy to miss.
+Earlier releases stamped the readings on the container's clock. If you ran Home Assistant
+in Docker, or as a Core install in a virtual environment, and the container's time zone
+differed from Home Assistant's, the intra-day live estimate pulled away from the figure
+the nightly calculation commits, and on installs that use solar radiation the radiation
+figures were off as well. Home Assistant OS and Supervised keep the two in step, so this
+could not happen there.
 
-**The symptom:** the intra-day live estimate pulls away from the figure the nightly calculation
-commits, in the same direction every day and by roughly the same amount. On installs that use solar
-radiation, the radiation figures are off as well. Nothing errors, and the zone's **Last calculated**
-time looks perfectly normal.
-
-**The cause:** the integration records when it collected each weather reading. Those stamps are
-written in the container's time zone, while parts of the calculation read them in the zone you
-configured in Home Assistant. Where the two differ, every elapsed-time window is stretched or
-squeezed by the whole offset between them. At UTC+2 an hour that really passed is measured as three.
-
-**The fix:** start the container with `TZ` set to the same zone you chose under
-**Settings → System → General**. In a `docker-compose.yml`:
-
-```yaml
-environment:
-  - TZ=Europe/Berlin
-```
-
-or `-e TZ=Europe/Berlin` on a `docker run` command line. For a Core install, set `TZ` in the
-environment the Home Assistant process starts in. Restart Home Assistant afterwards.
-
-Readings already in the buffer keep the stamps they were written with, so the figures settle over
-the following day as the buffer turns over.
+**When you upgrade from such a release,** the stamps already stored are converted once,
+read in the container's time zone as it is at that moment. Leave the container's `TZ` as
+it is until the upgrade has run. If you change it at the same time, the first
+calculation afterwards covers a window stretched or squeezed by the difference; the next
+one is right again.
 
 > Main page: [Usage](usage.md)<br/>
 > Previous: [Automations](usage-automations.md)<br/>

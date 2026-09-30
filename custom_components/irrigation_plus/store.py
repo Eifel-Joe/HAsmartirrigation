@@ -2054,10 +2054,10 @@ class SmartIrrigationStorage:
         if buffer:
             newest = buffer[-1]
             # A row loaded from disk still carries RETRIEVED_AT as the ISO
-            # string the JSON round-trip left it in (async_load never converts
-            # buffer rows the way it does zone watermarks) -- coerce before
-            # comparing against the datetime coalesce_before/min_watermark, or
-            # the very first reading after a restart raises.
+            # string the JSON round-trip left it in -- async_load converts no
+            # stamp, neither the buffer rows nor the zone watermarks -- so parse
+            # it before comparing against the datetime coalesce_before /
+            # min_watermark, or the very first reading after a restart raises.
             newest_at = as_datetime(newest.get(RETRIEVED_AT))
             mergeable_fields = set(reading) - {RETRIEVED_AT}
             if (

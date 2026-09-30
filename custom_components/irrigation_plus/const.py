@@ -735,7 +735,7 @@ MAPPING_CONF_AGGREGATE_OPTIONS_DEFAULT_PRECIPITATION = MAPPING_CONF_AGGREGATE_DE
 CUMULATIVE_RESET_FRAC = 0.1
 
 # For timestamps
-RETRIEVED_AT = "retrieved"  # when HA fetched the data (datetime.now())
+RETRIEVED_AT = "retrieved"  # when the data was fetched: naive, HA's clock
 OBSERVATION_TIME = "observed"  # when the weather station measured it (API dt)
 
 # The span a daily forecast entry covers, as aware UTC datetimes. The clients
