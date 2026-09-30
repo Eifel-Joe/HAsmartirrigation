@@ -23,6 +23,71 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-30 (3) — Eifel-Joe#22: Rev-4-Nachtrag freigegeben, Plan geschrieben und probegelaufen
+
+### Stand
+
+- **Basis unverändert** (`upstream/master` = `0b9a71bd`) → Baseline 7/3466/9/367 (374 Namen) aus
+  `issue66-work\measure` weiterverwendet, Kopie in `issue22-work\measure\`.
+- **Nachtrag zu Revision 4** (A1–A8, vom User freigegeben): B; Migration über die **Minor**-Version
+  14.1 → 14.2 (`STORAGE_VERSION` bleibt 14); Split `_async_migrate_major` + dreiargumentiger Hook;
+  JustChrs Zwei-Argument-Test; Inhalt des Migrationskommentars (beide Annahmen); Zeilen auf `0b9a71bd`
+  (Skript: 718 Verweise, 0 Abweichungen). Archiv-Commit `8fc79c63`.
+- **Plan** `docs/superpowers/plans/2026-09-30-weather-buffer-one-frame.md` (archive) — Tasks 0–11,
+  **Tasks 1–8 probegelaufen** in `issue22-work\probe-wt` (Branch `probe/weather-buffer-one-frame`,
+  danach samt `base-wt` entfernt; Serie als Patches in `issue22-work\measure\dry-run-series\`),
+  jeder Codeblock per Skript aus dem Plan (`probe\plan_blocks.py`, `probe\apply_task.py`). Messwerte
+  im Plan-Kopf; Befunde D1–D7 am Planende. Kurz: Wirkungsprobe 9 kippende Tests (3 Umkehrungen,
+  6 Prozess-Uhr-Erwartungen); Matrix auf `0b9a71bd` rot als Versatz (daily Stunden 10.5–12.5 statt
+  12.5–14.5, live 5,0 h statt 3,0 h, Schreiber 10:00 statt 12:00, Klemme 814,5 statt 1000 W/m²,
+  Zensus 20 Stellen); volle Suite 7/3489/9/367, dieselben 374 Namen (+23 neue Tests); Mutationen
+  33/33 getötet, 15 der 19 Uhrstellen auch verhaltensmäßig (Rest: 4 unerreichbare Vorgaben).
+  Diff 28 Dateien, +1194/−345 (Produktion+Doku +252/−226, Tests +942/−119).
+- **Neu gegenüber der Spec:** Nutzerdoku zur Container-`TZ` (`usage-troubleshooting.md`,
+  `installation-download.md`) wird durch B falsch → Task 6 schreibt sie um (TZ beim Upgrade nicht
+  ändern). Mit der Plan-Freigabe vorgelegt.
+- **HA-Test:** core-2026.9.3, HA OS 18.3, Europe/Berlin → Major-Sperre aktiv, Live-Test L2 übt sie.
+- **Kein Produktionscode** im echten Branch; der Rev-3-Worktree `issue22-work\wt` ist unverändert
+  (Task 0 verschiebt ihn nach `_erledigt`).
+
+### Verworfen
+
+- **Ein-Stunden-Szene der Matrix** (D1): `_hour_multiplier` rechnet `abs(now − watermark)`; mit
+  +2 h Versatz ergibt |11 − 12| = 1 h die richtige Stunde → Tageszelle nach der Migration blind.
+  Jetzt drei Stunden.
+- **Zensus als einziger Wächter** (D7): 13 der 19 Uhrstellen tötete im ersten Mutationslauf nur die
+  Quelltext-Suche; mit konstanten Messwerten sind Zeilenstempel für Fenster und Zeilenstunden
+  unsichtbar. Jetzt treibt die Datei jeden erreichbaren Schreiber einmal an.
+- Vendoring der 09.17-Migrationsfunktion in die Tests (A4).
+
+### Fallen
+
+- **Auto-Mode-Klassifikator fiel 5× in Folge aus** ("no verdict") → mit Lesewerkzeugen weiter, später
+  wiederholt; nach 10 Ausfällen bricht der Turn ab.
+- **Arbeitskopie ist CRLF**: Skripte lesen/schreiben Bytes; `sed -i` unter Git Bash schreibt LF
+  (harmlos, Git normalisiert). Grep über `tests/` trifft `__pycache__` → `--include=*.py`.
+- **Vordergrund-`sleep` ist gesperrt** → Hintergrund-Lauf mit `until …; do sleep …; done`.
+- **Jeder Test hat `hass`** (conftest autouse) → HA auf US/Pacific überall (Memory berichtigt).
+- Der Mutations-Runner darf nicht parallel zu einer Suite im **selben** Worktree laufen (er ändert
+  Quellen) → zweiter Worktree auf demselben Commit.
+
+### Nächste Schritte
+
+1. **Freigabe** des Plans und der gebündelten Außenaktionen: Push `archive/design-history`
+   (Nachtrag, Plan, Probe-Skripte, dieser Stand) + Stands-Kommentar Eifel-Joe#22
+   (`issue22-work\texts\comment-22-plan-2026-09-30.md`).
+2. **Umsetzung in eigener Sitzung**: Plan Task 0 → 11, `superpowers:subagent-driven-development` +
+   TDD; Task 10 (Live-Test HA-Test) und Task 11 (PR) mit Freigaben.
+3. Danach production neu bauen mit allem Neuen (upstream + JustChr#185 + dieser PR + Branding),
+   Fork-Release, HA-Prod-Update (Neustart nur mit Ja).
+
+### Empfohlene Skills
+
+- `superpowers:subagent-driven-development`, `superpowers:test-driven-development`, `code-doku`,
+  `superpowers:requesting-code-review`, `pr-workflow` + Memory `hasi-pr-build-recipe`;
+  Memories `ha-store-major-version-guard`, `hasi-local-test-env-rebuild`,
+  `non-idempotent-coercion-needs-inventory`.
+
 ## 2026-09-30 (2) — Eifel-Joe#66: Live-Test L1–L5 bestanden, JustChr#185 offen, Issues + Archiv nachgezogen
 
 ### Stand
@@ -42,6 +107,13 @@
   (Task 11, A16, dieser Eintrag). Plan hat keine offenen Kästchen mehr.
 - HA-Test zurückgesetzt wie vorgefunden (Verdrahtung, `count`, Position 3, No-op-Skript gelöscht,
   `off_delay` 0, Logger `warning`, Meldung weg). Bleibt: Build + Verlauf/Gutschriften der Mitglieder.
+- **Workspace aufgeräumt** (User-Wunsch): 37 erledigte Ordner/Dateien nach
+  `D:\Entwicklung\HASI\_erledigt\` verschoben — **nichts gelöscht**; `_erledigt\README.md` listet sie und
+  sagt, wie alte Pfade in Archiv-Docs aufzulösen sind. Die zwei `issue5-work`-Worktrees per
+  `git worktree move` (weiter registriert). **Zugangsdaten** vom User nach `D:\Entwicklung\HASI\secrets\`
+  umgezogen; **MCP-Client** jetzt `D:\Entwicklung\HASI\tools\mcp_test.py`, die vier Hilfsskripte in
+  `issue66-work` zeigen dorthin (live getestet). Oben bleiben: Repo, Notizen, `issue66-work`,
+  `issue22-work`, `pr139-work` (Archiv-Worktree), `secrets`, `tools`.
 
 ### Verworfen
 
@@ -67,17 +139,25 @@
 - User will **weniger Freigaberunden**: Außenwirksames gebündelt in EINER Freigabe vorlegen; HA-Test ist
   Wegwerf — keine Zeitplan-Fristen dort (Memory `ha-test-no-schedule-caution`).
 
-### Nächste Schritte
+### Nächste Schritte (User-Entscheid 2026-09-30: „Verteiler ist für mich nicht hoch. Ich habe noch keinen.")
 
-1. **`JustChr#185` begleiten:** CI lesen, sobald JustChr die Workflows freigibt; Einwände wörtlich in
-   Eifel-Joe#66 (Regel P2); Nachbesserung als neuer Commit.
-2. **Prod-Rebuild** (Memory `hasi-production-on-upstream`: production trägt ALLE Eigenentwicklungen, auch
-   offene PRs) — mit `JustChr#182` (gemergt) **und `fix/distributor-inlet-open-gate`**; eigene Sitzung.
-3. **Nach dem Merge von #185:** Eifel-Joe#66 schließen; `issue66-work\pre-wt` + `prerelease/v2026.09.30b1`
-   (lokal + origin) + Release/Tag `v2026.09.30b1` löschen; `issue66-work\wt` entfernen. Offen wie zuvor:
-   Aufräumen `issue5-work`.
-4. Danach nach Eifel-Joe#42: **Eifel-Joe#69 (jetzt 8c, hoch)** — Regel für die Schließ-Flanke mit dem
-   Wettlauf im Blick entwerfen; Eifel-Joe#22 (Rev-4-Nachtrag).
+1. **Eifel-Joe#22 fertigstellen** (nächste Sitzung): Rev-4-Nachtrag (Minor 14.1 → 14.2, Test über den
+   zweiargumentigen Migrationspfad — JustChr#160, Kommentar `5894821423`), dann Plan auf Revision 4
+   (Variante B), probelaufen, umsetzen, PR. Basis neu messen: `upstream/master` ist `0b9a71bd`, die
+   Rev-4-Messungen liefen auf `1876aa03`.
+2. **Danach production neu bauen mit allem Neuen** (upstream + #185 + #22-PR + Branding), **neues
+   Fork-Release**, **HA-Prod aktualisieren** (Neustart nur mit Ja). Stand heute: HA-Prod `v2026.09.20`,
+   `origin/production` = `7ba872af`, 30 behind / 6 ahead; `STORAGE_VERSION` 14 in beiden → Rückweg offen.
+3. **`JustChr#185` nebenbei begleiten:** CI lesen, sobald JustChr die Workflows freigibt; Einwände wörtlich
+   in Eifel-Joe#66 (Regel P2); Nachbesserung als neuer Commit.
+4. **Nach dem Merge von #185:** Eifel-Joe#66 schließen; `issue66-work\pre-wt` + `prerelease/v2026.09.30b1`
+   (lokal + origin) + Release/Tag `v2026.09.30b1` löschen; `issue66-work` nach `_erledigt`. Zu
+   Eifel-Joe#5 bleibt nur noch das Außen-Aufräumen (Remote-Branches, Release `v2026.09.29b1`) — Entscheidung
+   des Users; die Ordner liegen schon in `_erledigt`.
+5. Verteiler-Themen (Eifel-Joe#69 u. a.) sind für den User höchstens mittel (Memory
+   `hasi-befunde-vor-features`); #69 wurde heute nach seiner Body-Regel auf hoch gesetzt → mit Freigabe
+   zurück auf `schwere:mittel`, Index 8c → 25b (Kommentare #69 `5905029472`, #42 `5905030371`;
+   gepostet = Entwurf).
 
 ### Empfohlene Skills
 
