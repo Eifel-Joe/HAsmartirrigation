@@ -786,11 +786,10 @@ class CalculationMixin:
         # fallback for rows that carry no offset of their own.
         tz = dt_util.DEFAULT_TIME_ZONE
         # This offset is HA's, and so are the stamps and the `now` it is applied to:
-        # the writers read local_naive_now() and the store moved older stamps at 14.2.
-        # They used to be the PROCESS's clock, and on Docker or Core without `TZ=` this
-        # correction then priced the wrong hour of sun -- 0.26-0.74 % on daily ETo, but
-        # +23.5 % / -16 % on the radiation the clearness-ratio hold refills, where Rso
-        # sits in the denominator.
+        # the writers read local_naive_now() and the storage migration to 14.2 moved
+        # older stamps. They used to be the PROCESS's clock, and on Docker or Core
+        # without `TZ=` this correction then priced the wrong hours of sun -- off by the
+        # whole UTC offset, where one hour already costs the figures above.
         # NOT-TO-DO: do not expect aware timestamps to guard this. The offset does not
         #   travel as `tzinfo` -- it travels as this float, through
         #   `SiteGeometry.tz_offset_h` and on into `row["tz_offset_h"]`, so a stamp in
