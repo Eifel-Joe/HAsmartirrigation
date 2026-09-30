@@ -76,7 +76,7 @@ The inlet may sometimes be opened **outside** a Irrigation Plus run — a manual
 
 Only pulses that Home Assistant can actually **see** are detected. A purely mechanical turn of the knob, with no entity change reported to Home Assistant, stays invisible — which is exactly why **Set current outlet** exists.
 
-Independently of the watch mode, a watering cycle **never starts while the inlet reports open** (`on`, `open`, `opening` or `closing`), provided an inlet entity is set. The refused cycle appears in the members' history as *Distributor inlet open* and as a notification. For 30 seconds after Irrigation Plus closed the inlet itself, an inlet that still reports open does not block the next cycle, so a slow or cloud-polled valve does not refuse it; in self-closing mode this needs a stop script. Re-sync only while the inlet is closed. A self-closing distributor without an inlet entity has no such protection.
+Independently of the watch mode, a watering cycle **never starts while the inlet reports open** (`on`, `open`, `opening` or `closing`), provided an inlet entity is set. The refused cycle appears as a notification and, as *Distributor inlet open*, in the history of the members it was for (a refused test run only notifies). For 30 seconds after Irrigation Plus sent its own close command, an inlet that still reports open does not block the next cycle, so a slow or cloud-polled valve does not refuse it; in self-closing mode this needs a stop script. Re-sync only while the inlet is closed. A self-closing distributor without an inlet entity has no such protection.
 
 ## Optional flow sensor
 

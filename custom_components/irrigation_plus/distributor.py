@@ -133,11 +133,15 @@ class DistributorMixin:
         """Close the inlet. classic: domain-aware close. service: fire stop_service
         if configured, else rely on the hardware self-close (no-op).
 
-        A close that was sent is stamped for the inlet gate's grace (#181): a slow
-        or cloud-polled inlet keeps reporting open for a while after it was told to
-        close, and the next cycle must not be refused for our own close. Stamped
-        once the command returned -- a close that raised proves nothing -- and never
-        for the service no-op: without a command nothing shows the valve closed.
+        Wurzel: the close is sent and not waited for, so a slow or cloud-polled
+          inlet keeps reporting open for a while after it was told to close, and
+          the inlet gate (#181) would refuse the next cycle for our own close.
+        Fix: a close that was sent is stamped for the gate's grace once its
+          command returned. Returning means Home Assistant accepted the command,
+          not that the valve closed: a service that fails in its background task
+          is only logged, and the gate then overlooks that inlet until the grace
+          ends. A close that raised proves nothing, and the service no-op sends
+          nothing: neither is stamped.
         NOT-TO-DO: do not stamp before the await, and do not stamp the service
           branch without stop_service.
         siehe test_distributor_inlet_gate.py::test_a_service_distributor_without_stop_service_gets_no_grace
@@ -183,10 +187,11 @@ class DistributorMixin:
         Wurzel: the forward was awaited unguarded, and Home Assistant raises
           ServiceNotFound at once for a target that no longer exists (a phone
           registered again under a new notify service). Every caller raised with
-          it: a refused cycle stopped the dispatcher before its other
-          distributors and lost its history entry, a halt in a sweep did the
-          same after its safety close, and the restart reconcile left the
-          remaining distributors' inlets as they were.
+          it: a halt inside a sweep stopped the dispatcher before its other
+          distributors, after its safety close; the restart reconcile left the
+          remaining distributors' inlets as they were; the warn-mode inlet
+          watch ended its task in an error. A refused cycle over an open inlet
+          would fail the same way and lose its history entry.
         Fix: a failing optional channel is logged and skipped; the panel
           notification above is already there.
         NOT-TO-DO: do not narrow the except to ServiceNotFound -- a target whose
@@ -1234,7 +1239,8 @@ class DistributorMixin:
           today's behaviour. Independent of the watch mode and the watering mode.
         Grace: not within DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS of the integration's
           own close for this distributor (_dist_close_inlet stamps it). A foreign
-          open inside that window goes unseen, a trade accepted on #181.
+          open inside that window goes unseen, a trade accepted on #181, and so
+          does a close of ours whose service failed in the background.
         Synchronous on purpose: the claim calls it between its in-flight check and
         ``inflight.add``, where an await would reopen the single-flight window.
         NOT-TO-DO: do not move this into _dist_eligible_for_run. Two entries call the
@@ -1244,6 +1250,7 @@ class DistributorMixin:
         siehe test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open
         siehe test_distributor_inlet_gate.py::test_two_claims_scheduled_together_start_exactly_one_sweep
         siehe test_distributor_inlet_gate.py::test_the_grace_runs_out_after_thirty_seconds
+        siehe test_distributor_inlet_gate.py::test_the_finish_anchor_estimate_does_not_read_the_inlet
         """
         entity_id = distributor.get("inlet_entity")
         if not entity_id:

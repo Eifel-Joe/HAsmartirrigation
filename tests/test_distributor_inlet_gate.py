@@ -326,25 +326,27 @@ def test_the_skip_reason_is_a_key_every_language_localizes():
         assert const.SKIP_REASON_INLET_OPEN in checks, path.name
 
 
-def _grace_host():
+def _grace_host(inlet_state="on"):
     """A gate host with the REAL _dist_close_inlet (which stamps the close).
 
     _loop_host stubs _dist_close_inlet as an instance attribute; deleting it
     restores the method. The actuation underneath is stubbed instead, so the
     classic close sends nothing real. The clock starts at 1000.0.
     """
-    c = _gate_host(inlet_state="on", now=1000.0)
+    c = _gate_host(inlet_state=inlet_state, now=1000.0)
     del c._dist_close_inlet
     c._dist_domain_turn = AsyncMock()
     return c
 
 
-async def test_the_next_cycle_runs_within_the_grace_after_our_own_close():
-    c = _grace_host()
+@pytest.mark.parametrize("state", ["on", "closing"])
+async def test_the_next_cycle_runs_within_the_grace_after_our_own_close(state):
+    # The inlet still reports open, or not closed yet, after our own close.
+    c = _grace_host(inlet_state=state)
     cfg = _gated_cfg()
     await c._dist_close_inlet(cfg)
 
-    c.hass.loop.time.return_value = 1029.0  # the inlet still reports on
+    c.hass.loop.time.return_value = 1029.0
     assert await c.async_run_distributor_cycle(cfg) is True
 
     c._dist_domain_turn.assert_awaited_once_with("switch.inlet", False)
