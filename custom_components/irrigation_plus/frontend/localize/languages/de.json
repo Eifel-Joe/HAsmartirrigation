@@ -532,7 +532,8 @@
           "freeze": "Frost",
           "paused": "Pausiert (Regenverzögerung)",
           "soil_moisture": "Bodenfeuchte",
-          "no_demand": "Kein Bedarf"
+          "no_demand": "Kein Bedarf",
+          "inlet_open": "Verteiler-Einlass offen"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -884,6 +885,7 @@
       },
       "notify": {
         "halted": "Verteiler '{name}' angehalten ({reason}). Neu synchronisieren und erneut bestätigen erforderlich.",
+        "inlet_open": "Verteiler '{name}' hat einen Bewässerungszyklus nicht gestartet: sein Einlass {entity} war offen.",
         "reason": {
           "valve_did_not_open": "Ventil hat nicht geöffnet",
           "restart_mid_advance": "Neustart während der Weiterschaltung",

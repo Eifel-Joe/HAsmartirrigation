@@ -131,7 +131,22 @@ class DistributorMixin:
 
     async def _dist_close_inlet(self, distributor: dict) -> None:
         """Close the inlet. classic: domain-aware close. service: fire stop_service
-        if configured, else rely on the hardware self-close (no-op)."""
+        if configured, else rely on the hardware self-close (no-op).
+
+        Wurzel: the close is sent and not waited for, so a slow or cloud-polled
+          inlet keeps reporting open for a while after it was told to close, and
+          the inlet gate (#181) would refuse the next cycle for our own close.
+        Fix: a close that was sent is stamped for the gate's grace once its
+          command returned. Returning means Home Assistant accepted the command,
+          not that the valve closed: a service that fails in its background task
+          is only logged, and the gate then overlooks that inlet until the grace
+          ends. A close that raised proves nothing, and the service no-op sends
+          nothing: neither is stamped.
+        NOT-TO-DO: do not stamp before the await, and do not stamp the service
+          branch without stop_service.
+        siehe test_distributor_inlet_gate.py::test_a_service_distributor_without_stop_service_gets_no_grace
+        siehe test_distributor_inlet_gate.py::test_a_close_that_raised_starts_no_grace
+        """
         if distributor.get("watering_mode") == const.WATERING_MODE_SERVICE:
             stop = distributor.get("stop_service")
             if stop:
@@ -139,8 +154,10 @@ class DistributorMixin:
                 data = {}
                 data["distributor_id"] = distributor.get("id")
                 await self.hass.services.async_call(domain, service, data)
+                self._dist_stamp_own_close(distributor)
             return
         await self._dist_domain_turn(distributor.get("inlet_entity"), False)
+        self._dist_stamp_own_close(distributor)
 
     # --- position advance --------------------------------------------------
 
@@ -160,12 +177,32 @@ class DistributorMixin:
     # --- notify + fail-safe de-arm ----------------------------------------
 
     async def _dist_notify(self, distributor: dict, message: str) -> None:
-        """Surface a halt to the user. Always creates a Home Assistant
+        """Surface a halt or a refusal to the user. Always creates a Home Assistant
         persistent notification (the bell / Notifications panel), keyed per
         distributor so a repeat replaces rather than piles up, and additionally
         forwards to an optional 'domain.service' notify target when one is set
         (test feedback FB4: the panel notification is unconditional, the notify
-        target is an extra, optional channel)."""
+        target is an extra, optional channel).
+
+        Wurzel: the forward was awaited unguarded, and Home Assistant raises
+          ServiceNotFound at once for a target that no longer exists (a phone
+          registered again under a new notify service). Every caller raised with
+          it: a halt inside a sweep stopped the dispatcher before its other
+          distributors, after its safety close; the restart reconcile left the
+          remaining distributors' inlets as they were; the warn-mode inlet
+          watch ended its task in an error. A refused cycle over an open inlet
+          would fail the same way and lose its history entry.
+        Fix: a failing optional channel is logged and skipped; the panel
+          notification above is already there.
+        NOT-TO-DO: do not narrow the except to ServiceNotFound -- a target whose
+          schema rejects the message raises vol.Invalid, a corrupt non-str target
+          AttributeError in _dist_split_service. Do not widen it to BaseException:
+          a cancellation must still cancel.
+        siehe test_distributor.py::test_notify_a_failing_target_is_logged_not_raised
+        siehe test_distributor.py::test_notify_a_corrupt_target_is_logged_not_raised
+        siehe test_distributor.py::test_notify_a_cancellation_still_cancels
+        siehe test_distributor_cycle.py::test_resume_goes_on_after_a_failing_notify_target
+        """
         await self.hass.services.async_call(
             "persistent_notification",
             "create",
@@ -180,9 +217,18 @@ class DistributorMixin:
         target = distributor.get("notify_target")
         if not target:
             return
-        domain, service = self._dist_split_service(target)
-        if domain and service:
-            await self.hass.services.async_call(domain, service, {"message": message})
+        try:
+            domain, service = self._dist_split_service(target)
+            if domain and service:
+                await self.hass.services.async_call(
+                    domain, service, {"message": message}
+                )
+        except Exception:  # noqa: BLE001 - an optional channel must not fail its caller
+            _LOGGER.exception(
+                "Distributor '%s': could not forward the notification to %s",
+                distributor.get("name"),
+                target,
+            )
 
     async def _dist_mark_uncertain(self, distributor: dict, reason: str) -> None:
         """Fail-safe: mark the position uncertain AND clear commissioning_confirmed
@@ -1163,6 +1209,127 @@ class DistributorMixin:
             ids = self._dist_inflight = set()
         return ids
 
+    def _dist_own_close_times(self) -> dict:
+        """{distributor_id: loop time} of the integration's own last inlet close.
+
+        Read by the inlet gate's grace (#181). In memory only, like the in-flight
+        set: a restart forgets it, which can only cost a refusal (the safe
+        direction), and the resume path's own close stamps afresh. Lazily created
+        so no coordinator __init__ change is needed."""
+        times = getattr(self, "_dist_own_close", None)
+        if times is None:
+            times = self._dist_own_close = {}
+        return times
+
+    def _dist_stamp_own_close(self, distributor: dict) -> None:
+        """Stamp the integration's own close of this inlet: the grace starts now."""
+        self._dist_own_close_times()[distributor.get("id")] = self.hass.loop.time()
+
+    def _dist_inlet_reports_open(self, distributor: dict) -> str | None:
+        """The inlet state that refuses a cycle now, or ``None`` (#181).
+
+        Wurzel: the claim asked synced / confirmed / in flight and nothing about the
+          inlet, so a cycle claimed while a foreign run held the inlet open watered
+          over it: opening an inlet that is already open makes no edge, the ring does
+          not index, the leg is credited to the next member, and the stored position
+          ends one ahead while it still reads synced.
+        Fix: refuse on exactly DISTRIBUTOR_INLET_OPEN_STATES. ``closing`` counts
+          because the valve has not closed yet and the ring has not indexed. Nothing
+          else refuses; a distributor without an inlet entity has no signal and keeps
+          today's behaviour. Independent of the watch mode and the watering mode.
+        Grace: not within DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS of the integration's
+          own close for this distributor (_dist_close_inlet stamps it). A foreign
+          open inside that window goes unseen, a trade accepted on #181; so does
+          a close of ours whose service failed in the background.
+        Synchronous on purpose: the claim calls it between its in-flight check and
+        ``inflight.add``, where an await would reopen the single-flight window.
+        NOT-TO-DO: do not move this into _dist_eligible_for_run. Two entries call the
+          claim directly (distributor_run_now, the test run), and that predicate also
+          feeds the finish-anchor estimate, which must not depend on the moment it
+          runs.
+        siehe test_distributor_inlet_gate.py::test_the_claim_refuses_while_the_inlet_reports_open
+        siehe test_distributor_inlet_gate.py::test_two_claims_scheduled_together_start_exactly_one_sweep
+        siehe test_distributor_inlet_gate.py::test_the_grace_runs_out_after_thirty_seconds
+        siehe test_distributor_inlet_gate.py::test_the_finish_anchor_estimate_does_not_read_the_inlet
+        """
+        entity_id = distributor.get("inlet_entity")
+        if not entity_id:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state not in const.DISTRIBUTOR_INLET_OPEN_STATES:
+            return None
+        # The state is read first, so the clock is consulted only for an open
+        # report; a close stamped less than the grace ago is our own, still being
+        # reported.
+        closed_at = self._dist_own_close_times().get(distributor.get("id"))
+        if (
+            closed_at is not None
+            and self.hass.loop.time() - closed_at
+            < const.DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS
+        ):
+            return None
+        return state.state
+
+    async def _dist_refuse_inlet_open(
+        self,
+        distributor: dict,
+        state: str,
+        *,
+        test_run: bool,
+        only_zone_ids,
+        force_water: bool,
+    ) -> None:
+        """Make a cycle refused over an open inlet visible: log, notify, record.
+
+        Runs after the claim decided not to take the distributor, so it may await.
+        The notification reuses the halt's per-distributor id, so a repeat replaces
+        it. Its wording stays neutral about who opened the inlet: it can also be
+        the late off report of the integration's own self-closing run. A stale
+        notify target does not stop the refusal: _dist_notify logs a failing
+        optional channel and goes on.
+        The history names exactly the members the cycle was for. The dispatcher
+        hands the claim the schedule's whole target, direct zones included, so
+        ``only_zone_ids`` is cut down to this distributor's members; without it,
+        every member. A test run never waters or credits, so it records nothing.
+        NOT-TO-DO: never pass None to _record_skipped_run here -- None means every
+          zone of the installation, not every member.
+        siehe test_distributor_inlet_gate.py::test_a_refusal_records_only_the_targeted_members
+        siehe test_distributor_inlet_gate.py::test_a_broken_notify_target_does_not_stop_the_history
+        """
+        name = distributor.get("name")
+        entity_id = distributor.get("inlet_entity")
+        _LOGGER.warning(
+            "Distributor '%s' did not start a cycle: inlet %s is %s",
+            name,
+            entity_id,
+            state,
+        )
+        # Filled by replace(), like the halt message, so a translation can never
+        # inject a str.format field.
+        template = await localize(
+            "panels.distributors.notify.inlet_open", self.hass.config.language
+        )
+        message = template.replace("{name}", str(name)).replace(
+            "{entity}", str(entity_id)
+        )
+        await self._dist_notify(distributor, message)
+        if test_run:
+            return
+        members = [
+            int(m.get(const.ZONE_ID))
+            for m in await self._dist_members(distributor.get("id"))
+        ]
+        if only_zone_ids is not None:
+            wanted = {int(z) for z in only_zone_ids}
+            members = [zid for zid in members if zid in wanted]
+        if not members:
+            return
+        await self._record_skipped_run(
+            members,
+            const.SKIP_REASON_INLET_OPEN,
+            trigger="manual" if force_water else "schedule",
+        )
+
     async def async_run_distributor_cycle(
         self,
         distributor: dict,
@@ -1199,6 +1366,21 @@ class DistributorMixin:
             return False
         inflight = self._dist_inflight_ids()
         if dist_id in inflight:
+            return False
+        # #181: never start over an open inlet. After the in-flight guard, because
+        # the integration's own sweep holds the inlet open and must read "in
+        # flight", not "open"; before inflight.add with no await in between, so the
+        # single-flight guarantee is unchanged.
+        # The refusal awaits only after this decision, holding nothing.
+        blocking = self._dist_inlet_reports_open(distributor)
+        if blocking is not None:
+            await self._dist_refuse_inlet_open(
+                distributor,
+                blocking,
+                test_run=test_run,
+                only_zone_ids=only_zone_ids,
+                force_water=force_water,
+            )
             return False
         inflight.add(dist_id)
         # Final-review Issue 1 (2026-07-12): the instant SI claims this distributor,

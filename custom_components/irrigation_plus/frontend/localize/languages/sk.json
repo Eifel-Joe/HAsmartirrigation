@@ -532,7 +532,8 @@
           "freeze": "Mráz",
           "paused": "Pozastavené (oneskorenie pre dážď)",
           "soil_moisture": "Vlhkosť pôdy",
-          "no_demand": "Žiadna potreba zálievky"
+          "no_demand": "Žiadna potreba zálievky",
+          "inlet_open": "Vstupný ventil rozvádzača otvorený"
         },
         "check_detail": {
           "precipitation": "{observed} mm (≥ {threshold} mm)",
@@ -884,6 +885,7 @@
       },
       "notify": {
         "halted": "Rozvádzač '{name}' zastavený ({reason}). Vyžaduje sa opätovná synchronizácia a opätovné potvrdenie.",
+        "inlet_open": "Rozvádzač '{name}' nespustil zavlažovací cyklus: jeho vstupný ventil {entity} bol otvorený.",
         "reason": {
           "valve_did_not_open": "ventil sa neotvoril",
           "restart_mid_advance": "reštart počas posunu",

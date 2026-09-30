@@ -187,6 +187,10 @@ SKIP_REASON_NO_DEMAND = "no_demand"
 # as a raw code. Pinned by
 # test_days_between_per_zone.py::test_the_detail_matches_the_id_the_frontend_localizes
 SKIP_REASON_DAYS_BETWEEN = "days_between"
+# Run-log / skip token recorded for a distributor's members when its cycle is
+# refused because the inlet reported open at the claim (#181). Localized in the
+# run-log via panels.zones.outlook.checks.inlet_open, like the ids above.
+SKIP_REASON_INLET_OPEN = "inlet_open"
 
 # Days between irrigation configuration
 CONF_DAYS_BETWEEN_IRRIGATION = "days_between_irrigation"
@@ -1255,6 +1259,17 @@ DISTRIBUTOR_WATCH_MODE_COUNT = "count"  # advance the tracked position
 DISTRIBUTOR_WATCH_MODE_WARN = "warn"  # mark uncertain (de-arm + notify)
 DISTRIBUTOR_WATCH_MODE_IGNORE = "ignore"  # do not observe
 DISTRIBUTOR_REASON_FOREIGN_PULSE = "foreign_inlet_pulse"
+
+# Distributor inlet gate (#181): a cycle is refused while its inlet reports one of
+# these states -- open, on its way open, or not closed yet, so the ring has not
+# indexed. Every other state (off, closed, unavailable, unknown, a missing entity)
+# lets it through: "not available" is not "open".
+DISTRIBUTOR_INLET_OPEN_STATES = frozenset({"on", "open", "opening", "closing"})
+# ...except within this many seconds of the integration's own close command for
+# that inlet (#181): a slow or cloud-polled valve keeps reporting open for a while
+# after it was told to close. The same patience VALVE_CONFIRM_TIMEOUT gives a valve
+# to report open.
+DISTRIBUTOR_INLET_CLOSE_GRACE_SECONDS = VALVE_CONFIRM_TIMEOUT
 
 # Distributor flow-metering poll interval (seconds) for volume measurement (Part A).
 DISTRIBUTOR_FLOW_POLL_SECONDS = 5
