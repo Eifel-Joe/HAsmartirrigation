@@ -23,6 +23,85 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-09-30 (5) — Upstream-Runde leer; production v2026.09.30 mit JustChr#186, HA-Prod aktualisiert
+
+### Stand
+
+- **Upstream-Runde ab 21:07 UTC** (zweimal, zuletzt **21:43 UTC**): nur unser eigener Kommentar auf
+  JustChr#185; `upstream/master` unverändert `6654a0ac` (v2026.09.28), kein neues Release, keine
+  Review-Kommentare, keine Reviews auf JustChr#186. Scan-Skript: nur bekannte Bezüge. P2-Folgen: keine.
+  **Letzter Upstream-Blick: 2026-09-30 21:43 UTC.**
+- **Entscheidung User:** JustChr#186 (Store 14.1 → 14.2) **mit** in production, vor dem Merge — gegen
+  meine Empfehlung „ohne“. Grundlage der Abwägung: HA-Prod ist HA OS 18.3 / core-2026.9.4 / Python 3.14.6
+  (Major-Sperre aktiv), Prozess- und HA-Uhr gehen dort gleich (gemessen: naives `last_calculated`
+  23:00:00 beim State-Wechsel 23:00:00+02:00), der Rollback 14.2 → 14.1 ist gutmütig.
+- **production `06d151f3`** (Branch `rebuild/v2026.09.30`, Worktree `prodrebuild-work\wt`) =
+  `upstream/master` `6654a0ac` + die 20 Commits von JustChr#186 unverändert + ein Build-/Branding-Commit;
+  **0 behind / 21 ahead**. Die alte production `7ba872af` (Pre-Release v2026.09.21b1) trug 4
+  Observed-Commits — alle über JustChr#162 upstream (5/5 Tests auf master), fielen raus.
+  Rollback-Punkt lokal: `backup/production-pre-v2026.09.30` = `7ba872af`.
+- **Branding** wie am 21.09.: feldweise in manifest/const/package; ganze Dateien nur README,
+  `installation-rename.md`, `test_migrate_domain.py` (seit der Merge-Basis weder von upstream noch von
+  #186 berührt) + fork-eigene `brand/` + `test_brand_assets.py`. README-Heads-up nennt JustChr#186 samt
+  Rückweg 14.2 → 14.1.
+- **Gates:** Versionen synchron (manifest/const `v2026.09.30`, package `2026.09.30`); dist Node 24 = nur
+  die Versionszeichenkette in 4 Bundles (Hash-Vergleich nach Ersetzung); black/ruff grün; `en.json` 0 URLs;
+  Suite `TZ=UTC` **7/3574/9/380**, 387 FAILED/ERROR-Namen **identisch** mit dem #186-Kopf
+  (`issue22-work\measure\impl\final-names.txt`), +9 = Branding-Tests, gesammelt 3590 = 3581 + 9
+  (`prodrebuild-work\measure\`). ZIP aus dem SHA: 204 Einträge, gegenüber v2026.09.20 genau 5 neu
+  (`actuate.py`, 4 Frontend-Save-Tests), keine fehlt; Branding, beide Versionen, `STORAGE_MINOR_VERSION = 2`.
+- **Außen (alles freigegeben):** push `--force-with-lease=production:7ba872af`; Release
+  [v2026.09.30](https://github.com/Eifel-Joe/HAsmartirrigation/releases/tag/v2026.09.30) (stabil,
+  `--target production`), Remote- und lokaler Tag → `06d151f3`, Asset HTTP 200, Download byte-identisch
+  (sha256 `bc28f448…`); CI hassfest + HACS + Pages grün. Kommentar auf Eifel-Joe#22
+  (`5920240371`: Prod vor dem Merge + das 14.3-Risiko samt Abhilfe), #42 Zeilen 24 und 14a nachgezogen
+  (EN + DE). Texte in `prodrebuild-work\texts\`.
+- **HA-Prod:** HACS `update_information` + `download` v2026.09.30, Neustart 23:37 (freigegeben, vorher
+  kein Ventil offen). Integration `loaded`, Manifest v2026.09.30 (Eifel-Joe), keine Repairs, Log nur die
+  bekannte `via_device`-Deprecation. `last_calculated` vor/nach `2026-09-30 23:00:00` → die Migration hat
+  nichts verschoben; neue Stempel Berliner Zeit. **Store-Minor 14.2 NICHT direkt belegt**: `.storage` liegt
+  nicht auf der MCP-Leseliste, HA loggt die Migration auf INFO.
+- **Prod-Konfig heute (Diagnostics):** `zone_sequencing=sequential` (nicht mehr parallel),
+  `forecast_weighting_enabled=false`, observed/live_estimate/hourly an, OWM, Schedule „Sunrise“ finish −30.
+- **Aufgeräumt:** `issue66-work` → `_erledigt\issue66-work`; Worktrees `wt` + `pre-wt` abgemeldet (`wt` war
+  nur zeilenenden-„dirty“, `git diff` leer → `--force`). Branches `fix/distributor-inlet-open-gate` und
+  `prerelease/v2026.09.30b1` stehen noch.
+
+### Verworfen
+
+- #186 erst nach dem Merge in production (meine Empfehlung): User entschied für die Regel „alle
+  Eigenentwicklungen sofort“, auch mit Store-Migration.
+- Store-Version per Log belegen (Eintrag vor dem Neustart deaktivieren wie auf HA-Test): auf Prod zu
+  eingreifend für einen reinen Beleg.
+
+### Fallen
+
+- **HTTP 200 auf `:8123/manifest.json` heißt nicht „HA ist oben“** — kam nach 11 s, der MCP sah noch 502.
+  `/api/` = 401 heißt Core-HTTP läuft; der MCP über den Supervisor-Proxy brauchte danach noch ~1 min.
+- **`jq .body` hängt einen Zeilenumbruch an:** ein damit geholter Body, per `--body-file` zurückgeschrieben,
+  trägt am Ende einen Umbruch mehr (#42, unsichtbar). Beim nächsten Mal den Body per Python ohne Zusatz holen.
+- **Fork-Commit-Messages:** „upstream PR 186“ statt `#186`/`JustChr#186` — kein Backlink auf JustChrs PR,
+  keine nackte Raute.
+
+### Nächste Schritte
+
+1. **Upstream-Runde** ab 2026-09-30 21:43 UTC (Memory `upstream-sweep-first`).
+2. **JustChr#186:** sein Review ist eine Zeile der Runde → `pr-workflow`, `superpowers:receiving-code-review`.
+   **Ändert er den Versionsplan (z. B. 14.3): HA-Prod erst auf ein 14.1-Release zurück, dann aktualisieren.**
+   Nach dem Merge: Eifel-Joe#22 schließen, `issue22-work` → `_erledigt` (vorher Worktrees `wt`, `ref-wt`,
+   `pre-wt` abmelden); der nächste Rebuild trägt #186 über upstream.
+3. **User:** Panel auf HA-Prod mit Strg+F5 neu laden (JustChr#182).
+4. **Beobachten auf HA-Prod:** der Sunrise-Lauf am 01.10. (Ende ~06:59) ist der erste mit #173/#174
+   (Trockenlauf = failed), #178 (`watering_now`), #176/#180 (sequential + observed).
+5. Weiter nach #42. Optional an JustChr, separat: CI-Job auf Python 3.14 / HA ≥ 2026.3 (Major-Sperre).
+6. Optional: die alten Worktree-Anmeldungen unter `_erledigt` (`issue5-work\wt`, `issue5-work\pre-wt`,
+   `issue22-wt-rev3`) abmelden.
+
+### Empfohlene Skills
+
+- `pr-workflow`, `superpowers:receiving-code-review`; Memories `upstream-sweep-first`,
+  `hasi-production-on-upstream`.
+
 ## 2026-09-30 (4) — Eifel-Joe#22: umgesetzt, reviewt, live getestet; PR JustChr#186 offen
 
 ### Stand
@@ -82,13 +161,33 @@
 
 ### Nächste Schritte
 
-1. JustChrs Review abwarten (Kommentare am PR und auf JustChr#160 prüfen; Schweigen ≠ Zustimmung);
-   Änderungswünsche als neue Commits auf den PR-Branch (`pr-workflow`).
-2. Nach dem Merge: Eifel-Joe#22 schließen (Regel P2), `issue22-work` nach `_erledigt`, Worktrees
-   `ref-wt` und `pre-wt` entfernen, Branch `prerelease/v2026.09.30b2` bleibt als Pre-Release-Quelle;
-   dann production-Rebuild mit allem Neuen (Memory `hasi-production-on-upstream`), HA-Prod-Update
-   (Neustart nur mit Ja).
-3. Optional an JustChr, separat: ein CI-Job auf Python 3.14 / HA ≥ 2026.3, damit die Major-Sperre im CI
+*Am selben Abend korrigiert (Rüge des Users): Der erste Entwurf stellte „JustChrs Review abwarten“
+an den Anfang und production hinter den Merge von #186. Beides war falsch, siehe Memory
+`upstream-sweep-first`.*
+
+1. **Upstream-Runde zuerst:** alles seit dem letzten Blick, also Merges, geschlossene Issues,
+   Kommentare und Releases aller Autoren, und je Fund die Folge für unsere Issues (P2), production
+   und HA-Prod. Werkzeug: `python D:/Entwicklung/HASI/_erledigt/issues-work/scan_upstream_refs.py`.
+   Befund der Runde vom 30.09. abends: JustChr#185 war um 07:05 UTC gemergt (Squash = unser Branch,
+   gleicher Tree), JustChr#181 um 08:56 zu. Eifel-Joe#66 stand trotzdem offen, #42 zeigte „#185 offen“,
+   und JustChrs Merge-Notiz enthält eine Frage an uns (Service-Modus ohne `stop_service` bekommt keine
+   Nachfrist). **Nach Freigabe erledigt am 30.09., 21:07 UTC:** Antwort auf JustChr#185 (Kommentar
+   `5919744076`: gewollt, Abhilfe ist ein Stopp-Skript), Eifel-Joe#66 mit Kommentar geschlossen
+   (Labels unverändert), #42 Zeilen 8b/43b nachgezogen. Alles gepostet == freigegeben, Texte in
+   `issue66-work\texts\`. **Letzter Upstream-Blick: 2026-09-30 21:07 UTC**, dort setzt die nächste
+   Runde an. Offen daraus: `issue66-work` nach `_erledigt`, vorher die Worktrees `wt`
+   (`fix/distributor-inlet-open-gate`) und `pre-wt` (`prerelease/v2026.09.30b1`) entfernen.
+2. **production neu, Fork-Release, HA-Prod aktualisieren.** Das wartet NICHT auf den Merge von #186
+   (Reihenfolge laut Memory `hasi-befunde-vor-features`). HA-Prod hat laut HACS `v2026.09.20`, der
+   production-Branch steht auf dem 21.09. und ist 34 Commits hinter upstream, darunter JustChr#182
+   (Eifel-Joe#5, prod-scharf). Zu entscheiden: #186 mit seiner Store-Migration auf 14.2 gleich mit in
+   production, oder erst nach dem Merge. Die Regel sagt „alle Eigenentwicklungen“, die Migration macht
+   es zur Abwägung. Rezept: Memory `hasi-production-on-upstream`; HA-Prod-Neustart nur mit Ja.
+3. **JustChrs Review zu #186** kommt, wann es kommt, und wird in der Runde mit gesehen; dann
+   `pr-workflow` (neue Commits, Text-Freigabe). Nach dem Merge: Eifel-Joe#22 schließen,
+   `issue22-work` nach `_erledigt`, Worktrees `ref-wt` und `pre-wt` entfernen. Der Branch
+   `prerelease/v2026.09.30b2` bleibt als Pre-Release-Quelle.
+4. Optional an JustChr, separat: ein CI-Job auf Python 3.14 / HA ≥ 2026.3, damit die Major-Sperre im CI
    läuft.
 
 ### Empfohlene Skills
