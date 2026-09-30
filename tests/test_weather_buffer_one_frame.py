@@ -71,7 +71,9 @@ STATIC_GROUP = {
 }
 
 PACKAGE = (
-    pathlib.Path(__file__).resolve().parent.parent / "custom_components" / "irrigation_plus"
+    pathlib.Path(__file__).resolve().parent.parent
+    / "custom_components"
+    / "irrigation_plus"
 )
 
 
@@ -176,7 +178,10 @@ async def _add_zone(store):
 def _row(stamp):
     return {
         const.RETRIEVED_AT: stamp,
-        **{field: cfg[const.MAPPING_CONF_STATIC_VALUE] for field, cfg in STATIC_GROUP.items()},
+        **{
+            field: cfg[const.MAPPING_CONF_STATIC_VALUE]
+            for field, cfg in STATIC_GROUP.items()
+        },
     }
 
 
@@ -221,6 +226,11 @@ async def _store_this_release_wrote(hass, frozen, built):
     await c._async_update_all()  # the poll stamps a row
     frozen.move_to("2026-07-15 10:00:00")
     await c._async_calculate_all()  # the calculation stamps the zone
+    # It swallows a zone's exception: a calculation that did not run must show here,
+    # not later as a plausible window.
+    assert store.get_zone(zone_id)[const.ZONE_LAST_CALCULATED] == datetime.datetime(
+        2026, 7, 15, 12, 0
+    )
     for hour in ("11:00", "12:00", "13:00"):
         frozen.move_to(f"2026-07-15 {hour}:00")
         await c._async_update_all()
@@ -257,11 +267,11 @@ def _window_h(aggregated):
     return aggregated[const.MAPPING_DATA_MULTIPLIER] * 24 if aggregated else None
 
 
-def _live(c, zone, monkeypatch):
+async def _live(c, zone, monkeypatch):
     """The live estimate's windows and hourly rows, through the functions that read the store.
 
-    ``now`` is built the way the live refresh builds it (HA's clock, naive), which was
-    right before this change; the anchor the store yields is what is under test. The
+    ``now`` is the live refresh's own clock read (``_fetch_intraday_inputs``), so the
+    process clock coming back there shows as well as a wrong anchor from the store. The
     second window is the call without ``now`` that ``_observed_precip_since_mm`` makes,
     which falls back on the aggregation's own default clock.
     """
@@ -275,7 +285,7 @@ def _live(c, zone, monkeypatch):
 
     monkeypatch.setattr(live_estimate, "hourly_eto_priced", priced_spy)
     anchor = live_estimate._window_anchor(zone)
-    now_local = helpers.coerce_stamp(dt_util.now(), helpers.STAMP_FROM_CLIENT)
+    now_local = (await c._fetch_intraday_inputs())["now"]
     window = _window_h(c._aggregate_live_window(zone, anchor, now=now_local))
     default_clock_window = _window_h(c._aggregate_live_window(zone, anchor))
     c._buffer_hourly_et(
@@ -314,7 +324,7 @@ class TestTheLivePath:
             c, store, zone_id = await _store_from_an_older_release(
                 hass, hass_storage, coordinators
             )
-            window, default_clock_window, rows = _live(
+            window, default_clock_window, rows = await _live(
                 c, store.get_zone(zone_id), monkeypatch
             )
         assert window == pytest.approx(EXPECTED_WINDOW_H)
@@ -328,7 +338,7 @@ class TestTheLivePath:
             c, store, zone_id = await _store_this_release_wrote(
                 hass, frozen, coordinators
             )
-            window, default_clock_window, rows = _live(
+            window, default_clock_window, rows = await _live(
                 c, store.get_zone(zone_id), monkeypatch
             )
         assert window == pytest.approx(EXPECTED_WINDOW_H)
@@ -340,24 +350,33 @@ class TestEveryWriterStampsHAsClock:
     """Each writer the matrix does not reach, driven once: its stamp reads HA's wall clock.
 
     Frozen at 10:00 UTC with the user at Europe/Berlin, every stamp must read 12:00. The
-    census below catches a bare ``datetime.now()`` coming back; these catch any other
-    wrong clock -- ``dt_util.utcnow()`` stripped of its zone would pass the census.
+    scene is built an hour earlier, so a writer that did not run cannot pass on the
+    zone's creation stamp. The census below catches a bare ``datetime.now()`` coming
+    back; these catch any other wrong clock -- ``dt_util.utcnow()`` stripped of its zone
+    would pass the census. Three writers are pinned where they are tested already: the
+    sensor-event row (``test_continuous_update.py::TestCoalescing``), the bucket
+    assertion (``test_zone_view_save.py``) and zone creation
+    (``test_store_operations.py::TestZoneOperations::test_new_zone_anchors_last_consumed_at``).
     """
 
     WALL = datetime.datetime(2026, 7, 15, 12, 0)
 
     @staticmethod
-    async def _scene(hass, built):
+    async def _scene(hass, built, frozen):
+        """The zone and its group at 09:00 UTC; then the clock moves to 10:00."""
         store = await _new_store(hass)
         c = await _coordinator(hass, store, built)
         zone_id = await _add_zone(store)
+        frozen.move_to("2026-07-15 10:00:00")
         return c, store, zone_id, store.get_zone(zone_id)[const.ZONE_MAPPING]
 
     async def test_the_poll_of_every_group(
         self, hass, coordinators, utc_container_berlin_user
     ):
-        with freeze_time("2026-07-15 10:00:00"):
-            c, store, zone_id, mapping_id = await self._scene(hass, coordinators)
+        with freeze_time("2026-07-15 09:00:00") as frozen:
+            c, store, zone_id, mapping_id = await self._scene(
+                hass, coordinators, frozen
+            )
             await c._async_update_all()
         (row,) = store.get_mapping_buffer(mapping_id)
         assert row[const.RETRIEVED_AT] == self.WALL
@@ -366,8 +385,10 @@ class TestEveryWriterStampsHAsClock:
     async def test_the_poll_of_one_zone(
         self, hass, coordinators, utc_container_berlin_user
     ):
-        with freeze_time("2026-07-15 10:00:00"):
-            c, store, zone_id, mapping_id = await self._scene(hass, coordinators)
+        with freeze_time("2026-07-15 09:00:00") as frozen:
+            c, store, zone_id, mapping_id = await self._scene(
+                hass, coordinators, frozen
+            )
             await c._async_update_zone(zone_id)
         (row,) = store.get_mapping_buffer(mapping_id)
         assert row[const.RETRIEVED_AT] == self.WALL
@@ -378,8 +399,8 @@ class TestEveryWriterStampsHAsClock:
     async def test_clearing_the_weather_data(
         self, hass, coordinators, utc_container_berlin_user
     ):
-        with freeze_time("2026-07-15 10:00:00"):
-            c, store, zone_id, _ = await self._scene(hass, coordinators)
+        with freeze_time("2026-07-15 09:00:00") as frozen:
+            c, store, zone_id, _ = await self._scene(hass, coordinators, frozen)
             await c._async_clear_all_weatherdata()
         assert store.get_zone(zone_id)[const.ZONE_LAST_CONSUMED] == self.WALL
 
@@ -393,8 +414,10 @@ class TestEveryWriterStampsHAsClock:
                 const.MAPPING_CONF_SENSOR: "sensor.temperature",
             },
         }
-        with freeze_time("2026-07-15 10:00:00"):
-            c, store, zone_id, mapping_id = await self._scene(hass, coordinators)
+        with freeze_time("2026-07-15 09:00:00") as frozen:
+            c, store, zone_id, mapping_id = await self._scene(
+                hass, coordinators, frozen
+            )
             await c.async_update_mapping_config(
                 mapping_id, {const.MAPPING_MAPPINGS: switched}
             )
@@ -403,8 +426,10 @@ class TestEveryWriterStampsHAsClock:
     async def test_a_burst_of_sensor_events(
         self, hass, coordinators, utc_container_berlin_user
     ):
-        with freeze_time("2026-07-15 10:00:00"):
-            c, store, zone_id, mapping_id = await self._scene(hass, coordinators)
+        with freeze_time("2026-07-15 09:00:00") as frozen:
+            c, store, zone_id, mapping_id = await self._scene(
+                hass, coordinators, frozen
+            )
             await c._async_continuous_update_for_mapping(mapping_id)
         mapping = store.get_mapping(mapping_id)
         assert mapping[const.MAPPING_DATA_LAST_UPDATED] == self.WALL
@@ -413,9 +438,11 @@ class TestEveryWriterStampsHAsClock:
     async def test_the_baseline_a_new_sensor_subscription_seeds(
         self, hass, coordinators, utc_container_berlin_user
     ):
-        hass.states.async_set("sensor.temperature", "20.0", {"unit_of_measurement": "°C"})
-        with freeze_time("2026-07-15 10:00:00"):
-            c, store, _, mapping_id = await self._scene(hass, coordinators)
+        hass.states.async_set(
+            "sensor.temperature", "20.0", {"unit_of_measurement": "°C"}
+        )
+        with freeze_time("2026-07-15 09:00:00") as frozen:
+            c, store, _, mapping_id = await self._scene(hass, coordinators, frozen)
             await store.async_update_mapping(
                 mapping_id,
                 {
@@ -465,15 +492,18 @@ class TestNoProcessClockOnTheBufferPaths:
     """The modules that write or compare the buffer's stamps read HA's clock, not the process's.
 
     A tripwire, not a proof -- the matrix above is the proof. This catches a bare
-    ``datetime.now()`` coming back into one of these modules at a place the matrix does
-    not reach. If one is ever needed here for something else, list it with its reason.
+    ``datetime.now()``, ``utcnow()`` or ``today()`` coming back into one of these modules
+    at a place the matrix does not reach. If one is ever needed here for something else,
+    list it with its reason.
     """
 
     MODULES = (
         "__init__.py",
+        "auto_calc.py",
         "calculation.py",
         "continuous_update.py",
         "helpers.py",
+        "live_estimate.py",
         "store.py",
         "weather_aggregate.py",
     )
@@ -498,7 +528,7 @@ class TestNoProcessClockOnTheBufferPaths:
                 if (
                     isinstance(node, ast.Call)
                     and isinstance(node.func, ast.Attribute)
-                    and node.func.attr in ("now", "today")
+                    and node.func.attr in ("now", "utcnow", "today")
                     and self._is_stdlib_clock(node.func.value)
                 ):
                     found.append(f"{name}:{node.lineno}")
