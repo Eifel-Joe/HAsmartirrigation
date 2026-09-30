@@ -493,8 +493,9 @@ class TestNoProcessClockOnTheBufferPaths:
 
     A tripwire, not a proof -- the matrix above is the proof. This catches a bare
     ``datetime.now()``, ``utcnow()`` or ``today()`` coming back into one of these modules
-    at a place the matrix does not reach. If one is ever needed here for something else,
-    list it with its reason.
+    at a place the matrix does not reach, and ``dt_util.naive_now()``, which newer Home
+    Assistant offers and which is the system's local time despite its name. If one is ever
+    needed here for something else, list it with its reason.
     """
 
     MODULES = (
@@ -525,11 +526,14 @@ class TestNoProcessClockOnTheBufferPaths:
         for name in self.MODULES:
             tree = ast.parse((PACKAGE / name).read_text(encoding="utf-8"))
             for node in ast.walk(tree):
-                if (
-                    isinstance(node, ast.Call)
-                    and isinstance(node.func, ast.Attribute)
-                    and node.func.attr in ("now", "utcnow", "today")
-                    and self._is_stdlib_clock(node.func.value)
+                if not (
+                    isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                 ):
+                    continue
+                attr = node.func.attr
+                if (
+                    attr in ("now", "utcnow", "today")
+                    and self._is_stdlib_clock(node.func.value)
+                ) or attr == "naive_now":
                     found.append(f"{name}:{node.lineno}")
         assert sorted(set(found) - self.ALLOWED) == []
