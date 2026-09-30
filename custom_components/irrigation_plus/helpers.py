@@ -1068,10 +1068,11 @@ def local_naive_now() -> datetime:
       PROCESS's clock -- and read against HA's (the live estimate, the solar geometry).
       On Docker/Core without ``TZ=`` the two differ by the whole UTC offset.
     Fix: every writer of those stamps, and every ``now`` they are compared with, reads
-      this.
+      this clock.
     NOT-TO-DO: do not return it aware. A naive/aware mix inside the live estimate's
       blanket ``except`` switches the estimate off instead of raising.
-    siehe tests/test_weather_buffer_one_frame.py
+    siehe tests/test_weather_buffer_one_frame.py and
+      tests/test_time_provenance.py::test_local_naive_now_is_has_wall_clock_without_a_zone
     """
     return dt_util.now().replace(tzinfo=None)
 
