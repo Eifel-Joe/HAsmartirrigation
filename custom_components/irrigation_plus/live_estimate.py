@@ -1551,7 +1551,7 @@ class LiveEstimateMixin:
         return result
 
     @staticmethod
-    def _live_run_duration(zone, deficit, metric):
+    def _live_run_duration(zone, deficit, metric, credit=0.0):
         """Seconds a live-estimate run would water this zone for, or ``None``.
 
         Published so the panel can show the duration the run will actually use
@@ -1567,9 +1567,16 @@ class LiveEstimateMixin:
         for them the way the runner does. Independent of
         ``live_estimate_enabled``: with the feature off the runner ignores this
         number entirely, and so does the panel.
+
+        ``credit`` is the forecast rain the weighting folds into the SIZING
+        (#159), in the same unit as ``deficit``; the runner passes the same
+        figure to ``_zone_run_decision``, so the screen still states the run's
+        duration rather than the unweighted one.
         """
         if zone.get(const.ZONE_FLOW_SENSOR):
             return None
+        if credit > 0:
+            deficit = min(0.0, deficit + credit)
         return zone_run_duration(zone, deficit, metric)
 
     async def async_get_zone_estimates(self) -> dict:
@@ -1611,6 +1618,7 @@ class LiveEstimateMixin:
                     zone_id,
                     reason,
                 )
+        await self._credit_forecast_to_estimates(zones, out)
         self._estimate_reasons().clear()
         self._estimate_reasons().update(reasons)
         # A zone that recovers is dropped, so the next time it goes quiet it is
@@ -1619,6 +1627,39 @@ class LiveEstimateMixin:
         for zone_id in [z for z in warned if z not in reasons]:
             warned.pop(zone_id)
         return out
+
+    async def _credit_forecast_to_estimates(self, zones, estimates) -> None:
+        """Fold the forecast weighting into each live-sized zone's published run.
+
+        ``live_deficit`` stays the pure actuals balance. Only ``live_duration``
+        -- the run the panel quotes -- shortens, and ``forecast_credit`` records
+        by how much, so a projection carried forward keeps the same credit. The
+        window is the zone's next scheduled run, the one rule the daily balance
+        and the skip guard measure from (#159). A forecast that cannot be read
+        leaves the estimate as it was.
+        """
+        if getattr(self.store.config, "live_estimate_enabled", False) is not True:
+            return
+        if not getattr(self.store.config, "forecast_weighting_enabled", False):
+            return
+        metric = self.hass.config.units is METRIC_SYSTEM
+        for zone in zones:
+            est = estimates.get(str(zone.get(const.ZONE_ID)))
+            if not est or est.get("live_deficit") is None:
+                continue
+            if zone.get(const.ZONE_FLOW_SENSOR):
+                continue
+            try:
+                credit = await self.forecast_weighting_credit(zone)
+            except Exception as e:  # noqa: BLE001 — an estimate must never raise
+                _LOGGER.debug("forecast weighting credit unavailable: %s", e)
+                continue
+            if credit <= 0:
+                continue
+            est["forecast_credit"] = credit
+            est["live_duration"] = self._live_run_duration(
+                zone, est["live_deficit"], metric, credit
+            )
 
     async def async_refresh_zone_estimates(self) -> dict:
         """Recompute the estimates, cache them, and notify the live sensors.
@@ -1832,7 +1873,9 @@ class LiveEstimateMixin:
             carried = round(from_mm(carried_mm), ndigits)
             projected.update(
                 live_deficit=carried,
-                live_duration=self._live_run_duration(zone, carried, metric),
+                live_duration=self._live_run_duration(
+                    zone, carried, metric, estimate.get("forecast_credit") or 0.0
+                ),
                 projected_et=round(from_mm(et_mm), ndigits + 2),
                 projected_rain=(
                     None if rain_mm is None else round(from_mm(rain_mm), ndigits + 2)

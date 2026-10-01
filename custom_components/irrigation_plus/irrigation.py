@@ -2352,9 +2352,15 @@ class IrrigationRunnerMixin:
         estimates = await self.async_refresh_zone_estimates()
         self._live_run_zones = set()
         metric = self.hass.config.units is METRIC_SYSTEM
+        credits = await self._live_forecast_credits(zones, run_start=dt_util.utcnow())
         out = []
         for z in zones:
-            decision = self._zone_run_decision(z, estimates, metric)
+            decision = self._zone_run_decision(
+                z,
+                estimates,
+                metric,
+                credit=credits.get(int(z.get(const.ZONE_ID)), 0.0),
+            )
             if decision is None:
                 continue
             if not decision.resized:
@@ -2373,6 +2379,38 @@ class IrrigationRunnerMixin:
             out.append({**z, const.ZONE_DURATION: decision.duration})
         return out
 
+    async def _live_forecast_credits(self, zones, *, run_start=None) -> dict:
+        """``{zone_id: mm}`` of forecast rain each live-sized zone is credited.
+
+        Only zones the live path sizes (no flow sensor): a flow zone keeps the
+        daily duration, which already carries the weighting. Asked of
+        :meth:`forecast_weighting_credit`, the same rule the daily balance
+        uses, so the live run and the daily one cannot disagree on which
+        forecast days a run cares about (#159). ``run_start`` None resolves the
+        zone's next scheduled run. Never raises: a forecast that cannot be read
+        is no credit, which waters as before rather than aborting the run.
+        """
+        credits: dict = {}
+        if getattr(self.store.config, "live_estimate_enabled", False) is not True:
+            return credits
+        if not getattr(self.store.config, "forecast_weighting_enabled", False):
+            return credits
+        for z in zones:
+            if z.get(const.ZONE_FLOW_SENSOR):
+                continue
+            try:
+                mm = await self.forecast_weighting_credit(z, run_start=run_start)
+            except Exception as e:  # noqa: BLE001 — never abort a run over a forecast
+                _LOGGER.debug(
+                    "Zone %s: forecast weighting credit unavailable: %s",
+                    z.get(const.ZONE_ID),
+                    e,
+                )
+                continue
+            if mm > 0:
+                credits[int(z.get(const.ZONE_ID))] = mm
+        return credits
+
     def _zone_run_decision(
         self,
         zone: dict,
@@ -2381,6 +2419,7 @@ class IrrigationRunnerMixin:
         *,
         started: bool = False,
         quiet: bool = False,
+        credit: float = 0.0,
     ):
         """Whether ``zone`` waters now, for how long, and how depleted it is.
 
@@ -2410,6 +2449,13 @@ class IrrigationRunnerMixin:
         as a re-priced duration of 0 (``duration_from_deficit`` is 0 at
         ``deficit >= 0``). Rain still shortens and still drops it — through the
         sizing, which is untouched.
+
+        ``credit`` is the forecast rain (mm) the run is credited under the
+        forecast weighting (:meth:`forecast_weighting_credit`). It shortens the
+        SIZING only, the way the daily path's ``effective_bucket`` does: the gate
+        and the returned ``deficit`` stay the true actuals balance, so the live
+        bucket still means what it says and the rain that really falls fills the
+        rest. A credit that covers the deficit sizes to 0 and drops the zone.
 
         Returns None when the zone does not water.
         """
@@ -2452,7 +2498,8 @@ class IrrigationRunnerMixin:
                     threshold,
                 )
             return None
-        live = self._duration_for_deficit(zone, deficit, metric)
+        sized = min(0.0, deficit + credit) if credit > 0 else deficit
+        live = self._duration_for_deficit(zone, sized, metric)
         if live <= 0:
             return None
         return _ZoneRunDecision(
@@ -2598,9 +2645,16 @@ class IrrigationRunnerMixin:
                     estimates = {}
 
         metric = self.hass.config.units is METRIC_SYSTEM
+        credits = await self._live_forecast_credits(eligible)
         planned = []
         for zone in eligible:
-            decision = self._zone_run_decision(zone, estimates, metric, quiet=True)
+            decision = self._zone_run_decision(
+                zone,
+                estimates,
+                metric,
+                quiet=True,
+                credit=credits.get(int(zone.get(const.ZONE_ID)), 0.0),
+            )
             if decision is None or decision.duration <= 0:
                 if not ignore_demand:
                     continue
@@ -3261,7 +3315,14 @@ class IrrigationRunnerMixin:
             return zone
         if not fresh:
             return zone
-        decision = self._zone_run_decision(fresh, estimates, metric, started=started)
+        credits = await self._live_forecast_credits([fresh], run_start=dt_util.utcnow())
+        decision = self._zone_run_decision(
+            fresh,
+            estimates,
+            metric,
+            started=started,
+            credit=credits.get(zid, 0.0),
+        )
         if decision is None or decision.duration <= 0:
             _LOGGER.info(
                 "Zone %s no longer needs water by the time its turn came "

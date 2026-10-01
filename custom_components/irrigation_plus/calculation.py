@@ -896,6 +896,107 @@ class CalculationMixin:
             )
         )
 
+    async def forecast_weighting_credit(
+        self, zone, forecastdata=None, *, run_start=None
+    ) -> float:
+        """The forecast rain, in mm, this zone's run is credited under the weighting.
+
+        0.0 when the weighting is off, there is no weather service, nothing is
+        forecast, or the forecast does not reach the run's first 24 hours. The
+        ONE place the window is decided: the daily balance
+        (:meth:`calculate_module`) and the live run decision both ask here, so
+        the two halves of one dropdown cannot measure from different moments
+        again (#159). ``run_start`` is the run the credit is for; None resolves
+        the zone's next scheduled run, else the calculation itself.
+        """
+        if not (
+            getattr(self, "use_weather_service", False)
+            and self.store.config.forecast_weighting_enabled
+        ):
+            return 0.0
+        fd = forecastdata
+        if fd is None and self._WeatherServiceClient is not None:
+            fd = await self.hass.async_add_executor_job(
+                self._WeatherServiceClient.get_forecast_data
+            )
+        if fd:
+            config = await self.store.async_get_config()
+            days = max(
+                1,
+                config.get(
+                    const.CONF_PRECIPITATION_FORECAST_DAYS,
+                    const.CONF_DEFAULT_PRECIPITATION_FORECAST_DAYS,
+                ),
+            )
+            # Wurzel: the window used to be fd[:days], a positional slice of a
+            #   list that starts TOMORROW by contract -- so it priced calendar
+            #   days from tomorrow whatever day the run fell on. The skip
+            #   guard, the other half of this same setting, had the defect and
+            #   lost it in #146; forecast_window is the module that fixed it
+            #   and is reused here rather than copied, so the two halves of one
+            #   dropdown cannot diverge again.
+            # siehe tests/test_forecast_weighting_window.py
+            # A caller inside a dispatch passes the run start, because the
+            # resolver cannot know it there: the fired-occurrence guard has
+            # already moved past this occurrence and _next_governing_time
+            # resolves strictly after now, so both hand back the FOLLOWING
+            # run. Measured +1 day on a finish callback and on a plain
+            # start-time schedule alike.
+            # siehe tests/test_before_run_anchor.py
+            if run_start is None:
+                run_start = (
+                    await self.recurring_schedule_manager.async_next_run_start_for_zone(
+                        zone.get(const.ZONE_ID)
+                    )
+                )
+            # dt_util, deliberately not this method's own `now`: that value is
+            # naive on HA's clock, and expected_rain compares aware instants.
+            # Taking the moment from dt_util keeps this independent of the naive
+            # frame the buffer uses.
+            evaluated_at = dt_util.utcnow()
+            if run_start is None:
+                # No enabled schedule names this zone -- someone irrigating from
+                # their own automations. The window then starts at the
+                # calculation, which is what the skip guard does with this same
+                # setting when no run start is named (skip_conditions.py:235):
+                # for the common "calculate, then irrigate" pattern that is the
+                # right anchor, and abstaining turned an experimental feature
+                # silently off. Bounded by one day where the two moments are far
+                # apart, and first_24h_covered below still refuses a window
+                # nothing forecast -- which in practice means this reaches the
+                # zones whose client serves an hourly series.
+                # siehe tests/test_forecast_weighting_window.py::
+                #   test_a_zone_no_schedule_names_is_weighted_from_the_calculation
+                #   und ::test_a_zone_no_schedule_names_still_refuses_an_uncovered_window
+                run_start = evaluated_at
+                _LOGGER.debug(
+                    "[calculate-module]: no scheduled run resolves for zone "
+                    "%s, so the forecast weighting measures from this "
+                    "calculation",
+                    zone.get(const.ZONE_ID),
+                )
+            rain = expected_rain(
+                run_start=run_start,
+                evaluated_at=evaluated_at,
+                days=days,
+                hourly=await self._weighting_hourly(run_start, days),
+                daily=fd,
+            )
+            if not rain.first_24h_covered:
+                # The same refusal the skip guard makes: a forecast that does
+                # not reach the run's first 24 hours says nothing about them,
+                # and a partial sum reads as "little rain", which waters MORE
+                # than it should.
+                _LOGGER.debug(
+                    "[calculate-module]: the forecast does not cover the "
+                    "first 24 hours from zone %s's run, so it is not "
+                    "weighted",
+                    zone.get(const.ZONE_ID),
+                )
+                return 0.0
+            return rain.mm
+        return 0.0
+
     async def calculate_module(
         self, zone, weatherdata, forecastdata, *, now=None, run_start=None
     ):
@@ -1147,99 +1248,19 @@ class CalculationMixin:
         # bucket. ``irrigation_target_bucket`` carries the leftover deficit for
         # the runner so a completed run leaves the zone at that level, not 0.
         effective_bucket = newbucket
-        if (
-            newbucket < 0
-            and getattr(self, "use_weather_service", False)
-            and self.store.config.forecast_weighting_enabled
-        ):
-            fd = forecastdata
-            if fd is None and self._WeatherServiceClient is not None:
-                fd = await self.hass.async_add_executor_job(
-                    self._WeatherServiceClient.get_forecast_data
+        if newbucket < 0:
+            forecast_precip = await self.forecast_weighting_credit(
+                zone, forecastdata, run_start=run_start
+            )
+            if forecast_precip > 0:
+                effective_bucket = min(0.0, newbucket + forecast_precip)
+                _LOGGER.debug(
+                    "[calculate-module]: forecast weighting %.2f mm rain → "
+                    "effective bucket %.2f (true %.2f)",
+                    forecast_precip,
+                    effective_bucket,
+                    newbucket,
                 )
-            if fd:
-                config = await self.store.async_get_config()
-                days = max(
-                    1,
-                    config.get(
-                        const.CONF_PRECIPITATION_FORECAST_DAYS,
-                        const.CONF_DEFAULT_PRECIPITATION_FORECAST_DAYS,
-                    ),
-                )
-                # Wurzel: the window used to be fd[:days], a positional slice of a
-                #   list that starts TOMORROW by contract -- so it priced calendar
-                #   days from tomorrow whatever day the run fell on. The skip
-                #   guard, the other half of this same setting, had the defect and
-                #   lost it in #146; forecast_window is the module that fixed it
-                #   and is reused here rather than copied, so the two halves of one
-                #   dropdown cannot diverge again.
-                # siehe tests/test_forecast_weighting_window.py
-                # A caller inside a dispatch passes the run start, because the
-                # resolver cannot know it there: the fired-occurrence guard has
-                # already moved past this occurrence and _next_governing_time
-                # resolves strictly after now, so both hand back the FOLLOWING
-                # run. Measured +1 day on a finish callback and on a plain
-                # start-time schedule alike.
-                # siehe tests/test_before_run_anchor.py
-                if run_start is None:
-                    run_start = await self.recurring_schedule_manager.async_next_run_start_for_zone(
-                        zone.get(const.ZONE_ID)
-                    )
-                # dt_util, deliberately not this method's own `now`: that value is
-                # naive on HA's clock, and expected_rain compares aware instants.
-                # Taking the moment from dt_util keeps this independent of the naive
-                # frame the buffer uses.
-                evaluated_at = dt_util.utcnow()
-                if run_start is None:
-                    # No enabled schedule names this zone -- someone irrigating from
-                    # their own automations. The window then starts at the
-                    # calculation, which is what the skip guard does with this same
-                    # setting when no run start is named (skip_conditions.py:235):
-                    # for the common "calculate, then irrigate" pattern that is the
-                    # right anchor, and abstaining turned an experimental feature
-                    # silently off. Bounded by one day where the two moments are far
-                    # apart, and first_24h_covered below still refuses a window
-                    # nothing forecast -- which in practice means this reaches the
-                    # zones whose client serves an hourly series.
-                    # siehe tests/test_forecast_weighting_window.py::
-                    #   test_a_zone_no_schedule_names_is_weighted_from_the_calculation
-                    #   und ::test_a_zone_no_schedule_names_still_refuses_an_uncovered_window
-                    run_start = evaluated_at
-                    _LOGGER.debug(
-                        "[calculate-module]: no scheduled run resolves for zone "
-                        "%s, so the forecast weighting measures from this "
-                        "calculation",
-                        zone.get(const.ZONE_ID),
-                    )
-                rain = expected_rain(
-                    run_start=run_start,
-                    evaluated_at=evaluated_at,
-                    days=days,
-                    hourly=await self._weighting_hourly(run_start, days),
-                    daily=fd,
-                )
-                if not rain.first_24h_covered:
-                    # The same refusal the skip guard makes: a forecast that does
-                    # not reach the run's first 24 hours says nothing about them,
-                    # and a partial sum reads as "little rain", which waters MORE
-                    # than it should.
-                    _LOGGER.debug(
-                        "[calculate-module]: the forecast does not cover the "
-                        "first 24 hours from zone %s's run, so it is not "
-                        "weighted",
-                        zone.get(const.ZONE_ID),
-                    )
-                    rain = None
-                forecast_precip = rain.mm if rain is not None else 0.0
-                if rain is not None and forecast_precip > 0:
-                    effective_bucket = min(0.0, newbucket + forecast_precip)
-                    _LOGGER.debug(
-                        "[calculate-module]: forecast weighting %.2f mm rain → "
-                        "effective bucket %.2f (true %.2f)",
-                        forecast_precip,
-                        effective_bucket,
-                        newbucket,
-                    )
 
         explanation = (
             await localize(
