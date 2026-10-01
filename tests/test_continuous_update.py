@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from freezegun import freeze_time
 from homeassistant.const import CONF_ELEVATION, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
@@ -477,8 +478,8 @@ class TestStateChanged:
         assert set(rows[0]) == {const.MAPPING_TEMPERATURE, const.RETRIEVED_AT}
         assert rows[0][const.MAPPING_TEMPERATURE] == 21.5
         assert isinstance(rows[0][const.RETRIEVED_AT], datetime.datetime)
-        # Naive local, like the poll path — aggregate_window compares it against
-        # a naive watermark and would raise on an aware value.
+        # Naive on HA's clock, like the poll path — the coalescing and the prune
+        # compare it with naive values and would raise on an aware one.
         assert rows[0][const.RETRIEVED_AT].tzinfo is None
         assert store.mappings[1][const.MAPPING_DATA_LAST_ENTRY] == {
             const.MAPPING_TEMPERATURE: 21.5
@@ -645,8 +646,11 @@ class TestCoalescing:
         assert len(rows) == 1
         assert rows[0][const.MAPPING_TEMPERATURE] == 20.0
         assert rows[0][const.MAPPING_HUMIDITY] == 55.0
-        # Keeps the FIRST reading's stamp, not the merged-in one.
-        assert rows[0][const.RETRIEVED_AT] == datetime.datetime(2026, 8, 8, 12, 0, 0)
+        # Keeps the FIRST reading's stamp, not the merged-in one -- on HA's clock, the
+        # frame every weather-buffer stamp is written in.
+        assert rows[0][const.RETRIEVED_AT] == dt_util.as_local(
+            datetime.datetime(2026, 8, 8, 12, 0, 0, tzinfo=datetime.UTC)
+        ).replace(tzinfo=None)
         # Carry-forward still updates for both fields regardless of row placement.
         assert store.mappings[1][const.MAPPING_DATA_LAST_ENTRY] == {
             const.MAPPING_TEMPERATURE: 20.0,
@@ -688,7 +692,10 @@ class TestCoalescing:
     async def test_watermark_refusal_appends_new_row_for_a_late_field(self):
         # GitLab #33 acceptance criterion: consume a window, then deliver a
         # late field within the coalescing window of the now-consumed row.
-        watermark = datetime.datetime(2026, 8, 8, 12, 0, 0)
+        frozen_at = datetime.datetime(2026, 8, 8, 12, 0, 0, tzinfo=datetime.UTC)
+        # On HA's clock, the frame the writer stamps its rows in: the first row
+        # below lands exactly on it.
+        watermark = dt_util.as_local(frozen_at).replace(tzinfo=None)
         store = _FakeStore(
             [_two_field_mapping()],
             zones=[
@@ -705,14 +712,14 @@ class TestCoalescing:
 
         # Appended right at the watermark: "at or behind" per the issue, so
         # this row is already the zone's consumed boundary.
-        with freeze_time(watermark):
+        with freeze_time(frozen_at):
             coord._sensor_state_changed(_event("sensor.temp", "20.0"))
             await _drain(coord)
         assert len(store.buffers[1]) == 1
 
         # A different field arrives well within the coalescing window of that
         # row, but the row is behind the watermark — must NOT merge into it.
-        with freeze_time(watermark + datetime.timedelta(milliseconds=10)):
+        with freeze_time(frozen_at + datetime.timedelta(milliseconds=10)):
             coord._sensor_state_changed(_event("sensor.humidity", "55"))
             await _drain(coord)
 
@@ -747,9 +754,11 @@ class TestCoalescing:
             assert len(store.buffers[1]) == 1
 
             # The "calculation": advances the zone's watermark to the row's
-            # own timestamp, exactly as async_calculate_zone would via
-            # async_update_zone.
-            zone[const.ZONE_LAST_CONSUMED] = datetime.datetime(2026, 8, 8, 12, 0, 0)
+            # own timestamp -- HA's clock at this instant, as the writer stamps
+            # it -- exactly as async_calculate_zone would via async_update_zone.
+            zone[const.ZONE_LAST_CONSUMED] = dt_util.as_local(
+                datetime.datetime(2026, 8, 8, 12, 0, 0, tzinfo=datetime.UTC)
+            ).replace(tzinfo=None)
 
             # Still well within the coalescing window -- would merge if the
             # watermark had not just moved.
@@ -765,7 +774,10 @@ class TestCoalescing:
     async def test_watermark_from_a_disabled_zone_is_ignored(self):
         # Disabled zones do not consume the buffer (mirrors
         # _prune_mapping_buffer), so their watermark must not block a merge.
-        watermark = datetime.datetime(2026, 8, 8, 12, 0, 0)
+        # The refusal scene above with the zone disabled: the first row lands
+        # exactly on the watermark, which would refuse the late field if it counted.
+        frozen_at = datetime.datetime(2026, 8, 8, 12, 0, 0, tzinfo=datetime.UTC)
+        watermark = dt_util.as_local(frozen_at).replace(tzinfo=None)
         store = _FakeStore(
             [_two_field_mapping()],
             zones=[
@@ -780,9 +792,9 @@ class TestCoalescing:
         coord = _coord(store)
         await coord.async_setup_continuous_updates()
 
-        with freeze_time(watermark + datetime.timedelta(milliseconds=5)):
+        with freeze_time(frozen_at):
             coord._sensor_state_changed(_event("sensor.temp", "20.0"))
-        with freeze_time(watermark + datetime.timedelta(milliseconds=15)):
+        with freeze_time(frozen_at + datetime.timedelta(milliseconds=10)):
             coord._sensor_state_changed(_event("sensor.humidity", "55"))
             await _drain(coord)
 

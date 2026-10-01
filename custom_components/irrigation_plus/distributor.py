@@ -1743,9 +1743,10 @@ class DistributorMixin:
                 # _master_note_run to return a Mock). The datetime class is taken from
                 # `_master_now()` — NOT `import datetime` — because this package ships a
                 # sibling `datetime.py` platform that shadows a plain `datetime` import
-                # here (see __init__.py). own_deadline is the EXACT deadline our notes
-                # set, so a no-foreign terminal sees current == own_deadline and
-                # collapses; only a foreign later note makes current > own_deadline.
+                # here (see tests/test_datetime_platform_shadowing.py). own_deadline is
+                # the EXACT deadline our notes set, so a no-foreign terminal sees
+                # current == own_deadline and collapses; only a foreign later note makes
+                # current > own_deadline.
                 if isinstance(note_deadline, type(self._master_now())) and (
                     own_deadline is None or note_deadline > own_deadline
                 ):

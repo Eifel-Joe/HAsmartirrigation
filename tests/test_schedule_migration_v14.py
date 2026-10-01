@@ -440,7 +440,7 @@ class TestAnUnrecognizedTimeAnchor:
 
 
 class TestFullMigrationPipeline:
-    """Through `_async_migrate_func`, not just the pure per-schedule helper."""
+    """Through `_async_migrate_major`, not just the pure per-schedule helper."""
 
     def _store(self, hass):
         return MigratableStore(hass, STORAGE_VERSION, "irrigation_plus.storage")
@@ -466,7 +466,7 @@ class TestFullMigrationPipeline:
             "modules": [],
         }
 
-        migrated = await self._store(hass)._async_migrate_func(13, data)
+        migrated = await self._store(hass)._async_migrate_major(13, data)
         schedules = {s["id"]: s for s in migrated["config"]["recurring_schedules"]}
 
         assert schedules["a"]["recurrence"] == "daily"
@@ -478,7 +478,7 @@ class TestFullMigrationPipeline:
     async def test_a_store_with_no_schedules_migrates_cleanly(self, hass):
         hass.config.units = METRIC_SYSTEM
         data = {"config": {}, "zones": [], "mappings": [], "modules": []}
-        migrated = await self._store(hass)._async_migrate_func(13, data)
+        migrated = await self._store(hass)._async_migrate_major(13, data)
         assert migrated["config"].get("recurring_schedules", []) == []
 
     async def test_distributor_local_schedules_are_migrated_too(self, hass):
@@ -499,7 +499,7 @@ class TestFullMigrationPipeline:
                 }
             ],
         }
-        migrated = await self._store(hass)._async_migrate_func(13, data)
+        migrated = await self._store(hass)._async_migrate_major(13, data)
         dist_schedule = migrated["distributors"][0]["schedules"][0]
         assert dist_schedule["recurrence"] == "daily"
         _assert_no_retired_keys(dist_schedule)

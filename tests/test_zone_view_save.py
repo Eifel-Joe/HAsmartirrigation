@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from freezegun import freeze_time
+from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
@@ -126,6 +127,17 @@ async def _zone(store, *, bucket, maximum_bucket):
     return zone[const.ZONE_ID]
 
 
+def _when_ha_reads(naive):
+    """The instant at which HA's clock reads ``naive``.
+
+    T0, SAVED_AT and the ledger are stamps on HA's clock, the frame the weather
+    window is measured in, and a save stamps HA's clock too. Frozen at the bare
+    naive time instead -- UTC wall time under freezegun -- the save would land
+    hours before T0, with HA on US/Pacific as every test here has it.
+    """
+    return naive.replace(tzinfo=dt_util.get_default_time_zone())
+
+
 async def _post(hass, data):
     """POST a zone save through the real view, the way the panel does."""
     request = MagicMock()
@@ -133,7 +145,7 @@ async def _post(hass, data):
     request.json = AsyncMock(return_value=data)
     view = SmartIrrigationZoneView()
     view.json = MagicMock(return_value="OK")
-    with freeze_time(SAVED_AT):
+    with freeze_time(_when_ha_reads(SAVED_AT)):
         await view.post(request)
 
 
@@ -229,6 +241,7 @@ async def test_a_lowered_maximum_clamps_the_stored_level_as_a_statement(
     after = store.get_zone(zid)
     assert after[const.ZONE_BUCKET] == 10.0
     assert after[const.ZONE_MAXIMUM_BUCKET] == 10.0
+    # The moment of the save, on HA's clock -- the frame the window is measured in.
     assert after[const.ZONE_LAST_CONSUMED] == SAVED_AT
     assert after[const.ZONE_PENDING_BUCKET_EVENTS] == []
 
@@ -282,7 +295,7 @@ async def test_a_bucket_set_through_the_store_funnel_is_not_clamped(coordinator)
     c, store = coordinator
     zid = await _zone(store, bucket=0.0, maximum_bucket=30.0)
 
-    with freeze_time(SAVED_AT):
+    with freeze_time(_when_ha_reads(SAVED_AT)):
         await c._async_set_all_buckets(50.0)
 
     assert store.get_zone(zid)[const.ZONE_BUCKET] == 50.0

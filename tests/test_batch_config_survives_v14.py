@@ -45,7 +45,7 @@ class TestBatchConfigSurvivesV14:
     @pytest.mark.asyncio
     async def test_every_batch_key_is_still_there(self, hass):
         store = MigratableStore(hass, 14, "irrigation_plus.storage")
-        out = await store._async_migrate_func(13, _v13_doc())
+        out = await store._async_migrate_major(13, _v13_doc())
         cfg = out["config"]
         assert cfg[const.CONF_BATCH_RUN_SERVICE] == "script.irrigation_run_batch"
         assert cfg[const.CONF_BATCH_STOP_SERVICE] == "script.irrigation_stop_batch"
@@ -57,7 +57,7 @@ class TestBatchConfigSurvivesV14:
     async def test_the_fired_marker_survives_too(self, hass):
         """Upstream's reload guard, carried across the reshape."""
         store = MigratableStore(hass, 14, "irrigation_plus.storage")
-        out = await store._async_migrate_func(13, _v13_doc())
+        out = await store._async_migrate_major(13, _v13_doc())
         assert out["config"][const.CONF_FIRED_OCCURRENCES] == {
             "s1": "2026-06-11T04:00:00+00:00"
         }
@@ -66,7 +66,7 @@ class TestBatchConfigSurvivesV14:
     async def test_and_the_schedule_was_actually_reshaped(self, hass):
         """Guards against the assertions above passing on an untouched document."""
         store = MigratableStore(hass, 14, "irrigation_plus.storage")
-        out = await store._async_migrate_func(13, _v13_doc())
+        out = await store._async_migrate_major(13, _v13_doc())
         sched = out["config"]["recurring_schedules"][0]
         assert sched[const.SCHEDULE_CONF_RECURRENCE] == const.SCHEDULE_RECURRENCE_DAILY
         assert sched[const.SCHEDULE_CONF_FINISH_MODE] == const.SCHEDULE_BOUND_MODE_TIME

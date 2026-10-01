@@ -190,28 +190,18 @@ class _HourlyCarry(NamedTuple):
 
 
 def _parse_stored_as_ha_local(value):
-    """A stored last_calculated/last_updated read as naive HA-local. ⚠️ MISMATCHED.
+    """A stored last_calculated/last_consumed_at read as naive on HA's clock.
 
-    Wurzel: the old name and docstring said "the store writes these as naive *local*
-      datetimes (``datetime.now()`` in ``calculation.py``)", which is the confusion in
-      one sentence. A bare ``datetime.now()`` writes the PROCESS's zone;
-      ``dt_util.as_local`` -- which this applies to an aware value -- is HA's. The two
-      are equal on HA OS and Supervised and differ by the whole UTC offset on
-      Docker/Core without ``TZ=``, so this reads a stored stamp in the wrong frame
-      there.
-    Why it is not fixed here: correcting it moves numbers, and this change may not.
-      What it does instead is stop the name and the comment claiming otherwise, so the
-      mismatch is visible where it lives. The write side and this reader have to move
-      together -- a reader-only change is worse than the status quo, because today
-      every stored stamp is naive and both rules agree on a naive value.
-    NOT-TO-DO: do not route this through the store provenance as a tidy-up. That IS
-      the behaviour change, and it belongs with the writers.
-    Beleg: reading these as UTC instead shifts the intra-day window by the local UTC
-      offset -- on the proxy path that pushes the anchor onto the next calendar day, so
-      a whole day's ET is spuriously subtracted right after the daily calc, until the
-      next weather update heals it. That is why the frame matters at all here.
-    siehe tests/test_live_estimate_time_provenance.py::
-      test_a_stored_stamp_is_still_read_in_ha_local_today
+    Wurzel: it read a stored stamp as HA-local while the store wrote it on the PROCESS's
+      clock (a bare ``datetime.now()``) -- on Docker/Core without ``TZ=`` the whole UTC
+      offset apart. On the proxy path that moved the anchor by the offset -- west of UTC
+      onto the next calendar day, so a whole day's ET was subtracted right after the
+      daily calc.
+    Fix: none here -- the store moved to this reader's frame. The writers read
+      ``local_naive_now()`` and the store's 14.2 migration moved older stamps, so a naive
+      value is HA-local and an aware one is converted with ``dt_util.as_local``: the
+      same answer as ``coerce_stamp(value, STAMP_FROM_STORE)``.
+    siehe tests/test_live_estimate_time_provenance.py::test_a_stored_stamp_is_read_on_has_clock
     """
     if value is None:
         return None
@@ -222,7 +212,11 @@ def _parse_stored_as_ha_local(value):
             return None
     if isinstance(value, datetime.datetime):
         if value.tzinfo is not None:
-            return dt_util.as_local(value).replace(tzinfo=None)
+            try:
+                return dt_util.as_local(value).replace(tzinfo=None)
+            except OverflowError:
+                # At the edge of the datetime range there is no local form.
+                return None
         return value
     return None
 
@@ -458,9 +452,9 @@ class LiveEstimateMixin:
             if when is None:
                 continue
             if when.tzinfo is not None:
-                # A forecast row is site-local clock time off an API: naive means HA's
-                # zone here, and always did. Named rather than open-coded so it cannot
-                # be mistaken for the store's rule, which is the opposite.
+                # An aware forecast row lands on HA's clock, the hour the zone is priced
+                # for; a naive one is already HA-local. The provenance is named so the
+                # call site says which kind of stamp it holds.
                 when = coerce_stamp(when, STAMP_FROM_CLIENT)
             try:
                 temp = float(temp)
@@ -501,9 +495,9 @@ class LiveEstimateMixin:
             if when is None or rate is None:
                 continue
             if when.tzinfo is not None:
-                # A forecast row is site-local clock time off an API: naive means HA's
-                # zone here, and always did. Named rather than open-coded so it cannot
-                # be mistaken for the store's rule, which is the opposite.
+                # An aware forecast row lands on HA's clock, the hour the zone is priced
+                # for; a naive one is already HA-local. The provenance is named so the
+                # call site says which kind of stamp it holds.
                 when = coerce_stamp(when, STAMP_FROM_CLIENT)
             out.append((when, float(rate)))
         return out or None
@@ -539,9 +533,9 @@ class LiveEstimateMixin:
             if when is None or temp is None:
                 continue
             if when.tzinfo is not None:
-                # A forecast row is site-local clock time off an API: naive means HA's
-                # zone here, and always did. Named rather than open-coded so it cannot
-                # be mistaken for the store's rule, which is the opposite.
+                # An aware forecast row lands on HA's clock, the hour the zone is priced
+                # for; a naive one is already HA-local. The provenance is named so the
+                # call site says which kind of stamp it holds.
                 when = coerce_stamp(when, STAMP_FROM_CLIENT)
             out.append((when, float(temp)))
         return out or None

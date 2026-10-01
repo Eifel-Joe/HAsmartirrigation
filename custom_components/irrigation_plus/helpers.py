@@ -7,6 +7,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from dateutil import tz as dateutil_tz
 from homeassistant import exceptions
 from homeassistant.const import (
     PERCENTAGE,
@@ -997,49 +998,45 @@ def as_datetime(value) -> datetime | None:
     return parse_datetime(value)
 
 
-# The two things a NAIVE timestamp can mean on the weather-buffer paths. They are
-# separate values rather than one flag because the coercion below refuses anything
-# it does not recognise, and a typo must not silently pick one of the two rules.
+# The two kinds of stamp on the weather-buffer paths: written by this integration
+# (store) and read off a weather API (client). Both are naive on HA's clock now and
+# coerce alike; they stay separate values so every call site keeps saying which kind
+# it holds, and because the coercion refuses anything it does not recognise -- a
+# typo must not silently pick a rule.
 STAMP_FROM_STORE = "stamp-from-store"
 STAMP_FROM_CLIENT = "stamp-from-client"
 
 
 def _process_timezone():
-    """The zone a bare ``datetime.now()`` writes in -- the PROCESS's, not HA's.
+    """The zone a bare ``datetime.now()`` wrote in -- the PROCESS's, with its DST rules.
 
-    Its own function for one reason: the suite has to be able to substitute it.
-    ``time.tzset()`` does not exist on Windows, so a test cannot set the real process
-    zone, and a test that only runs on CI is one we never watch go from red to green
-    ourselves.
+    ``tzlocal()`` rather than ``datetime.now().astimezone().tzinfo``: the latter is
+    TODAY's fixed offset, and a stamp from the other side of a DST change is then read
+    an hour off -- the buffer keeps seven days. Its own function so the suite can
+    substitute it: ``time.tzset()`` does not exist on Windows. Its one caller is the
+    store migration (``lift_legacy_stamp``); nothing writes on this clock any more.
+    siehe tests/test_time_provenance.py::test_a_fresh_process_reads_its_zone_per_date
     """
-    return datetime.now().astimezone().tzinfo
+    return dateutil_tz.tzlocal()
 
 
 def coerce_stamp(value, provenance) -> datetime | None:
-    """Normalise a timestamp to the NAIVE form its path uses, by its provenance.
+    """Normalise a timestamp to the naive frame the weather-buffer paths use: HA's clock.
 
-    Wurzel: a naive stamp on these paths means one of two opposite things, and
-      nothing said which. ``STAMP_FROM_STORE`` values were written by a bare
-      ``datetime.now()``, so naive means the PROCESS's zone. ``STAMP_FROM_CLIENT``
-      values are site-local clock times off a weather API and have always meant HA's
-      configured zone. The two agree on HA OS and Supervised -- which is where this
-      gets tested -- and differ by the whole UTC offset on Docker/Core without
-      ``TZ=``. A flat rule in either direction is wrong for one of the two groups.
-    Fix: name the provenance at every place a stamp is produced or read, and make it
-      a REQUIRED argument so a caller cannot stay silent about which kind it holds.
-    Direction, and it is deliberate: this normalises to NAIVE, not to aware. Every
-      stamp on these paths is naive today, so a naive input is returned untouched and
-      no number can move. What changes is that an AWARE input no longer detonates --
-      and an aware input is what the write-side change will start producing.
-    NOT-TO-DO: do not give ``provenance`` a default. The whole requirement is that a
-      future reader cannot coerce a forecast row as if it were a buffer stamp, and a
-      default is exactly how that happens.
-    NOT-TO-DO: do not let this raise. Its callers sit inside a blanket ``except``
-      that turns a raise into the live estimate quietly going unavailable with a
-      plausible "last calculated" still on display, so an unreadable value is no
-      stamp and the caller keeps its fallback.
-    Beleg: fed 10:00 UTC with the process at UTC and HA at Europe/Berlin, the two
-      provenances give 10:00 and 12:00 -- the offset apart, which is the error size.
+    Wurzel: a naive stamp on these paths meant one of two opposite things. Stored
+      stamps were written by a bare ``datetime.now()`` (the PROCESS's zone); client rows
+      are site-local clock times off a weather API (HA's zone). On Docker/Core without
+      ``TZ=`` the two differ by the whole UTC offset.
+    Fix: stored stamps are on HA's clock now -- the writers read ``local_naive_now()``
+      and the store's 14.2 migration moved older ones -- so both provenances mean one
+      frame: a naive value comes back untouched, an aware one is read on HA's clock.
+      Both names stay, so every call site still says which kind of stamp it holds.
+    NOT-TO-DO: do not give ``provenance`` a default. A caller must not be able to stay
+      silent about which kind it holds.
+    NOT-TO-DO: do not let this raise. Its callers sit inside a blanket ``except`` that
+      turns a raise into the live estimate quietly going unavailable with a plausible
+      "last calculated" still on display, so an unreadable value is no stamp and the
+      caller keeps its fallback.
     siehe tests/test_time_provenance.py
     """
     if provenance not in (STAMP_FROM_STORE, STAMP_FROM_CLIENT):
@@ -1054,9 +1051,53 @@ def coerce_stamp(value, provenance) -> datetime | None:
         return None
     if parsed.tzinfo is None:
         return parsed
-    if provenance == STAMP_FROM_STORE:
-        return parsed.astimezone(_process_timezone()).replace(tzinfo=None)
-    return dt_util.as_local(parsed).replace(tzinfo=None)
+    try:
+        return dt_util.as_local(parsed).replace(tzinfo=None)
+    except OverflowError:
+        # At the edge of the datetime range an aware stamp has no local form.
+        return None
+
+
+def local_naive_now() -> datetime:
+    """HA's wall clock, naive: the one frame every weather-buffer stamp is in.
+
+    Wurzel: the buffer's stamps were written by a bare ``datetime.now()`` -- the
+      PROCESS's clock -- and read against HA's (the live estimate, the solar geometry).
+      On Docker/Core without ``TZ=`` the two differ by the whole UTC offset.
+    Fix: every writer of those stamps, and every ``now`` they are compared with, reads
+      this clock.
+    NOT-TO-DO: do not return it aware. A naive/aware mix inside the live estimate's
+      blanket ``except`` switches the estimate off instead of raising.
+    NOT-TO-DO: ``dt_util.naive_now()`` (newer Home Assistant) is not this clock: it is
+      the SYSTEM's local time, the process clock again.
+    siehe tests/test_weather_buffer_one_frame.py and
+      tests/test_time_provenance.py::test_local_naive_now_is_has_wall_clock_without_a_zone
+    """
+    return dt_util.now().replace(tzinfo=None)
+
+
+def lift_legacy_stamp(value):
+    """One stamp of a pre-14.2 store, moved from the process's clock onto HA's.
+
+    String in, string out: ``async_load`` converts nothing, so the loaded shape must
+    stay what the file held. A naive value is read in the process zone at its own date's
+    offset, an aware one as the instant it names; anything else -- ``None``, an
+    unparseable string, a non-string, a stamp at the edge of the datetime range that no
+    zone conversion survives -- comes back exactly as found. Why and when this runs:
+    ``store._lift_legacy_stamps``.
+    NOT-TO-DO: do not let the conversion raise. This runs inside the store's load: a
+      raise fails setup on every start, and the file stays at 14.1 for the next one.
+    siehe tests/test_store_stamp_migration.py::TestTheFiveStampsMoveOntoHAsClock::test_what_it_cannot_read_is_left_exactly_as_found
+    """
+    if not isinstance(value, str):
+        return value
+    try:
+        parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=_process_timezone())
+        return dt_util.as_local(parsed).replace(tzinfo=None).isoformat()
+    except (ValueError, OverflowError, OSError):
+        return value
 
 
 class CannotConnect(exceptions.HomeAssistantError):

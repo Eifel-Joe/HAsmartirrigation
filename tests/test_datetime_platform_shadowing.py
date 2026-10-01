@@ -9,7 +9,8 @@ submodule the moment Home Assistant set up the ``datetime`` platform, turning
 every ``datetime.now()`` in ``_async_update_all`` into
 ``AttributeError: module '...irrigation_plus.datetime' has no attribute 'now'``
 — a hard 500 on every weather update (and silent failure of the auto-update
-timer). Fixed by importing the stdlib class under the alias ``dt_datetime``.
+timer). First fixed with an alias; since the weather-buffer stamps read HA's clock
+(``local_naive_now()``), ``__init__.py`` needs no stdlib clock at all.
 
 Importing the full package ``__init__`` pulls the whole Home Assistant chain
 (these lightweight tests import submodules only), so this guards the fix at the
@@ -35,7 +36,7 @@ def _init_source() -> str:
 
 def test_init_does_not_bind_a_global_named_datetime():
     """``from datetime import datetime`` / ``import datetime`` would create a
-    global the platform submodule import clobbers — require an alias instead."""
+    global the platform submodule import clobbers — an alias, if one is needed."""
     tree = ast.parse(_init_source())
     bound = set()
     for node in ast.walk(tree):
@@ -49,13 +50,15 @@ def test_init_does_not_bind_a_global_named_datetime():
     assert "datetime" not in bound, (
         "__init__.py binds a global named 'datetime' — the datetime.py platform "
         "submodule will shadow it on platform load (500 on every weather update). "
-        "Import the stdlib class under an alias (e.g. 'dt_datetime')."
+        "Import the stdlib class under an alias if it is needed at all; a buffer "
+        "stamp reads HA's clock, local_naive_now()."
     )
 
 
 def test_init_makes_no_bare_datetime_now_call():
-    """The aliased class must actually be used at the call sites."""
+    """Nor a call through that name, which is the submodule after platform load."""
     assert not re.search(r"\bdatetime\.now\s*\(", _init_source()), (
         "__init__.py calls datetime.now() — that name resolves to the platform "
-        "submodule after platform load. Use the aliased stdlib class."
+        "submodule after platform load. A buffer stamp reads HA's clock: "
+        "local_naive_now()."
     )

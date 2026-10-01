@@ -495,9 +495,9 @@ async def test_incoming_data_key_is_routed_to_the_buffer(hass) -> None:
 async def _zone(store, mapping_id, *, watermark, state=const.ZONE_STATE_AUTOMATIC):
     """Create a zone with an EXACT watermark, including None ("never consumed").
 
-    async_create_zone anchors an unset watermark to datetime.now() on its own
-    (a brand-new zone's first calculation should not inherit a backlog), so the
-    only way to get a specific value under test -- notably None -- is to
+    async_create_zone anchors an unset watermark to HA's clock (local_naive_now())
+    on its own (a brand-new zone's first calculation should not inherit a backlog),
+    so the only way to get a specific value under test -- notably None -- is to
     overwrite it explicitly right after creation.
     """
     created = await store.async_create_zone(

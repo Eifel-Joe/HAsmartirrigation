@@ -9,7 +9,7 @@ Protected by tests/test_calculate_module.py (calculate_module characterization).
 
 import functools
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import homeassistant.util.dt as dt_util
 from homeassistant.core import callback
@@ -27,7 +27,7 @@ from .et_estimate import (
 )
 from .forecast_window import expected_rain
 from .helpers import as_datetime as _as_datetime
-from .helpers import convert_between, loadModules
+from .helpers import convert_between, loadModules, local_naive_now
 from .localize import localize
 from .weather_aggregate import (
     aggregate_window,
@@ -48,8 +48,9 @@ def pending_bucket_events(zone):
     """A zone's unconsumed mid-window bucket credits as ``[(naive_local, mm)]``.
 
     Stored aware (see ``IrrigationRunnerMixin.async_write_watered_bucket``) and
-    flattened to naive local here, because the window these have to be placed on
-    is built from naive ``datetime.now()`` stamps and mixing the two raises.
+    flattened to naive HA-local here, because the window these have to be placed on
+    is built from naive stamps on HA's clock (``local_naive_now()``) and mixing the
+    two raises.
     Entries that will not parse are dropped rather than defaulted to a time: a
     credit placed at the wrong instant is worse than one placed at the window
     start, which is what dropping it falls back to.
@@ -264,7 +265,7 @@ class CalculationMixin:
         longer exists).
         """
         _LOGGER.info("Clearing all weatherdata")
-        now = datetime.now()
+        now = local_naive_now()
         # The deadband's reference values are not part of the store, so emptying
         # the buffers above does not touch them; left stale they suppress the
         # readings that would refill those buffers. See
@@ -376,7 +377,7 @@ class CalculationMixin:
         if mapping_id is None:
             return
         if now is None:
-            now = datetime.now()
+            now = local_naive_now()
         mapping = self.store.get_mapping(mapping_id)
         if not mapping:
             return
@@ -429,7 +430,7 @@ class CalculationMixin:
         _LOGGER.info("Calculating all automatic zones")
         zones = await self.store.async_get_zones()
 
-        now = datetime.now()
+        now = local_naive_now()
         forecastdata = None
         touched_mappings = set()
         for zone in zones:
@@ -495,7 +496,7 @@ class CalculationMixin:
         """
         _LOGGER.debug("async_calculate_zone: Calculating zone %s", zone_id)
         if now is None:
-            now = datetime.now()
+            now = local_naive_now()
         zone = self.store.get_zone(zone_id)
         if zone is None:
             return
@@ -775,8 +776,8 @@ class CalculationMixin:
         if not isinstance(readings, list) or not isinstance(mappings_config, dict):
             return None
 
-        # Buffer stamps are naive LOCAL times, so the solar-time correction wants
-        # the local UTC offset. The site timezone is passed alongside so each row
+        # Buffer stamps are naive on HA's clock, so the solar-time correction wants
+        # HA's UTC offset. The site timezone is passed alongside so each row
         # resolves the offset from its OWN stamp: a window reaches seven days and
         # can straddle a DST transition, and one offset for the whole window puts
         # the rows past it an hour out in solar time. That is only 0.26-0.74% on
@@ -784,22 +785,16 @@ class CalculationMixin:
         # hold refills, where Rso is a denominator. The scalar remains the
         # fallback for rows that carry no offset of their own.
         tz = dt_util.DEFAULT_TIME_ZONE
-        # ⚠️ MISMATCHED FRAMES, named here rather than left implicit.
-        # This offset is HA's. The `now` handed to the same call below is
-        # `datetime.now()`, i.e. the PROCESS's clock, and the buffer stamps it is
-        # measured against are process-local too. On HA OS and Supervised the two
-        # agree, which is why this went unnoticed; on Docker or Core without `TZ=`
-        # the solar-time correction applies HA's offset to a process-local stamp.
-        # By this module's own figures that is 0.26-0.74 % on daily ETo but
-        # +23.5 % / -16 % on the radiation the clearness-ratio hold refills, because
-        # Rso sits in the denominator there.
-        # NOT-TO-DO: do not expect a switch to aware timestamps to fix this by itself.
-        #   The offset does not travel as `tzinfo` -- it travels as this float, through
-        #   `SiteGeometry.tz_offset_h` and on into `row["tz_offset_h"]`. A stamp that
-        #   becomes aware leaves this arithmetic untouched and the suite green, which
-        #   is exactly how the expensive half of this could be missed.
-        # Not corrected here on purpose: correcting it moves numbers, and it has to
-        # move together with the writers.
+        # This offset is HA's, and so are the stamps and the `now` it is applied to:
+        # the writers read local_naive_now() and the storage migration to 14.2 moved
+        # older stamps. They used to be the PROCESS's clock, and on Docker or Core
+        # without `TZ=` this correction then priced the wrong hours of sun -- off by the
+        # whole UTC offset, where one hour already costs the figures above.
+        # NOT-TO-DO: do not expect aware timestamps to guard this. The offset does not
+        #   travel as `tzinfo` -- it travels as this float, through
+        #   `SiteGeometry.tz_offset_h` and on into `row["tz_offset_h"]`, so a stamp in
+        #   the wrong frame leaves this arithmetic untouched and the suite green. The
+        #   row hour shows it: tests/test_weather_buffer_one_frame.py.
         offset = dt_util.now().utcoffset()
         tz_offset_h = offset.total_seconds() / 3600.0 if offset else 0.0
 
@@ -931,7 +926,7 @@ class CalculationMixin:
         # window end land in different hours and silently drop the calculation
         # back to the single-shot path.
         if now is None:
-            now = datetime.now()
+            now = local_naive_now()
         # precip = 0
         ha_config_is_metric = self.hass.config.units is METRIC_SYSTEM
         bucket = zone.get(const.ZONE_BUCKET)
@@ -1190,11 +1185,10 @@ class CalculationMixin:
                     run_start = await self.recurring_schedule_manager.async_next_run_start_for_zone(
                         zone.get(const.ZONE_ID)
                     )
-                # dt_util, deliberately not this method's own `now`: that parameter
-                # defaults to a bare datetime.now(), which is naive process-local
-                # and is the seam #160 is about to move. expected_rain
-                # compares aware instants either way, so taking the moment from
-                # dt_util keeps this independent of how that lands.
+                # dt_util, deliberately not this method's own `now`: that value is
+                # naive on HA's clock, and expected_rain compares aware instants.
+                # Taking the moment from dt_util keeps this independent of the naive
+                # frame the buffer uses.
                 evaluated_at = dt_util.utcnow()
                 if run_start is None:
                     # No enabled schedule names this zone -- someone irrigating from

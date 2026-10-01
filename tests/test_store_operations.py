@@ -247,12 +247,13 @@ class TestZoneOperations:
     @pytest.mark.asyncio
     async def test_new_zone_anchors_last_consumed_at(self, hass):
         """A newly created zone anchors its consumption watermark at ~now."""
-        import datetime
+        from homeassistant.util import dt as dt_util
 
         store = SmartIrrigationStorage(hass)
         await store.async_load()
 
-        before = datetime.datetime.now()
+        # HA's clock, naive: the frame every weather-buffer stamp is written in.
+        before = dt_util.now().replace(tzinfo=None)
         created = await store.async_create_zone(
             {
                 const.ZONE_NAME: "Anchored",
@@ -261,7 +262,7 @@ class TestZoneOperations:
                 const.ZONE_STATE: const.ZONE_STATE_AUTOMATIC,
             }
         )
-        after = datetime.datetime.now()
+        after = dt_util.now().replace(tzinfo=None)
 
         watermark = created[const.ZONE_LAST_CONSUMED]
         assert watermark is not None

@@ -3,7 +3,7 @@
 Every step from v9 on has tests of its own; nothing drove these four, so an
 install upgrading from a very old release took a path no test had walked.
 
-Two levels. The steps are driven on a dict through ``_async_migrate_func``,
+Two levels. The steps are driven on a dict through ``_async_migrate_major``,
 exactly as the neighbouring migration tests do. Then one whole v3 document is
 loaded through Home Assistant's real Store: ``hass_storage`` routes its mock
 through the original ``_async_load`` so the migration runs as it does at
@@ -45,7 +45,7 @@ def _zone(zone_id, name, **extra):
 
 async def _migrate(hass, old_version, data):
     store = MigratableStore(hass, STORAGE_VERSION, STORAGE_KEY)
-    return await store._async_migrate_func(old_version, data)
+    return await store._async_migrate_major(old_version, data)
 
 
 class TestV3:

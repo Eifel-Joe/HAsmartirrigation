@@ -27,36 +27,31 @@ For those interested, [here's the function that does this most of the conversion
 
 ## Docker or Core: the container's time zone {#container-timezone}
 
-If you run Home Assistant in Docker, or as a Core install in a virtual environment, check that the
-container's time zone matches the one you set in Home Assistant. These are two separate settings,
-and nothing warns you when they disagree.
+The integration records the time of each weather reading, and of each zone's last
+calculation, on the clock you set in Home Assistant under **Settings → System →
+General**. The time zone of the container Home Assistant runs in (on a Core install, the
+machine's) does not change the calculation.
 
-Home Assistant OS and Supervised keep the two in step for you, so this cannot happen there — which
-is also why it is easy to miss.
+Earlier releases recorded those times on the container's clock. If you ran Home Assistant
+in Docker, or as a Core install in a virtual environment, and the container's time zone
+differed from Home Assistant's, the intra-day live estimate drifted away from the figure
+the nightly calculation arrives at, and on installs that use solar radiation the
+radiation figures were off as well. Home Assistant OS and Supervised keep the two in
+step, so this could not happen there.
 
-**The symptom:** the intra-day live estimate pulls away from the figure the nightly calculation
-commits, in the same direction every day and by roughly the same amount. On installs that use solar
-radiation, the radiation figures are off as well. Nothing errors, and the zone's **Last calculated**
-time looks perfectly normal.
+**When you update from such a release,** the times already recorded are converted once,
+the first time Home Assistant starts with the new release: each is read in the
+container's time zone as it is at that moment and moved onto Home Assistant's clock. If
+the two zones already agree, nothing moves. So leave the container's time zone (its `TZ`;
+on a Core install, the machine's) as it is until Home Assistant has started once with the
+new release, and change it afterwards if you want to. If you change it in the same step,
+the first calculation afterwards covers a period that is too long or too short by the
+difference between the container's old and new time zone, and the figures settle within a
+calculation or two.
 
-**The cause:** the integration records when it collected each weather reading. Those stamps are
-written in the container's time zone, while parts of the calculation read them in the zone you
-configured in Home Assistant. Where the two differ, every elapsed-time window is stretched or
-squeezed by the whole offset between them. At UTC+2 an hour that really passed is measured as three.
-
-**The fix:** start the container with `TZ` set to the same zone you chose under
-**Settings → System → General**. In a `docker-compose.yml`:
-
-```yaml
-environment:
-  - TZ=Europe/Berlin
-```
-
-or `-e TZ=Europe/Berlin` on a `docker run` command line. For a Core install, set `TZ` in the
-environment the Home Assistant process starts in. Restart Home Assistant afterwards.
-
-Readings already in the buffer keep the stamps they were written with, so the figures settle over
-the following day as the buffer turns over.
+Changing the time zone in Home Assistant itself has the same effect: the times already
+recorded carry no zone of their own, so the stored readings, which reach back up to a
+week, are read off by the difference until they have been replaced.
 
 > Main page: [Usage](usage.md)<br/>
 > Previous: [Automations](usage-automations.md)<br/>

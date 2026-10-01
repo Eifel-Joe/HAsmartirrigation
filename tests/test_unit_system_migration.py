@@ -427,12 +427,12 @@ class TestV13Migration:
 
     async def test_seeds_from_the_current_system(self, hass):
         hass.config.units = METRIC_SYSTEM
-        data = await self._store(hass)._async_migrate_func(12, self._v12_data())
+        data = await self._store(hass)._async_migrate_major(12, self._v12_data())
         assert data["config"][const.CONF_STORED_UNIT_SYSTEM] == const.UNIT_SYSTEM_METRIC
 
     async def test_seeds_us_customary_on_an_imperial_install(self, hass):
         hass.config.units = US_CUSTOMARY_SYSTEM
-        data = await self._store(hass)._async_migrate_func(12, self._v12_data())
+        data = await self._store(hass)._async_migrate_major(12, self._v12_data())
         assert (
             data["config"][const.CONF_STORED_UNIT_SYSTEM]
             == const.UNIT_SYSTEM_US_CUSTOMARY
@@ -442,7 +442,7 @@ class TestV13Migration:
         """Seeding is correct by construction precisely BECAUSE nothing moves."""
         hass.config.units = US_CUSTOMARY_SYSTEM
         before = _zone()
-        data = await self._store(hass)._async_migrate_func(12, self._v12_data())
+        data = await self._store(hass)._async_migrate_major(12, self._v12_data())
         assert data["zones"][0] == before
 
     async def test_an_existing_recorded_system_is_not_overwritten(self, hass):
@@ -451,12 +451,12 @@ class TestV13Migration:
         old = self._v12_data()
         old["config"][const.CONF_STORED_UNIT_SYSTEM] = const.UNIT_SYSTEM_METRIC
 
-        data = await self._store(hass)._async_migrate_func(12, old)
+        data = await self._store(hass)._async_migrate_major(12, old)
 
         assert data["config"][const.CONF_STORED_UNIT_SYSTEM] == const.UNIT_SYSTEM_METRIC
 
     async def test_existing_config_survives_the_bump(self, hass):
         hass.config.units = METRIC_SYSTEM
-        data = await self._store(hass)._async_migrate_func(12, self._v12_data())
+        data = await self._store(hass)._async_migrate_major(12, self._v12_data())
         assert data["config"]["calctime"] == "23:00"
         assert data["config"]["autocalcenabled"] is True

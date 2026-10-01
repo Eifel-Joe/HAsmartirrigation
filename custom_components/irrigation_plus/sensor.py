@@ -604,9 +604,9 @@ class SmartIrrigationZoneBucketEntity(SensorEntity, RestoreEntity):
 def _to_aware_datetime(value):
     """Parse a stored timestamp (datetime or ISO string) to an aware datetime.
 
-    The store writes naive local datetimes (``datetime.now()``) for
-    last_calculated/last_updated and aware ones (``dt_util.now()``) for
-    last_irrigation; naive values are interpreted as local time.
+    The store writes last_calculated/last_updated naive on HA's clock
+    (``local_naive_now()``) and last_irrigation aware (``dt_util.now()``); a naive
+    value is therefore given HA's zone.
     """
     if value is None:
         return None

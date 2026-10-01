@@ -70,7 +70,7 @@ class TestSmartIrrigationStore:
         from custom_components.irrigation_plus.store import MigratableStore
 
         store = MigratableStore(hass, 11, "test.storage")
-        migrated = await store._async_migrate_func(
+        migrated = await store._async_migrate_major(
             5, {"config": {const.CONF_CONTINUOUS_UPDATES: True}}
         )
         assert migrated["config"][const.CONF_CONTINUOUS_UPDATES] is True
@@ -102,7 +102,7 @@ class TestSmartIrrigationStore:
         from custom_components.irrigation_plus.store import MigratableStore
 
         store = MigratableStore(hass, 11, "test.storage")
-        migrated = await store._async_migrate_func(
+        migrated = await store._async_migrate_major(
             5, {"config": {const.CONF_CONTINUOUS_UPDATES: True}}
         )
         assert migrated["config"][const.CONF_HOURLY_CALCULATION] is False
@@ -112,7 +112,7 @@ class TestSmartIrrigationStore:
         from custom_components.irrigation_plus.store import MigratableStore
 
         store = MigratableStore(hass, 11, "test.storage")
-        migrated = await store._async_migrate_func(
+        migrated = await store._async_migrate_major(
             11, {"config": {const.CONF_HOURLY_CALCULATION: True}}
         )
         assert migrated["config"][const.CONF_HOURLY_CALCULATION] is True
@@ -142,12 +142,12 @@ class TestSmartIrrigationStore:
         from custom_components.irrigation_plus.store import MigratableStore
 
         store = MigratableStore(hass, 11, "test.storage")
-        kept = await store._async_migrate_func(
+        kept = await store._async_migrate_major(
             11, {"config": {const.CONF_FORECAST_WEATHER_ENTITY: "weather.home"}}
         )
         assert kept["config"][const.CONF_FORECAST_WEATHER_ENTITY] == "weather.home"
 
-        fresh = await store._async_migrate_func(5, {"config": {}})
+        fresh = await store._async_migrate_major(5, {"config": {}})
         assert fresh["config"][const.CONF_FORECAST_WEATHER_ENTITY] is None
 
     async def test_zone_crud(self, hass) -> None:
