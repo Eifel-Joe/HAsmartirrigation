@@ -23,6 +23,66 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-01 — #186 gemergt; production v2026.10.01 nur Branding; #22 zu; #160 per Belegkette beantwortet; Eifel-Joe#73 neu
+
+### Stand
+
+- **Upstream-Runde** ab 2026-09-30 21:43 UTC, zweimal, zuletzt **2026-10-01 08:14 UTC** (`upstream/master` `07891c6e`).
+  JustChr#186 am 01.10. 05:26 UTC gemergt als `a503dc40`; Squash-Tree = PR-Kopf `6e061bbc` (`cfb19e35`). Beta
+  v2026.10.01. Store bleibt 14.2 → die 14.3-Falle trat nicht ein, HA-Prod braucht keinen Rollback. Merge-Notiz ohne
+  Einwand; seine Anmerkung zum Rollback-Test (vendort die Major-Schritte, nicht 09.17s Funktion) gegen **seinen** Tag
+  v2026.09.17 (`6d9c69e6`) per AST-Vergleich nachgemessen: nur Name + 5 Zeilen `forecast_weather_entity`-Default.
+  JustChr#185: Zustimmung, keine Änderung (Notes nennen das Stopp-Skript). JustChr#160 offen „bis Feldtest“.
+- **production `45fb7dbc`** = `upstream/master` + Branding (0 behind / 1 ahead); Fork-Release
+  [v2026.10.01](https://github.com/Eifel-Joe/HAsmartirrigation/releases/tag/v2026.10.01). Belege und Schnellweg:
+  Memory `hasi-production-on-upstream`. **HA-Prod bewusst nicht aktualisiert** (Code = v2026.09.30).
+- **P2:** Eifel-Joe#22 geschlossen (Kommentar `5927482459`); Eifel-Joe#66 Status (`5925869524`); **Eifel-Joe#73 neu**
+  (*Next irrigation* schreibt bei jeder Aktualisierung kurz eine leere Projektion: ~180 Zeilen/Zone/h auf HA-Prod,
+  Wurzel `self._projection = None` vor dem `await` + HAs `_update_staged`; prod-scharf, niedrig); #42: Punkt 24
+  durchgestrichen, 39d = #73, JustChr#160 unter „Watched“. Texte: `prodrebuild-1001-work\texts\`.
+- **JustChr#160:** Kommentar `5927469810` — Belegkette statt Feldtest (20 Tests mit getrennten Zonen; Kindprozess
+  `TZ=EST5EDT`; Identität auf Prod/Test auf demselben Image wie Container; Store unter der Major-Sperre), Schließen
+  vorgeschlagen, Docker-Lauf angeboten (User: Angebot bleibt). Tiefensuche + Analyse:
+  `issue160-work\analysis-2026-10-01.md`, Rohberichte `issue160-work\research\`. HACS läuft auf Container (Doku,
+  Skript, Code); „nur OS/Supervised“ stammt von HAs Apps-Seite.
+- **HA-Prod Sunrise 01.10.:** zu Recht ausgelassen (`skip_reasons: ["precipitation"]`, es regnete); die neuen Fixes
+  wurden noch nicht ausgeübt. Für 02.10. (06:43) `will_water: true`.
+- **Aufgeräumt:** `prodrebuild-work` und `issue22-work` → `_erledigt` (Worktrees abgemeldet; der unerreichbare
+  Referenz-Commit `b381a7cc` „ref t6“ als `_erledigt\issue22-work\ref-t6-b381a7cc.bundle`); Branch
+  `rebuild/v2026.09.30` gelöscht. Neu: `prodrebuild-1001-work\` (Worktree `wt` auf `rebuild/v2026.10.01` = production).
+
+### Verworfen
+
+- Docker-Feldtest auf einer Proxmox-VM (Debian, HA Container 2026.9.4, `TZ=UTC`, 09.28 → 10.01 → 09.28 → 10.01):
+  User will nicht testen; nur wenn JustChr ausdrücklich darum bittet. Aufbau: Memory `hasi-proxmox-test-vms`.
+- „Container kann HACS nicht“ als Schließ-Argument: widerlegt (HACS-Doku, Skript ohne Typprüfung, Code-Historie).
+- Zeitprognose „Stable mit #186 bis 15.10.“: zurückgezogen — aus früheren Releases nicht ableitbar (User).
+- 08.17-Präzedenz im #160-Kommentar: herausgenommen, aus demselben Grund.
+
+### Fallen
+
+- **Python `write_text` unter Windows schreibt CRLF** — ein so korrigierter Text wird mit CRLF gepostet (inhaltlich
+  gleich). Für zu postende Dateien Bytes schreiben oder `newline=""`.
+- **Bash-Tool frisst Backslashes auch in `$'\r'` und in jq-Regex** (`\.`) → CR zählen und Regex per Python.
+- **Lokaler Tag `v2026.09.17` zeigt auf unseren Fork-Release `bf2b38b7`**, nicht auf JustChrs `6d9c69e6` —
+  upstream-Tags per `gh api repos/JustChr/HAsmartirrigation/git/ref/tags/<tag>` auflösen.
+- `git show upstream/master:.github/…` zerhackt MSYS → `MSYS_NO_PATHCONV=1` davor.
+- `ha_get_history` mit `minimal_response=true` lässt reine Attribut-Updates weg → Churn nur mit `false` sichtbar.
+- Agenten-Angabe „21 Stellen“ war falsch (20 Tests); Agentenzahlen vor Verwendung nachmessen.
+
+### Nächste Schritte
+
+1. **Upstream-Runde ab 2026-10-01 08:14 UTC.** JustChrs Antwort auf #160 ist eine Zeile davon: schließt er → in #42
+   die Watched-Zeile streichen; bittet er um den Lauf → User fragen, dann neues Issue + VM.
+2. **HA-Prod:** Sunrise-Lauf 02.10. (06:43) prüfen — erster echter Lauf mit #173/#174/#178/#176/#180.
+3. **Weiter nach #42:** Eifel-Joe#8 (toter Sensor ohne Altersgrenze) — Spec zuerst.
+4. Eifel-Joe#73 bei Gelegenheit: kleiner Fix (Projektion lokal sammeln, einmal zuweisen), upstream melden, wenn dran.
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:brainstorming` (für #8); Memories `upstream-sweep-first`, `hasi-production-on-upstream`,
+  `hasi-proxmox-test-vms`.
+
 ## 2026-09-30 (5) — Upstream-Runde leer; production v2026.09.30 mit JustChr#186, HA-Prod aktualisiert
 
 ### Stand
