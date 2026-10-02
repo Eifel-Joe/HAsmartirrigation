@@ -25,6 +25,7 @@ from custom_components.irrigation_plus.calculation import (
     hourly_radiation_series,
     trailing_radiation_calibration,
 )
+from custom_components.irrigation_plus.day_projection import MAX_REMAINDER_HOURS
 from custom_components.irrigation_plus.sensor import (
     SmartIrrigationZoneLiveDeficitSensor,
 )
@@ -596,6 +597,29 @@ class TestTheCommitRecordsTheCalibration:
         )
         assert bool(entries) is recorded
 
+    @pytest.mark.parametrize(
+        ("hours", "recorded"),
+        [(MAX_REMAINDER_HOURS, True), (MAX_REMAINDER_HOURS + 1, False)],
+    )
+    async def test_a_stalled_watermark_is_not_recorded_as_one_window(
+        self, coordinator, hours, recorded
+    ):
+        """Days of weather averaged into one mean are not a day's pair, and the
+        extraterrestrial walk over them must not run away."""
+        c, store = coordinator
+        zone, _module, _instance = await _measuring_zone(c, store, 2.0)
+
+        await c._record_window_radiation(
+            zone,
+            {const.MAPPING_SOLRAD: 15.0},
+            now=ANCHOR + timedelta(hours=hours),
+        )
+
+        entries = store.get_mapping(zone[const.ZONE_MAPPING]).get(
+            const.MAPPING_RADIATION_CALIBRATION
+        )
+        assert bool(entries) is recorded
+
     async def test_a_group_without_a_solar_sensor_records_nothing(self, coordinator):
         c, store = coordinator
         zone, _module, _instance = await _measuring_zone(c, store, 2.0)
@@ -713,6 +737,24 @@ class TestTheTrailingCalibration:
         c, store = coordinator
         zone, _module, _instance = await _measuring_zone(c, store, 2.0)
         await self._seed(store, zone, [["2026-05-21", 20.0, 25.0, 40.0]])
+
+        ratio, clearness = trailing_radiation_calibration(
+            store, zone[const.ZONE_MAPPING]
+        )
+
+        assert ratio is None
+        assert clearness == pytest.approx(0.5)
+
+    async def test_a_window_the_forecast_saw_no_sun_in_is_not_a_pair(self, coordinator):
+        """A forecast that integrates to nothing cannot scale anything, and
+        counting it would divide by zero once two such windows were stored."""
+        c, store = coordinator
+        zone, _module, _instance = await _measuring_zone(c, store, 2.0)
+        await self._seed(
+            store,
+            zone,
+            [["2026-05-21", 20.0, 0.0, 40.0], ["2026-05-22", 20.0, 0.0, 40.0]],
+        )
 
         ratio, clearness = trailing_radiation_calibration(
             store, zone[const.ZONE_MAPPING]
