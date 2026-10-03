@@ -517,3 +517,60 @@ class TestReleasingEveryChain:
         ]
         assert "Could not release" in caplog.text
         assert any(record.exc_info for record in caplog.records)
+
+
+# --------------------------------------------------------------------------- #
+# The stop instruction on its own
+# --------------------------------------------------------------------------- #
+class TestTheStopInstruction:
+    async def test_the_stop_service_gets_a_zero_duration_under_its_field(self, hass):
+        """The payload carries the run's zone id, not the id field of the zone."""
+        c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+
+        sent = await c._sc_dispatch_stop(7, _zone())
+        await hass.async_block_till_done()
+
+        assert sent is True
+        assert _stops(calls) == [{"zone_id": 7, "dauer": 0}]
+
+    @pytest.mark.parametrize(
+        "unset", ["absent", None, ""], ids=["absent", "none", "empty"]
+    )
+    async def test_a_zone_without_a_stop_service_sends_nothing(self, hass, unset):
+        c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        zone = _zone()
+        if unset == "absent":
+            del zone[const.ZONE_STOP_SERVICE]
+        else:
+            zone[const.ZONE_STOP_SERVICE] = unset
+
+        sent = await c._sc_dispatch_stop(2, zone)
+        await hass.async_block_till_done()
+
+        assert sent is False
+        assert calls == []
+
+    @pytest.mark.parametrize("with_stop_service", [True, False])
+    async def test_an_opensprinkler_zone_stops_through_its_station(
+        self, hass, with_stop_service
+    ):
+        """Never through the stop_service adapter, configured or not.
+
+        opensprinkler.stop is entity-targeted and rejects the zone_id the
+        adapter sends.
+        """
+        c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        c._os_dispatch_stop = AsyncMock()
+        zone = _zone(**{const.ZONE_WATERING_MODE: const.WATERING_MODE_OPENSPRINKLER})
+        if not with_stop_service:
+            del zone[const.ZONE_STOP_SERVICE]
+
+        sent = await c._sc_dispatch_stop(2, zone)
+        await hass.async_block_till_done()
+
+        assert sent is True
+        c._os_dispatch_stop.assert_awaited_once_with(zone)
+        assert _stops(calls) == []

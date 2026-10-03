@@ -967,6 +967,41 @@ class SelfClosingMixin:
                 return r
         return None
 
+    async def _sc_dispatch_stop(self, zone_id, zone: dict) -> bool:
+        """Send the zone's stop instruction; True if one went out.
+
+        False only for a zone nothing can close: not OpenSprinkler, and no
+        stop_service. What to say about that is the caller's, because a stop
+        that settles the run and one that only closes it (a removal) mean
+        different things by it. A service call that fails raises out of here
+        for the same reason. ``zone_id`` is the id of the run being stopped;
+        the payload carries it, not the id field of ``zone``.
+        """
+        if is_opensprinkler_zone(zone):
+            # opensprinkler.stop is entity-targeted; the stop_service adapter
+            # below sends a zone_id that its schema rejects.
+            await self._os_dispatch_stop(zone)
+            return True
+        stop_svc = zone.get(const.ZONE_STOP_SERVICE)
+        if not stop_svc:
+            return False
+        domain, service = self._sc_split_service(stop_svc)
+        data = {}
+        data["zone_id"] = zone_id
+        # A zero duration IS the stop instruction for the shipped
+        # blueprints, which run one script for both directions and
+        # branch on it. It was documented but never actually sent, so
+        # the script received no `duration` at all and a template
+        # reading it raised instead of closing the valve — the call is
+        # not blocking, so that surfaced only in the log while the run
+        # was settled as stopped and the valve went on watering to the
+        # end of its hardware countdown. Sent under the zone's own
+        # duration field, the same key the open uses.
+        field = zone.get(const.ZONE_DURATION_FIELD) or "duration"
+        data[field] = 0
+        await self.hass.services.async_call(domain, service, data)
+        return True
+
     async def async_stop_self_closing(
         self,
         zone_id,
@@ -1002,33 +1037,12 @@ class SelfClosingMixin:
         # Close the valve (best-effort). Skipped entirely when the hardware has
         # already ended the run itself, which is every OpenSprinkler finish
         # except a user-initiated stop.
-        if close_valve:
-            if is_opensprinkler_zone(zone):
-                # opensprinkler.stop is entity-targeted; the stop_service adapter
-                # below sends a zone_id that its schema rejects.
-                await self._os_dispatch_stop(zone)
-            elif stop_svc := zone.get(const.ZONE_STOP_SERVICE):
-                domain, service = self._sc_split_service(stop_svc)
-                data = {}
-                data["zone_id"] = zone_id
-                # A zero duration IS the stop instruction for the shipped
-                # blueprints, which run one script for both directions and
-                # branch on it. It was documented but never actually sent, so
-                # the script received no `duration` at all and a template
-                # reading it raised instead of closing the valve — the call is
-                # not blocking, so that surfaced only in the log while the run
-                # was settled as stopped and the valve went on watering to the
-                # end of its hardware countdown. Sent under the zone's own
-                # duration field, the same key the open uses.
-                field = zone.get(const.ZONE_DURATION_FIELD) or "duration"
-                data[field] = 0
-                await self.hass.services.async_call(domain, service, data)
-            else:
-                _LOGGER.warning(
-                    "Zone %s stopped in self-closing mode without a stop_service; "
-                    "cannot close the valve, correcting accounting only",
-                    zone_id,
-                )
+        if close_valve and not await self._sc_dispatch_stop(zone_id, zone):
+            _LOGGER.warning(
+                "Zone %s stopped in self-closing mode without a stop_service; "
+                "cannot close the valve, correcting accounting only",
+                zone_id,
+            )
 
         # Correct the bucket for the undelivered portion of the optimistic open credit.
         planned = float(run.get(const.RUN_PLANNED_SECONDS) or 0)
