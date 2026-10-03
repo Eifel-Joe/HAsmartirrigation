@@ -35,7 +35,6 @@ from homeassistant.exceptions import ServiceNotFound
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     async_capture_events,
-    async_fire_time_changed,
     async_mock_service,
 )
 
@@ -756,3 +755,203 @@ class TestAbortingTheServiceRuns:
 
         c.async_stop_self_closing.assert_not_awaited()
         assert "Could not release the service chain" in caplog.text
+
+
+# --------------------------------------------------------------------------- #
+# The entry paths
+# --------------------------------------------------------------------------- #
+def _steps(coordinator):
+    """Each call on the mock coordinator, with its arguments, in order."""
+    return [(name, args, kwargs) for name, args, kwargs in coordinator.mock_calls]
+
+
+class TestTheEntryPaths:
+    """Which unload stops what, and in which order (mock coordinator)."""
+
+    @staticmethod
+    def _coordinator(hass):
+        coordinator = AsyncMock()
+        hass.data[const.DOMAIN] = {"coordinator": coordinator}
+        return coordinator
+
+    async def test_a_reload_stops_nothing(self, hass, mock_config_entry):
+        """A pin: green before the change too. The successor adopts the runs."""
+        coordinator = self._coordinator(hass)
+        panel, forward = _unload_patches(hass)
+        with panel, forward:
+            assert await async_unload_entry(hass, mock_config_entry) is True
+
+        assert _called(coordinator) == ["async_unload"]
+
+    async def test_disabling_stops_everything_before_the_unload(
+        self, hass, mock_config_entry
+    ):
+        """Every abort settles: the master's end relies on the holds they free."""
+        coordinator = self._coordinator(hass)
+        mock_config_entry.disabled_by = ConfigEntryDisabler.USER
+        panel, forward = _unload_patches(hass)
+        with panel, forward:
+            assert await async_unload_entry(hass, mock_config_entry) is True
+
+        assert _steps(coordinator) == [
+            ("async_release_all_chains", (DISABLED,), {}),
+            ("async_abort_opensprinkler_runs", (DISABLED,), {}),
+            ("async_abort_batch_runs", (DISABLED,), {}),
+            ("async_abort_self_closing_runs", (DISABLED,), {}),
+            ("async_master_end_cycle_now", (), {}),
+            ("async_unload", (), {}),
+        ]
+
+    async def test_removal_stops_without_settling_before_the_delete(
+        self, hass, mock_config_entry
+    ):
+        """Nothing is written to the store about to be deleted."""
+        coordinator = self._coordinator(hass)
+        with (
+            patch("custom_components.irrigation_plus.remove_panel"),
+            patch(
+                "custom_components.irrigation_plus.async_remove_card_resource",
+                new=AsyncMock(),
+            ),
+        ):
+            await async_remove_entry(hass, mock_config_entry)
+
+        assert _steps(coordinator) == [
+            ("async_abort_opensprinkler_runs", (REMOVED,), {"settle": False}),
+            ("async_abort_batch_runs", (REMOVED,), {"settle": False}),
+            ("async_abort_self_closing_runs", (REMOVED,), {"settle": False}),
+            ("async_master_end_cycle_now", (), {}),
+            ("async_delete_config", (), {}),
+        ]
+
+
+class TestDisablingMidRun:
+    """The whole disable, through async_unload_entry, on the real hass."""
+
+    @pytest.mark.parametrize(("off_after", "pump_offs"), [(True, 1), (False, 0)])
+    async def test_the_run_is_stopped_and_booked_and_the_cycle_ended(
+        self, hass, mock_config_entry, off_after, pump_offs
+    ):
+        """600 s plan, a queued second zone, disabled at 300 s.
+
+        Measured 50 L (10 L/min for 300 s): not the 1 L this host books by
+        time, not the 100 L of the plan. The queued zone never opens, and the
+        pump goes off only if it is set to go off after its runs.
+        """
+        c = _unloadable(_coord(hass))
+        _metered(c)
+        _the_real_backstop_from_here(c)
+        _real_master(c, hass, off_after=off_after)
+        c.store.config.zone_sequencing = SEQUENTIAL
+        c.store.config.zone_sequencing_max_consecutive_duration = 5
+        c.store.config.zone_sequencing_min_absorption_time = 0
+        hass.data[const.DOMAIN] = {"coordinator": c}
+        mock_config_entry.disabled_by = ConfigEntryDisabler.USER
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        first, second = _metered_zone(600), _zone(3, confirm=None)
+        c._zones[2], c._zones[3] = first, second
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _set(hass, VALVE, "on")
+            await c.async_dispatch_chained_zones(
+                [first, second], mode=const.WATERING_MODE_SERVICE, trigger="schedule"
+            )
+            await hass.async_block_till_done()
+            await _walk(hass, frozen, 300)
+            panel, forward = _unload_patches(hass)
+            with panel, forward:
+                assert await async_unload_entry(hass, mock_config_entry) is True
+            await hass.async_block_till_done()
+            await _walk(hass, frozen, 600)  # past the plan, any grace, any off timer
+
+        assert _stops(calls) == [{"zone_id": 2, "dauer": 0}]
+        c._record_run.assert_awaited_once()
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["volume_l"] == pytest.approx(RATE * 300 / 60, abs=0.01)
+        assert _opened(calls) == [2]
+        assert len(_pump_offs(calls)) == pump_offs
+        assert c._sc_meters() == {}
+        assert c._sc_cleanup_timers() == {}
+
+    async def test_a_disable_in_an_absorption_pause_switches_the_pump_off(
+        self, hass, mock_config_entry
+    ):
+        """No run in flight, so no abort releases the chain; its hold would stay."""
+        c = _unloadable(_chain_coord(hass, ROTATING, slot=1, absorb=10))
+        _real_master(c, hass)
+        hass.data[const.DOMAIN] = {"coordinator": c}
+        mock_config_entry.disabled_by = ConfigEntryDisabler.USER
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _chain_dispatch(c, _register(c, _chain_zone(1, duration=180)))
+            await _finish(c, 1)
+            state = c._chain_state(const.WATERING_MODE_SERVICE)
+            assert state.absorb is not None and state.token is not None
+
+            panel, forward = _unload_patches(hass)
+            with panel, forward:
+                assert await async_unload_entry(hass, mock_config_entry) is True
+            await hass.async_block_till_done()
+            await _advance(hass, frozen, 700)  # past the 600 s absorption wait
+
+        assert state.absorb is None and state.token is None
+        assert len(_pump_offs(calls)) == 1
+        assert _chain_ids(c) == [1]  # no second slot
+
+
+class TestRemovingMidRun:
+    """Home Assistant unloads first, then removes the entry: on the real hass."""
+
+    async def test_the_valve_is_closed_and_the_pump_switched_off(
+        self, hass, mock_config_entry
+    ):
+        """Nothing is booked, and the pump goes off after the valve's stop.
+
+        The plain unload drops the run's hold without releasing it, so only
+        async_master_end_cycle_now ends the master's cycle.
+        """
+        c = _unloadable(_coord(hass))
+        _metered(c)
+        _the_real_backstop_from_here(c)
+        _real_master(c, hass)
+        c.store.config.zone_sequencing = SEQUENTIAL
+        c.store.config.zone_sequencing_max_consecutive_duration = 5
+        c.store.config.zone_sequencing_min_absorption_time = 0
+        c.store.async_delete = AsyncMock()
+        hass.data[const.DOMAIN] = {"coordinator": c}
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        first, second = _metered_zone(600), _zone(3, confirm=None)
+        c._zones[2], c._zones[3] = first, second
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _set(hass, VALVE, "on")
+            await c.async_dispatch_chained_zones(
+                [first, second], mode=const.WATERING_MODE_SERVICE, trigger="schedule"
+            )
+            await hass.async_block_till_done()
+            await _walk(hass, frozen, 300)
+            panel, forward = _unload_patches(hass)
+            with panel, forward:
+                assert await async_unload_entry(hass, mock_config_entry) is True
+            with (
+                patch("custom_components.irrigation_plus.remove_panel"),
+                patch(
+                    "custom_components.irrigation_plus.async_remove_card_resource",
+                    new=AsyncMock(),
+                ),
+            ):
+                await async_remove_entry(hass, mock_config_entry)
+            await hass.async_block_till_done()
+            await _walk(hass, frozen, 600)
+
+        services = [e.data["service"] for e in calls]
+        assert _stops(calls) == [{"zone_id": 2, "dauer": 0}]
+        c._record_run.assert_not_awaited()
+        assert _opened(calls) == [2]
+        assert len(_pump_offs(calls)) == 1
+        assert services.index("stop_irrigation_beet") < services.index("turn_off")
+        c.store.async_delete.assert_awaited_once()
