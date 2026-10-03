@@ -200,3 +200,72 @@ class TestTheTeardownCancelsBothTimers:
 
         assert c._sc_meters() == {}
         assert c._sc_cleanup_timers() == {}
+
+
+# --------------------------------------------------------------------------- #
+# A reload in the middle of a run
+# --------------------------------------------------------------------------- #
+class TestAReloadMidRun:
+    """The old coordinator unloads, the new one adopts the run from the store."""
+
+    async def test_the_run_is_booked_once_by_the_new_coordinator(self, hass):
+        """And the old sampler stops: it used to tick until the next restart.
+
+        The meter does not cross the reload, exactly as it does not cross a
+        restart: the new coordinator books the run by time (1 L in this host).
+        """
+        old = _unloadable(_coord(hass))
+        _metered(old)
+        _the_real_backstop_from_here(old)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _dispatch(hass, old, _metered_zone(600))
+            await _walk(hass, frozen, 300)
+            old._sc_sample_flow = Mock(wraps=old._sc_sample_flow)
+            await old.async_unload()
+
+            new = _coord(hass)
+            new.store = old.store  # one store, as across a real reload
+            _metered(new)
+            _the_real_backstop_from_here(new)
+            await new.async_resume_self_closing_runs()
+            await hass.async_block_till_done()
+
+            await _walk(hass, frozen, 300)  # 600: the valve closes
+            await _flow(hass, 0)
+            await _report(hass, "off", started + timedelta(seconds=600))
+            await _advance(hass, frozen, const.SERVICE_WATCH_SETTLE_SECONDS + 1)
+            await _walk(hass, frozen, 60)  # past where the old backstop was due
+
+        assert await new._sc_find_run(2) is None
+        new._record_run.assert_awaited_once()
+        assert _litres(new) == 1.0
+        old._record_run.assert_not_awaited()
+        old._sc_sample_flow.assert_not_called()
+        assert old._sc_meters() == {}
+        assert old._sc_cleanup_timers() == {}
+
+    async def test_a_run_ending_during_the_reload_waits_for_the_successor(self, hass):
+        """The old backstop used to settle it through the dead coordinator."""
+        old = _unloadable(_coord(hass))
+        _the_real_backstop_from_here(old)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _dispatch(hass, old, _zone())
+            await _advance(hass, frozen, 300)
+            await old.async_unload()
+            await _advance(hass, frozen, 400)  # 700: past plan and grace
+
+            assert await old._sc_find_run(2) is not None
+            old._record_run.assert_not_awaited()
+
+            new = _coord(hass)
+            new.store = old.store
+            await new.async_resume_self_closing_runs()
+            await hass.async_block_till_done()
+
+        assert await new._sc_find_run(2) is None
+        new._record_run.assert_awaited_once()
+        assert new._record_run.await_args.kwargs["planned_s"] == 600
+        old._record_run.assert_not_awaited()

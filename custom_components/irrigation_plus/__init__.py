@@ -2242,6 +2242,11 @@ class SmartIrrigationCoordinator(
         # Same for the batch controller: its paused-indicator subscription and
         # any pending pause bound would otherwise fire against a dead coordinator.
         self.async_teardown_batch_watchers()
+        # And every self-closing flow sampler and backstop. Left armed, the
+        # backstop settles a run the new coordinator has adopted, or finds it
+        # already gone and strands its sampler, which ticks until Home
+        # Assistant restarts. The run itself stays for the resume path.
+        self.async_teardown_self_closing_handles()
 
         # Cancel the continuous-update sensor subscription AND its pending
         # debounce timers — a surviving async_call_later would fire against this
