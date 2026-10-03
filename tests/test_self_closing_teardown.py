@@ -604,6 +604,9 @@ class TestAbortingTheServiceRuns:
         assert kw["actual_s"] == pytest.approx(300, abs=1)
         c.async_master_release.assert_awaited_once_with("sc:2")
         assert "without a stop_service" not in caplog.text  # it was closed
+        assert (
+            f"Zone 2: stopping its self-closing run because {DISABLED}" in caplog.text
+        )
 
     async def test_a_record_without_a_mode_is_a_service_run(self, hass):
         """The resume path reads it as one, so the abort does too."""
@@ -756,6 +759,17 @@ class TestAbortingTheServiceRuns:
 
         c.async_stop_self_closing.assert_not_awaited()
         assert "Could not release the service chain" in caplog.text
+
+    async def test_only_runs_actually_stopped_count(self, hass):
+        """A stop that raised, or found its run already gone, stopped nothing."""
+        c = _coord(hass)
+        c._cfg[const.CONF_ACTIVE_VALVE_RUNS] = [
+            {const.RUN_ZONE_ID: 2, const.RUN_MODE: const.WATERING_MODE_SERVICE},
+            {const.RUN_ZONE_ID: 4, const.RUN_MODE: const.WATERING_MODE_SERVICE},
+        ]
+        c.async_stop_self_closing = AsyncMock(side_effect=[RuntimeError("boom"), False])
+
+        assert await c.async_abort_self_closing_runs(DISABLED) is False
 
 
 # --------------------------------------------------------------------------- #
