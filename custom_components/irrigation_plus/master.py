@@ -143,8 +143,21 @@ class MasterMixin:
         await self.async_master_schedule_off()
 
     def _master_release_all(self) -> None:
-        """Drop every hold without touching the hardware (unload/reset only)."""
+        """Drop every hold and the pending off timer, without touching the
+        hardware (unload/reset only).
+
+        The timer closes over this coordinator and reads its holds. Left armed
+        across a reload it fired against the emptied holds of a dead
+        coordinator, read them as "nothing running" and, with master_off_after,
+        switched the master off under a run the new coordinator had just started.
+        At boot the clean-up ends the cycle itself, so a timer the resume pass
+        armed would only have repeated that.
+        """
         self._master_hold_set().clear()
+        cancel = getattr(self, "_master_off_cancel", None)
+        if cancel is not None:
+            cancel()
+            self._master_off_cancel = None
 
     def _master_note_run(self, seconds: float):
         """Record the latest expected cycle end (now + seconds).

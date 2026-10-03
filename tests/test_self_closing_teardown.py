@@ -269,3 +269,73 @@ class TestAReloadMidRun:
         new._record_run.assert_awaited_once()
         assert new._record_run.await_args.kwargs["planned_s"] == 600
         old._record_run.assert_not_awaited()
+
+
+# --------------------------------------------------------------------------- #
+# The master's off timer goes with the coordinator
+# --------------------------------------------------------------------------- #
+class TestTheMasterOffTimerGoesWithTheCoordinator:
+    """It closes over the coordinator and reads its holds when it fires."""
+
+    async def test_release_all_cancels_a_pending_off(self, monkeypatch):
+        """Left armed it read the emptied holds as "nothing running"."""
+        c = _mcoord(master_off_after=True)
+        cancel = Mock()
+        monkeypatch.setattr(
+            "custom_components.irrigation_plus.master.async_call_later",
+            Mock(return_value=cancel),
+        )
+        await c.async_master_acquire("sc:2")
+        await c.async_master_release("sc:2")  # the last hold: the off timer
+        assert c._master_off_cancel is cancel
+
+        c._master_release_all()
+
+        cancel.assert_called_once_with()
+        assert c._master_off_cancel is None
+
+    async def test_an_unload_leaves_no_off_timer_behind(self, hass):
+        """On the real timer, scheduled while a hold was still taken.
+
+        A distributor schedules the off while it still holds the master. The
+        unload empties the holds, so a timer left armed read "nothing running"
+        when it fired and switched the pump off, under whatever the next
+        coordinator had started on it by then.
+        """
+        c = _unloadable(_coord(hass))
+        _real_master(c, hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await c.async_master_acquire("dist:1")
+            c._master_note_run(60)
+            await c.async_master_schedule_off()
+            assert c._master_off_cancel is not None
+
+            await c.async_unload()
+            await _advance(hass, frozen, 120)
+
+        assert _pump_offs(calls) == []
+        assert c._master_off_cancel is None
+        assert c.master_holds() == set()
+
+    async def test_the_boot_clean_up_switches_the_pump_off_once(self, hass):
+        """The resume pass can arm the off timer before the clean-up runs.
+
+        Settling a run that ended during the outage releases a hold this
+        process never took, and that schedules the off. The clean-up switches
+        the master off itself; the timer only did it again, five seconds later.
+        """
+        c = _coord(hass)
+        _real_master(c, hass)
+        c.store.async_get_distributors = AsyncMock(return_value=[])
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await c.async_master_release("sc:2")  # the resume pass, settling
+            assert c._master_off_cancel is not None
+
+            await c.async_reconcile_master_after_restart()
+            await _advance(hass, frozen, 30)
+
+        assert len(_pump_offs(calls)) == 1
