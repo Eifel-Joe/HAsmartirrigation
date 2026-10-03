@@ -574,3 +574,185 @@ class TestTheStopInstruction:
         assert sent is True
         c._os_dispatch_stop.assert_awaited_once_with(zone)
         assert _stops(calls) == []
+
+
+# --------------------------------------------------------------------------- #
+# Aborting the service runs
+# --------------------------------------------------------------------------- #
+async def _a_run_halfway(hass, c, frozen, zone=None):
+    await _dispatch(hass, c, zone or _zone())
+    await _advance(hass, frozen, 300)
+
+
+class TestAbortingTheServiceRuns:
+    """The service twin of async_abort_opensprinkler_runs."""
+
+    async def test_a_service_run_is_stopped_and_settled(self, hass, caplog):
+        c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _a_run_halfway(hass, c, frozen)
+            stopped = await c.async_abort_self_closing_runs(DISABLED)
+            await hass.async_block_till_done()
+
+        assert stopped is True
+        assert _stops(calls) == [{"zone_id": 2, "dauer": 0}]
+        assert await c._sc_find_run(2) is None
+        kw = c._record_run.await_args.kwargs
+        assert kw["result"] == const.RUN_RESULT_PARTIAL
+        assert kw["actual_s"] == pytest.approx(300, abs=1)
+        c.async_master_release.assert_awaited_once_with("sc:2")
+        assert "without a stop_service" not in caplog.text  # it was closed
+
+    async def test_a_record_without_a_mode_is_a_service_run(self, hass):
+        """The resume path reads it as one, so the abort does too."""
+        c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        c._zones[2] = _zone()
+        c._cfg[const.CONF_ACTIVE_VALVE_RUNS] = [
+            {
+                const.RUN_ZONE_ID: 2,
+                const.RUN_PLANNED_SECONDS: 600,
+                const.RUN_PLANNED_MM: 10.0,
+                const.RUN_STARTED: dt_util.utcnow().isoformat(),
+                const.RUN_PRE_BUCKET: -20.0,
+            }
+        ]
+
+        assert await c.async_abort_self_closing_runs(DISABLED) is True
+        await hass.async_block_till_done()
+
+        assert _stops(calls) == [{"zone_id": 2, "dauer": 0}]
+        assert await c._sc_find_run(2) is None
+
+    async def test_opensprinkler_and_batch_runs_are_left_to_their_own_abort(self, hass):
+        c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        runs = [
+            {const.RUN_ZONE_ID: 5, const.RUN_MODE: const.WATERING_MODE_OPENSPRINKLER},
+            {const.RUN_ZONE_ID: 6, const.RUN_MODE: const.WATERING_MODE_BATCH},
+        ]
+        c._cfg[const.CONF_ACTIVE_VALVE_RUNS] = [dict(r) for r in runs]
+        c._chain_release = AsyncMock()
+
+        assert await c.async_abort_self_closing_runs(DISABLED) is False
+        await hass.async_block_till_done()
+
+        assert calls == []
+        assert c._cfg[const.CONF_ACTIVE_VALVE_RUNS] == runs
+        c._chain_release.assert_not_awaited()
+
+    async def test_the_chain_is_released_before_the_first_stop(self, hass):
+        """Otherwise the settled stop advances the chain and opens the next zone."""
+        c = _coord(hass)
+        c.store.config.zone_sequencing = SEQUENTIAL
+        c.store.config.zone_sequencing_max_consecutive_duration = 5
+        c.store.config.zone_sequencing_min_absorption_time = 0
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        first, second = _zone(), _zone(3, confirm=None)
+        c._zones[2], c._zones[3] = first, second
+        await _set(hass, VALVE, "on")
+        await c.async_dispatch_chained_zones(
+            [first, second], mode=const.WATERING_MODE_SERVICE, trigger="schedule"
+        )
+        await hass.async_block_till_done()
+        assert _opened(calls) == [2]
+
+        await c.async_abort_self_closing_runs(DISABLED)
+        await hass.async_block_till_done()
+
+        assert _opened(calls) == [2]
+        assert c._chain_state(const.WATERING_MODE_SERVICE).zones == []
+
+    async def test_without_settling_only_the_stop_goes_out(self, hass):
+        c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _a_run_halfway(hass, c, frozen)
+            stopped = await c.async_abort_self_closing_runs(REMOVED, settle=False)
+            await hass.async_block_till_done()
+
+        assert stopped is True
+        assert _stops(calls) == [{"zone_id": 2, "dauer": 0}]
+        assert await c._sc_find_run(2) is not None  # the store is deleted next
+        c._record_run.assert_not_awaited()
+        c.async_master_release.assert_not_awaited()
+        c._watch_cancel(2)  # the run's watcher, still armed
+
+    async def test_a_zone_without_a_stop_service_is_still_settled(self, hass, caplog):
+        c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        zone = _zone()
+        del zone[const.ZONE_STOP_SERVICE]
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _a_run_halfway(hass, c, frozen, zone)
+            assert await c.async_abort_self_closing_runs(DISABLED) is True
+            await hass.async_block_till_done()
+
+        assert _stops(calls) == []
+        assert c._record_run.await_args.kwargs["result"] == const.RUN_RESULT_PARTIAL
+        assert "without a stop_service" in caplog.text
+
+    async def test_a_stop_that_raises_does_not_stop_the_rest(self, hass, caplog):
+        c = _coord(hass)
+        c._cfg[const.CONF_ACTIVE_VALVE_RUNS] = [
+            {const.RUN_ZONE_ID: 2, const.RUN_MODE: const.WATERING_MODE_SERVICE},
+            {const.RUN_ZONE_ID: 4, const.RUN_MODE: const.WATERING_MODE_SERVICE},
+        ]
+        c.async_stop_self_closing = AsyncMock(side_effect=[RuntimeError("boom"), True])
+
+        assert await c.async_abort_self_closing_runs(DISABLED) is True
+
+        stopped = [ck.args[0] for ck in c.async_stop_self_closing.await_args_list]
+        assert stopped == [2, 4]
+        assert "could not stop its self-closing run" in caplog.text
+
+    async def test_an_unreadable_store_stops_nothing_and_does_not_raise(
+        self, hass, caplog
+    ):
+        c = _coord(hass)
+        c.store.async_get_config = AsyncMock(side_effect=RuntimeError("store gone"))
+
+        assert await c.async_abort_self_closing_runs(DISABLED) is False
+
+        assert "Could not read active runs" in caplog.text
+
+    async def test_nothing_in_flight_stops_nothing(self, hass):
+        c = _coord(hass)
+
+        assert await c.async_abort_self_closing_runs(DISABLED) is False
+
+    async def test_without_settling_a_zone_without_a_stop_service_is_named(
+        self, hass, caplog
+    ):
+        c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        zone = _zone()
+        del zone[const.ZONE_STOP_SERVICE]
+        c._zones[2] = zone
+        c._cfg[const.CONF_ACTIVE_VALVE_RUNS] = [
+            {const.RUN_ZONE_ID: 2, const.RUN_MODE: const.WATERING_MODE_SERVICE}
+        ]
+
+        assert await c.async_abort_self_closing_runs(REMOVED, settle=False) is False
+        await hass.async_block_till_done()
+
+        assert _stops(calls) == []
+        assert "has no stop_service" in caplog.text
+
+    async def test_a_chain_that_cannot_be_released_stops_nothing(self, hass, caplog):
+        """A settle could then dispatch the chain's next zone on the way out."""
+        c = _coord(hass)
+        c._cfg[const.CONF_ACTIVE_VALVE_RUNS] = [
+            {const.RUN_ZONE_ID: 2, const.RUN_MODE: const.WATERING_MODE_SERVICE}
+        ]
+        c._chain_release = AsyncMock(side_effect=RuntimeError("boom"))
+        c.async_stop_self_closing = AsyncMock()
+
+        assert await c.async_abort_self_closing_runs(DISABLED) is False  # no raise
+
+        c.async_stop_self_closing.assert_not_awaited()
+        assert "Could not release the service chain" in caplog.text

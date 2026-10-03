@@ -1191,6 +1191,90 @@ class SelfClosingMixin:
         await self._chain_advance_for_run(zone_id, run)
         return True
 
+    async def async_abort_self_closing_runs(self, reason: str, *, settle=True) -> bool:
+        """Stop every service run this coordinator started, and settle it.
+
+        The service twin of ``async_abort_opensprinkler_runs``, for the cases
+        where nothing will ever adopt the run: the entry being disabled or
+        removed. Unload cancels the run's backstop, and that backstop was, by
+        accident, the one thing still settling a disabled entry's run and
+        releasing its master. So the run is settled here, while the coordinator
+        still lives: closed through its stop service, its bucket and its usage
+        priced on what it watered, its master hold released.
+
+        Deliberately NOT called from a plain reload or a restart. Those are
+        adopted by ``async_resume_self_closing_runs``, and cutting the run
+        short there would waste water on every options change. Nor on
+        shutdown: the valve closes itself, and the next start's resume books
+        the run.
+
+        A service run is what the resume path treats as one: every persisted
+        run that is neither OpenSprinkler nor batch, including a record from
+        before ``RUN_MODE`` existed. Those two modes have aborts of their own.
+
+        ``settle=False`` only sends the stop, for a removal: the unload has
+        already torn the coordinator down and the store is deleted right
+        after, so settling would only write to it and re-arm the master's off
+        timer.
+
+        Returns True if any run was stopped or settled. Never raises: a
+        failure here must not be able to block an unload. A chain that cannot
+        be released stops nothing, since a settle could then dispatch its next
+        zone on the way out.
+        """
+        try:
+            runs = await self._sc_active_runs()
+            targets = [
+                r
+                for r in runs
+                if r.get(const.RUN_MODE)
+                not in (const.WATERING_MODE_OPENSPRINKLER, const.WATERING_MODE_BATCH)
+                and r.get(const.RUN_ZONE_ID) is not None
+            ]
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Could not read active runs to stop self-closing valves")
+            return False
+        if not targets:
+            return False
+
+        # Before any stop, so a settled run cannot advance the chain and
+        # dispatch the next zone on the way out.
+        try:
+            await self._chain_release(const.WATERING_MODE_SERVICE, reason)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception(
+                "Could not release the service chain; its runs are not stopped"
+            )
+            return False
+
+        stopped = False
+        for run in targets:
+            zone_id = run.get(const.RUN_ZONE_ID)
+            _LOGGER.warning(
+                "Zone %s: stopping its self-closing run because %s", zone_id, reason
+            )
+            try:
+                if settle:
+                    if await self.async_stop_self_closing(zone_id):
+                        stopped = True
+                elif await self._sc_dispatch_stop(
+                    zone_id, self.store.get_zone(zone_id) or {}
+                ):
+                    stopped = True
+                else:
+                    _LOGGER.warning(
+                        "Zone %s has no stop_service; its valve runs on to the "
+                        "end of its own countdown",
+                        zone_id,
+                    )
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception(
+                    "Zone %s: could not stop its self-closing run; it may still "
+                    "be watering",
+                    zone_id,
+                )
+        return stopped
+
     def async_teardown_self_closing_handles(self) -> None:
         """Cancel every flow sampler and backstop this coordinator armed (unload).
 
