@@ -664,21 +664,41 @@ class RunChainMixin:
         for zid in waiting:
             self._drop_live_run_marker(zid)
 
-    async def _chain_release(self, mode) -> None:
+    async def _chain_release(self, mode, why: str = "the cycle was stopped") -> None:
         """Drop this chain and its master hold.
 
         Also names whatever the cycle still had queued or mid-rotation and
         hands back any live-estimate marker those zones hold — see
-        :meth:`_chain_forfeit_queue`.
+        :meth:`_chain_forfeit_queue`. ``why`` is the reason it names.
         """
         state = self._chain_state(mode)
         self._chain_cancel_absorption(mode)
-        self._chain_forfeit_queue(mode, "the cycle was stopped")
+        self._chain_forfeit_queue(mode, why)
         state.zones, state.trigger, state.rotation = [], None, None
         state.planned = {}
         token, state.token = state.token, None
         if token:
             await self.async_master_release(token)
+
+    async def async_release_all_chains(self, why: str) -> None:
+        """Release every chain and its master hold (an unload nothing adopts).
+
+        A chain holds the master for its whole cycle, the gaps between its runs
+        and a rotation's absorption waits included (``_chain_take_hold``).
+        Caught in such a pause, with no run in flight for an abort to find,
+        that hold would keep the master up after the cycle is gone.
+        ``_chain_teardown`` drops the chains without the release, which a
+        reload can afford: its successor reconciles the master on the way back
+        up. A disable has no successor. Never raises.
+        """
+        for mode in list(self._chains()):
+            try:
+                await self._chain_release(mode, why)
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception(
+                    "Could not release the %s chain; its hold may keep the master on",
+                    mode,
+                )
 
     def _chain_teardown(self) -> None:
         """Drop every pending chain (called on unload).

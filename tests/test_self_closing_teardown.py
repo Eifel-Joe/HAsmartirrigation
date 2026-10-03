@@ -446,3 +446,74 @@ class TestEndingTheMasterCycleNow:
         c.hass.services.async_call.assert_awaited_once_with(
             "switch", "turn_off", {"entity_id": "switch.pump"}
         )
+
+
+# --------------------------------------------------------------------------- #
+# Releasing every chain
+# --------------------------------------------------------------------------- #
+class TestReleasingEveryChain:
+    """A chain holds the master for its whole cycle, pauses included."""
+
+    async def test_a_rotation_absorbing_between_slots_hands_back_its_hold(
+        self, hass, caplog
+    ):
+        caplog.set_level(logging.INFO)
+        c = _chain_coord(hass, ROTATING, slot=1, absorb=10)
+        await _chain_dispatch(c, _register(c, _chain_zone(1, duration=180)))
+        await _finish(c, 1)
+        state = c._chain_state(const.WATERING_MODE_SERVICE)
+        token = state.token
+        assert state.absorb is not None and token is not None
+
+        await c.async_release_all_chains(DISABLED)
+
+        assert state.absorb is None
+        assert state.rotation is None
+        assert state.token is None
+        c.async_master_release.assert_any_await(token)
+        assert DISABLED in caplog.text
+
+    async def test_a_sequential_queue_starts_nothing_after_its_release(self, hass):
+        c = _chain_coord(hass, SEQUENTIAL)
+        await _chain_dispatch(c, _register(c, _chain_zone(1), _chain_zone(2)))
+        assert _chain_ids(c) == [1]
+
+        await c.async_release_all_chains(DISABLED)
+        await _finish(c, 1)
+
+        assert _chain_ids(c) == [1]
+        assert c._chain_state(const.WATERING_MODE_SERVICE).zones == []
+
+    async def test_an_idle_chain_releases_nothing(self, hass, caplog):
+        """A finished cycle leaves its chain behind, empty and holding nothing."""
+        c = _chain_coord(hass, SEQUENTIAL)
+        await _chain_dispatch(c, _register(c, _chain_zone(1), _chain_zone(2)))
+        await _finish(c, 1)
+        await _finish(c, 2)
+        c.async_master_release.reset_mock()
+        caplog.clear()
+
+        await c.async_release_all_chains(DISABLED)
+
+        c.async_master_release.assert_not_awaited()
+        assert DISABLED not in caplog.text
+
+    @pytest.mark.parametrize("failing", [0, 1])
+    async def test_one_chain_that_raises_does_not_stop_the_others(
+        self, hass, caplog, failing
+    ):
+        c = _chain_coord(hass, SEQUENTIAL)
+        c._chain_state(const.WATERING_MODE_SERVICE)
+        c._chain_state(const.WATERING_MODE_OPENSPRINKLER)
+        effects = [None, None]
+        effects[failing] = RuntimeError("boom")
+        c._chain_release = AsyncMock(side_effect=effects)
+
+        await c.async_release_all_chains(DISABLED)  # must not raise
+
+        assert [ck.args for ck in c._chain_release.await_args_list] == [
+            (const.WATERING_MODE_SERVICE, DISABLED),
+            (const.WATERING_MODE_OPENSPRINKLER, DISABLED),
+        ]
+        assert "Could not release" in caplog.text
+        assert any(record.exc_info for record in caplog.records)
