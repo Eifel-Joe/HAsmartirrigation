@@ -23,6 +23,78 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-03 — Upstream-Runde: #160/#159/#149 zu, #187 gemergt; production v2026.10.03 nur Branding; Prod 02.10. ohne Bedarf; Eifel-Joe#8 Spec → JustChr#188
+
+### Stand
+
+- **Upstream-Runde** ab 2026-10-01 08:14 UTC, zweimal, zuletzt **2026-10-03 08:26 UTC** (`upstream/master` `e9c79ec4` =
+  Beta v2026.10.03; die zweite Runde zeigte nur unser eigenes JustChr#188).
+  JustChr#160 vom Konto `JustChr` geschlossen (01.10. 08:23, 28 s nach einem Bot-Kommentar; um den Docker-Lauf bat niemand).
+  JustChr#159: Live-Hälfte von JustChr selbst gebaut (`faa05b0b`, Beta v2026.10.02), geschlossen. JustChr#149 (Megalos) am 02.10.
+  geschlossen. JustChr#187 (clarejor) gemergt (`98859077` + Tests `4b417066`). JustChr#185: Branch `fix/distributor-inlet-open-gate`
+  am 03.10. 05:43 UTC vom Konto Eifel-Joe gelöscht (lokal noch da; Spec + Plan liegen im Archiv). Keine Frage an uns, auch nicht
+  in den Release-Notes.
+- **P2 (freigegeben, gepostet, byte-gleich geprüft):** Eifel-Joe#59 geschlossen (`5966213613`), Eifel-Joe#61 Umfang +Live-Hälfte
+  (`5966213914`), Eifel-Joe#22 Nachtrag „#160 zu“ (`5966214027`), #42: 14a/23/24/39b + Watched #149/#160 gestrichen.
+  Texte + Skripte: `prodrebuild-1003-work\texts\`.
+- **production `d804bbf3`** = `upstream/master` + Branding (0/1), Fork-Release
+  [v2026.10.03](https://github.com/Eifel-Joe/HAsmartirrigation/releases/tag/v2026.10.03) (Latest). Belege: Memory
+  `hasi-production-on-upstream`. **HA-Prod bleibt auf v2026.09.30** (User: kein Update; v2026.10.03 wirkt bei der Prod-Config nicht).
+- **HA-Prod Sunrise 02.10.: kein Lauf, zu Recht** — Regen am 01.10., Eimer nach der 23-Uhr-Rechnung +11,69/+11,23/+10,61; die
+  Auslösung lief 07:01:04 (Sprung von `next_irrigation` auf den 03.10.), kein Ventil offen. 03.10. ebenso (`no_demand` 07:02:36).
+  Die Fixes #173/#174/#178/#176/#180 haben weiter keinen echten Lauf gesehen. HA-Prod wurde am 02.10. mehrfach (07:55, 12:25–13:50)
+  und am 03.10. um 04:20 und 04:56 neu gestartet — Herkunft unbekannt, dem User gemeldet; Irrigation Plus kam jedes Mal sauber hoch.
+- **Aufgeräumt:** `prodrebuild-1001-work` und `issue160-work` → `_erledigt` (Worktree abgemeldet, Branch `rebuild/v2026.10.01`
+  gelöscht, `45fb7dbc` hängt an Tag v2026.10.01). Neu: `prodrebuild-1003-work\` (Worktree `wt` = `rebuild/v2026.10.03` = production,
+  `base` = Baseline-Worktree auf `e9c79ec4`, Suite-Ausgaben, `zip\`, `texts\`).
+- **Eifel-Joe#8: Spec fertig und vom User freigegeben** →
+  `docs/superpowers/specs/2026-10-03-dead-weather-sensor-design.md` (Deutsch, untracked, P1-Archiv beim Abschluss).
+  Faktensammlung (Agent, Kernaussagen nachgelesen): `D:\Entwicklung\HASI\issue8-work\context-2026-10-03.md`.
+  Sieben User-Entscheidungen + Schnitt-Varianten: Memory `hasi-dead-weather-sensor`. **Vorschlag als
+  [JustChr#188](https://github.com/JustChr/HAsmartirrigation/issues/188) gepostet** (englisch, deutsch freigegeben);
+  Eifel-Joe#8: Kommentar `5967152847`, Labels `upstream:gemeldet` + `groesse:L`; **Eifel-Joe#74 neu** (Dienst-Felder,
+  `schwere:niedrig`), #42: Punkt 9 + neuer 39e. Alles byte-gleich geprüft; Texte + Skripte: `issue8-work\texts\`.
+- Baseline-Worktree `prodrebuild-1003-work\base` entfernt.
+
+### Verworfen
+
+- Docker-VM für den #160-Feldtest: endgültig vom Tisch, JustChr hat ohne Feldtest geschlossen.
+- #8-Varianten (User): weiterrechnen und nur melden; Ersatzwert aus den letzten Tagen; Wetterdienst-Rückfall;
+  Erkennung je Entität oder per Zeilenalter; nur laufende Ausfälle; Grenze 1 h/6 h/einstellbar; neue
+  Zustands-Entität; Dienst-Felder im selben Zug. Begründungen: Spec, Tabelle *Entscheidungen*.
+- Erster Issue-Entwurf auf EcoWitt gestützt (User: „Andere Nutzer haben andere Stationen“) → umgeschrieben auf
+  drei Erscheinungsformen je Integration; dabei den Cloud-Relay-Fleck gefunden.
+
+### Fallen
+
+- **Volles Lauf-Log (50) behält nur den neuesten `no_demand`** — ein fehlender Tag ist kein Befund; Auslösung über den
+  `next_irrigation`-Sprung belegen.
+- **Config-Entry von Irrigation Plus auf HA-Prod = `01M20YP65K7ZSZWSG1KT2RBV5T`**; die alte ID aus der Memory gibt
+  `RESOURCE_NOT_FOUND`. `diagnostics_data_path` kann nicht in Listen indizieren (`zones` → `_limit`/`_offset`).
+- **Suite-Namensvergleich:** Filter `^(FAILED|ERROR) tests`, sonst zählen Zeilen aus dem Captured-Log mit (425 statt 422).
+- **`npm run build` schreibt dist mit LF** → Arbeitskopie zeigt `M` ohne Inhaltsdiff; per `git hash-object` gegen den Blob prüfen,
+  dann `git checkout -- dist/`.
+
+- **Upstream-Texte:** erst deutscher Entwurf im Chat, dann die englische 1:1-Fassung vor dem Absenden (Memory
+  `language-german`); Varianten in Nummernfolge, Präferenz nur als Vermerk (Memory `options-in-numeric-order`).
+
+### Nächste Schritte
+
+1. **Upstream-Runde ab 2026-10-03 08:26 UTC** (Memory `upstream-sweep-first`). JustChrs Antwort auf JustChr#188 ist
+   eine Zeile davon: Einwände in seinen Worten als Kommentar auf Eifel-Joe#8; sagt er den Bau zu →
+   `upstream:freigegeben`; wählt er Design 1 oder 2 → Spec-Status nachziehen.
+2. **#8-Plan, gemeinsamer Teil** (Erkennung, Ausfall-Liste, Melden, Doku, Docstring) per `superpowers:writing-plans`
+   nach `docs/superpowers/plans/`; darf vor seiner Antwort entstehen. Der Schnitt-Teil erst nach seiner Wahl. Gebaut
+   wird erst nach seiner Antwort; danach production sofort.
+3. **Erster echter Prod-Lauf** mit #173/#174/#178/#176/#180: aus der Abnahme des letzten Tages frühestens in rund
+   einer Woche (Beet zuerst) — dann Lauf-Log, `watering_now`, Problem-Sensoren prüfen.
+4. Sonst weiter nach #42 (nächster offener Punkt nach 9 ist 10, Eifel-Joe#9).
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:writing-plans` (#8, gemeinsamer Teil); Memories `upstream-sweep-first`,
+  `hasi-dead-weather-sensor`.
+
 ## 2026-10-01 — #186 gemergt; production v2026.10.01 nur Branding; #22 zu; #160 per Belegkette beantwortet; Eifel-Joe#73 neu
 
 ### Stand
