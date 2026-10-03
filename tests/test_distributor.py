@@ -390,19 +390,79 @@ async def test_master_end_defers_to_overlap_safe_deadline_when_using_master():
     assert c._master_off_deadline == pre
 
 
-async def test_master_end_clears_flag_immediately_when_not_using_master():
-    # A distributor that does not use the master short-circuits: it powers
-    # nothing off and clears the on-flag directly, without touching the shared
-    # deadline mechanism.
+@pytest.mark.parametrize("cycle_up", [True, False])
+async def test_master_end_leaves_the_flag_alone_when_not_using_master(cycle_up):
+    # A distributor that does not use the master never brought it up
+    # (_dist_master_start returns early under the same gate), so it powers
+    # nothing off and leaves the on-flag as it found it, without touching the
+    # shared deadline mechanism.
     c = _host(master_off_after=True)
     c._master_note_run = Mock()
     c.async_master_schedule_off = AsyncMock()
-    c._master_on = True
+    c._master_on = cycle_up
     await c._dist_master_end(_dist(use_master=False))
     c.hass.services.async_call.assert_not_awaited()
     c._master_note_run.assert_not_called()
     c.async_master_schedule_off.assert_not_awaited()
-    assert c._master_on is False
+    assert c._master_on is cycle_up
+
+
+async def test_a_sweep_without_the_master_does_not_restart_the_running_cycle():
+    # A pump-fed zone holds the master while a sweep that does not use it ends.
+    # With the flag cleared, the next consumer to join the cycle re-ran its
+    # start under the running pump: the kick (off and on again) and the settle.
+    c = _host(master_kick_enabled=True, master_settle_seconds=10)
+    await c.async_master_acquire("sc:2")
+    await c._dist_master_end(_dist(use_master=False))
+    c.hass.services.async_call.reset_mock()
+    c._master_sleep.reset_mock()
+
+    await c.async_master_acquire("sc:3")
+
+    c.hass.services.async_call.assert_not_awaited()
+    c._master_sleep.assert_not_awaited()
+
+
+async def test_ending_the_cycle_after_a_sweep_without_the_master_switches_it_off():
+    # The same cleared flag would hide the cycle from async_master_end_cycle_now:
+    # a disable after such a sweep would leave a master_off_after pump on until
+    # the integration is enabled again.
+    c = _host(master_off_after=True, master_settle_seconds=0)
+    with patch(
+        "custom_components.irrigation_plus.master.async_call_later",
+        Mock(return_value=Mock()),
+    ):
+        await c.async_master_acquire("sc:2")
+        await c._dist_master_end(_dist(use_master=False))
+        await c.async_master_release("sc:2")  # the disable's abort
+    c.hass.services.async_call.reset_mock()
+
+    await c.async_master_end_cycle_now()
+
+    c.hass.services.async_call.assert_awaited_once_with(
+        "switch", "turn_off", {"entity_id": "switch.pump"}
+    )
+
+
+async def test_a_sweep_ending_in_the_release_grace_leaves_the_cycle_up():
+    # The last hold went just before the sweep ended: no hold is left, but the
+    # cycle is still up and its off timer armed. Clearing the flag "once no
+    # hold is left" would hide that cycle all the same.
+    c = _host(master_off_after=True, master_settle_seconds=0)
+    with patch(
+        "custom_components.irrigation_plus.master.async_call_later",
+        Mock(return_value=Mock()),
+    ):
+        await c.async_master_acquire("sc:2")
+        await c.async_master_release("sc:2")
+        await c._dist_master_end(_dist(use_master=False))
+    c.hass.services.async_call.reset_mock()
+
+    await c.async_master_end_cycle_now()
+
+    c.hass.services.async_call.assert_awaited_once_with(
+        "switch", "turn_off", {"entity_id": "switch.pump"}
+    )
 
 
 def _zone(duration):

@@ -380,7 +380,19 @@ class DistributorMixin:
         and ::test_master_end_collapses_when_deadline_is_only_our_own_notes
         """
         if not self._dist_uses_master(distributor):
-            self._master_on = False
+            # Wurzel: this sweep never brought the master up (_dist_master_start
+            #   returns under the same gate), so the cycle flag is not its own: it
+            #   belongs to whoever did, a pump-fed zone running alongside, say.
+            #   Cleared here, the next acquire would re-run begin_cycle under that
+            #   pump (kick, settle), and async_master_end_cycle_now would leave a
+            #   master_off_after pump on.
+            # Fix: leave it; every real cycle end clears it (_fire, the end of a
+            #   sweep using the master, async_master_end_cycle_now, the reconcile).
+            # NOT-TO-DO: do not clear it once no hold is left either: in the
+            #   release grace the last hold is gone while the cycle, and its off
+            #   timer, are still up.
+            # siehe test_distributor.py::test_master_end_leaves_the_flag_alone_when_not_using_master
+            #   and ::test_a_sweep_ending_in_the_release_grace_leaves_the_cycle_up
             return
         # Drop this sweep's own hold, then let the shared refcount speak: if ANY
         # other consumer still holds the master (a concurrent normal-zone run, a
