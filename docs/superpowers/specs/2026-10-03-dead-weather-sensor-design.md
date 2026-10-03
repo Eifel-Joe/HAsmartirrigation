@@ -138,10 +138,11 @@ Wert, außer womöglich dem Regen.
 - **Schließen:** Lebenszeichen nach `start`. `end` = erste neue Meldung, auf die Prüfperiode genau
   (frühestes `last_changed` einer Geräte-Entität nach `start`, sonst das neue Lebenszeichen).
 - **Kürzen:** Einträge, deren `end` älter als 7 Tage ist (`BUFFER_RETENTION`), fallen weg.
-- **Leeren:** Ein Quellwechsel eines Feldes leert dessen Einträge, wie heute Puffer und `last_entry`
-  (`__init__.py:1783-1790`); „Wetterdaten zurücksetzen“ (`calculation.py:329-386`) leert die Liste der Gruppe.
-- **Schutz:** Beide Schlüssel kommen auf die Streichliste der server-berechneten Felder
-  (`websockets.py:242-267`, wie `data_last_entry`), damit Speichern im Panel sie nicht überschreibt.
+- **Leeren:** Ein Quellwechsel leert die Liste der ganzen Gruppe, wie heute Puffer und `last_entry`
+  (`__init__.py:1768-1790`); ebenso „Wetterdaten zurücksetzen“ (`calculation.py:329-386`). Wird eine Gruppe
+  gelöscht, verschwindet ihr Hinweis.
+- **Schutz:** Das Panel schickt beim Speichern nur `{id, name, mappings}`, und das Schema des Views lässt andere
+  Schlüssel nicht zu; ein Test hält fest, dass Speichern die Liste stehen lässt (siehe *Präzisierungen*).
 - Die Diagnose zeigt beide Felder über `async_get_mappings` ohne Zusatzarbeit.
 
 ### Schneiden: gemeinsame Regeln
@@ -209,11 +210,13 @@ Wert, außer womöglich dem Regen.
   - Textentwurf (EN): Titel „A weather sensor of {group} has stopped reporting“. Inhalt sinngemäß:
     „Irrigation Plus has not heard from {entities} since {since}. After three hours of silence its readings
     are no longer used and nothing is booked for that time, so zones depending on it water less or not at
-    all until it reports again. Check the device and its integration. If the value is meant to be fixed, use
-    the "static" source instead. This notice clears itself when the sensor reports again.“
+    all until it reports again. Check the device and its integration. If you replaced the device, select its
+    new entities in the sensor group. If the value is meant to be fixed, use the "Static value" source instead.
+    This notice clears itself when the sensor reports again.“
 - **Bus-Event `irrigation_plus_weather_stale`** bei Beginn und Ende jedes Eintrags. Inhalt: `mapping_id`,
   `mapping` (Name), `entity_id`, `device_id` (oder null), `fields`, `since`, `until` (null beim Beginn),
-  `stale` (true/false). Derselbe Automations-Haken wie das vorhandene `irrigation_plus_zone_problem`.
+  `stale` (true/false). Derselbe Automations-Haken wie das vorhandene `irrigation_plus_zone_problem`. Jeder Start
+  bekommt ein Ende, auch wenn die Gruppe den Sensor nicht mehr verfolgt (Präzisierung 6).
 - **Satz in der Berechnungs-Erklärung** der Zone, je Sperre, die das Fenster berührt; neuer Schlüssel
   `module.calculation.explanation.sensor-outage`, etwa: „Sensordaten für {fields} fehlten von {start} bis
   {end} (Gerät stumm); für diese Zeit wurde nichts gebucht.“
@@ -237,7 +240,6 @@ Wert, außer womöglich dem Regen.
 | neu: `sensor_liveness.py` | Prüfung, Liste, Hinweis, Event |
 | `__init__.py` | Timer an- und abmelden; Liste beim Quellwechsel leeren |
 | `store.py` | zwei Felder an `MappingEntry`, Laden und Speichern |
-| `websockets.py` | Streichliste der server-berechneten Felder |
 | `calculation.py` | Sperren an die Aggregation, Buchungsanteil, Erklärungssatz, Aufzeichnungen überspringen, Reset leert die Liste, Docstring |
 | `weather_aggregate.py` | Sperren in `aggregate_window`, `_effective_series`, `build_hourly_rows`, `build_substeps` |
 | `calcmodules/pyeto/__init__.py` | nur Design 2: Buchungsanteil aus den Pflichtfeldern |
@@ -247,6 +249,39 @@ Wert, außer womöglich dem Regen.
 | `translations/*.json` (8) | Hinweis |
 | `frontend/localize/languages/*.json` (8) | Erklärungssatz; dist neu bauen |
 | `docs/configuration-sensor-groups.md`, `docs/usage-events.md` | siehe *Dokumentation* |
+
+### Präzisierungen aus der Planung (2026-10-03)
+
+Beim Schreiben des Plans gegen den Code gefunden; sie gehen dem Text oben vor:
+
+1. **Keine Streichliste nötig.** Das Panel schickt beim Speichern nur `{id, name, mappings}`
+   (`frontend/src/views/mappings/view-mappings.ts:379-380`), und das Schema des Mapping-Views lässt andere
+   Schlüssel gar nicht zu (`websockets.py:235-250`). Stattdessen hält ein Test fest, dass ein Speichern die
+   Ausfall-Liste stehen lässt.
+2. **Ein Quellwechsel leert die Liste der ganzen Gruppe**, so wie er heute Puffer und `last_entry` der ganzen
+   Gruppe leert (`__init__.py:1768-1790`), nicht nur die Einträge des geänderten Feldes. Ebenso beim Löschen
+   einer Gruppe: Ihr Hinweis verschwindet.
+3. **Das Lebenszeichen fährt mit**, wie `data_last_entry`: Es wird bei jeder Prüfung erneuert, ohne eigenen
+   Schreibvorgang, und geht mit dem nächsten Speichern auf die Platte. Ein Schreibvorgang alle 5 Minuten wäre
+   ein ganzes Dokument für einen Wert, der nur über einen Neustart zählt.
+4. **Eine nie gesehene Entität** (nicht vorhanden oder `unavailable`, nichts gespeichert) bekommt beim ersten
+   Blick „jetzt“ als Lebenszeichen; die 3 h zählen ab da.
+5. **Grenze:** Entitäten, die nach einem Neustart ihren letzten Zustand wiederherstellen, gelten zum HA-Start
+   als lebendig; ein Ausfall über den Neustart beginnt bei ihnen erst mit dem Start.
+6. **Gerätetausch darf zu keinen Fehlern führen** (User: „Es kann ja sein, dass Sensor-Entitäten ausgetauscht
+   werden, weil ein neues Gerät beschafft wurde. Das darf nicht zu Fehlern führen.“):
+   - *Neue Entitäten in der Gruppe* = Quellwechsel: Liste und Hinweis gehen, und **jeder offene Ausfall endet mit
+     seinem End-Event** (`stale: false`, `until` = jetzt), damit eine Automation, die auf den Start reagiert hat,
+     nicht hängen bleibt. Gleiches beim Löschen der Gruppe und bei „Wetterdaten zurücksetzen“.
+   - *Neues Gerät unter denselben Entity-IDs*: Die Prüfung liest jedes Mal das aktuelle Gerät der Entität; meldet
+     das neue, schließt der Ausfall regulär.
+   - *Altes Gerät gelöscht, Gruppe noch nicht umgestellt*: Nach 3 h erscheint der Hinweis. Er sagt jetzt auch:
+     „Hast du das Gerät ersetzt, wähle seine neuen Entitäten in der Sensorgruppe.“
+   - *Selbstheilung*: Ein offener Ausfall einer Entität, die die Gruppe nicht mehr liest (Zuordnung auf anderem Weg
+     geändert), endet bei der nächsten Prüfung mit End-Event; keine Liste und kein Hinweis überleben die
+     Konfiguration.
+   - Keine Ausnahme in diesen Fällen: fehlender Zustand, fehlender Registry-Eintrag und gelöschtes Gerät sind
+     abgefangen; im Probelauf je ein Test.
 
 ## Schwester-Pfade geprüft
 

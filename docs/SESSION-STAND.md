@@ -55,6 +55,18 @@
   Eifel-Joe#8: Kommentar `5967152847`, Labels `upstream:gemeldet` + `groesse:L`; **Eifel-Joe#74 neu** (Dienst-Felder,
   `schwere:niedrig`), #42: Punkt 9 + neuer 39e. Alles byte-gleich geprüft; Texte + Skripte: `issue8-work\texts\`.
 - Baseline-Worktree `prodrebuild-1003-work\base` entfernt.
+- **Spec archiviert** (User-Freigabe): `archive/design-history` `d770d28a` (Spec, Faktensammlung als
+  `docs/superpowers/probes/2026-10-03-dead-weather-sensor-survey.md`, Sitzungsstand).
+- **#8-Plan, gemeinsamer Teil, geschrieben und probegelaufen:**
+  `docs/superpowers/plans/2026-10-03-dead-weather-sensor-common.md` (15 Tasks, Deutsch). Probelauf gegen `e9c79ec4`:
+  72 neue Tests grün; volle Suite 7/3690/9/415, FAILED/ERROR-Namen identisch mit der Baseline; 16/16 Mutationen
+  getötet; black/ruff sauber. Getesteter Endstand: `D:\Entwicklung\HASI\issue8-work\probe-2026-10-03.patch` (bei
+  Abweichung gilt der Patch). Zwei Befunde eingearbeitet (Plan + Spec): (1) Registry-Aufruf ohne offenen Ausfall
+  machte 11 Mock-`hass`-Tests rot → `_retire_outages` fragt erst die Liste; (2) **Gerätetausch** (User-Anforderung):
+  End-Event für jeden geleerten offenen Ausfall, Selbstheilung für nicht mehr beobachtete Entitäten, Hinweis nennt
+  den Tausch. Spec-Präzisierungen 1–6. Probe-Worktree entfernt. **Plan vom User freigegeben**; Plan, Spec (Stand
+  Präzisierung 6), Patch (`docs/superpowers/probes/2026-10-03-dead-weather-sensor-probe.patch`) und dieser
+  Sitzungsstand nach `archive/design-history` (zweiter Push des Tages, freigegeben).
 
 ### Verworfen
 
@@ -75,6 +87,9 @@
 - **`npm run build` schreibt dist mit LF** → Arbeitskopie zeigt `M` ohne Inhaltsdiff; per `git hash-object` gegen den Blob prüfen,
   dann `git checkout -- dist/`.
 
+- **Ein neuer Aufruf in einem vorhandenen Pfad** (hier: Issue-Registry aus Reset/Quellwechsel) bricht dessen
+  Tests mit Mock-`hass`, auch wenn die neuen Tests grün sind → Plan-Probelauf immer mit voller Suite und
+  Namensvergleich; nur so fiel es auf.
 - **Upstream-Texte:** erst deutscher Entwurf im Chat, dann die englische 1:1-Fassung vor dem Absenden (Memory
   `language-german`); Varianten in Nummernfolge, Präferenz nur als Vermerk (Memory `options-in-numeric-order`).
 
@@ -83,17 +98,19 @@
 1. **Upstream-Runde ab 2026-10-03 08:26 UTC** (Memory `upstream-sweep-first`). JustChrs Antwort auf JustChr#188 ist
    eine Zeile davon: Einwände in seinen Worten als Kommentar auf Eifel-Joe#8; sagt er den Bau zu →
    `upstream:freigegeben`; wählt er Design 1 oder 2 → Spec-Status nachziehen.
-2. **#8-Plan, gemeinsamer Teil** (Erkennung, Ausfall-Liste, Melden, Doku, Docstring) per `superpowers:writing-plans`
-   nach `docs/superpowers/plans/`; darf vor seiner Antwort entstehen. Der Schnitt-Teil erst nach seiner Wahl. Gebaut
-   wird erst nach seiner Antwort; danach production sofort.
+2. **#8 nach JustChrs Antwort:** Plan Teil 2 (Schnitt nach seiner Design-Wahl, Erklärungssatz, Doku-Abschnitt
+   „Wenn ein Sensor schweigt“) per `superpowers:writing-plans`, dann Umsetzung Teil 1 + 2 in einer frischen Sitzung
+   (`superpowers:subagent-driven-development`, Worktree laut Plan Task 0). Ändert er die Pause-Regel oder die
+   Hinweis-Form, Texte in Plan Task 12 anpassen. Teil 1 nie allein ausliefern. Plan + Patch nach P1 archivieren
+   (Push freigabepflichtig).
 3. **Erster echter Prod-Lauf** mit #173/#174/#178/#176/#180: aus der Abnahme des letzten Tages frühestens in rund
    einer Woche (Beet zuerst) — dann Lauf-Log, `watering_now`, Problem-Sensoren prüfen.
 4. Sonst weiter nach #42 (nächster offener Punkt nach 9 ist 10, Eifel-Joe#9).
 
 ### Empfohlene Skills
 
-- `task-loop`, `superpowers:writing-plans` (#8, gemeinsamer Teil); Memories `upstream-sweep-first`,
-  `hasi-dead-weather-sensor`.
+- `task-loop`; bei JustChrs Antwort `superpowers:writing-plans` (Teil 2), dann `superpowers:subagent-driven-development`;
+  Memories `upstream-sweep-first`, `hasi-dead-weather-sensor`.
 
 ## 2026-10-01 — #186 gemergt; production v2026.10.01 nur Branding; #22 zu; #160 per Belegkette beantwortet; Eifel-Joe#73 neu
 
