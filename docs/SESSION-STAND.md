@@ -23,12 +23,72 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-03 (2) — Upstream-Runde leer; Eifel-Joe#9: Spec + Plan freigegeben, Plan probegelaufen
+
+### Stand
+
+- **Upstream-Runde** ab 2026-10-03 09:56 UTC, zweimal (10:32 und **15:05 UTC**): leer. `upstream/master` weiter
+  `e9c79ec4`, keine neuen Issues, PRs, Kommentare oder Releases; **JustChr#188 ohne Antwort**. Scan-Skript: nur
+  Eifel-Joe#8 trägt ein Upstream-Label (offener Bezug #188). Keine P2-, production- oder HA-Prod-Folge.
+- **Eifel-Joe#9** (Punkt 10 in #42, nächster nach #8): Befund an `e9c79ec4` neu gelesen, besteht. Spec
+  `docs/superpowers/specs/2026-10-03-unload-self-closing-teardown-design.md` und Plan
+  `docs/superpowers/plans/2026-10-03-unload-self-closing-teardown.md` (Tasks 0–10), **beide vom User freigegeben**
+  (Deutsch, untracked). User-Entscheidung: Deaktivieren stoppt und bucht Service-Läufe wie OpenSprinkler/Batch
+  (Option 2), Master gleich aus; Entfernen ohne Buchung; upstream direkt als PR, Verhaltensänderung offen im Text.
+  Beim Gegenlesen dazugekommen: Deaktivieren gibt zuerst **alle Ketten** frei (Ketten-Hold in einer Pause).
+- **Probelauf gegen `e9c79ec4`:** 33 neue Tests, RED aus dem richtigen Grund (gelesen), dann Task für Task GREEN;
+  volle Suite 7/3651/9/415, die 422 FAILED/ERROR-Namen identisch mit der Baseline 7/3618/9/415; **21/21
+  Mutationen** getötet; Plantext per Skript Block für Block gegen den Probe-Stand bzw. `e9c79ec4` geprüft.
+  Getesteter Endstand: `D:\Entwicklung\HASI\issue9-work\probe-2026-10-03.patch` (6 Dateien, +956/−38; bei
+  Abweichung gilt der Patch). Skripte daneben: `probe_mutate.py`, `check_plan_blocks.py`. Probe-Worktree entfernt.
+- **Archiv:** Spec, Plan, Patch (als `docs/superpowers/probes/2026-10-03-unload-self-closing-teardown-probe.patch`)
+  und dieser Stand nach `archive/design-history` (Push freigegeben).
+- Nebenbefunde für eigene Issues (Texte gebündelt zur Freigabe vorgelegt, siehe *Nächste Schritte*): Abo-Lecks
+  (`core_config_updated`-Listener, Dispatcher-Abos in Entitäts-Konstruktoren); Pumpen-Aus beim echten
+  Herunterfahren hängt am 5-s-Timer (gelesen, nicht gemessen); Master-Kick beim Wiederaufnehmen.
+
+### Verworfen
+
+- Deaktivieren wie ein Neustart (Option 1) und „nur beim Neuladen kappen“ (Option 3): Begründung in der
+  Spec-Tabelle *Entscheidungen*.
+- Den Master-Aus-Timer bei jedem Entladen nur kappen: Nach einem Deaktivieren schaltete heute ausgerechnet dieser
+  tote Timer die Pumpe ab; deshalb „Master-Zyklus jetzt beenden“ für die Fälle ohne Nachfolger.
+- Klassische Läufe beim Entladen abbrechen: kein Resume-Pfad, jeder Lauf endete bei jedem Neuladen vorzeitig.
+  (Meine erste Begründung „sonst bliebe ein Ventil offen“ war falsch: ihr `finally` schließt es.)
+
+### Fallen
+
+- **Abschnittstitel mit Plan-Task-Nummern** in einer Testdatei, die upstream geht, sind eigene Verweise (Memory
+  `no-own-issue-refs-upstream`) — beschreibende Titel; der Grep steht in Plan-Task 10.
+- **Baseline-Suite im selben Worktree:** während sie läuft (~5 min) dort nichts ändern; Entwürfe ins Scratchpad.
+- **Mutationen zurücknehmen:** nur gegen einen committeten Probe-Stand per `git checkout --`, sonst ist die Änderung
+  weg; das Skript stellt aus dem Speicher wieder her.
+- Die Lingering-Timer-Prüfung der HA-Testumgebung macht einen Test mit scharfem Timer zusätzlich zum ERROR — ein
+  gutes RED-Signal für Lecks.
+- HA-Test hat **keine Profiler-Integration** (für das Ende-zu-Ende-Kriterium nötig; vor dem Live-Test hinzufügen).
+
+### Nächste Schritte
+
+1. **Upstream-Runde ab 2026-10-03 15:05 UTC** (Memory `upstream-sweep-first`); JustChr#188 ist eine Zeile davon.
+2. **Bau Eifel-Joe#9 in frischer Sitzung** nach Plan, Task 0 ff., `superpowers:subagent-driven-development`
+   (Worktree `D:\Entwicklung\HASI\issue9-work\wt`, Branch `fix/unload-self-closing-handles`). Danach Review, PR-Text
+   erst deutsch, dann englisch zur Freigabe, Live-Test auf HA-Test (Pre-Release; RED-Seite vorher), production
+   sofort nach dem Bau, P2, P1 — Spec *Lieferung*.
+3. **#8:** JustChrs Antwort auf #188 abwarten → Plan Teil 2 (unverändert aus dem vorigen Stand).
+4. **HA-Prod:** erster echter Lauf mit #173/#174/#178/#176/#180 frühestens um den 10.10. (Beet zuerst).
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:subagent-driven-development`, `superpowers:test-driven-development`,
+  `superpowers:requesting-code-review`, `pr-workflow`; Memories `upstream-sweep-first`, `hasi-pr-build-recipe`,
+  `no-own-issue-refs-upstream`.
+
 ## 2026-10-03 — Upstream-Runde: #160/#159/#149 zu, #187 gemergt; production v2026.10.03 nur Branding; Prod 02.10. ohne Bedarf; Eifel-Joe#8 Spec → JustChr#188
 
 ### Stand
 
-- **Upstream-Runde** ab 2026-10-01 08:14 UTC, zweimal, zuletzt **2026-10-03 08:26 UTC** (`upstream/master` `e9c79ec4` =
-  Beta v2026.10.03; die zweite Runde zeigte nur unser eigenes JustChr#188).
+- **Upstream-Runde** ab 2026-10-01 08:14 UTC, dreimal, zuletzt **2026-10-03 09:56 UTC** (`upstream/master` `e9c79ec4`
+  = Beta v2026.10.03; die späteren Runden zeigten nur unser eigenes JustChr#188, noch ohne Antwort).
   JustChr#160 vom Konto `JustChr` geschlossen (01.10. 08:23, 28 s nach einem Bot-Kommentar; um den Docker-Lauf bat niemand).
   JustChr#159: Live-Hälfte von JustChr selbst gebaut (`faa05b0b`, Beta v2026.10.02), geschlossen. JustChr#149 (Megalos) am 02.10.
   geschlossen. JustChr#187 (clarejor) gemergt (`98859077` + Tests `4b417066`). JustChr#185: Branch `fix/distributor-inlet-open-gate`
@@ -66,7 +126,7 @@
   End-Event für jeden geleerten offenen Ausfall, Selbstheilung für nicht mehr beobachtete Entitäten, Hinweis nennt
   den Tausch. Spec-Präzisierungen 1–6. Probe-Worktree entfernt. **Plan vom User freigegeben**; Plan, Spec (Stand
   Präzisierung 6), Patch (`docs/superpowers/probes/2026-10-03-dead-weather-sensor-probe.patch`) und dieser
-  Sitzungsstand nach `archive/design-history` (zweiter Push des Tages, freigegeben).
+  Sitzungsstand nach `archive/design-history` (zweiter Push des Tages, freigegeben) → `1c197e36`, Blobs gleich.
 
 ### Verworfen
 
@@ -95,7 +155,7 @@
 
 ### Nächste Schritte
 
-1. **Upstream-Runde ab 2026-10-03 08:26 UTC** (Memory `upstream-sweep-first`). JustChrs Antwort auf JustChr#188 ist
+1. **Upstream-Runde ab 2026-10-03 09:56 UTC** (Memory `upstream-sweep-first`). JustChrs Antwort auf JustChr#188 ist
    eine Zeile davon: Einwände in seinen Worten als Kommentar auf Eifel-Joe#8; sagt er den Bau zu →
    `upstream:freigegeben`; wählt er Design 1 oder 2 → Spec-Status nachziehen.
 2. **#8 nach JustChrs Antwort:** Plan Teil 2 (Schnitt nach seiner Design-Wahl, Erklärungssatz, Doku-Abschnitt
