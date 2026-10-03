@@ -159,6 +159,48 @@ class MasterMixin:
             cancel()
             self._master_off_cancel = None
 
+    async def async_master_end_cycle_now(self) -> None:
+        """End the cycle at once, for an unload nothing comes back from.
+
+        A disable or a removal tears the coordinator down, and with it the off
+        timer the release of the last hold armed: nothing would switch a
+        master_off_after master off any more. So the cycle ends here, while the
+        coordinator still lives: the off timer cancelled and, iff
+        master_off_after is set and a cycle of ours is up, the master switched
+        off, the same end _fire gives it.
+
+        Two differences from _fire, both deliberate. It does not wait for the
+        deadline: the holds are the truth, and none is left. And it switches
+        off only a master this coordinator brought up (_master_on), so a
+        disable leaves alone a pump it never started. On a removal the unload
+        has already run, no hold and no timer are left, and _master_on alone
+        says whether a cycle of ours was up.
+
+        Left alone while a hold remains: a classic run, or a distributor sweep,
+        runs on as a task and ends the cycle itself when it releases. Never
+        raises: a failure here must not be able to block an unload.
+        """
+        entity = None
+        try:
+            if not self._master_configured() or self._master_hold_set():
+                return
+            entity = self._master_entity()
+            cancel = getattr(self, "_master_off_cancel", None)
+            if cancel is not None:
+                cancel()
+                self._master_off_cancel = None
+            if getattr(self, "_master_on", False) and getattr(
+                self._master_cfg(), const.CONF_MASTER_OFF_AFTER, False
+            ):
+                await self._master_turn(False)
+            self._master_on = False
+            self._master_off_deadline = None
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception(
+                "Could not end the master cycle; the master %s may still be on",
+                entity,
+            )
+
     def _master_note_run(self, seconds: float):
         """Record the latest expected cycle end (now + seconds).
 

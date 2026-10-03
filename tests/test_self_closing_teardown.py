@@ -31,6 +31,7 @@ import pytest
 from freezegun import freeze_time
 from homeassistant.config_entries import ConfigEntryDisabler
 from homeassistant.const import EVENT_CALL_SERVICE
+from homeassistant.exceptions import ServiceNotFound
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     async_capture_events,
@@ -339,3 +340,109 @@ class TestTheMasterOffTimerGoesWithTheCoordinator:
             await _advance(hass, frozen, 30)
 
         assert len(_pump_offs(calls)) == 1
+
+
+# --------------------------------------------------------------------------- #
+# Ending the master cycle at once
+# --------------------------------------------------------------------------- #
+def _cycle_ending(c, cancel):
+    """A cycle whose last hold just went: master on, off timer pending."""
+    c._master_on = True
+    c._master_off_deadline = dt_util.utcnow() + timedelta(seconds=5)
+    c._master_off_cancel = cancel
+
+
+class TestEndingTheMasterCycleNow:
+    """async_master_end_cycle_now: the end no timer is left to give the cycle."""
+
+    async def test_a_master_we_switched_on_is_switched_off(self):
+        c = _mcoord(master_off_after=True)
+        cancel = Mock()
+        _cycle_ending(c, cancel)
+
+        await c.async_master_end_cycle_now()
+
+        c.hass.services.async_call.assert_awaited_once_with(
+            "switch", "turn_off", {"entity_id": "switch.pump"}
+        )
+        cancel.assert_called_once_with()
+        assert c._master_off_cancel is None
+        assert c._master_on is False
+        assert c._master_off_deadline is None
+
+    async def test_a_stay_on_pump_is_left_on(self):
+        c = _mcoord(master_off_after=False)
+        cancel = Mock()
+        _cycle_ending(c, cancel)
+
+        await c.async_master_end_cycle_now()
+
+        c.hass.services.async_call.assert_not_awaited()
+        cancel.assert_called_once_with()
+        assert c._master_off_cancel is None
+        assert c._master_on is False
+        assert c._master_off_deadline is None
+
+    async def test_a_master_we_did_not_switch_on_is_left_alone(self):
+        c = _mcoord(master_off_after=True)
+        c._master_on = False
+
+        await c.async_master_end_cycle_now()
+
+        c.hass.services.async_call.assert_not_awaited()
+
+    async def test_a_hold_still_taken_leaves_the_cycle_to_its_owner(self):
+        """A classic run runs on as a task and ends the cycle as it releases."""
+        c = _mcoord(master_off_after=True)
+        cancel = Mock()
+        _cycle_ending(c, cancel)
+        c._master_hold_set().add("seq:abcd1234")
+
+        await c.async_master_end_cycle_now()
+
+        c.hass.services.async_call.assert_not_awaited()
+        cancel.assert_not_called()
+        assert c._master_on is True
+
+    async def test_without_a_master_nothing_happens(self):
+        c = _mcoord(master_entity=None, master_off_after=True)
+        c._master_on = True
+
+        await c.async_master_end_cycle_now()
+
+        c.hass.services.async_call.assert_not_awaited()
+        assert c._master_on is True
+
+    async def test_a_switch_that_raises_does_not_block_the_unload(self, caplog):
+        """What reaches this call: the service call fails before dispatch."""
+        c = _mcoord(master_off_after=True)
+        _cycle_ending(c, Mock())
+        c.hass.services.async_call = AsyncMock(
+            side_effect=ServiceNotFound("switch", "turn_off")
+        )
+
+        await c.async_master_end_cycle_now()  # must not raise
+
+        assert "Could not end the master cycle" in caplog.text
+        assert "switch.pump" in caplog.text
+
+    async def test_after_the_unload_a_removal_still_switches_it_off(self, monkeypatch):
+        """A removal comes after the unload: no hold and no timer are left.
+
+        Whether a cycle of ours is up rests on _master_on alone then.
+        """
+        c = _mcoord(master_off_after=True)
+        monkeypatch.setattr(
+            "custom_components.irrigation_plus.master.async_call_later",
+            Mock(return_value=Mock()),
+        )
+        await c.async_master_acquire("sc:2")
+        await c.async_master_release("sc:2")
+        c._master_release_all()  # the unload
+        c.hass.services.async_call.reset_mock()
+
+        await c.async_master_end_cycle_now()
+
+        c.hass.services.async_call.assert_awaited_once_with(
+            "switch", "turn_off", {"entity_id": "switch.pump"}
+        )
