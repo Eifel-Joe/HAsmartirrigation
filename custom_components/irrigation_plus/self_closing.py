@@ -1177,6 +1177,26 @@ class SelfClosingMixin:
         await self._chain_advance_for_run(zone_id, run)
         return True
 
+    def async_teardown_self_closing_handles(self) -> None:
+        """Cancel every flow sampler and backstop this coordinator armed (unload).
+
+        Both close over THIS coordinator. A reload leaves the run itself in the
+        store for async_resume_self_closing_runs, which arms a backstop of its
+        own. Left armed, the old backstop then finds no record and returns
+        before it ever reaches its sampler, which ticks on until Home Assistant
+        restarts and keeps the dead coordinator alive; and a run that ends while
+        the reload is under way is settled through the dead coordinator.
+
+        Cancel only: no final read, nothing settled, nothing written. The
+        successor owns the run. The meter's litres are lost across a reload as
+        they are across a restart, and the run is booked by time.
+        """
+        meters = self._sc_meters()
+        for zone_id in list(meters):
+            meters.pop(zone_id)[1]()  # the interval's cancel handle
+        for zone_id in list(self._sc_cleanup_timers()):
+            self._sc_cancel_cleanup(zone_id)
+
     async def async_resume_self_closing_runs(self) -> None:
         """Reconcile persisted in-flight runs after a restart.
 
