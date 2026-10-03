@@ -1280,10 +1280,13 @@ class SelfClosingMixin:
 
         Both close over THIS coordinator. A reload leaves the run itself in the
         store for async_resume_self_closing_runs, which arms a backstop of its
-        own. Left armed, the old backstop then finds no record and returns
-        before it ever reaches its sampler, which ticks on until Home Assistant
-        restarts and keeps the dead coordinator alive; and a run that ends while
-        the reload is under way is settled through the dead coordinator.
+        own for a service run and for an OpenSprinkler station that is already
+        watering. (A batch run that is already watering gets none there, after
+        a restart as after a reload; its watcher alone settles it.) Left armed,
+        the old backstop then finds no record and returns before it ever
+        reaches its sampler, which ticks on until Home Assistant restarts and
+        keeps the dead coordinator alive; and a run that ends while the reload
+        is under way is settled through the dead coordinator.
 
         Cancel only: no final read, nothing settled, nothing written. The
         successor owns the run. The meter's litres are lost across a reload as

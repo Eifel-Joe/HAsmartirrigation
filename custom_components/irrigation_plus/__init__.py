@@ -511,8 +511,8 @@ async def async_remove_entry(hass: HomeAssistant, entry):
             await coordinator.async_abort_opensprinkler_runs(why, settle=False)
             await coordinator.async_abort_batch_runs(why, settle=False)
             await coordinator.async_abort_self_closing_runs(why, settle=False)
-            # Before the delete: ending the cycle reads the master's
-            # configuration from the store.
+            # Before the delete, defensively: nothing should act on a store
+            # once it is deleted.
             await coordinator.async_master_end_cycle_now()
             await coordinator.async_delete_config()
         del hass.data[const.DOMAIN]

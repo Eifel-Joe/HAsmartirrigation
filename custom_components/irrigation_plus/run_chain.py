@@ -621,11 +621,13 @@ class RunChainMixin:
     def _chain_forfeit_queue(self, mode, why: str) -> None:
         """Report the zones a cycle is abandoning and hand back what they hold.
 
-        A service chain never reaches ``async_abort_opensprinkler_runs`` — that
-        path filters on the station mode and has no service twin — so this is the
-        only place a shutdown mid-cycle can account for its queue. Silent on an
-        idle chain, because unload runs for every install whether a cycle was up
-        or not.
+        It is reached through ``_chain_release`` by a cycle that ran to its end
+        (with nothing left to report), by the OpenSprinkler and the service
+        aborts (``async_abort_opensprinkler_runs``,
+        ``async_abort_self_closing_runs``) and by a disable's
+        ``async_release_all_chains``; an unload reaches it through
+        ``_chain_teardown``. Silent on an idle chain, because unload and
+        disable run for every install whether a cycle was up or not.
 
         A rotation's currently-dispatched zone can appear here too, alongside the
         zones that never started: ``rotation.remaining`` is deducted at dispatch,

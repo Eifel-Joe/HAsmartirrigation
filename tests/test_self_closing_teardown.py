@@ -4,10 +4,11 @@ A self-closing run owns two timers per zone: the flow sampler, a 15 s interval,
 and the backstop, an async_call_later. async_unload cancelled neither, so both
 stayed armed against the coordinator being torn down:
 
-* on a reload the new coordinator re-arms a backstop of its own
-  (async_resume_self_closing_runs) and settles the run. The old backstop then
-  finds no record and returns before it ever reaches its sampler, which ticks on
-  until Home Assistant restarts -- and holds the whole dead coordinator;
+* on a reload the new coordinator adopts the run and settles it
+  (async_resume_self_closing_runs re-arms a backstop of its own for a service
+  run). The old backstop then finds no record and returns before it ever
+  reaches its sampler, which ticks on until Home Assistant restarts -- and
+  holds the whole dead coordinator;
 * a run ending while the reload is under way was settled by the DEAD
   coordinator, its chain, its deferred calculation and its master included.
 
