@@ -1,0 +1,5 @@
+L2 RED (v2026.09.30b2), Deaktivieren mitten im Lauf
+
+D5 07:53:17.814 (Eintrag deaktiviert, nach der Buchung des toten Backstops): 19 interval timers
+  grid of L1-RED-Lauf 07:39:37.053: when=1122019.717637 -> 07:53:22.099 tick 55
+  grid of L2-RED-Lauf 07:49:24.962: no timer

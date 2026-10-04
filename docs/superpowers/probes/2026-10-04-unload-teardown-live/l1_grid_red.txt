@@ -1,0 +1,17 @@
+offset epoch-loop = 1789971182.381370 (spread 1.7 us)
+run start 07:39:37.053 -> loop 1121194.6716
+
+D0 07:35:26.835 (vor dem Lauf): 20 interval timers
+  no timer on the sampler grid
+
+D1 07:39:46.212 (Lauf, vor dem Neuladen): 21 interval timers
+  when=1121209.671478 -> 07:39:52.052  tick  1  mean period 14.999837 s
+
+D2 07:42:34.984 (nach dem Neuladen, Lauf noch an): 21 interval timers
+  when=1121374.678847 -> 07:42:37.060  tick 12  mean period 15.000601 s
+
+D3 07:44:23.625 (nach Laufende und Buchung): 21 interval timers
+  when=1121494.684302 -> 07:44:37.065  tick 20  mean period 15.000633 s
+
+D4 07:47:49.760 (5 min nach Laufende): 21 interval timers
+  when=1121689.695349 -> 07:47:52.076  tick 33  mean period 15.000718 s

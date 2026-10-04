@@ -77,7 +77,7 @@ Issue: `Eifel-Joe#9`.
 
 **Files:** keine Codeänderung.
 
-- [ ] **Step 1: Worktree von `upstream/master` anlegen** (ohne Tracking auf upstream, Memory `hasi-pr-build-recipe`)
+- [x] **Step 1: Worktree von `upstream/master` anlegen** (ohne Tracking auf upstream, Memory `hasi-pr-build-recipe`)
 
 ```bash
 cd /d/Entwicklung/HASI/HAsmartirrigation
@@ -90,7 +90,7 @@ cd /d/Entwicklung/HASI/issue9-work/wt && git log --oneline -1
 Erwartet: eine Zeile mit dem aktuellen `master`-Stand. Ist es nicht `e9c79ec4`, die Anker neu suchen, etwa
 `grep -n "async def async_resume_self_closing_runs" custom_components/irrigation_plus/self_closing.py`.
 
-- [ ] **Step 2: Baseline der vollen Suite auf diesem Commit** (Memory `rebaseline-when-the-base-moves`)
+- [x] **Step 2: Baseline der vollen Suite auf diesem Commit** (Memory `rebaseline-when-the-base-moves`)
 
 ```bash
 cd /d/Entwicklung/HASI/issue9-work/wt
@@ -110,7 +110,7 @@ erst nach Laufende lesen; währenddessen nichts im Worktree ändern.
 - Create: `tests/test_self_closing_teardown.py`
 - Modify: `custom_components/irrigation_plus/self_closing.py` (vor `async def async_resume_self_closing_runs`, `self_closing.py:1180`)
 
-- [ ] **Step 1: Testdatei anlegen** — Kopf, Importe und Helfer für alle folgenden Tasks auf einmal (ruff prüft
+- [x] **Step 1: Testdatei anlegen** — Kopf, Importe und Helfer für alle folgenden Tasks auf einmal (ruff prüft
 `tests/` in CI nicht; am Ende ist jeder Import benutzt), dazu die erste Klasse:
 
 ```python
@@ -266,16 +266,25 @@ class TestTheTeardownCancelsBothTimers:
     """async_teardown_self_closing_handles: cancel, empty, touch nothing else."""
 
     async def test_both_timers_are_cancelled_and_both_tables_emptied(self, hass):
+        """Each table on its own, and every zone in it.
+
+        Zone 2 has both timers. Zone 3 has a backstop only, as every zone
+        without a flow sensor does. Zone 4's sampler is running while its
+        dispatch has not armed the backstop yet.
+        """
         c = _coord(hass)
         _the_real_backstop_from_here(c)
-        sampler, backstop = Mock(), Mock()
-        c._sc_meters()[2] = (Mock(), sampler, 120.0, dt_util.utcnow())
-        c._sc_cleanup_timers()[2] = backstop
+        now = dt_util.utcnow()
+        sampler2, sampler4, backstop2, backstop3 = Mock(), Mock(), Mock(), Mock()
+        c._sc_meters()[2] = (Mock(), sampler2, 120.0, now)
+        c._sc_meters()[4] = (Mock(), sampler4, 120.0, now)
+        c._sc_cleanup_timers()[2] = backstop2
+        c._sc_cleanup_timers()[3] = backstop3
 
         c.async_teardown_self_closing_handles()
 
-        sampler.assert_called_once_with()
-        backstop.assert_called_once_with()
+        for handle in (sampler2, sampler4, backstop2, backstop3):
+            handle.assert_called_once_with()
         assert c._sc_meters() == {}
         assert c._sc_cleanup_timers() == {}
 
@@ -283,18 +292,22 @@ class TestTheTeardownCancelsBothTimers:
         """The successor owns the run: no final read, no settle, no write."""
         c = _coord(hass)
         _the_real_backstop_from_here(c)
+        run = {const.RUN_ZONE_ID: 2}
+        c._cfg[const.CONF_ACTIVE_VALVE_RUNS] = [run]
         meter = Mock()
         c._sc_meters()[2] = (meter, Mock(), 120.0, dt_util.utcnow())
         c._sc_cleanup_timers()[2] = Mock()
 
         c.async_teardown_self_closing_handles()
+        await hass.async_block_till_done()  # anything it scheduled has run
 
         meter.sample.assert_not_called()
         meter.delivered.assert_not_called()
         c._sc_finish_flow.assert_not_called()
-        c.store.async_update_config.assert_not_awaited()
-        c.store.async_update_zone.assert_not_awaited()
-        c._record_run.assert_not_awaited()
+        c.store.async_update_config.assert_not_called()
+        c.store.async_update_zone.assert_not_called()
+        c._record_run.assert_not_called()
+        assert c._cfg[const.CONF_ACTIVE_VALVE_RUNS] == [run]  # left for the resume
 
     def test_a_coordinator_that_never_ran_one_tears_down_cleanly(self):
         c = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
@@ -305,12 +318,18 @@ class TestTheTeardownCancelsBothTimers:
         assert c._sc_cleanup_timers() == {}
 ```
 
-- [ ] **Step 2: Rot sehen**
+> **Beim Bau verschärft (Quality-Review, 2026-10-03):** Der Probe-Stand hatte in Test 1 nur eine Zone in beiden
+> Tabellen und in Test 2 `assert_not_awaited` auf einem synchronen Pfad. Gemessen gegen den Probe-Stand überlebten
+> drei Mutanten (eine Schleife über die Abtaster, eine über die Backstops, nur die erste Zone); Test 1 hat jetzt drei
+> Zonen (beide Timer / nur Backstop / nur Abtaster), Test 2 `assert_not_called`, ein Durchlaufen der Schleife und
+> einen gespeicherten Lauf, der stehen bleiben muss. Produktionscode unverändert.
+
+- [x] **Step 2: Rot sehen**
 
 Run: `TZ=UTC … -m pytest "tests/test_self_closing_teardown.py::TestTheTeardownCancelsBothTimers" -p _local_socket_unblock -q`
 Expected: `3 failed`, je `AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_teardown_self_closing_handles'`.
 
-- [ ] **Step 3: Implementieren** — in `self_closing.py` direkt vor `    async def async_resume_self_closing_runs(self) -> None:` einfügen:
+- [x] **Step 3: Implementieren** — in `self_closing.py` direkt vor `    async def async_resume_self_closing_runs(self) -> None:` einfügen:
 
 ```python
     def async_teardown_self_closing_handles(self) -> None:
@@ -335,9 +354,9 @@ Expected: `3 failed`, je `AttributeError: 'SmartIrrigationCoordinator' object ha
 
 ```
 
-- [ ] **Step 4: Grün sehen** — derselbe Befehl: `3 passed`.
+- [x] **Step 4: Grün sehen** — derselbe Befehl: `3 passed`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_self_closing_teardown.py custom_components/irrigation_plus/self_closing.py
@@ -361,7 +380,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/__init__.py` (in `async_unload`, nach `self.async_teardown_batch_watchers()`, `__init__.py:2244`)
 - Test: `tests/test_self_closing_teardown.py`
 
-- [ ] **Step 1: Failing tests anhängen**
+- [x] **Step 1: Failing tests anhängen**
 
 ```python
 # --------------------------------------------------------------------------- #
@@ -433,14 +452,14 @@ class TestAReloadMidRun:
         old._record_run.assert_not_awaited()
 ```
 
-- [ ] **Step 2: Rot sehen**
+- [x] **Step 2: Rot sehen**
 
 Run: `TZ=UTC … -m pytest "tests/test_self_closing_teardown.py::TestAReloadMidRun" -p _local_socket_unblock -q`
 Expected: `2 failed, 1 error`. Der erste Test: `AssertionError: Expected 'mock' to not have been called. Called 24
 times.` (der alte Abtaster tickt nach dem Entladen weiter), dazu ein Error im Teardown, weil sein Intervall noch
 scharf ist (lingering timer). Der zweite: `assert None is not None` (der tote Backstop hat den Lauf gebucht).
 
-- [ ] **Step 3: Implementieren** — in `__init__.py`, `async_unload`, ersetze
+- [x] **Step 3: Implementieren** — in `__init__.py`, `async_unload`, ersetze
 
 ```python
         # Same for the batch controller: its paused-indicator subscription and
@@ -461,11 +480,11 @@ durch
         self.async_teardown_self_closing_handles()
 ```
 
-- [ ] **Step 4: Grün sehen** — derselbe Befehl: `2 passed`. Dazu die vorhandenen Entlade-Tests:
+- [x] **Step 4: Grün sehen** — derselbe Befehl: `2 passed`. Dazu die vorhandenen Entlade-Tests:
 `TZ=UTC … -m pytest tests/test_init.py tests/test_run_lifecycle_safety.py tests/test_opensprinkler_teardown.py -p _local_socket_unblock -q -rfE`
 → die roten Namen sind dieselben wie in `../names-baseline.txt` (Windows-Altlasten), keine neuen.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_self_closing_teardown.py custom_components/irrigation_plus/__init__.py
@@ -489,13 +508,15 @@ EOF
 - Modify: `custom_components/irrigation_plus/master.py:145-147`
 - Test: `tests/test_self_closing_teardown.py`
 
-- [ ] **Step 1: Failing test anhängen**
+- [x] **Step 1: Failing test anhängen**
 
 ```python
 # --------------------------------------------------------------------------- #
 # The master's off timer goes with the coordinator
 # --------------------------------------------------------------------------- #
 class TestTheMasterOffTimerGoesWithTheCoordinator:
+    """It closes over the coordinator and reads its holds when it fires."""
+
     async def test_release_all_cancels_a_pending_off(self, monkeypatch):
         """Left armed it read the emptied holds as "nothing running"."""
         c = _mcoord(master_off_after=True)
@@ -512,15 +533,70 @@ class TestTheMasterOffTimerGoesWithTheCoordinator:
 
         cancel.assert_called_once_with()
         assert c._master_off_cancel is None
+
+    async def test_an_unload_leaves_no_off_timer_behind(self, hass):
+        """On the real timer, scheduled while a hold was still taken.
+
+        A distributor schedules the off while it still holds the master. The
+        unload empties the holds, so a timer left armed read "nothing running"
+        when it fired and switched the pump off, under whatever the next
+        coordinator had started on it by then.
+        """
+        c = _unloadable(_coord(hass))
+        _real_master(c, hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await c.async_master_acquire("dist:1")
+            c._master_note_run(60)
+            await c.async_master_schedule_off()
+            assert c._master_off_cancel is not None
+
+            await c.async_unload()
+            await _advance(hass, frozen, 120)
+
+        assert _pump_offs(calls) == []
+        assert c._master_off_cancel is None
         assert c.master_holds() == set()
+
+    async def test_the_boot_clean_up_switches_the_pump_off_once(self, hass):
+        """The resume pass can arm the off timer before the clean-up runs.
+
+        Settling a run that ended during the outage releases a hold this
+        process never took, and that schedules the off. The clean-up switches
+        the master off itself; the timer only did it again, five seconds later.
+        """
+        c = _coord(hass)
+        _real_master(c, hass)
+        c.store.async_get_distributors = AsyncMock(return_value=[])
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await c.async_master_release("sc:2")  # the resume pass, settling
+            assert c._master_off_cancel is not None
+
+            await c.async_reconcile_master_after_restart()
+            await _advance(hass, frozen, 30)
+
+        assert len(_pump_offs(calls)) == 1
 ```
 
-- [ ] **Step 2: Rot sehen**
+> **Beim Bau erweitert (Quality-Review, 2026-10-03):** Der Probe-Stand rief `_master_release_all` nur direkt auf
+> (die Verdrahtung in `async_unload` blieb ungepinnt) und prüfte die Holds in einer Szene, in der sie schon leer waren.
+> Neu: dieselbe Kündigung über `async_unload` auf dem echten Timer, mit einem noch gehaltenen Hold (so plant der
+> Verteiler das Aus); und der zweite Aufrufer, die Boot-Bereinigung: Dort stand entgegen der Spec doch ein Timer an
+> (der Resume-Durchgang gibt beim Buchen eines überfälligen Laufs einen nie genommenen Hold frei), der nach der
+> Bereinigung die Pumpe 5 s später ein zweites Mal ausschaltete. Dazu ein Satz im Docstring und am Aufruf in
+> `async_unload`.
+
+- [x] **Step 2: Rot sehen**
 
 Run: `TZ=UTC … -m pytest "tests/test_self_closing_teardown.py::TestTheMasterOffTimerGoesWithTheCoordinator" -p _local_socket_unblock -q`
-Expected: `1 failed`, `AssertionError: Expected 'mock' to be called once. Called 0 times.`
+Expected: `3 failed`. Der erste: `AssertionError: Expected 'mock' to be called once. Called 0 times.`; der zweite:
+`assert [<Event call_...=switch.pump>] == []` (der Timer schaltet die Pumpe nach dem Entladen ab); der dritte:
+`assert 2 == 1` (das zweite Aus fünf Sekunden nach der Bereinigung).
 
-- [ ] **Step 3: Implementieren** — in `master.py` ersetze
+- [x] **Step 3: Implementieren** — in `master.py` ersetze
 
 ```python
     def _master_release_all(self) -> None:
@@ -539,6 +615,8 @@ durch
         across a reload it fired against the emptied holds of a dead
         coordinator, read them as "nothing running" and, with master_off_after,
         switched the master off under a run the new coordinator had just started.
+        At boot the clean-up ends the cycle itself, so a timer the resume pass
+        armed would only have repeated that.
         """
         self._master_hold_set().clear()
         cancel = getattr(self, "_master_off_cancel", None)
@@ -547,14 +625,32 @@ durch
             self._master_off_cancel = None
 ```
 
-Zweiter Aufrufer ist die Boot-Bereinigung (`master.py:246`); dort steht nie ein Timer an, sie ändert sich nicht.
+Zweiter Aufrufer ist die Boot-Bereinigung (`master.py:246`). *Berichtigt beim Bau:* Dort kann doch ein Timer anstehen
+(siehe den Nachtrag bei Step 1); er wiederholte nur das Aus der Bereinigung und fällt jetzt weg.
 
-- [ ] **Step 4: Grün sehen** — derselbe Befehl: `1 passed`; dazu `tests/test_master.py` grün.
+und in `__init__.py`, `async_unload`, ersetze
 
-- [ ] **Step 5: Commit**
+```python
+        # persisted self-closing / distributor records
+        # (async_reconcile_master_after_restart).
+        self._master_release_all()
+```
+
+durch
+
+```python
+        # persisted self-closing / distributor records
+        # (async_reconcile_master_after_restart). The pending off timer goes
+        # with them: it reads these holds when it fires.
+        self._master_release_all()
+```
+
+- [x] **Step 4: Grün sehen** — derselbe Befehl: `3 passed`; dazu `tests/test_master.py` grün.
+
+- [x] **Step 5: Commit**
 
 ```bash
-git add tests/test_self_closing_teardown.py custom_components/irrigation_plus/master.py
+git add tests/test_self_closing_teardown.py custom_components/irrigation_plus/master.py custom_components/irrigation_plus/__init__.py
 git commit -F - <<'EOF'
 fix(master): the pending off timer goes with the holds on unload
 
@@ -562,6 +658,10 @@ _master_release_all emptied the holds and left the off timer armed. After a
 reload that timer fired against the dead coordinator, read its emptied holds
 as "nothing running" and, with master_off_after, could switch the master off
 under a run the new coordinator had just started.
+
+The boot clean-up is the other caller. A timer the resume pass armed there
+only switched the master off a second time, after the clean-up had already
+ended the cycle; it is dropped as well.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
@@ -575,7 +675,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/master.py` (neue Methode direkt nach `_master_release_all`)
 - Test: `tests/test_self_closing_teardown.py`
 
-- [ ] **Step 1: Failing tests anhängen**
+- [x] **Step 1: Failing tests anhängen**
 
 ```python
 # --------------------------------------------------------------------------- #
@@ -589,6 +689,8 @@ def _cycle_ending(c, cancel):
 
 
 class TestEndingTheMasterCycleNow:
+    """async_master_end_cycle_now: the end no timer is left to give the cycle."""
+
     async def test_a_master_we_switched_on_is_switched_off(self):
         c = _mcoord(master_off_after=True)
         cancel = Mock()
@@ -613,7 +715,9 @@ class TestEndingTheMasterCycleNow:
 
         c.hass.services.async_call.assert_not_awaited()
         cancel.assert_called_once_with()
+        assert c._master_off_cancel is None
         assert c._master_on is False
+        assert c._master_off_deadline is None
 
     async def test_a_master_we_did_not_switch_on_is_left_alone(self):
         c = _mcoord(master_off_after=True)
@@ -646,21 +750,65 @@ class TestEndingTheMasterCycleNow:
         assert c._master_on is True
 
     async def test_a_switch_that_raises_does_not_block_the_unload(self, caplog):
+        """What reaches this call: the service call fails before dispatch."""
         c = _mcoord(master_off_after=True)
         _cycle_ending(c, Mock())
-        c.hass.services.async_call = AsyncMock(side_effect=RuntimeError("zigbee"))
+        c.hass.services.async_call = AsyncMock(
+            side_effect=ServiceNotFound("switch", "turn_off")
+        )
 
         await c.async_master_end_cycle_now()  # must not raise
 
         assert "Could not end the master cycle" in caplog.text
+        assert "switch.pump" in caplog.text
+
+    async def test_after_the_unload_a_removal_still_switches_it_off(self, monkeypatch):
+        """A removal comes after the unload: no hold and no timer are left.
+
+        Whether a cycle of ours is up rests on _master_on alone then.
+        """
+        c = _mcoord(master_off_after=True)
+        monkeypatch.setattr(
+            "custom_components.irrigation_plus.master.async_call_later",
+            Mock(return_value=Mock()),
+        )
+        await c.async_master_acquire("sc:2")
+        await c.async_master_release("sc:2")
+        c._master_release_all()  # the unload
+        c.hass.services.async_call.reset_mock()
+
+        await c.async_master_end_cycle_now()
+
+        c.hass.services.async_call.assert_awaited_once_with(
+            "switch", "turn_off", {"entity_id": "switch.pump"}
+        )
 ```
 
-- [ ] **Step 2: Rot sehen**
+> **Beim Bau erweitert (Quality-Review, 2026-10-03):** Kein Test des Probe-Stands kannte den Zustand beim Entfernen
+> (das Entladen lief schon: keine Holds, kein Timer, nur `_master_on`); gemessen überlebte `_master_on` → „Timer
+> steht an“. Neu deshalb der letzte Test; dazu prüft der zweite den ganzen Endzustand, der sechste wirft, was hier
+> wirklich ankommen kann (`ServiceNotFound` vor dem Versand, ein Gerätefehler kommt bei nicht blockierendem Aufruf nie
+> hier an), und die Klasse hat einen Docstring. Den Import dafür setzt Step 1a in den Dateikopf.
+
+- [x] **Step 1a: Import in den Dateikopf** — in `tests/test_self_closing_teardown.py` ersetze
+
+```python
+from homeassistant.const import EVENT_CALL_SERVICE
+```
+
+durch
+
+```python
+from homeassistant.const import EVENT_CALL_SERVICE
+from homeassistant.exceptions import ServiceNotFound
+```
+
+- [x] **Step 2: Rot sehen**
 
 Run: `TZ=UTC … -m pytest "tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow" -p _local_socket_unblock -q`
-Expected: `6 failed`, je `AttributeError: '_MasterHost' object has no attribute 'async_master_end_cycle_now'`.
+Expected: `7 failed`, je `AttributeError: '_MasterHost' object has no attribute 'async_master_end_cycle_now'`.
 
-- [ ] **Step 3: Implementieren** — in `master.py` direkt nach `_master_release_all` (also vor
+- [x] **Step 3: Implementieren** — in `master.py` direkt nach `_master_release_all` (also vor
 `    def _master_note_run(self, seconds: float):`) einfügen:
 
 ```python
@@ -674,13 +822,22 @@ Expected: `6 failed`, je `AttributeError: '_MasterHost' object has no attribute 
         master_off_after is set and a cycle of ours is up, the master switched
         off, the same end _fire gives it.
 
+        Two differences from _fire, both deliberate. It does not wait for the
+        deadline: the holds are the truth, and none is left. And it switches
+        off only a master this coordinator brought up (_master_on), so a
+        disable leaves alone a pump it never started. On a removal the unload
+        has already run, no hold and no timer are left, and _master_on alone
+        says whether a cycle of ours was up.
+
         Left alone while a hold remains: a classic run, or a distributor sweep,
         runs on as a task and ends the cycle itself when it releases. Never
         raises: a failure here must not be able to block an unload.
         """
+        entity = None
         try:
             if not self._master_configured() or self._master_hold_set():
                 return
+            entity = self._master_entity()
             cancel = getattr(self, "_master_off_cancel", None)
             if cancel is not None:
                 cancel()
@@ -692,13 +849,16 @@ Expected: `6 failed`, je `AttributeError: '_MasterHost' object has no attribute 
             self._master_on = False
             self._master_off_deadline = None
         except Exception:  # noqa: BLE001
-            _LOGGER.exception("Could not end the master cycle")
+            _LOGGER.exception(
+                "Could not end the master cycle; the master %s may still be on",
+                entity,
+            )
 
 ```
 
-- [ ] **Step 4: Grün sehen** — derselbe Befehl: `6 passed`.
+- [x] **Step 4: Grün sehen** — derselbe Befehl: `7 passed`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_self_closing_teardown.py custom_components/irrigation_plus/master.py
@@ -707,9 +867,184 @@ feat(master): end the cycle at once for an unload nothing comes back from
 
 A disable or a removal cancels the off timer with the rest of the
 coordinator, so nothing would switch a master_off_after master off any more.
-async_master_end_cycle_now ends the cycle the way the timer would have:
-master off iff master_off_after is set and a cycle of ours is up. A remaining
-hold leaves the cycle to its owner, a classic run that runs on as a task.
+async_master_end_cycle_now ends the cycle in its place, without waiting for
+the deadline: master off iff master_off_after is set and a cycle of ours is
+up. A remaining hold leaves the cycle to its owner, a classic run that runs
+on as a task.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+EOF
+```
+
+---
+
+### Task 4b: Ein Verteiler ohne Master lässt das Zyklus-Flag stehen
+
+*Nachtrag beim Bau (2026-10-03).* Das Quality-Review zu Task 4 fand, gemessen: `_dist_master_end` löscht für einen
+Verteiler ohne Master (`use_master = false`) das Flag `_master_on`, obwohl dessen Start (`_dist_master_start`) unter
+demselben Tor nie einen Hold nimmt und nie das Flag setzt. Das Flag gehört dem, der den Master hochgefahren hat, etwa
+einer pumpengespeisten Zone im selben Zyklus. Folgen: Der nächste Verbraucher dieses Zyklus kickt die laufende Pumpe
+(aus und wieder an), und `async_master_end_cycle_now` (Task 4) liest „kein Zyklus von uns“, sodass ein Deaktivieren nach
+so einem Durchlauf eine Pumpe mit „nach Lauf aus“ bis zum Wiedereinschalten laufen lässt; heute schaltet sie dort der
+Aus-Timer ab. **User-Entscheidung: die Ursache beheben**, den upstream-Test, der das Löschen pinnt, umkehren und
+umbenennen (Begründung im PR-Text).
+
+**Files:**
+- Modify: `custom_components/irrigation_plus/distributor.py` (`_dist_master_end`, Zweig ohne Master)
+- Modify: `tests/test_distributor.py` (`test_master_end_clears_flag_immediately_when_not_using_master` → umgekehrt, zwei neue)
+
+- [x] **Step 1: Tests** — in `tests/test_distributor.py` ersetze
+
+```python
+async def test_master_end_clears_flag_immediately_when_not_using_master():
+    # A distributor that does not use the master short-circuits: it powers
+    # nothing off and clears the on-flag directly, without touching the shared
+    # deadline mechanism.
+    c = _host(master_off_after=True)
+    c._master_note_run = Mock()
+    c.async_master_schedule_off = AsyncMock()
+    c._master_on = True
+    await c._dist_master_end(_dist(use_master=False))
+    c.hass.services.async_call.assert_not_awaited()
+    c._master_note_run.assert_not_called()
+    c.async_master_schedule_off.assert_not_awaited()
+    assert c._master_on is False
+```
+
+durch
+
+```python
+@pytest.mark.parametrize("cycle_up", [True, False])
+async def test_master_end_leaves_the_flag_alone_when_not_using_master(cycle_up):
+    # A distributor that does not use the master never brought it up
+    # (_dist_master_start returns early under the same gate), so it powers
+    # nothing off and leaves the on-flag as it found it, without touching the
+    # shared deadline mechanism.
+    c = _host(master_off_after=True)
+    c._master_note_run = Mock()
+    c.async_master_schedule_off = AsyncMock()
+    c._master_on = cycle_up
+    await c._dist_master_end(_dist(use_master=False))
+    c.hass.services.async_call.assert_not_awaited()
+    c._master_note_run.assert_not_called()
+    c.async_master_schedule_off.assert_not_awaited()
+    assert c._master_on is cycle_up
+
+
+async def test_a_sweep_without_the_master_does_not_restart_the_running_cycle():
+    # A pump-fed zone holds the master while a sweep that does not use it ends.
+    # With the flag cleared, the next consumer to join the cycle re-ran its
+    # start under the running pump: the kick (off and on again) and the settle.
+    c = _host(master_kick_enabled=True, master_settle_seconds=10)
+    await c.async_master_acquire("sc:2")
+    await c._dist_master_end(_dist(use_master=False))
+    c.hass.services.async_call.reset_mock()
+    c._master_sleep.reset_mock()
+
+    await c.async_master_acquire("sc:3")
+
+    c.hass.services.async_call.assert_not_awaited()
+    c._master_sleep.assert_not_awaited()
+
+
+async def test_ending_the_cycle_after_a_sweep_without_the_master_switches_it_off():
+    # The same cleared flag would hide the cycle from async_master_end_cycle_now:
+    # a disable after such a sweep would leave a master_off_after pump on until
+    # the integration is enabled again.
+    c = _host(master_off_after=True, master_settle_seconds=0)
+    with patch(
+        "custom_components.irrigation_plus.master.async_call_later",
+        Mock(return_value=Mock()),
+    ):
+        await c.async_master_acquire("sc:2")
+        await c._dist_master_end(_dist(use_master=False))
+        await c.async_master_release("sc:2")  # the disable's abort
+    c.hass.services.async_call.reset_mock()
+
+    await c.async_master_end_cycle_now()
+
+    c.hass.services.async_call.assert_awaited_once_with(
+        "switch", "turn_off", {"entity_id": "switch.pump"}
+    )
+
+
+async def test_a_sweep_ending_in_the_release_grace_leaves_the_cycle_up():
+    # The last hold went just before the sweep ended: no hold is left, but the
+    # cycle is still up and its off timer armed. Clearing the flag "once no
+    # hold is left" would hide that cycle all the same.
+    c = _host(master_off_after=True, master_settle_seconds=0)
+    with patch(
+        "custom_components.irrigation_plus.master.async_call_later",
+        Mock(return_value=Mock()),
+    ):
+        await c.async_master_acquire("sc:2")
+        await c.async_master_release("sc:2")
+        await c._dist_master_end(_dist(use_master=False))
+    c.hass.services.async_call.reset_mock()
+
+    await c.async_master_end_cycle_now()
+
+    c.hass.services.async_call.assert_awaited_once_with(
+        "switch", "turn_off", {"entity_id": "switch.pump"}
+    )
+```
+
+> **Beim Bau verschärft (Quality-Review, 2026-10-03):** Test 1 läuft über beide Flag-Zustände (sonst überlebte „das
+> Flag auf True setzen“), Test 2 pinnt auch das zweite Settle, Test 3 nennt sein Ergebnis im Namen, Test 4 pinnt den
+> Grund, aus dem „erst löschen, wenn kein Hold mehr da ist“ verworfen ist (die Release-Gnadenfrist).
+
+- [x] **Step 2: Rot sehen**
+
+Run: `TZ=UTC … -m pytest tests/test_distributor.py -k "leaves_the_flag_alone or does_not_restart or switches_it_off or release_grace" -p _local_socket_unblock -q`
+Expected: `4 failed, 1 passed` — grün ist nur `[False]` des ersten Tests (ein Pin: der alte Code setzt dort ohnehin
+`False`). Rot: `assert False is True`; `Expected async_call to not have been awaited. Awaited 2 times.` (der Kick, aus
+und an); zweimal `Expected async_call to have been awaited once. Awaited 0 times.` (die Pumpe bleibt an).
+
+- [x] **Step 3: Implementieren** — in `distributor.py`, `_dist_master_end`, ersetze
+
+```python
+        if not self._dist_uses_master(distributor):
+            self._master_on = False
+            return
+```
+
+durch
+
+```python
+        if not self._dist_uses_master(distributor):
+            # Wurzel: this sweep never brought the master up (_dist_master_start
+            #   returns under the same gate), so the cycle flag is not its own: it
+            #   belongs to whoever did, a pump-fed zone running alongside, say.
+            #   Cleared here, the next acquire would re-run begin_cycle under that
+            #   pump (kick, settle), and async_master_end_cycle_now would leave a
+            #   master_off_after pump on.
+            # Fix: leave it; every real cycle end clears it (_fire, the end of a
+            #   sweep using the master, async_master_end_cycle_now, the reconcile).
+            # NOT-TO-DO: do not clear it once no hold is left either: in the
+            #   release grace the last hold is gone while the cycle, and its off
+            #   timer, are still up.
+            # siehe test_distributor.py::test_master_end_leaves_the_flag_alone_when_not_using_master
+            #   and ::test_a_sweep_ending_in_the_release_grace_leaves_the_cycle_up
+            return
+```
+
+- [x] **Step 4: Grün sehen** — derselbe Befehl: `5 passed`; dazu `tests/test_distributor.py` ohne neue rote Namen
+gegenüber der Baseline (75 Tests).
+
+- [x] **Step 5: Commit**
+
+```bash
+git add custom_components/irrigation_plus/distributor.py tests/test_distributor.py
+git commit -F - <<'EOF'
+fix(distributor): a sweep without the master leaves the cycle flag alone
+
+A distributor that does not use the master never brings it up: its start
+returns before taking a hold. Its end still cleared the master's on-flag,
+which belongs to whoever did bring it up, a pump-fed zone running alongside
+for one. The next consumer to join that cycle then re-ran its start under
+the running pump, the kick and the settle. With async_master_end_cycle_now
+reading the flag, a disable after such a sweep would also leave a
+master_off_after pump on.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
@@ -723,7 +1058,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/run_chain.py:667-681` (`_chain_release`) und neue Methode vor `def _chain_teardown(self)` (`run_chain.py:683`)
 - Test: `tests/test_self_closing_teardown.py`
 
-- [ ] **Step 1: Failing tests anhängen**
+- [x] **Step 1: Failing tests anhängen**
 
 ```python
 # --------------------------------------------------------------------------- #
@@ -762,32 +1097,53 @@ class TestReleasingEveryChain:
         assert _chain_ids(c) == [1]
         assert c._chain_state(const.WATERING_MODE_SERVICE).zones == []
 
-    async def test_an_idle_coordinator_releases_nothing(self, hass):
+    async def test_an_idle_chain_releases_nothing(self, hass, caplog):
+        """A finished cycle leaves its chain behind, empty and holding nothing."""
         c = _chain_coord(hass, SEQUENTIAL)
+        await _chain_dispatch(c, _register(c, _chain_zone(1), _chain_zone(2)))
+        await _finish(c, 1)
+        await _finish(c, 2)
+        c.async_master_release.reset_mock()
+        caplog.clear()
 
         await c.async_release_all_chains(DISABLED)
 
         c.async_master_release.assert_not_awaited()
+        assert DISABLED not in caplog.text
 
-    async def test_one_chain_that_raises_does_not_stop_the_others(self, hass, caplog):
+    @pytest.mark.parametrize("failing", [0, 1])
+    async def test_one_chain_that_raises_does_not_stop_the_others(
+        self, hass, caplog, failing
+    ):
         c = _chain_coord(hass, SEQUENTIAL)
         c._chain_state(const.WATERING_MODE_SERVICE)
         c._chain_state(const.WATERING_MODE_OPENSPRINKLER)
-        c._chain_release = AsyncMock(side_effect=[RuntimeError("boom"), None])
+        effects = [None, None]
+        effects[failing] = RuntimeError("boom")
+        c._chain_release = AsyncMock(side_effect=effects)
 
         await c.async_release_all_chains(DISABLED)  # must not raise
 
-        assert c._chain_release.await_count == 2
+        assert [ck.args for ck in c._chain_release.await_args_list] == [
+            (const.WATERING_MODE_SERVICE, DISABLED),
+            (const.WATERING_MODE_OPENSPRINKLER, DISABLED),
+        ]
         assert "Could not release" in caplog.text
+        assert any(record.exc_info for record in caplog.records)
 ```
 
-- [ ] **Step 2: Rot sehen**
+> **Beim Bau verschärft (Quality-Review, 2026-10-03):** Der Leerlauf-Test des Probe-Stands erreichte die Schleife nie
+> (kein Kettenzustand), jetzt bleibt eine durchgelaufene Kette zurück, wie nach jedem Zyklus (pinnt das `if token:`).
+> Der Fehler-Test läuft für beide Positionen, prüft Modus und Grund je Aufruf und den Traceback. Docstring mit den
+> Hausregeln für Namen, Log nennt die Folge.
+
+- [x] **Step 2: Rot sehen**
 
 Run: `TZ=UTC … -m pytest "tests/test_self_closing_teardown.py::TestReleasingEveryChain" -p _local_socket_unblock -q`
-Expected: `4 failed, 1 error`, je `AttributeError: 'SmartIrrigationCoordinator' object has no attribute
+Expected: `5 failed, 1 error`, je `AttributeError: 'SmartIrrigationCoordinator' object has no attribute
 'async_release_all_chains'`; der Error ist der Absorptions-Timer des ersten Tests, der scharf bleibt.
 
-- [ ] **Step 3: Implementieren** — in `run_chain.py` ersetze in `_chain_release`
+- [x] **Step 3: Implementieren** — in `run_chain.py` ersetze in `_chain_release`
 
 ```python
     async def _chain_release(self, mode) -> None:
@@ -824,25 +1180,28 @@ und füge direkt vor `    def _chain_teardown(self) -> None:` ein:
         """Release every chain and its master hold (an unload nothing adopts).
 
         A chain holds the master for its whole cycle, the gaps between its runs
-        and a rotation's absorption waits included (_chain_take_hold).
-        _chain_teardown drops the chains without that release, which a reload
-        can afford: its successor reconciles the master on the way back up. A
-        disable has no successor. Caught in such a pause, with no run in
-        flight for an abort to find, the hold would keep the master up after
-        the cycle is gone. Never raises.
+        and a rotation's absorption waits included (``_chain_take_hold``).
+        Caught in such a pause, with no run in flight for an abort to find,
+        that hold would keep the master up after the cycle is gone.
+        ``_chain_teardown`` drops the chains without the release, which a
+        reload can afford: its successor reconciles the master on the way back
+        up. A disable has no successor. Never raises.
         """
         for mode in list(self._chains()):
             try:
                 await self._chain_release(mode, why)
             except Exception:  # noqa: BLE001
-                _LOGGER.exception("Could not release the %s chain", mode)
+                _LOGGER.exception(
+                    "Could not release the %s chain; its hold may keep the master on",
+                    mode,
+                )
 
 ```
 
-- [ ] **Step 4: Grün sehen** — derselbe Befehl: `4 passed`; dazu `tests/test_service_chain.py`,
+- [x] **Step 4: Grün sehen** — derselbe Befehl: `5 passed`; dazu `tests/test_service_chain.py`,
 `tests/test_chain_carries_its_plan.py`, `tests/test_opensprinkler.py` ohne neue rote Namen gegenüber der Baseline.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_self_closing_teardown.py custom_components/irrigation_plus/run_chain.py
@@ -866,7 +1225,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/self_closing.py` (neue Methode nach `_sc_find_run`, `self_closing.py:964-968`; Aufruf in `async_stop_self_closing`, `self_closing.py:1002-1031`)
 - Test: `tests/test_self_closing_teardown.py`
 
-- [ ] **Step 1: Failing tests anhängen**
+- [x] **Step 1: Failing tests anhängen**
 
 ```python
 # --------------------------------------------------------------------------- #
@@ -874,20 +1233,27 @@ EOF
 # --------------------------------------------------------------------------- #
 class TestTheStopInstruction:
     async def test_the_stop_service_gets_a_zero_duration_under_its_field(self, hass):
+        """The payload carries the run's zone id, not the id field of the zone."""
         c = _coord(hass)
         calls = async_capture_events(hass, EVENT_CALL_SERVICE)
 
-        sent = await c._sc_dispatch_stop(2, _zone())
+        sent = await c._sc_dispatch_stop(7, _zone())
         await hass.async_block_till_done()
 
         assert sent is True
-        assert _stops(calls) == [{"zone_id": 2, "dauer": 0}]
+        assert _stops(calls) == [{"zone_id": 7, "dauer": 0}]
 
-    async def test_a_zone_without_a_stop_service_sends_nothing(self, hass):
+    @pytest.mark.parametrize(
+        "unset", ["absent", None, ""], ids=["absent", "none", "empty"]
+    )
+    async def test_a_zone_without_a_stop_service_sends_nothing(self, hass, unset):
         c = _coord(hass)
         calls = async_capture_events(hass, EVENT_CALL_SERVICE)
         zone = _zone()
-        del zone[const.ZONE_STOP_SERVICE]
+        if unset == "absent":
+            del zone[const.ZONE_STOP_SERVICE]
+        else:
+            zone[const.ZONE_STOP_SERVICE] = unset
 
         sent = await c._sc_dispatch_stop(2, zone)
         await hass.async_block_till_done()
@@ -895,23 +1261,42 @@ class TestTheStopInstruction:
         assert sent is False
         assert calls == []
 
-    async def test_an_opensprinkler_zone_stops_through_its_station(self, hass):
+    @pytest.mark.parametrize("with_stop_service", [True, False])
+    async def test_an_opensprinkler_zone_stops_through_its_station(
+        self, hass, with_stop_service
+    ):
+        """Never through the stop_service adapter, configured or not.
+
+        opensprinkler.stop is entity-targeted and rejects the zone_id the
+        adapter sends.
+        """
         c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
         c._os_dispatch_stop = AsyncMock()
         zone = _zone(**{const.ZONE_WATERING_MODE: const.WATERING_MODE_OPENSPRINKLER})
+        if not with_stop_service:
+            del zone[const.ZONE_STOP_SERVICE]
 
         sent = await c._sc_dispatch_stop(2, zone)
+        await hass.async_block_till_done()
 
         assert sent is True
         c._os_dispatch_stop.assert_awaited_once_with(zone)
+        assert _stops(calls) == []
 ```
 
-- [ ] **Step 2: Rot sehen**
+> **Beim Bau verschärft (Quality-Review, 2026-10-03; das Verhalten belegte das Review per Differenzial-Vergleich alt/neu,
+> 555 Fälle, 0 Abweichungen):** Test 1 schickt eine andere Lauf-ID als die der Zone, Test 2 deckt alle drei Formen
+> „kein Stop service“ ab (fehlt, `None`, leer), Test 3 prüft mit und ohne konfigurierten Stop service, dass der Adapter
+> nicht angesprochen wird (sonst überlebte „`return True` weg“). Die Warnung am Aufrufer pinnt Task 7 in beide
+> Richtungen.
+
+- [x] **Step 2: Rot sehen**
 
 Run: `TZ=UTC … -m pytest "tests/test_self_closing_teardown.py::TestTheStopInstruction" -p _local_socket_unblock -q`
-Expected: `3 failed`, je `AttributeError: 'SmartIrrigationCoordinator' object has no attribute '_sc_dispatch_stop'`.
+Expected: `6 failed`, je `AttributeError: 'SmartIrrigationCoordinator' object has no attribute '_sc_dispatch_stop'`.
 
-- [ ] **Step 3: Implementieren** — in `self_closing.py` direkt nach `_sc_find_run` (vor
+- [x] **Step 3: Implementieren** — in `self_closing.py` direkt nach `_sc_find_run` (vor
 `    async def async_stop_self_closing(`) einfügen:
 
 ```python
@@ -921,7 +1306,9 @@ Expected: `3 failed`, je `AttributeError: 'SmartIrrigationCoordinator' object ha
         False only for a zone nothing can close: not OpenSprinkler, and no
         stop_service. What to say about that is the caller's, because a stop
         that settles the run and one that only closes it (a removal) mean
-        different things by it.
+        different things by it. A service call that fails raises out of here
+        for the same reason. ``zone_id`` is the id of the run being stopped;
+        the payload carries it, not the id field of ``zone``.
         """
         if is_opensprinkler_zone(zone):
             # opensprinkler.stop is entity-targeted; the stop_service adapter
@@ -995,7 +1382,7 @@ durch
 
 Verhalten unverändert: OpenSprinkler über die Station, sonst Stop service mit Dauer 0, sonst dieselbe Warnung.
 
-- [ ] **Step 4: Grün sehen** — derselbe Befehl: `3 passed`. Dann die Stopp-Pfade ohne neue rote Namen:
+- [x] **Step 4: Grün sehen** — derselbe Befehl: `6 passed`. Dann die Stopp-Pfade ohne neue rote Namen:
 
 ```bash
 TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_self_closing.py tests/test_service_watch.py tests/test_opensprinkler.py tests/test_batch.py -p _local_socket_unblock -q --no-header -rfE 2>&1 | tr '\r' '\n' | grep -E "^(FAILED|ERROR) tests" | sed -E 's/ - .*//' | sort > ../names-t6.txt
@@ -1004,7 +1391,7 @@ grep -E "tests/test_(self_closing|service_watch|opensprinkler|batch)\.py" ../nam
 
 Expected: `identical` (im Probelauf 52 Altlasten-Errors, namensgleich; 271 passed).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_self_closing_teardown.py custom_components/irrigation_plus/self_closing.py
@@ -1028,7 +1415,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/self_closing.py` (neue Methode direkt vor `async_teardown_self_closing_handles` aus Task 1)
 - Test: `tests/test_self_closing_teardown.py`
 
-- [ ] **Step 1: Failing tests anhängen**
+- [x] **Step 1: Failing tests anhängen**
 
 ```python
 # --------------------------------------------------------------------------- #
@@ -1042,7 +1429,7 @@ async def _a_run_halfway(hass, c, frozen, zone=None):
 class TestAbortingTheServiceRuns:
     """The service twin of async_abort_opensprinkler_runs."""
 
-    async def test_a_service_run_is_stopped_and_settled(self, hass):
+    async def test_a_service_run_is_stopped_and_settled(self, hass, caplog):
         c = _coord(hass)
         calls = async_capture_events(hass, EVENT_CALL_SERVICE)
         started = dt_util.utcnow().replace(microsecond=0)
@@ -1058,6 +1445,7 @@ class TestAbortingTheServiceRuns:
         assert kw["result"] == const.RUN_RESULT_PARTIAL
         assert kw["actual_s"] == pytest.approx(300, abs=1)
         c.async_master_release.assert_awaited_once_with("sc:2")
+        assert "without a stop_service" not in caplog.text  # it was closed
 
     async def test_a_record_without_a_mode_is_a_service_run(self, hass):
         """The resume path reads it as one, so the abort does too."""
@@ -1133,7 +1521,7 @@ class TestAbortingTheServiceRuns:
         assert await c._sc_find_run(2) is not None  # the store is deleted next
         c._record_run.assert_not_awaited()
         c.async_master_release.assert_not_awaited()
-        c.async_teardown_opensprinkler_watchers()  # the run's watcher, still armed
+        c._watch_cancel(2)  # the run's watcher, still armed
 
     async def test_a_zone_without_a_stop_service_is_still_settled(self, hass, caplog):
         c = _coord(hass)
@@ -1178,15 +1566,54 @@ class TestAbortingTheServiceRuns:
         c = _coord(hass)
 
         assert await c.async_abort_self_closing_runs(DISABLED) is False
+
+    async def test_without_settling_a_zone_without_a_stop_service_is_named(
+        self, hass, caplog
+    ):
+        c = _coord(hass)
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        zone = _zone()
+        del zone[const.ZONE_STOP_SERVICE]
+        c._zones[2] = zone
+        c._cfg[const.CONF_ACTIVE_VALVE_RUNS] = [
+            {const.RUN_ZONE_ID: 2, const.RUN_MODE: const.WATERING_MODE_SERVICE}
+        ]
+
+        assert await c.async_abort_self_closing_runs(REMOVED, settle=False) is False
+        await hass.async_block_till_done()
+
+        assert _stops(calls) == []
+        assert "has no stop_service" in caplog.text
+
+    async def test_a_chain_that_cannot_be_released_stops_nothing(self, hass, caplog):
+        """A settle could then dispatch the chain's next zone on the way out."""
+        c = _coord(hass)
+        c._cfg[const.CONF_ACTIVE_VALVE_RUNS] = [
+            {const.RUN_ZONE_ID: 2, const.RUN_MODE: const.WATERING_MODE_SERVICE}
+        ]
+        c._chain_release = AsyncMock(side_effect=RuntimeError("boom"))
+        c.async_stop_self_closing = AsyncMock()
+
+        assert await c.async_abort_self_closing_runs(DISABLED) is False  # no raise
+
+        c.async_stop_self_closing.assert_not_awaited()
+        assert "Could not release the service chain" in caplog.text
 ```
 
-- [ ] **Step 2: Rot sehen**
+> **Beim Bau erweitert (Quality-Review, 2026-10-03):** „Wirft nie“ galt im Probe-Stand nicht wörtlich: Filter und
+> Kettenfreigabe standen außerhalb jedes `try`. Scheitert die Freigabe schon in `async_release_all_chains`, hätte der
+> zweite Aufruf hier ins Entladen geworfen (Anforderung 5). Jetzt geschützt; eine nicht freigebbare Kette stoppt
+> nichts (ein Buchen könnte sonst ihre nächste Zone starten). Dazu der Warnzweig bei `settle=False` gepinnt, die
+> wirkungslose Aufräumzeile im Test durch `_watch_cancel(2)` ersetzt und der Docstring präzisiert (Rückgabewert,
+> Herunterfahren, warum `settle=False` nicht bucht).
+
+- [x] **Step 2: Rot sehen**
 
 Run: `TZ=UTC … -m pytest "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns" -p _local_socket_unblock -q`
-Expected: `9 failed`, je `AttributeError: 'SmartIrrigationCoordinator' object has no attribute
+Expected: `11 failed`, je `AttributeError: 'SmartIrrigationCoordinator' object has no attribute
 'async_abort_self_closing_runs'`.
 
-- [ ] **Step 3: Implementieren** — in `self_closing.py` direkt vor
+- [x] **Step 3: Implementieren** — in `self_closing.py` direkt vor
 `    def async_teardown_self_closing_handles(self) -> None:` einfügen:
 
 ```python
@@ -1203,37 +1630,48 @@ Expected: `9 failed`, je `AttributeError: 'SmartIrrigationCoordinator' object ha
 
         Deliberately NOT called from a plain reload or a restart. Those are
         adopted by ``async_resume_self_closing_runs``, and cutting the run
-        short there would waste water on every options change.
+        short there would waste water on every options change. Nor on
+        shutdown: the valve closes itself, and the next start's resume books
+        the run.
 
         A service run is what the resume path treats as one: every persisted
         run that is neither OpenSprinkler nor batch, including a record from
         before ``RUN_MODE`` existed. Those two modes have aborts of their own.
 
-        ``settle=False`` only sends the stop, for a removal: the store is
-        deleted right after, so the reconciliation would be pointless.
+        ``settle=False`` only sends the stop, for a removal: the unload has
+        already torn the coordinator down and the store is deleted right
+        after, so settling would only write to it and re-arm the master's off
+        timer.
 
-        Returns True if anything was stopped. Never raises: a failure here must
-        not be able to block an unload.
+        Returns True if any run was stopped or settled. Never raises: a
+        failure here must not be able to block an unload. A chain that cannot
+        be released stops nothing, since a settle could then dispatch its next
+        zone on the way out.
         """
         try:
             runs = await self._sc_active_runs()
+            targets = [
+                r
+                for r in runs
+                if r.get(const.RUN_MODE)
+                not in (const.WATERING_MODE_OPENSPRINKLER, const.WATERING_MODE_BATCH)
+                and r.get(const.RUN_ZONE_ID) is not None
+            ]
         except Exception:  # noqa: BLE001
             _LOGGER.exception("Could not read active runs to stop self-closing valves")
             return False
-
-        targets = [
-            r
-            for r in runs
-            if r.get(const.RUN_MODE)
-            not in (const.WATERING_MODE_OPENSPRINKLER, const.WATERING_MODE_BATCH)
-            and r.get(const.RUN_ZONE_ID) is not None
-        ]
         if not targets:
             return False
 
         # Before any stop, so a settled run cannot advance the chain and
         # dispatch the next zone on the way out.
-        await self._chain_release(const.WATERING_MODE_SERVICE, reason)
+        try:
+            await self._chain_release(const.WATERING_MODE_SERVICE, reason)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception(
+                "Could not release the service chain; its runs are not stopped"
+            )
+            return False
 
         stopped = False
         for run in targets:
@@ -1265,9 +1703,9 @@ Expected: `9 failed`, je `AttributeError: 'SmartIrrigationCoordinator' object ha
 
 ```
 
-- [ ] **Step 4: Grün sehen** — derselbe Befehl: `9 passed`.
+- [x] **Step 4: Grün sehen** — derselbe Befehl: `11 passed`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_self_closing_teardown.py custom_components/irrigation_plus/self_closing.py
@@ -1292,12 +1730,17 @@ EOF
 - Modify: `custom_components/irrigation_plus/__init__.py:475-481` (Zweig „deaktiviert“ in `async_unload_entry`) und `:508-511` (`async_remove_entry`)
 - Test: `tests/test_self_closing_teardown.py`
 
-- [ ] **Step 1: Failing tests anhängen**
+- [x] **Step 1: Failing tests anhängen**
 
 ```python
 # --------------------------------------------------------------------------- #
 # The entry paths
 # --------------------------------------------------------------------------- #
+def _steps(coordinator):
+    """Each call on the mock coordinator, with its arguments, in order."""
+    return [(name, args, kwargs) for name, args, kwargs in coordinator.mock_calls]
+
+
 class TestTheEntryPaths:
     """Which unload stops what, and in which order (mock coordinator)."""
 
@@ -1319,27 +1762,26 @@ class TestTheEntryPaths:
     async def test_disabling_stops_everything_before_the_unload(
         self, hass, mock_config_entry
     ):
+        """Every abort settles: the master's end relies on the holds they free."""
         coordinator = self._coordinator(hass)
         mock_config_entry.disabled_by = ConfigEntryDisabler.USER
         panel, forward = _unload_patches(hass)
         with panel, forward:
             assert await async_unload_entry(hass, mock_config_entry) is True
 
-        assert _called(coordinator) == [
-            "async_release_all_chains",
-            "async_abort_opensprinkler_runs",
-            "async_abort_batch_runs",
-            "async_abort_self_closing_runs",
-            "async_master_end_cycle_now",
-            "async_unload",
+        assert _steps(coordinator) == [
+            ("async_release_all_chains", (DISABLED,), {}),
+            ("async_abort_opensprinkler_runs", (DISABLED,), {}),
+            ("async_abort_batch_runs", (DISABLED,), {}),
+            ("async_abort_self_closing_runs", (DISABLED,), {}),
+            ("async_master_end_cycle_now", (), {}),
+            ("async_unload", (), {}),
         ]
-        coordinator.async_release_all_chains.assert_awaited_once_with(DISABLED)
-        coordinator.async_abort_self_closing_runs.assert_awaited_once_with(DISABLED)
 
     async def test_removal_stops_without_settling_before_the_delete(
         self, hass, mock_config_entry
     ):
-        """The master's configuration lives in the store that is deleted last."""
+        """Nothing is written to the store about to be deleted."""
         coordinator = self._coordinator(hass)
         with (
             patch("custom_components.irrigation_plus.remove_panel"),
@@ -1350,33 +1792,32 @@ class TestTheEntryPaths:
         ):
             await async_remove_entry(hass, mock_config_entry)
 
-        assert _called(coordinator) == [
-            "async_abort_opensprinkler_runs",
-            "async_abort_batch_runs",
-            "async_abort_self_closing_runs",
-            "async_master_end_cycle_now",
-            "async_delete_config",
+        assert _steps(coordinator) == [
+            ("async_abort_opensprinkler_runs", (REMOVED,), {"settle": False}),
+            ("async_abort_batch_runs", (REMOVED,), {"settle": False}),
+            ("async_abort_self_closing_runs", (REMOVED,), {"settle": False}),
+            ("async_master_end_cycle_now", (), {}),
+            ("async_delete_config", (), {}),
         ]
-        coordinator.async_abort_self_closing_runs.assert_awaited_once_with(
-            REMOVED, settle=False
-        )
 
 
 class TestDisablingMidRun:
     """The whole disable, through async_unload_entry, on the real hass."""
 
-    async def test_the_run_is_stopped_and_booked_and_the_pump_switched_off(
-        self, hass, mock_config_entry
+    @pytest.mark.parametrize(("off_after", "pump_offs"), [(True, 1), (False, 0)])
+    async def test_the_run_is_stopped_and_booked_and_the_cycle_ended(
+        self, hass, mock_config_entry, off_after, pump_offs
     ):
         """600 s plan, a queued second zone, disabled at 300 s.
 
         Measured 50 L (10 L/min for 300 s): not the 1 L this host books by
-        time, not the 100 L of the plan. The queued zone never opens.
+        time, not the 100 L of the plan. The queued zone never opens, and the
+        pump goes off only if it is set to go off after its runs.
         """
         c = _unloadable(_coord(hass))
         _metered(c)
         _the_real_backstop_from_here(c)
-        _real_master(c, hass)
+        _real_master(c, hass, off_after=off_after)
         c.store.config.zone_sequencing = SEQUENTIAL
         c.store.config.zone_sequencing_max_consecutive_duration = 5
         c.store.config.zone_sequencing_min_absorption_time = 0
@@ -1406,7 +1847,7 @@ class TestDisablingMidRun:
         assert kw["result"] == const.RUN_RESULT_PARTIAL
         assert kw["volume_l"] == pytest.approx(RATE * 300 / 60, abs=0.01)
         assert _opened(calls) == [2]
-        assert len(_pump_offs(calls)) == 1
+        assert len(_pump_offs(calls)) == pump_offs
         assert c._sc_meters() == {}
         assert c._sc_cleanup_timers() == {}
 
@@ -1419,34 +1860,119 @@ class TestDisablingMidRun:
         hass.data[const.DOMAIN] = {"coordinator": c}
         mock_config_entry.disabled_by = ConfigEntryDisabler.USER
         calls = async_capture_events(hass, EVENT_CALL_SERVICE)
-        await _chain_dispatch(c, _register(c, _chain_zone(1, duration=180)))
-        await _finish(c, 1)
-        state = c._chain_state(const.WATERING_MODE_SERVICE)
-        assert state.absorb is not None and state.token is not None
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _chain_dispatch(c, _register(c, _chain_zone(1, duration=180)))
+            await _finish(c, 1)
+            state = c._chain_state(const.WATERING_MODE_SERVICE)
+            assert state.absorb is not None and state.token is not None
 
-        panel, forward = _unload_patches(hass)
-        with panel, forward:
-            assert await async_unload_entry(hass, mock_config_entry) is True
-        await hass.async_block_till_done()
-        async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=30))
-        await hass.async_block_till_done()
+            panel, forward = _unload_patches(hass)
+            with panel, forward:
+                assert await async_unload_entry(hass, mock_config_entry) is True
+            await hass.async_block_till_done()
+            await _advance(hass, frozen, 700)  # past the 600 s absorption wait
 
         assert state.absorb is None and state.token is None
         assert len(_pump_offs(calls)) == 1
         assert _chain_ids(c) == [1]  # no second slot
+
+
+class TestRemovingMidRun:
+    """Home Assistant unloads first, then removes the entry: on the real hass."""
+
+    async def test_the_valve_is_closed_and_the_pump_switched_off(
+        self, hass, mock_config_entry
+    ):
+        """Nothing is booked, and the pump goes off after the valve's stop.
+
+        The plain unload drops the run's hold without releasing it, so only
+        async_master_end_cycle_now ends the master's cycle.
+        """
+        c = _unloadable(_coord(hass))
+        _metered(c)
+        _the_real_backstop_from_here(c)
+        _real_master(c, hass)
+        c.store.config.zone_sequencing = SEQUENTIAL
+        c.store.config.zone_sequencing_max_consecutive_duration = 5
+        c.store.config.zone_sequencing_min_absorption_time = 0
+        c.store.async_delete = AsyncMock()
+        hass.data[const.DOMAIN] = {"coordinator": c}
+        calls = async_capture_events(hass, EVENT_CALL_SERVICE)
+        first, second = _metered_zone(600), _zone(3, confirm=None)
+        c._zones[2], c._zones[3] = first, second
+        started = dt_util.utcnow().replace(microsecond=0)
+        with freeze_time(started) as frozen:
+            await _flow(hass, RATE)
+            await _set(hass, VALVE, "on")
+            await c.async_dispatch_chained_zones(
+                [first, second], mode=const.WATERING_MODE_SERVICE, trigger="schedule"
+            )
+            await hass.async_block_till_done()
+            await _walk(hass, frozen, 300)
+            panel, forward = _unload_patches(hass)
+            with panel, forward:
+                assert await async_unload_entry(hass, mock_config_entry) is True
+            with (
+                patch("custom_components.irrigation_plus.remove_panel"),
+                patch(
+                    "custom_components.irrigation_plus.async_remove_card_resource",
+                    new=AsyncMock(),
+                ),
+            ):
+                await async_remove_entry(hass, mock_config_entry)
+            await hass.async_block_till_done()
+            await _walk(hass, frozen, 600)
+
+        services = [e.data["service"] for e in calls]
+        assert _stops(calls) == [{"zone_id": 2, "dauer": 0}]
+        c._record_run.assert_not_awaited()
+        assert _opened(calls) == [2]
+        assert len(_pump_offs(calls)) == 1
+        assert services.index("stop_irrigation_beet") < services.index("turn_off")
+        c.store.async_delete.assert_awaited_once()
 ```
 
-- [ ] **Step 2: Rot sehen**
-
-Run: `TZ=UTC … -m pytest "tests/test_self_closing_teardown.py::TestTheEntryPaths" "tests/test_self_closing_teardown.py::TestDisablingMidRun" -p _local_socket_unblock -q`
-Expected: `4 failed, 1 passed`. Grün ist nur der Pin `test_a_reload_stops_nothing`. Rot: die beiden
-Reihenfolge-Tests (`assert ['async_abort...async_unload'] == ['async_relea...async_unload']` bzw. `…elete_config`),
-die Szene mitten im Lauf (`assert [] == [{'dauer': 0, 'zone_id': 2}]`: kein Stopp) und die Absorptionspause
-(`assert 0 == 1`: die Pumpe wird nicht abgeschaltet).
-
-- [ ] **Step 3: Implementieren** — in `__init__.py`, `async_unload_entry`, ersetze
+- [x] **Step 1a: Import aus dem Dateikopf** — `async_fire_time_changed` braucht nach dem Umbau der Absorptions-Szene
+keiner mehr. In `tests/test_self_closing_teardown.py` ersetze
 
 ```python
+from pytest_homeassistant_custom_component.common import (
+    async_capture_events,
+    async_fire_time_changed,
+    async_mock_service,
+)
+```
+
+durch
+
+```python
+from pytest_homeassistant_custom_component.common import (
+    async_capture_events,
+    async_mock_service,
+)
+```
+
+> **Beim Bau erweitert (Quality-Review, 2026-10-03):** Die Reihenfolge-Tests prüfen jetzt jeden Aufruf mit seinen
+> Argumenten (sonst überlebte `settle=False` beim Deaktivieren, das die `sc:`-Holds und damit die Pumpe stehen ließe);
+> die Lauf-Szene läuft mit und ohne „nach Lauf aus“ (Anforderung 7 Ende-zu-Ende); die Absorptions-Szene läuft unter
+> eingefrorener Uhr über die 600-s-Wartezeit hinaus (vorher konnte „kein zweiter Slot“ nie scheitern); neu die
+> Entfernen-Szene auf der echten `hass` (Entladen, dann Entfernen). Dazu Kommentare in `__init__.py` und ein
+> `why`-Wert auch beim Entfernen.
+
+- [x] **Step 2: Rot sehen**
+
+Run: `TZ=UTC … -m pytest "tests/test_self_closing_teardown.py::TestTheEntryPaths" "tests/test_self_closing_teardown.py::TestDisablingMidRun" "tests/test_self_closing_teardown.py::TestRemovingMidRun" -p _local_socket_unblock -q`
+Expected: `6 failed, 1 passed`. Grün ist nur der Pin `test_a_reload_stops_nothing`. Rot: die beiden
+Reihenfolge-Tests (der erste Schritt bzw. der dritte weicht ab), die Lauf-Szene in beiden Parametern und die
+Entfernen-Szene (`assert [] == [{'dauer': 0, 'zone_id': 2}]`: kein Stopp) und die Absorptionspause
+(`assert 0 == 1`: die Pumpe wird nicht abgeschaltet).
+
+- [x] **Step 3: Implementieren** — in `__init__.py`, `async_unload_entry`, ersetze
+
+```python
+        # Ordered before async_unload so the run records and the chain are still
+        # live enough to settle the bucket against what was delivered.
         if entry.disabled_by is not None:
             await coordinator.async_abort_opensprinkler_runs(
                 "the Irrigation Plus config entry is being disabled"
@@ -1460,6 +1986,8 @@ die Szene mitten im Lauf (`assert [] == [{'dauer': 0, 'zone_id': 2}]`: kein Stop
 durch
 
 ```python
+        # Ordered before async_unload so the run records and their flow samplers
+        # are still live enough to settle the bucket against what was delivered.
         if entry.disabled_by is not None:
             why = "the Irrigation Plus config entry is being disabled"
             # Every chain first. One caught in a pause between its runs holds
@@ -1470,7 +1998,7 @@ durch
             # A service run as well: async_unload cancels its backstop, which
             # was what still settled it after a disable and released its master.
             await coordinator.async_abort_self_closing_runs(why)
-            # Its off timer goes with the unload, so the cycle ends here.
+            # The master's off timer goes with the unload, so the cycle ends here.
             await coordinator.async_master_end_cycle_now()
         await coordinator.async_unload()
 ```
@@ -1478,6 +2006,14 @@ durch
 und in `async_remove_entry` ersetze
 
 ```python
+            # Last chance to reach the controller: after the delete below there
+            # is no record that these stations were ever ours, and the queue
+            # would run to completion with the integration uninstalled.
+            # settle=False because async_delete_config removes the store the
+            # reconciliation would write to.
+            await coordinator.async_abort_opensprinkler_runs(
+                "the Irrigation Plus config entry is being removed", settle=False
+            )
             await coordinator.async_abort_batch_runs(
                 "the Irrigation Plus config entry is being removed", settle=False
             )
@@ -1487,21 +2023,25 @@ und in `async_remove_entry` ersetze
 durch
 
 ```python
-            await coordinator.async_abort_batch_runs(
-                "the Irrigation Plus config entry is being removed", settle=False
-            )
-            await coordinator.async_abort_self_closing_runs(
-                "the Irrigation Plus config entry is being removed", settle=False
-            )
-            # Before the delete: the master's configuration lives in the store.
+            why = "the Irrigation Plus config entry is being removed"
+            # Last chance to reach the controllers and the valves: after the
+            # delete below there is no record that these runs were ever ours,
+            # and they would water on with the integration uninstalled.
+            # settle=False because async_delete_config removes the store the
+            # reconciliation would write to.
+            await coordinator.async_abort_opensprinkler_runs(why, settle=False)
+            await coordinator.async_abort_batch_runs(why, settle=False)
+            await coordinator.async_abort_self_closing_runs(why, settle=False)
+            # Before the delete: ending the cycle reads the master's
+            # configuration from the store.
             await coordinator.async_master_end_cycle_now()
             await coordinator.async_delete_config()
 ```
 
-- [ ] **Step 4: Grün sehen** — derselbe Befehl: `5 passed`; dann die ganze neue Datei: `33 passed`; dazu
+- [x] **Step 4: Grün sehen** — derselbe Befehl: `7 passed`; dann die ganze neue Datei: `44 passed`; dazu
 `tests/test_opensprinkler_teardown.py` und `tests/test_init.py` ohne neue rote Namen gegenüber der Baseline.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_self_closing_teardown.py custom_components/irrigation_plus/__init__.py
@@ -1512,9 +2052,9 @@ The unload now cancels a self-closing run's backstop, and that backstop was
 what still settled a disabled entry's run and released its master. A disable
 therefore releases every chain, aborts the service runs as it already did the
 OpenSprinkler and batch ones, and ends the master cycle before unloading. A
-removal sends the service stops without settling and ends the master before
-the store, which holds its configuration, is deleted. A reload is unchanged:
-the successor adopts the runs.
+removal sends the service stops without settling and ends the master's cycle
+before the store is deleted. A reload is unchanged: the successor adopts the
+runs.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
@@ -1527,7 +2067,7 @@ EOF
 **Files:**
 - Modify: `docs/configuration-my-zones.md:91`
 
-- [ ] **Step 1: Satz ergänzen** — ersetze
+- [x] **Step 1: Satz ergänzen** — ersetze
 
 ```markdown
   - **Stop service** *(optional)* — closes the valve if you stop a run early (while HA is up).
@@ -1539,7 +2079,7 @@ durch
   - **Stop service** *(optional)* — closes the valve if you stop a run early (while HA is up), and when the integration is disabled or removed in the middle of a run. Without one, the valve waters on to the end of its own countdown.
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/configuration-my-zones.md
@@ -1552,11 +2092,247 @@ EOF
 
 ---
 
+### Task 9a: Texte, die diese Serie unwahr gemacht hat
+
+*Nachtrag beim Bau (2026-10-03).* (1) Das Quality-Review zu Task 2 fand, gemessen: `_batch_resume_run` stellt für einen
+schon wässernden Batch-Lauf keinen Backstop neu (Neustart-Defekt; mit dem Abbau auch beim Neuladen). User-Entscheidung:
+eigenes Issue, hier nur die beiden Texte aus Task 1 richtigstellen, die sagen, der Nachfolger stelle einen eigenen
+Backstop. (2) Das Quality-Review zu Task 5 fand zwei vorhandene Texte, die sagen, die Service-Kette habe keinen
+eigenen Abbruch: Task 7 fügt ihn hinzu, Task 8 verdrahtet ihn und das Freigeben aller Ketten. Kein Verhalten, kein
+neuer Test.
+
+**Files:**
+- Modify: `custom_components/irrigation_plus/self_closing.py` (Docstring von `async_teardown_self_closing_handles`)
+- Modify: `tests/test_self_closing_teardown.py` (Modul-Docstring)
+- Modify: `custom_components/irrigation_plus/run_chain.py` (Docstring von `_chain_forfeit_queue`)
+- Modify: `tests/test_chain_carries_its_plan.py` (Docstring von `test_a_release_that_abandons_a_queue_reports_it`)
+- Modify: `docs/configuration-my-zones.md` (Satz aus Task 9: was eine Zone ohne Stop service gutgeschrieben bekommt)
+- Modify: `custom_components/irrigation_plus/__init__.py` (Kommentar zur Reihenfolge beim Entfernen)
+
+(3) *Nachtrag nach dem Abschluss-Review:* Der Kommentar am Entfernen begründete die Reihenfolge damit, dass das
+Master-Ende die Konfiguration aus dem Store lese; `store.async_delete()` behält sie aber im Speicher, die Reihenfolge
+ist defensiv. Und der Doku-Satz sagte nicht, dass eine Zone ohne Stop service nur bis zum Stopp gutgeschrieben wird,
+während das Ventil weiterläuft.
+
+- [x] **Step 1: Docstring** — in `self_closing.py` ersetze
+
+```python
+        Both close over THIS coordinator. A reload leaves the run itself in the
+        store for async_resume_self_closing_runs, which arms a backstop of its
+        own. Left armed, the old backstop then finds no record and returns
+        before it ever reaches its sampler, which ticks on until Home Assistant
+        restarts and keeps the dead coordinator alive; and a run that ends while
+        the reload is under way is settled through the dead coordinator.
+```
+
+durch
+
+```python
+        Both close over THIS coordinator. A reload leaves the run itself in the
+        store for async_resume_self_closing_runs, which arms a backstop of its
+        own for a service run and for an OpenSprinkler station that is already
+        watering. (A batch run that is already watering gets none there, after
+        a restart as after a reload; its watcher alone settles it.) Left armed,
+        the old backstop then finds no record and returns before it ever
+        reaches its sampler, which ticks on until Home Assistant restarts and
+        keeps the dead coordinator alive; and a run that ends while the reload
+        is under way is settled through the dead coordinator.
+```
+
+- [x] **Step 2: Modul-Docstring** — in `tests/test_self_closing_teardown.py` ersetze
+
+```python
+* on a reload the new coordinator re-arms a backstop of its own
+  (async_resume_self_closing_runs) and settles the run. The old backstop then
+  finds no record and returns before it ever reaches its sampler, which ticks on
+  until Home Assistant restarts -- and holds the whole dead coordinator;
+```
+
+durch
+
+```python
+* on a reload the new coordinator adopts the run and settles it
+  (async_resume_self_closing_runs re-arms a backstop of its own for a service
+  run). The old backstop then finds no record and returns before it ever
+  reaches its sampler, which ticks on until Home Assistant restarts -- and
+  holds the whole dead coordinator;
+```
+
+- [x] **Step 2a: Docstring der Ketten-Abrechnung** — in `run_chain.py`, `_chain_forfeit_queue`, ersetze
+
+```python
+        A service chain never reaches ``async_abort_opensprinkler_runs`` — that
+        path filters on the station mode and has no service twin — so this is the
+        only place a shutdown mid-cycle can account for its queue. Silent on an
+        idle chain, because unload runs for every install whether a cycle was up
+        or not.
+```
+
+durch
+
+```python
+        It is reached through ``_chain_release`` by a cycle that ran to its end
+        (with nothing left to report), by the OpenSprinkler and the service
+        aborts (``async_abort_opensprinkler_runs``,
+        ``async_abort_self_closing_runs``) and by a disable's
+        ``async_release_all_chains``; an unload reaches it through
+        ``_chain_teardown``. Silent on an idle chain, because unload and
+        disable run for every install whether a cycle was up or not.
+```
+
+- [x] **Step 2b: Test-Docstring** — in `tests/test_chain_carries_its_plan.py` ersetze
+
+```python
+        """The engine is shared with OpenSprinkler's own abort, which is pinned
+        to the station mode -- the very reason the service chain has no abort
+        path of its own to reach this from (see the commit this test belongs
+        to). This pins the same behaviour on the service fixture instead, the
+        only route left that ever exercises it.
+        """
+```
+
+durch
+
+```python
+        """The OpenSprinkler and the service aborts and a disable's release all
+        end a chain through ``_chain_release``; this pins what it reports, on
+        the service fixture.
+        """
+```
+
+- [ ] **Step 2c: Doku** — in `docs/configuration-my-zones.md` ersetze
+
+```markdown
+  - **Stop service** *(optional)* — closes the valve if you stop a run early (while HA is up), and when the integration is disabled or removed in the middle of a run. Without one, the valve waters on to the end of its own countdown.
+```
+
+durch
+
+```markdown
+  - **Stop service** *(optional)* — closes the valve if you stop a run early (while HA is up), and when the integration is disabled or removed in the middle of a run. Without one, the valve waters on to the end of its own countdown, while the run is counted only up to the stop.
+```
+
+- [ ] **Step 2d: Kommentar am Entfernen** — in `__init__.py`, `async_remove_entry`, ersetze
+
+```python
+            # Before the delete: ending the cycle reads the master's
+            # configuration from the store.
+            await coordinator.async_master_end_cycle_now()
+```
+
+durch
+
+```python
+            # Before the delete, defensively: nothing should act on a store
+            # once it is deleted.
+            await coordinator.async_master_end_cycle_now()
+```
+
+- [ ] **Step 3: Prüfen** — `TZ=UTC … -m pytest tests/test_self_closing_teardown.py tests/test_chain_carries_its_plan.py -p _local_socket_unblock -q`
+→ alle grün (die neue Datei `44 passed`); `uvx black --check` auf die fünf Python-Dateien und
+`uvx ruff check custom_components/irrigation_plus/` sauber.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add custom_components/irrigation_plus/self_closing.py tests/test_self_closing_teardown.py custom_components/irrigation_plus/run_chain.py tests/test_chain_carries_its_plan.py docs/configuration-my-zones.md custom_components/irrigation_plus/__init__.py
+git commit -F - <<'EOF'
+docs: correct what the texts say about resuming and aborting runs
+
+A batch run that is already watering is re-adopted by its watcher alone,
+after a restart as now after a reload: its resume arms no backstop, unlike
+the service and OpenSprinkler resumes. The teardown's docstring and the
+tests said the successor always re-arms one.
+
+The service chain now has an abort of its own, and a disable releases every
+chain. Two texts still said the service chain had no abort path.
+
+The docs say what a zone without a stop service is credited, and the
+removal's ordering comment gives the reason that holds: store.async_delete()
+keeps the configuration in memory, so ending the cycle first is defensive.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+EOF
+```
+
+---
+
+### Task 9b: Rückgabewert und Begründung des Abbruchs gepinnt
+
+*Nachtrag nach dem Abschluss-Review (2026-10-04).* Drei Zusatz-Mutanten überlebten: Ein Stopp, der warf oder seinen
+Lauf nicht mehr fand, zählte als gestoppt (zweimal), und die Warnzeile „stopping its self-closing run because …“, die
+dem Nutzer sagt, warum das Ventil zuging, war ungeprüft. Nur Tests.
+
+**Files:**
+- Modify: `tests/test_self_closing_teardown.py` (ein Test erweitert, einer neu in `TestAbortingTheServiceRuns`)
+
+- [x] **Step 1: Die Warnzeile** — in `tests/test_self_closing_teardown.py` ersetze
+
+```python
+        c.async_master_release.assert_awaited_once_with("sc:2")
+        assert "without a stop_service" not in caplog.text  # it was closed
+```
+
+durch
+
+```python
+        c.async_master_release.assert_awaited_once_with("sc:2")
+        assert "without a stop_service" not in caplog.text  # it was closed
+        assert (
+            f"Zone 2: stopping its self-closing run because {DISABLED}" in caplog.text
+        )
+```
+
+- [x] **Step 2: Der Rückgabewert** — in `tests/test_self_closing_teardown.py` ersetze
+
+```python
+        c.async_stop_self_closing.assert_not_awaited()
+        assert "Could not release the service chain" in caplog.text
+```
+
+durch
+
+```python
+        c.async_stop_self_closing.assert_not_awaited()
+        assert "Could not release the service chain" in caplog.text
+
+    async def test_only_runs_actually_stopped_count(self, hass):
+        """A stop that raised, or found its run already gone, stopped nothing."""
+        c = _coord(hass)
+        c._cfg[const.CONF_ACTIVE_VALVE_RUNS] = [
+            {const.RUN_ZONE_ID: 2, const.RUN_MODE: const.WATERING_MODE_SERVICE},
+            {const.RUN_ZONE_ID: 4, const.RUN_MODE: const.WATERING_MODE_SERVICE},
+        ]
+        c.async_stop_self_closing = AsyncMock(side_effect=[RuntimeError("boom"), False])
+
+        assert await c.async_abort_self_closing_runs(DISABLED) is False
+```
+
+- [x] **Step 3: Prüfen** — `TZ=UTC … -m pytest tests/test_self_closing_teardown.py -p _local_socket_unblock -q` → `45 passed`;
+`uvx black --check tests/test_self_closing_teardown.py`.
+
+- [x] **Step 4: Commit**
+
+```bash
+git add tests/test_self_closing_teardown.py
+git commit -F - <<'EOF'
+test(self-closing): pin the abort's return value and the line it logs
+
+A stop that raised or found its run already gone stopped nothing, so it must
+not count; and the warning that names why a valve closed on a disable is
+what a user reads in the log.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+EOF
+```
+
+---
+
 ### Task 10: Lint, volle Suite, Mutationen, Review, Stand
 
 **Files:** keine neuen.
 
-- [ ] **Step 1: Lint** (CLAUDE.md, verbatim; dazu black auf die neue Testdatei, damit sie zum Rest passt)
+- [x] **Step 1: Lint** (CLAUDE.md, verbatim; dazu black auf die neue Testdatei, damit sie zum Rest passt)
 
 ```bash
 uvx black custom_components/irrigation_plus/
@@ -1567,7 +2343,7 @@ git status --short
 
 Expected: `All checks passed!`, black ohne Änderung (die Snippets dieses Plans sind black-formatiert).
 
-- [ ] **Step 2: Volle Suite, Namensvergleich gegen die Baseline aus Task 0**
+- [x] **Step 2: Volle Suite, Namensvergleich gegen die Baseline aus Task 0**
 
 ```bash
 TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests -p _local_socket_unblock -q --no-header -rfE > ../suite-after.txt 2>&1
@@ -1576,9 +2352,11 @@ diff ../names-baseline.txt ../names-after.txt && echo "identical"
 tail -c 300 ../suite-after.txt
 ```
 
-Expected: `identical`; `passed` um genau 33 höher als in der Baseline.
+Expected: `identical`; `passed` um genau 48 höher als in der Baseline (33 aus dem Probelauf, +2 Nachtrag Task 3,
++1 Nachtrag Task 4, +4 Task 4b: fünf Testfälle statt des einen upstream-Tests, +1 Nachtrag Task 5, +3 Nachtrag
+Task 6, +2 Nachtrag Task 7, +2 Nachtrag Task 8; die Datei `tests/test_self_closing_teardown.py` hat 44 Tests).
 
-- [ ] **Step 3: Mutationsmatrix** — mit dem Skript aus dem Probelauf (`D:\Entwicklung\HASI\issue9-work\probe_mutate.py`, aus
+- [x] **Step 3: Mutationsmatrix** — mit dem Skript aus dem Probelauf (`D:\Entwicklung\HASI\issue9-work\probe_mutate.py`, aus
 dem Worktree-Wurzelverzeichnis: `python ../probe_mutate.py`). Jede Mutation ersetzt einen Anker, der genau einmal
 vorkommen muss, lässt `tests/test_self_closing_teardown.py` laufen, notiert die roten Tests und stellt die Datei
 wieder her (Zeitgrenze 600 s, bei Hang `taskkill /T`). Jede Mutation muss mindestens einen Test rot machen; ein
@@ -1603,14 +2381,35 @@ wieder her (Zeitgrenze 600 s, bei Hang `taskkill /T`). Jede Mutation muss mindes
 | 15 | Master-Ende lässt eine Ausnahme durch | `test_a_switch_that_raises_does_not_block_the_unload` |
 | 16 | Abbruch lässt die Ausnahme eines Laufs durch | `test_a_stop_that_raises_does_not_stop_the_rest` |
 | 17 | Ketten-Freigabe lässt die Ausnahme einer Kette durch | `test_one_chain_that_raises_does_not_stop_the_others` |
-| 18 | Deaktivieren bricht die Service-Läufe nicht ab | `test_the_run_is_stopped_and_booked_and_the_pump_switched_off`, `test_disabling_…` |
+| 18 | Deaktivieren bricht die Service-Läufe nicht ab | `test_the_run_is_stopped_and_booked_and_the_cycle_ended`, `test_disabling_…` |
 | 19 | Deaktivieren beendet den Master nicht | beide `TestDisablingMidRun`, `test_disabling_…` |
 | 20 | `_chain_release` ignoriert `why` | `test_a_rotation_absorbing_between_slots_hands_back_its_hold` |
 | 21 | Stopp-Befehl ignoriert das Dauer-Feld der Zone | 5 Tests, u. a. `test_the_stop_service_gets_a_zero_duration_under_its_field` |
+| 22 | Abbau: eine Schleife über die Abtaster kündigt auch deren Backstop (Zone ohne Abtaster behält ihn) | `test_both_timers_…` (Zone 3) — im Probe-Stand überlebt |
+| 23 | Abbau: eine Schleife über die Backstops kündigt auch deren Abtaster (Abtaster ohne Backstop bleibt) | `test_both_timers_…` (Zone 4) — im Probe-Stand überlebt |
+| 24 | Abbau: nur die erste Zone je Tabelle | `test_both_timers_…` — im Probe-Stand überlebt |
+| 25 | Abbau in `async_unload_entry` vor dem Deaktivieren-Zweig statt in `async_unload` | erwartet `test_the_run_is_stopped_and_booked_and_the_cycle_ended` (gemessen statt zeitbasiert), dazu beide `TestAReloadMidRun` |
+| 26 | Stopp-Befehl: OpenSprinkler fällt in den Adapter (`return True` weg) | beide `[True]`/`[False]` von `test_an_opensprinkler_zone_stops_through_its_station` |
+| 27 | Aufrufer warnt bei jedem erfolgreichen Stopp (`and not await` → `and await`) | `test_a_service_run_is_stopped_and_settled`, `test_a_zone_without_a_stop_service_is_still_settled` |
+| 28 | Stopp-Befehl: nur `None` gilt als „kein Stop service“ | `test_a_zone_without_a_stop_service_sends_nothing[empty]` |
+| 29 | Stopp-Befehl: ID aus `zone.get(const.ZONE_ID)` statt des Laufs | `test_the_stop_service_gets_a_zero_duration_under_its_field` |
+| 30 | Deaktivieren: OpenSprinkler-Abbruch ohne Buchen (`settle=False`) | `test_disabling_stops_everything_before_the_unload` |
+| 31 | Deaktivieren: Batch-Abbruch ohne Buchen (`settle=False`) | `test_disabling_stops_everything_before_the_unload` |
+| 32 | Entfernen: Batch-Abbruch bucht doch | `test_removal_stops_without_settling_before_the_delete` |
+| 33 | Entfernen beendet den Master-Zyklus nicht | `test_the_valve_is_closed_and_the_pump_switched_off`, `test_removal_…` |
+| 34 | Entfernen stoppt die Service-Läufe nicht | `test_the_valve_is_closed_and_the_pump_switched_off`, `test_removal_…` |
+| 35 | Abbruch: Kettenfreigabe ungeschützt | `test_a_chain_that_cannot_be_released_stops_nothing` |
+| 36 | Abbruch, `settle=False`: Zone ohne Stop service zählt als gestoppt | `test_without_settling_a_zone_without_a_stop_service_is_named` |
+| 37 | Ketten-Freigabe gibt auch eine leere Kette frei (`if token:` → `if True:`) | `test_an_idle_chain_releases_nothing` |
+| 38 | Verteiler ohne Master löscht das Zyklus-Flag wieder | alle vier Tests aus Task 4b (Laufzeit-Datei `tests/test_distributor.py`) |
 
 Probelauf: 21/21 getötet. Hat ein Lauf **keine Tests gesammelt** oder hängt er (`HANG`), ist das kein Verdikt.
 
-- [ ] **Step 4: Greps vor jedem Push** (Memory `no-own-issue-refs-upstream`)
+**Bau (2026-10-04, auf `ab3eb45f`):** 53/53 getötet, jeder mit benanntem Killer, Baum danach sauber — Matrix 1–38 dieser
+Tabelle plus 39–53 aus den Reviews; Treiber `D:\Entwicklung\HASI\issue9-work\final_mutate.py`, Ergebnis
+`mutate-final-53.txt` / `mutate-final.json`. Volle Suite 7/3667/9/415, 422 Namen identisch mit der Baseline (+49 Tests).
+
+- [x] **Step 4: Greps vor jedem Push** (Memory `no-own-issue-refs-upstream`)
 
 ```bash
 git diff upstream/master..HEAD -- custom_components/ tests/ docs/ | grep "^+" | grep -nE "Eifel-Joe|spec D[0-9]|spec §|Task [0-9]|M[0-9][a-z]?:|PR [A-T]\b"
@@ -1619,7 +2418,7 @@ git log upstream/master..HEAD --format='%H%n%B' | grep -n "Eifel-Joe#"
 
 Expected: beides leer.
 
-- [ ] **Step 5: Review** — `superpowers:requesting-code-review` über den Diff `upstream/master..HEAD` mit Spec und
+- [x] **Step 5: Review** — `superpowers:requesting-code-review` über den Diff `upstream/master..HEAD` mit Spec und
 diesem Plan; Rückmeldungen über `superpowers:receiving-code-review` prüfen.
 
 - [ ] **Step 6: Stand festhalten** — `docs/SESSION-STAND.md` ergänzen, Häkchen in diesem Plan setzen. **Nicht pushen,
@@ -1638,7 +2437,7 @@ PR, P2 auf Eifel-Joe#9 und #42, production, die neuen Issues, P1-Archiv — steh
 | 3 Deaktivieren: Service-Läufe (auch ohne Modus) stoppen und buchen, keine Kette startet etwas, Ketten-Holds gelöst, Master aus unter den vier Bedingungen | 4, 5, 7, 8 |
 | 4 Entfernen: Stopp ohne Buchung, Master wie 3, beides vor dem Löschen | 6, 7, 8 |
 | 5 Nichts blockiert ein Entladen oder Entfernen | 4, 5, 7 (je ein Test mit werfendem Schritt) |
-| 6 Neustart und echtes Herunterfahren unverändert | kein Code daran; `tests/test_opensprinkler_teardown.py::TestShutdown` unverändert |
+| 6 Neustart und echtes Herunterfahren unverändert | Herunterfahren: kein Code daran (`tests/test_opensprinkler_teardown.py::TestShutdown` unverändert); Start: die Bereinigung verliert nur ihr doppeltes Pumpen-Aus (Task 3, `test_the_boot_clean_up_switches_the_pump_off_once`) |
 | 7 `master_off_after = false`: Master bleibt | 4 |
 | Doku Stop service | 9 |
 | Schwester: Master-Aus-Timer | 3 |

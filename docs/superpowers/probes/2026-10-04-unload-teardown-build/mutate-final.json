@@ -1,0 +1,530 @@
+[
+ {
+  "num": 1,
+  "label": "unload does not call the teardown",
+  "verdict": "KILLED",
+  "summary": "3 failed, 42 passed, 1 error in 5.70s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAReloadMidRun::test_a_run_ending_during_the_reload_waits_for_the_successor",
+   "tests/test_self_closing_teardown.py::TestAReloadMidRun::test_the_run_is_booked_once_by_the_new_coordinator",
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off"
+  ]
+ },
+ {
+  "num": 2,
+  "label": "teardown cancels only the samplers",
+  "verdict": "KILLED",
+  "summary": "4 failed, 41 passed in 5.78s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAReloadMidRun::test_a_run_ending_during_the_reload_waits_for_the_successor",
+   "tests/test_self_closing_teardown.py::TestAReloadMidRun::test_the_run_is_booked_once_by_the_new_coordinator",
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off",
+   "tests/test_self_closing_teardown.py::TestTheTeardownCancelsBothTimers::test_both_timers_are_cancelled_and_both_tables_emptied"
+  ]
+ },
+ {
+  "num": 3,
+  "label": "teardown cancels only the backstops",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed, 2 errors in 5.76s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAReloadMidRun::test_the_run_is_booked_once_by_the_new_coordinator",
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off",
+   "tests/test_self_closing_teardown.py::TestTheTeardownCancelsBothTimers::test_both_timers_are_cancelled_and_both_tables_emptied"
+  ]
+ },
+ {
+  "num": 4,
+  "label": "teardown finalises the meter",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.51s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheTeardownCancelsBothTimers::test_both_timers_are_cancelled_and_both_tables_emptied",
+   "tests/test_self_closing_teardown.py::TestTheTeardownCancelsBothTimers::test_nothing_is_read_settled_or_written"
+  ]
+ },
+ {
+  "num": 5,
+  "label": "release_all leaves the off timer armed",
+  "verdict": "KILLED",
+  "summary": "3 failed, 42 passed in 5.54s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheMasterOffTimerGoesWithTheCoordinator::test_an_unload_leaves_no_off_timer_behind",
+   "tests/test_self_closing_teardown.py::TestTheMasterOffTimerGoesWithTheCoordinator::test_release_all_cancels_a_pending_off",
+   "tests/test_self_closing_teardown.py::TestTheMasterOffTimerGoesWithTheCoordinator::test_the_boot_clean_up_switches_the_pump_off_once"
+  ]
+ },
+ {
+  "num": 6,
+  "label": "abort does not release the chain before its stops",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.40s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_chain_that_cannot_be_released_stops_nothing",
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_the_chain_is_released_before_the_first_stop"
+  ]
+ },
+ {
+  "num": 7,
+  "label": "disable does not release the chains",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.47s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestDisablingMidRun::test_a_disable_in_an_absorption_pause_switches_the_pump_off",
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_disabling_stops_everything_before_the_unload"
+  ]
+ },
+ {
+  "num": 8,
+  "label": "abort filters on == service",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.38s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_record_without_a_mode_is_a_service_run"
+  ]
+ },
+ {
+  "num": 9,
+  "label": "a reload aborts too",
+  "verdict": "KILLED",
+  "summary": "3 failed, 42 passed in 5.58s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off",
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_a_reload_stops_nothing",
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_disabling_stops_everything_before_the_unload"
+  ]
+ },
+ {
+  "num": 10,
+  "label": "settle=False settles anyway",
+  "verdict": "KILLED",
+  "summary": "3 failed, 42 passed in 5.55s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_without_settling_a_zone_without_a_stop_service_is_named",
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_without_settling_only_the_stop_goes_out",
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off"
+  ]
+ },
+ {
+  "num": 11,
+  "label": "end-now ignores a remaining hold",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.41s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_hold_still_taken_leaves_the_cycle_to_its_owner"
+  ]
+ },
+ {
+  "num": 12,
+  "label": "end-now ignores _master_on",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.43s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_master_we_did_not_switch_on_is_left_alone"
+  ]
+ },
+ {
+  "num": 13,
+  "label": "end-now ignores master_off_after",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.62s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestDisablingMidRun::test_the_run_is_stopped_and_booked_and_the_cycle_ended[False-0]",
+   "tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_stay_on_pump_is_left_on"
+  ]
+ },
+ {
+  "num": 14,
+  "label": "removal ends the master after the delete",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.60s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_removal_stops_without_settling_before_the_delete"
+  ]
+ },
+ {
+  "num": 15,
+  "label": "end-now lets an exception through",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.53s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_switch_that_raises_does_not_block_the_unload"
+  ]
+ },
+ {
+  "num": 16,
+  "label": "abort lets one run's exception through",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.54s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_stop_that_raises_does_not_stop_the_rest",
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_only_runs_actually_stopped_count"
+  ]
+ },
+ {
+  "num": 17,
+  "label": "release-all lets one chain's exception through",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.49s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestReleasingEveryChain::test_one_chain_that_raises_does_not_stop_the_others[0]",
+   "tests/test_self_closing_teardown.py::TestReleasingEveryChain::test_one_chain_that_raises_does_not_stop_the_others[1]"
+  ]
+ },
+ {
+  "num": 18,
+  "label": "disable does not abort the service runs",
+  "verdict": "KILLED",
+  "summary": "3 failed, 42 passed in 5.51s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestDisablingMidRun::test_the_run_is_stopped_and_booked_and_the_cycle_ended[False-0]",
+   "tests/test_self_closing_teardown.py::TestDisablingMidRun::test_the_run_is_stopped_and_booked_and_the_cycle_ended[True-1]",
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_disabling_stops_everything_before_the_unload"
+  ]
+ },
+ {
+  "num": 19,
+  "label": "disable does not end the master",
+  "verdict": "KILLED",
+  "summary": "3 failed, 42 passed in 5.47s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestDisablingMidRun::test_a_disable_in_an_absorption_pause_switches_the_pump_off",
+   "tests/test_self_closing_teardown.py::TestDisablingMidRun::test_the_run_is_stopped_and_booked_and_the_cycle_ended[True-1]",
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_disabling_stops_everything_before_the_unload"
+  ]
+ },
+ {
+  "num": 20,
+  "label": "_chain_release ignores why",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.49s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestReleasingEveryChain::test_a_rotation_absorbing_between_slots_hands_back_its_hold"
+  ]
+ },
+ {
+  "num": 21,
+  "label": "dispatch_stop ignores the zone's duration field",
+  "verdict": "KILLED",
+  "summary": "7 failed, 38 passed in 5.66s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_record_without_a_mode_is_a_service_run",
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_service_run_is_stopped_and_settled",
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_without_settling_only_the_stop_goes_out",
+   "tests/test_self_closing_teardown.py::TestDisablingMidRun::test_the_run_is_stopped_and_booked_and_the_cycle_ended[False-0]",
+   "tests/test_self_closing_teardown.py::TestDisablingMidRun::test_the_run_is_stopped_and_booked_and_the_cycle_ended[True-1]",
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off",
+   "tests/test_self_closing_teardown.py::TestTheStopInstruction::test_the_stop_service_gets_a_zero_duration_under_its_field"
+  ]
+ },
+ {
+  "num": 22,
+  "label": "teardown: one loop over the samplers",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.38s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAReloadMidRun::test_a_run_ending_during_the_reload_waits_for_the_successor",
+   "tests/test_self_closing_teardown.py::TestTheTeardownCancelsBothTimers::test_both_timers_are_cancelled_and_both_tables_emptied"
+  ]
+ },
+ {
+  "num": 23,
+  "label": "teardown: one loop over the backstops",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.36s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheTeardownCancelsBothTimers::test_both_timers_are_cancelled_and_both_tables_emptied"
+  ]
+ },
+ {
+  "num": 24,
+  "label": "teardown: first zone only",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.39s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheTeardownCancelsBothTimers::test_both_timers_are_cancelled_and_both_tables_emptied"
+  ]
+ },
+ {
+  "num": 25,
+  "label": "teardown in async_unload_entry ahead of the disable branch, not in async_unload",
+  "verdict": "KILLED",
+  "summary": "6 failed, 39 passed, 2 warnings, 1 error in 5.76s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAReloadMidRun::test_a_run_ending_during_the_reload_waits_for_the_successor",
+   "tests/test_self_closing_teardown.py::TestAReloadMidRun::test_the_run_is_booked_once_by_the_new_coordinator",
+   "tests/test_self_closing_teardown.py::TestDisablingMidRun::test_the_run_is_stopped_and_booked_and_the_cycle_ended[False-0]",
+   "tests/test_self_closing_teardown.py::TestDisablingMidRun::test_the_run_is_stopped_and_booked_and_the_cycle_ended[True-1]",
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_a_reload_stops_nothing",
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_disabling_stops_everything_before_the_unload"
+  ]
+ },
+ {
+  "num": 26,
+  "label": "stop instruction: OpenSprinkler falls into the adapter",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.43s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheStopInstruction::test_an_opensprinkler_zone_stops_through_its_station[False]",
+   "tests/test_self_closing_teardown.py::TestTheStopInstruction::test_an_opensprinkler_zone_stops_through_its_station[True]"
+  ]
+ },
+ {
+  "num": 27,
+  "label": "the caller warns on every successful stop",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.44s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_service_run_is_stopped_and_settled",
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_zone_without_a_stop_service_is_still_settled"
+  ]
+ },
+ {
+  "num": 28,
+  "label": "stop instruction: only None counts as no stop service",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.51s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheStopInstruction::test_a_zone_without_a_stop_service_sends_nothing[empty]"
+  ]
+ },
+ {
+  "num": 29,
+  "label": "stop instruction: the zone's own id instead of the run's",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.46s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheStopInstruction::test_the_stop_service_gets_a_zero_duration_under_its_field"
+  ]
+ },
+ {
+  "num": 30,
+  "label": "disable: OpenSprinkler abort without settling",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.42s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_disabling_stops_everything_before_the_unload"
+  ]
+ },
+ {
+  "num": 31,
+  "label": "disable: batch abort without settling",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.40s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_disabling_stops_everything_before_the_unload"
+  ]
+ },
+ {
+  "num": 32,
+  "label": "removal: batch abort settles",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.40s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_removal_stops_without_settling_before_the_delete"
+  ]
+ },
+ {
+  "num": 33,
+  "label": "removal does not end the master cycle",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.42s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off",
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_removal_stops_without_settling_before_the_delete"
+  ]
+ },
+ {
+  "num": 34,
+  "label": "removal does not stop the service runs",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.43s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off",
+   "tests/test_self_closing_teardown.py::TestTheEntryPaths::test_removal_stops_without_settling_before_the_delete"
+  ]
+ },
+ {
+  "num": 35,
+  "label": "abort: chain release unguarded",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.52s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_chain_that_cannot_be_released_stops_nothing"
+  ]
+ },
+ {
+  "num": 36,
+  "label": "abort, settle=False: a zone without a stop service counts as stopped",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.44s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_without_settling_a_zone_without_a_stop_service_is_named"
+  ]
+ },
+ {
+  "num": 37,
+  "label": "release-all releases an idle chain too (if token: -> if True:)",
+  "verdict": "KILLED",
+  "summary": "3 failed, 42 passed in 5.73s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_service_run_is_stopped_and_settled",
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_without_settling_only_the_stop_goes_out",
+   "tests/test_self_closing_teardown.py::TestReleasingEveryChain::test_an_idle_chain_releases_nothing"
+  ]
+ },
+ {
+  "num": 38,
+  "label": "a sweep without the master clears the flag again",
+  "verdict": "KILLED",
+  "summary": "4 failed, 71 passed in 5.88s",
+  "red": [
+   "tests/test_distributor.py::test_a_sweep_ending_in_the_release_grace_leaves_the_cycle_up",
+   "tests/test_distributor.py::test_a_sweep_without_the_master_does_not_restart_the_running_cycle",
+   "tests/test_distributor.py::test_ending_the_cycle_after_a_sweep_without_the_master_switches_it_off",
+   "tests/test_distributor.py::test_master_end_leaves_the_flag_alone_when_not_using_master[True]"
+  ]
+ },
+ {
+  "num": 39,
+  "label": "async_unload does not call _master_release_all",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.37s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off",
+   "tests/test_self_closing_teardown.py::TestTheMasterOffTimerGoesWithTheCoordinator::test_an_unload_leaves_no_off_timer_behind"
+  ]
+ },
+ {
+  "num": 40,
+  "label": "release_all cancels the timer but keeps the holds",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.54s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off",
+   "tests/test_self_closing_teardown.py::TestTheMasterOffTimerGoesWithTheCoordinator::test_an_unload_leaves_no_off_timer_behind"
+  ]
+ },
+ {
+  "num": 41,
+  "label": "end-now gates on the pending timer instead of _master_on",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.51s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_after_the_unload_a_removal_still_switches_it_off",
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off"
+  ]
+ },
+ {
+  "num": 42,
+  "label": "end-now resets the deadline only when it switches off",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.43s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_stay_on_pump_is_left_on"
+  ]
+ },
+ {
+  "num": 43,
+  "label": "end-now log loses the entity",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.42s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_switch_that_raises_does_not_block_the_unload"
+  ]
+ },
+ {
+  "num": 44,
+  "label": "a sweep without the master sets the flag",
+  "verdict": "KILLED",
+  "summary": "1 failed, 74 passed in 5.64s",
+  "red": [
+   "tests/test_distributor.py::test_master_end_leaves_the_flag_alone_when_not_using_master[False]"
+  ]
+ },
+ {
+  "num": 45,
+  "label": "a sweep without the master clears the flag once no hold is left",
+  "verdict": "KILLED",
+  "summary": "2 failed, 73 passed in 6.26s",
+  "red": [
+   "tests/test_distributor.py::test_a_sweep_ending_in_the_release_grace_leaves_the_cycle_up",
+   "tests/test_distributor.py::test_master_end_leaves_the_flag_alone_when_not_using_master[True]"
+  ]
+ },
+ {
+  "num": 46,
+  "label": "release-all stops after the first success",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.41s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestReleasingEveryChain::test_one_chain_that_raises_does_not_stop_the_others[1]"
+  ]
+ },
+ {
+  "num": 47,
+  "label": "release-all logs without the traceback",
+  "verdict": "KILLED",
+  "summary": "2 failed, 43 passed in 5.51s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestReleasingEveryChain::test_one_chain_that_raises_does_not_stop_the_others[0]",
+   "tests/test_self_closing_teardown.py::TestReleasingEveryChain::test_one_chain_that_raises_does_not_stop_the_others[1]"
+  ]
+ },
+ {
+  "num": 48,
+  "label": "abort: a chain release failure still stops the runs",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.49s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_chain_that_cannot_be_released_stops_nothing"
+  ]
+ },
+ {
+  "num": 49,
+  "label": "abort, settle=False: says nothing about a zone without a stop service",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.42s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_without_settling_a_zone_without_a_stop_service_is_named"
+  ]
+ },
+ {
+  "num": 51,
+  "label": "abort: a settled stop that found no run still counts",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.42s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_only_runs_actually_stopped_count"
+  ]
+ },
+ {
+  "num": 52,
+  "label": "abort: a run whose stop raised counts as stopped",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.43s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_only_runs_actually_stopped_count"
+  ]
+ },
+ {
+  "num": 53,
+  "label": "abort: the line naming why a valve closed is gone",
+  "verdict": "KILLED",
+  "summary": "1 failed, 44 passed in 5.33s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_service_run_is_stopped_and_settled"
+  ]
+ },
+ {
+  "num": 50,
+  "label": "teardown: a write scheduled as a task",
+  "verdict": "KILLED",
+  "summary": "3 failed, 42 passed in 5.59s",
+  "red": [
+   "tests/test_self_closing_teardown.py::TestAReloadMidRun::test_the_run_is_booked_once_by_the_new_coordinator",
+   "tests/test_self_closing_teardown.py::TestRemovingMidRun::test_the_valve_is_closed_and_the_pump_switched_off",
+   "tests/test_self_closing_teardown.py::TestTheTeardownCancelsBothTimers::test_nothing_is_read_settled_or_written"
+  ]
+ }
+]

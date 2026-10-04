@@ -1,0 +1,5 @@
+L2 GREEN (v2026.10.04b1), Deaktivieren mitten im Lauf
+
+D4' 08:04:43.456 (Eintrag deaktiviert, 47 s nach dem Stopp): 18 interval timers
+  grid of L1-GREEN-Lauf 07:58:08.857: no timer
+  grid of L2-GREEN-Lauf 08:02:55.557: no timer

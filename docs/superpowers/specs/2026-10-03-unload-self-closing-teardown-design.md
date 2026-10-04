@@ -107,6 +107,8 @@ echtes Herunterfahren), wird vor dem Abbau gestoppt (`opensprinkler.py:427-502`,
 |---|---|---|
 | Was soll Deaktivieren mit einem laufenden Self-Closing-Lauf machen, wenn das Entladen seine Timer kappt? | **2: wie OpenSprinkler/Batch** — stoppen und buchen vor dem Abbau, Master gleich aus; Entfernen genauso ohne Buchung | **1: wie ein Neustart** (nichts bis zum Wiedereinschalten, Master beim Deaktivieren aus): kappt einer pumpengespeisten Zone den Rest, der voll gutgeschrieben bliebe. **3: nur beim Neuladen kappen:** ließe beim Deaktivieren Code gegen den abgebauten Koordinator laufen, entgegen der Hausregel, und ein Wiedereinschalten im selben Lauf brächte den Wettlauf zurück |
 | Vorgehen upstream | **Direkt als PR**, Verhaltensänderung offen im Text | Vorschlag als Issue vorab (wie bei #8): hier gibt es nichts zu wählen, die Regel steht schon im Code |
+| *Nachtrag beim Bau:* Batch-Resume stellt keinen Backstop neu (Neustart-Defekt, mit dem Abbau auch beim Neuladen) | **Eigenes Issue**, hier nur die Texte richtigstellen (Plan-Task 9a) | Mit in diesen PR: kein Einzeiler (pausierte Läufe), PR wüchse um batch.py |
+| *Nachtrag beim Bau:* Ein Verteiler ohne Master löscht `_master_on` am Ende seines Durchlaufs, auf das „Master-Zyklus jetzt beenden“ baut | **Ursache beheben** in `distributor.py` (Plan-Task 4b), den upstream-Test umkehren | Lokal (ein anstehender Timer zählt als Zyklus): repariert nur das Deaktivieren. Hinnehmen + Issue: bliebe für die Mischung Pumpe + „nach Lauf aus“ + Verteiler ohne Pumpe schlechter als heute |
 
 Preis von 2: Service-Zonen liefen beim Deaktivieren bisher bis zum Hardware-Ende weiter; jetzt schließt
 sie der Stop service. Ohne Stop service bucht der Stopp nur und warnt (`self_closing.py:1026-1031`).
@@ -126,10 +128,21 @@ blieben bestehen).
   Buchung; für jede Zone in `_sc_cleanup_timers()` den Backstop kündigen; beide Tabellen leer. Aufruf aus
   `async_unload` neben den anderen Abbauten. Deckt Service, OpenSprinkler und Batch.
 - **`_master_release_all` kündigt zusätzlich den Aus-Timer** (`_master_off_cancel` → `None`). Zwei Aufrufer:
-  `async_unload` (`__init__.py:2266`) und die Boot-Bereinigung (`master.py:246`), dort steht nie ein Timer
-  an; der Docstring („unload/reset only“) bleibt richtig.
+  `async_unload` (`__init__.py:2266`) und die Boot-Bereinigung (`master.py:246`); der Docstring („unload/reset
+  only“) bleibt richtig. *Berichtigt beim Bau (Quality-Review, gemessen):* Auch bei der Boot-Bereinigung kann
+  ein Timer anstehen. Bucht der Resume-Durchgang einen überfälligen Lauf, gibt er einen in diesem Prozess nie
+  genommenen Hold frei (`self_closing.py:1223`, `:455`), und `async_master_release` stellt den Aus-Timer. Er
+  schaltete die Pumpe 5 s nach der Bereinigung ein zweites Mal aus (die Bereinigung schaltet selbst aus) und
+  fällt jetzt weg; gepinnt in `test_the_boot_clean_up_switches_the_pump_off_once`.
 - **Neuladen** übernimmt wie heute: Resume stellt Backstop, Watcher und Hold neu,
   `async_reconcile_master_after_restart` (`master.py:210-249`) schaltet einen verwaisten Master ab.
+  **Ausnahme Batch (Nachtrag 2026-10-03, Quality-Review beim Bau, gemessen):** `_batch_resume_run`
+  (`batch.py:709-767`) stellt für einen schon wässernden Batch-Lauf **keinen** Backstop neu, anders als
+  Service (`self_closing.py:1270`) und OpenSprinkler (`opensprinkler.py:681`). Das ist ein Neustart-Defekt;
+  mit dem Abbau gilt er auch beim Neuladen. Bisher buchte nach einem Neuladen der tote Backstop den Lauf
+  pünktlich, ließ aber den Master-Hold des Nachfolgers für immer stehen; jetzt bucht der Watcher des
+  Nachfolgers, bei verpasster Aus-Meldung erst mit der nächsten Meldung, und gibt dann den Hold frei.
+  **User-Entscheidung: eigenes Issue**, hier nur die Texte richtigstellen (Plan-Task 9a).
 
 ### 2. Deaktivieren: `async_unload_entry`, vor `async_unload`
 
@@ -151,9 +164,14 @@ blieben bestehen).
      über `_chain_advance_for_run` (`self_closing.py:1177`) die nächste Zone;
   4. je Lauf mit `settle=True`: `async_stop_self_closing(zone_id)` mit Ventil-Stopp. Der Abtaster lebt hier
      noch, gebucht wird also gemessen, wo gemessen wurde (`:1092`); Hold frei (`:1000`), Teillauf im Log
-     (`:1162-1171`), Backstop gekündigt (`:1140`);
+     (`:1162-1171`; in der Nachfrist eines bestätigten Laufs vollständig, wenn das Ventilfenster innerhalb der Toleranz an den Plan reicht), Backstop
+     gekündigt (`:1140`);
   5. je Lauf mit `settle=False`: nur der Stopp-Befehl (siehe 3.);
-  6. jeder Lauf einzeln in `try/except` mit Log; Rückgabe `True`, wenn etwas gestoppt wurde.
+  6. jeder Lauf einzeln in `try/except` mit Log; Rückgabe `True`, wenn ein Lauf gestoppt oder gebucht wurde.
+     *Nachtrag beim Bau:* Auch Filter und Kettenfreigabe sind geschützt; eine nicht freigebbare Kette stoppt nichts
+     (ein Buchen könnte sonst ihre nächste Zone starten). Folge in diesem Fehlerfall: die `sc:`-Holds bleiben, „Master-
+     Zyklus jetzt beenden“ überlässt den Zyklus ihnen, das Entladen räumt sie ohne Schalten ab, bei „nach Lauf aus“
+     bleibt die Pumpe bis zum Wiedereinschalten an (die Kettenfreigabe loggt das schon).
 - **Neu „Master-Zyklus jetzt beenden“** (Arbeitsname `async_master_end_cycle_now`) in `master.py`:
   nichts, wenn kein Master konfiguriert ist oder noch ein Hold besteht (ein klassischer Lauf läuft als Task
   weiter und beendet den Zyklus an seinem Ende selbst, wie heute; ebenso ein Verteiler-Durchlauf). Sonst
@@ -168,7 +186,9 @@ blieben bestehen).
 
 - Nach den beiden bestehenden Abbrüchen mit `settle=False` (`__init__.py:505-510`):
   `async_abort_self_closing_runs(..., settle=False)`, dann „Master-Zyklus jetzt beenden“, **dann**
-  `async_delete_config()` (`:511`); danach wäre die Master-Konfiguration weg (`master.py:38-39`).
+  `async_delete_config()` (`:511`). *Berichtigt nach dem Abschluss-Review:* Die Reihenfolge ist defensiv,
+  `store.async_delete()` löscht die Datei, behält `self.config` aber im Speicher; es soll nur nichts mehr auf einem
+  gelöschten Store arbeiten.
 - Das Entladen ist hier schon gelaufen, die Holds sind leer. Ein noch laufender klassischer Lauf verliert
   beim Entfernen seine Pumpe; beim Entfernen hinnehmbar.
 - Für den Stopp ohne Buchung wird der Stopp-Befehl aus `async_stop_self_closing` (`self_closing.py:1005-1031`)
@@ -188,6 +208,8 @@ wird, so wie es `:129` für Batch schon sagt. Englisch, keine Übersetzungen (di
 | `self_closing.py` | `async_teardown_self_closing_handles`, `async_abort_self_closing_runs`, `_sc_dispatch_stop` (herausgezogen) |
 | `master.py` | `_master_release_all` kündigt den Aus-Timer; `async_master_end_cycle_now` |
 | `run_chain.py` | alle Ketten freigeben, mit Grund im Log (etwa ein `why`-Parameter für `_chain_release`) |
+| `distributor.py` | *Nachtrag:* Zweig ohne Master in `_dist_master_end` lässt `_master_on` stehen (Plan-Task 4b) |
+| `tests/test_distributor.py` | *Nachtrag:* upstream-Test zum Löschen des Flags umgekehrt, zwei neue |
 | `__init__.py` | `async_unload` ruft den Abbau; Zweig „deaktiviert“ in `async_unload_entry`; `async_remove_entry` |
 | `docs/configuration-my-zones.md` | Satz zum Stop service |
 | `tests/test_self_closing_teardown.py` | neu |
@@ -232,6 +254,32 @@ Alle Handles, die der Koordinator anlegt (Inventur per `grep` über `async_call_
   schaltet `async_master_begin_cycle` (`master.py:64-77`) eine schon laufende Pumpe mit `kick_enabled` mitten
   im Lauf kurz aus und wieder an, auch nach einem Neustart. Issue nur auf Wunsch des Users.
 - **Ein Live-Test auf HA-Prod** mit einem Neuladen mitten in einem echten Lauf.
+- **Batch-Resume ohne Backstop** (siehe *Das Design*, Abschnitt 1): eigenes Issue (User, 2026-10-03). Ein Fix
+  ist kein Einzeiler: Ein pausierter Lauf (Segment zu) darf keinen bekommen; gestellt vor dem Watcher,
+  kündigt eine bei dessen erster Auswertung erkannte Pause ihn wieder (`run_watch.py` `_watch_pause`).
+- **Ein Dispatch, der beim Entladen noch in seinen Awaits steckt** (Abtaster ab `self_closing.py:731`,
+  Bestätigungs-Poll bis 30 s `:759`, Datensatz `:854`), läuft auf dem toten Koordinator weiter und stellt
+  danach Backstop (`:888`) und Watcher (`:897`) dort; der Resume des Nachfolgers lief vor dem Datensatz. Dieselbe
+  Klasse wie die klassischen Läufer oben (gelesen, Quality-Review beim Bau).
+- **Master-Abgleich beim Neuladen unter einem klassischen Lauf:** `async_reconcile_master_after_restart`
+  (`master.py:210-249`) achtet nur auf gespeicherte Self-Closing-Läufe und einen Verteiler-Zyklus; ein
+  klassischer Lauf, der als Task weiterläuft, verliert bei „nach Lauf aus“ seine Pumpe (gelesen,
+  Quality-Review beim Bau; auf HA-Prod nicht scharf, `master_off_after = false`). Kandidat für ein Issue.
+- **Die Rotationsschleife behält ihre `rotation` über das Await des Dispatch** (`run_chain.py` um `:826`, `:906-923`):
+  Landet eine Freigabe (Deaktivieren, OpenSprinkler-Abbruch) oder beim Neuladen der Abbau, während ein Slot noch im Bestätigungs-Poll
+  steckt, und wird er danach abgelehnt, macht die Schleife mit der verwaisten Rotation weiter (nächste fällige Zone
+  oder neuer Absorptions-Timer auf der freigegebenen Kette). Die sequenzielle Schleife ist sicher, sie liest
+  `state.zones` neu. Klasse „Dispatch steckt noch in seinen Awaits“ (gelesen, Quality-Review beim Bau); Kandidat
+  für ein Issue, Abhilfe etwa `if state.rotation is not rotation: return` nach dem Await.
+- **Ein Service-Lauf, dessen Stopp scheitert** (Stop service wirft, etwa `ServiceNotFound` nach dem Umbenennen des
+  Skripts; je Lauf geloggt): `async_stop_self_closing` gibt den Hold vor dem Stopp frei, „Master-Zyklus jetzt
+  beenden“ schaltet die Pumpe also ab, während das Ventil bis zum Ende seines Countdowns weiterlaufen kann; der
+  Datensatz bleibt, das Resume nach dem Wiedereinschalten bucht ihn mit seinem Plan. Wie ein Benutzer-Stopp mit
+  werfendem Stop service heute (gelesen, Quality-Review beim Bau).
+- **`async_abort_batch_runs` kann werfen** (`_sc_active_runs` und `_batch_dispatch_stop` ungeschützt, `batch.py:681-698`):
+  Dann laufen der Service-Abbruch, „Master-Zyklus jetzt beenden“ und `async_unload` nicht; der Koordinator bleibt
+  geladen und betreut seine Läufe weiter. Heute überspringt derselbe Wurf schon `async_unload`, also keine
+  Verschlechterung (gelesen, Quality-Review beim Bau). Kandidat für ein Issue.
 
 ## Tests
 
