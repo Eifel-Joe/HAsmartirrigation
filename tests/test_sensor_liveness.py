@@ -2,6 +2,7 @@
 
 from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.calculation import BUFFER_RETENTION
+from custom_components.irrigation_plus.sensor_liveness import sensor_fields_by_entity
 
 
 def test_closed_outages_are_kept_as_long_as_the_buffer_keeps_rows():
@@ -18,3 +19,33 @@ def test_the_limits_are_the_documented_ones():
     assert const.SENSOR_STALE_AFTER_SECONDS == 3 * 3600
     assert const.SENSOR_LIVENESS_INTERVAL_SECONDS == 5 * 60
     assert const.SENSOR_LIVENESS_STARTUP_GRACE_SECONDS == 10 * 60
+
+
+def _cfg(source, entity=None):
+    cfg = {const.MAPPING_CONF_SOURCE: source}
+    if entity is not None:
+        cfg[const.MAPPING_CONF_SENSOR] = entity
+    return cfg
+
+
+def test_only_sensor_fields_with_an_entity_are_watched():
+    mappings = {
+        const.MAPPING_TEMPERATURE: _cfg(const.MAPPING_CONF_SOURCE_SENSOR, "sensor.t"),
+        const.MAPPING_DEWPOINT: _cfg(const.MAPPING_CONF_SOURCE_SENSOR, "sensor.t"),
+        const.MAPPING_HUMIDITY: _cfg(const.MAPPING_CONF_SOURCE_WEATHER_SERVICE),
+        const.MAPPING_PRESSURE: _cfg(const.MAPPING_CONF_SOURCE_STATIC_VALUE),
+        const.MAPPING_WINDSPEED: _cfg(const.MAPPING_CONF_SOURCE_SENSOR, ""),
+        const.MAPPING_SOLRAD: "legacy bare string",
+    }
+    assert sensor_fields_by_entity(mappings) == {
+        "sensor.t": (const.MAPPING_TEMPERATURE, const.MAPPING_DEWPOINT),
+    }
+
+
+def test_a_value_set_by_hand_is_never_watched():
+    mappings = {
+        const.MAPPING_PRESSURE: _cfg(
+            const.MAPPING_CONF_SOURCE_SENSOR, "input_number.pressure"
+        )
+    }
+    assert sensor_fields_by_entity(mappings) == {}
