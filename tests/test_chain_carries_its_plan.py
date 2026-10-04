@@ -552,11 +552,9 @@ class TestAnAbandonedQueueIsReported:
         assert caplog.records == [], caplog.text
 
     async def test_a_release_that_abandons_a_queue_reports_it(self, hass, caplog):
-        """The engine is shared with OpenSprinkler's own abort, which is pinned
-        to the station mode -- the very reason the service chain has no abort
-        path of its own to reach this from (see the commit this test belongs
-        to). This pins the same behaviour on the service fixture instead, the
-        only route left that ever exercises it.
+        """The OpenSprinkler and the service aborts and a disable's release all
+        end a chain through ``_chain_release``; this pins what it reports, on
+        the service fixture.
         """
         c = _coord(hass, SEQUENTIAL)
         zones = _register(c, _zone(1), _zone(2), _zone(3))

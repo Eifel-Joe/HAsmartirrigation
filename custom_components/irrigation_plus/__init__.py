@@ -470,15 +470,20 @@ async def async_unload_entry(hass: HomeAssistant, entry):
         # integration switched off. A plain reload is left alone deliberately —
         # async_resume_self_closing_runs re-adopts its run seconds later, and
         # cutting it short would waste water on every options change.
-        # Ordered before async_unload so the run records and the chain are still
-        # live enough to settle the bucket against what was delivered.
+        # Ordered before async_unload so the run records and their flow samplers
+        # are still live enough to settle the bucket against what was delivered.
         if entry.disabled_by is not None:
-            await coordinator.async_abort_opensprinkler_runs(
-                "the Irrigation Plus config entry is being disabled"
-            )
-            await coordinator.async_abort_batch_runs(
-                "the Irrigation Plus config entry is being disabled"
-            )
+            why = "the Irrigation Plus config entry is being disabled"
+            # Every chain first. One caught in a pause between its runs holds
+            # the master with no run in flight for an abort below to find.
+            await coordinator.async_release_all_chains(why)
+            await coordinator.async_abort_opensprinkler_runs(why)
+            await coordinator.async_abort_batch_runs(why)
+            # A service run as well: async_unload cancels its backstop, which
+            # was what still settled it after a disable and released its master.
+            await coordinator.async_abort_self_closing_runs(why)
+            # The master's off timer goes with the unload, so the cycle ends here.
+            await coordinator.async_master_end_cycle_now()
         await coordinator.async_unload()
     return True
 
@@ -497,17 +502,18 @@ async def async_remove_entry(hass: HomeAssistant, entry):
     if const.DOMAIN in hass.data:
         if "coordinator" in hass.data[const.DOMAIN]:
             coordinator = hass.data[const.DOMAIN]["coordinator"]
-            # Last chance to reach the controller: after the delete below there
-            # is no record that these stations were ever ours, and the queue
-            # would run to completion with the integration uninstalled.
+            why = "the Irrigation Plus config entry is being removed"
+            # Last chance to reach the controllers and the valves: after the
+            # delete below there is no record that these runs were ever ours,
+            # and they would water on with the integration uninstalled.
             # settle=False because async_delete_config removes the store the
             # reconciliation would write to.
-            await coordinator.async_abort_opensprinkler_runs(
-                "the Irrigation Plus config entry is being removed", settle=False
-            )
-            await coordinator.async_abort_batch_runs(
-                "the Irrigation Plus config entry is being removed", settle=False
-            )
+            await coordinator.async_abort_opensprinkler_runs(why, settle=False)
+            await coordinator.async_abort_batch_runs(why, settle=False)
+            await coordinator.async_abort_self_closing_runs(why, settle=False)
+            # Before the delete, defensively: nothing should act on a store
+            # once it is deleted.
+            await coordinator.async_master_end_cycle_now()
             await coordinator.async_delete_config()
         del hass.data[const.DOMAIN]
 
@@ -2242,6 +2248,11 @@ class SmartIrrigationCoordinator(
         # Same for the batch controller: its paused-indicator subscription and
         # any pending pause bound would otherwise fire against a dead coordinator.
         self.async_teardown_batch_watchers()
+        # And every self-closing flow sampler and backstop. Left armed, the
+        # backstop settles a run the new coordinator has adopted, or finds it
+        # already gone and strands its sampler, which ticks until Home
+        # Assistant restarts. The run itself stays for the resume path.
+        self.async_teardown_self_closing_handles()
 
         # Cancel the continuous-update sensor subscription AND its pending
         # debounce timers — a surviving async_call_later would fire against this
@@ -2262,7 +2273,8 @@ class SmartIrrigationCoordinator(
         # A reload builds a new coordinator, so carrying them over would strand
         # the pump on forever; the boot path re-derives real state from the
         # persisted self-closing / distributor records
-        # (async_reconcile_master_after_restart).
+        # (async_reconcile_master_after_restart). The pending off timer goes
+        # with them: it reads these holds when it fires.
         self._master_release_all()
 
         # E4: cancel all opt-in distributor inlet-watch listeners so a reloaded

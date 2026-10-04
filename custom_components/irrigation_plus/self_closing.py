@@ -967,6 +967,41 @@ class SelfClosingMixin:
                 return r
         return None
 
+    async def _sc_dispatch_stop(self, zone_id, zone: dict) -> bool:
+        """Send the zone's stop instruction; True if one went out.
+
+        False only for a zone nothing can close: not OpenSprinkler, and no
+        stop_service. What to say about that is the caller's, because a stop
+        that settles the run and one that only closes it (a removal) mean
+        different things by it. A service call that fails raises out of here
+        for the same reason. ``zone_id`` is the id of the run being stopped;
+        the payload carries it, not the id field of ``zone``.
+        """
+        if is_opensprinkler_zone(zone):
+            # opensprinkler.stop is entity-targeted; the stop_service adapter
+            # below sends a zone_id that its schema rejects.
+            await self._os_dispatch_stop(zone)
+            return True
+        stop_svc = zone.get(const.ZONE_STOP_SERVICE)
+        if not stop_svc:
+            return False
+        domain, service = self._sc_split_service(stop_svc)
+        data = {}
+        data["zone_id"] = zone_id
+        # A zero duration IS the stop instruction for the shipped
+        # blueprints, which run one script for both directions and
+        # branch on it. It was documented but never actually sent, so
+        # the script received no `duration` at all and a template
+        # reading it raised instead of closing the valve — the call is
+        # not blocking, so that surfaced only in the log while the run
+        # was settled as stopped and the valve went on watering to the
+        # end of its hardware countdown. Sent under the zone's own
+        # duration field, the same key the open uses.
+        field = zone.get(const.ZONE_DURATION_FIELD) or "duration"
+        data[field] = 0
+        await self.hass.services.async_call(domain, service, data)
+        return True
+
     async def async_stop_self_closing(
         self,
         zone_id,
@@ -1002,33 +1037,12 @@ class SelfClosingMixin:
         # Close the valve (best-effort). Skipped entirely when the hardware has
         # already ended the run itself, which is every OpenSprinkler finish
         # except a user-initiated stop.
-        if close_valve:
-            if is_opensprinkler_zone(zone):
-                # opensprinkler.stop is entity-targeted; the stop_service adapter
-                # below sends a zone_id that its schema rejects.
-                await self._os_dispatch_stop(zone)
-            elif stop_svc := zone.get(const.ZONE_STOP_SERVICE):
-                domain, service = self._sc_split_service(stop_svc)
-                data = {}
-                data["zone_id"] = zone_id
-                # A zero duration IS the stop instruction for the shipped
-                # blueprints, which run one script for both directions and
-                # branch on it. It was documented but never actually sent, so
-                # the script received no `duration` at all and a template
-                # reading it raised instead of closing the valve — the call is
-                # not blocking, so that surfaced only in the log while the run
-                # was settled as stopped and the valve went on watering to the
-                # end of its hardware countdown. Sent under the zone's own
-                # duration field, the same key the open uses.
-                field = zone.get(const.ZONE_DURATION_FIELD) or "duration"
-                data[field] = 0
-                await self.hass.services.async_call(domain, service, data)
-            else:
-                _LOGGER.warning(
-                    "Zone %s stopped in self-closing mode without a stop_service; "
-                    "cannot close the valve, correcting accounting only",
-                    zone_id,
-                )
+        if close_valve and not await self._sc_dispatch_stop(zone_id, zone):
+            _LOGGER.warning(
+                "Zone %s stopped in self-closing mode without a stop_service; "
+                "cannot close the valve, correcting accounting only",
+                zone_id,
+            )
 
         # Correct the bucket for the undelivered portion of the optimistic open credit.
         planned = float(run.get(const.RUN_PLANNED_SECONDS) or 0)
@@ -1176,6 +1190,113 @@ class SelfClosingMixin:
         # completed one does, so the next zone must start from here too.
         await self._chain_advance_for_run(zone_id, run)
         return True
+
+    async def async_abort_self_closing_runs(self, reason: str, *, settle=True) -> bool:
+        """Stop every service run this coordinator started, and settle it.
+
+        The service twin of ``async_abort_opensprinkler_runs``, for the cases
+        where nothing will ever adopt the run: the entry being disabled or
+        removed. Unload cancels the run's backstop, and that backstop was, by
+        accident, the one thing still settling a disabled entry's run and
+        releasing its master. So the run is settled here, while the coordinator
+        still lives: closed through its stop service, its bucket and its usage
+        priced on what it watered, its master hold released.
+
+        Deliberately NOT called from a plain reload or a restart. Those are
+        adopted by ``async_resume_self_closing_runs``, and cutting the run
+        short there would waste water on every options change. Nor on
+        shutdown: the valve closes itself, and the next start's resume books
+        the run.
+
+        A service run is what the resume path treats as one: every persisted
+        run that is neither OpenSprinkler nor batch, including a record from
+        before ``RUN_MODE`` existed. Those two modes have aborts of their own.
+
+        ``settle=False`` only sends the stop, for a removal: the unload has
+        already torn the coordinator down and the store is deleted right
+        after, so settling would only write to it and re-arm the master's off
+        timer.
+
+        Returns True if any run was stopped or settled. Never raises: a
+        failure here must not be able to block an unload. A chain that cannot
+        be released stops nothing, since a settle could then dispatch its next
+        zone on the way out.
+        """
+        try:
+            runs = await self._sc_active_runs()
+            targets = [
+                r
+                for r in runs
+                if r.get(const.RUN_MODE)
+                not in (const.WATERING_MODE_OPENSPRINKLER, const.WATERING_MODE_BATCH)
+                and r.get(const.RUN_ZONE_ID) is not None
+            ]
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Could not read active runs to stop self-closing valves")
+            return False
+        if not targets:
+            return False
+
+        # Before any stop, so a settled run cannot advance the chain and
+        # dispatch the next zone on the way out.
+        try:
+            await self._chain_release(const.WATERING_MODE_SERVICE, reason)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception(
+                "Could not release the service chain; its runs are not stopped"
+            )
+            return False
+
+        stopped = False
+        for run in targets:
+            zone_id = run.get(const.RUN_ZONE_ID)
+            _LOGGER.warning(
+                "Zone %s: stopping its self-closing run because %s", zone_id, reason
+            )
+            try:
+                if settle:
+                    if await self.async_stop_self_closing(zone_id):
+                        stopped = True
+                elif await self._sc_dispatch_stop(
+                    zone_id, self.store.get_zone(zone_id) or {}
+                ):
+                    stopped = True
+                else:
+                    _LOGGER.warning(
+                        "Zone %s has no stop_service; its valve runs on to the "
+                        "end of its own countdown",
+                        zone_id,
+                    )
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception(
+                    "Zone %s: could not stop its self-closing run; it may still "
+                    "be watering",
+                    zone_id,
+                )
+        return stopped
+
+    def async_teardown_self_closing_handles(self) -> None:
+        """Cancel every flow sampler and backstop this coordinator armed (unload).
+
+        Both close over THIS coordinator. A reload leaves the run itself in the
+        store for async_resume_self_closing_runs, which arms a backstop of its
+        own for a service run and for an OpenSprinkler station that is already
+        watering. (A batch run that is already watering gets none there, after
+        a restart as after a reload; its watcher alone settles it.) Left armed,
+        the old backstop then finds no record and returns before it ever
+        reaches its sampler, which ticks on until Home Assistant restarts and
+        keeps the dead coordinator alive; and a run that ends while the reload
+        is under way is settled through the dead coordinator.
+
+        Cancel only: no final read, nothing settled, nothing written. The
+        successor owns the run. The meter's litres are lost across a reload as
+        they are across a restart, and the run is booked by time.
+        """
+        meters = self._sc_meters()
+        for zone_id in list(meters):
+            meters.pop(zone_id)[1]()  # the interval's cancel handle
+        for zone_id in list(self._sc_cleanup_timers()):
+            self._sc_cancel_cleanup(zone_id)
 
     async def async_resume_self_closing_runs(self) -> None:
         """Reconcile persisted in-flight runs after a restart.
