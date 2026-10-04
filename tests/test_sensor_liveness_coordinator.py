@@ -79,3 +79,413 @@ async def test_the_device_is_read_from_the_entity_registry(hass):
     assert _entities_of_device(hass, temp.entity_id) == (device.id, [rain.entity_id])
     assert _entities_of_device(hass, loose.entity_id) == (None, [])
     assert _entities_of_device(hass, "sensor.not_registered") == (None, [])
+
+
+EVENT = f"{const.DOMAIN}_{const.EVENT_WEATHER_STALE}"
+STALE = timedelta(seconds=const.SENSOR_STALE_AFTER_SECONDS)
+
+
+class _FakeStore:
+    def __init__(self, *mappings):
+        self.mappings = {int(m[const.MAPPING_ID]): copy.deepcopy(m) for m in mappings}
+        self.updates = []
+
+    def get_mapping(self, mapping_id):
+        mapping = self.mappings.get(int(mapping_id))
+        return copy.deepcopy(mapping) if mapping else None
+
+    async def async_get_mappings(self):
+        return [copy.deepcopy(m) for m in self.mappings.values()]
+
+    async def async_update_mapping(self, mapping_id, changes):
+        self.updates.append((int(mapping_id), copy.deepcopy(changes)))
+        self.mappings[int(mapping_id)].update(copy.deepcopy(changes))
+
+    def set_mapping_sensor_last_seen(self, mapping_id, seen):
+        self.mappings[int(mapping_id)][const.MAPPING_SENSOR_LAST_SEEN] = dict(seen)
+
+    def set_mapping_buffer(self, mapping_id, readings):
+        pass
+
+    async def async_get_zones(self):
+        return []
+
+    async def async_update_zone(self, zone_id, changes):
+        pass
+
+
+class _FakeIssues:
+    IssueSeverity = SimpleNamespace(WARNING="warning")
+
+    def __init__(self):
+        self.open = {}
+
+    def async_create_issue(self, hass, domain, issue_id, **kwargs):
+        self.open[issue_id] = kwargs
+
+    def async_delete_issue(self, hass, domain, issue_id):
+        self.open.pop(issue_id, None)
+
+
+def _group(mapping_id=1, name="Garden", fields=None, outages=None, last_seen=None):
+    return {
+        const.MAPPING_ID: mapping_id,
+        const.MAPPING_NAME: name,
+        const.MAPPING_MAPPINGS: {
+            field: {
+                const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                const.MAPPING_CONF_SENSOR: entity,
+            }
+            for field, entity in (fields or {}).items()
+        },
+        const.MAPPING_SENSOR_OUTAGES: outages or [],
+        const.MAPPING_SENSOR_LAST_SEEN: last_seen or {},
+    }
+
+
+def _coord(monkeypatch, groups, states, devices):
+    """A coordinator over a fake store, fake states and a fake device map."""
+    store = _FakeStore(*groups)
+    coord = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
+    coord.hass = Mock()
+    coord.hass.states.get = Mock(side_effect=states.get)
+    coord.hass.bus.async_fire = Mock()
+    coord.store = store
+    device_of = {e: d for d, entities in devices.items() for e in entities}
+
+    def entities_of_device(hass, entity_id):
+        device_id = device_of.get(entity_id)
+        siblings = [e for e in devices.get(device_id, []) if e != entity_id]
+        return device_id, siblings
+
+    monkeypatch.setattr(sensor_liveness, "_entities_of_device", entities_of_device)
+    issues = _FakeIssues()
+    monkeypatch.setattr(sensor_liveness, "_issue_registry", lambda: issues)
+    return coord, store, issues
+
+
+def _events(coord):
+    return [c.args for c in coord.hass.bus.async_fire.call_args_list]
+
+
+class TestTheCheck:
+    async def test_a_silent_station_opens_its_outages_fires_and_raises_the_notice(
+        self, monkeypatch
+    ):
+        last = T0 - STALE - timedelta(seconds=1)
+        coord, store, issues = _coord(
+            monkeypatch,
+            [_group(fields={"Temperature": "sensor.temp", "Windspeed": "sensor.wind"})],
+            {
+                "sensor.temp": _state("sensor.temp", "21.5", last),
+                "sensor.wind": _state("sensor.wind", "2.0", last),
+                "sensor.battery": _state("sensor.battery", "80", last),
+            },
+            {"dev1": ["sensor.temp", "sensor.wind", "sensor.battery"]},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        temp = Outage("sensor.temp", "dev1", ("Temperature",), last)
+        wind = Outage("sensor.wind", "dev1", ("Windspeed",), last)
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == [
+            temp.to_store(),
+            wind.to_store(),
+        ]
+        assert [args[0] for args in _events(coord)] == [EVENT, EVENT]
+        assert [args[1]["stale"] for args in _events(coord)] == [True, True]
+        notice = issues.open["weather_sensor_stale_1"]
+        assert notice["translation_key"] == const.ISSUE_WEATHER_SENSOR_STALE
+        assert notice["is_fixable"] is False
+        assert notice["translation_placeholders"]["entities"] == (
+            "sensor.temp (Temperature), sensor.wind (Windspeed)"
+        )
+
+    async def test_a_steady_rain_gauge_on_a_living_station_stays_quiet(
+        self, monkeypatch
+    ):
+        coord, store, issues = _coord(
+            monkeypatch,
+            [_group(fields={"Precipitation": "sensor.rain"})],
+            {
+                "sensor.rain": _state("sensor.rain", "0.0", T0 - timedelta(hours=10)),
+                "sensor.temp": _state("sensor.temp", "14.2", T0 - timedelta(minutes=1)),
+            },
+            {"dev1": ["sensor.rain", "sensor.temp"]},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == []
+        assert _events(coord) == []
+        assert issues.open == {}
+
+    async def test_the_return_closes_the_outage_at_the_first_report(self, monkeypatch):
+        start = T0 - timedelta(hours=6)
+        back = T0 - timedelta(minutes=4)
+        open_ = Outage("sensor.temp", "dev1", ("Temperature",), start)
+        coord, store, issues = _coord(
+            monkeypatch,
+            [
+                _group(
+                    fields={"Temperature": "sensor.temp"},
+                    outages=[open_.to_store()],
+                )
+            ],
+            {
+                "sensor.temp": _state(
+                    "sensor.temp", "18.0", T0 - timedelta(seconds=10), changed=back
+                )
+            },
+            {"dev1": ["sensor.temp"]},
+        )
+        issues.open["weather_sensor_stale_1"] = {}
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        ended = Outage("sensor.temp", "dev1", ("Temperature",), start, back)
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == [ended.to_store()]
+        assert _events(coord)[0][1]["stale"] is False
+        assert _events(coord)[0][1]["until"] == dt_util.as_local(back).isoformat()
+        assert issues.open == {}
+
+    async def test_the_signs_of_life_ride_along_without_a_write(self, monkeypatch):
+        coord, store, _ = _coord(
+            monkeypatch,
+            [_group(fields={"Temperature": "sensor.temp"})],
+            {"sensor.temp": _state("sensor.temp", "18.0", T0 - timedelta(minutes=1))},
+            {"dev1": ["sensor.temp"]},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert store.updates == []
+        assert store.mappings[1][const.MAPPING_SENSOR_LAST_SEEN] == {
+            "sensor.temp": (T0 - timedelta(minutes=1)).isoformat()
+        }
+
+    async def test_an_outage_spanning_a_restart_keeps_its_start(self, monkeypatch):
+        before = T0 - timedelta(hours=5)
+        coord, store, _ = _coord(
+            monkeypatch,
+            [
+                _group(
+                    fields={"Temperature": "sensor.temp"},
+                    last_seen={"sensor.temp": before.isoformat()},
+                )
+            ],
+            {
+                # Restored as unavailable at the restart; its device's battery
+                # entity reports again, which must not vouch for the dead one.
+                "sensor.temp": _state(
+                    "sensor.temp", "unavailable", T0 - timedelta(minutes=2)
+                ),
+                "sensor.battery": _state(
+                    "sensor.battery", "80", T0 - timedelta(minutes=1)
+                ),
+            },
+            {"dev1": ["sensor.temp", "sensor.battery"]},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == [
+            Outage("sensor.temp", "dev1", ("Temperature",), before).to_store()
+        ]
+
+    async def test_home_assistants_own_downtime_is_not_an_outage(self, monkeypatch):
+        """Down for four hours, the station pushes again right after the start: its
+        fresh report vouches for it before the first check, so nothing opens."""
+        coord, store, issues = _coord(
+            monkeypatch,
+            [
+                _group(
+                    fields={"Temperature": "sensor.temp"},
+                    last_seen={"sensor.temp": (T0 - timedelta(hours=4)).isoformat()},
+                )
+            ],
+            {"sensor.temp": _state("sensor.temp", "16.0", T0 - timedelta(minutes=8))},
+            {"dev1": ["sensor.temp"]},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == []
+        assert _events(coord) == []
+        assert issues.open == {}
+
+    async def test_a_value_set_by_hand_never_goes_stale(self, monkeypatch):
+        coord, store, issues = _coord(
+            monkeypatch,
+            [_group(fields={"Pressure": "input_number.pressure"})],
+            {
+                "input_number.pressure": _state(
+                    "input_number.pressure", "1013", T0 - timedelta(days=30)
+                )
+            },
+            {},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == []
+        assert store.mappings[1][const.MAPPING_SENSOR_LAST_SEEN] == {}
+        assert issues.open == {}
+
+    async def test_an_entity_never_seen_starts_its_bridge_at_the_first_look(
+        self, monkeypatch
+    ):
+        coord, store, _ = _coord(
+            monkeypatch, [_group(fields={"Temperature": "sensor.ghost"})], {}, {}
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == []
+        assert store.mappings[1][const.MAPPING_SENSOR_LAST_SEEN] == {
+            "sensor.ghost": T0.isoformat()
+        }
+
+        await coord.async_check_sensor_liveness(now=T0 + STALE + timedelta(seconds=1))
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == [
+            Outage("sensor.ghost", None, ("Temperature",), T0).to_store()
+        ]
+
+    async def test_one_broken_group_does_not_stop_the_others(self, monkeypatch):
+        last = T0 - STALE - timedelta(seconds=1)
+        coord, store, _ = _coord(
+            monkeypatch,
+            [
+                _group(1, "Broken", fields={"Temperature": "sensor.bad"}),
+                _group(2, "Fine", fields={"Temperature": "sensor.t"}),
+            ],
+            {"sensor.t": _state("sensor.t", "18.0", last)},
+            {},
+        )
+        real = sensor_liveness._entities_of_device
+
+        def boom(hass, entity_id):
+            if entity_id == "sensor.bad":
+                raise RuntimeError("registry exploded")
+            return real(hass, entity_id)
+
+        monkeypatch.setattr(sensor_liveness, "_entities_of_device", boom)
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert len(store.mappings[2][const.MAPPING_SENSOR_OUTAGES]) == 1
+
+    async def test_an_open_outage_without_a_remembered_sign_stays_open(
+        self, monkeypatch
+    ):
+        start = T0 - timedelta(hours=5)
+        open_ = Outage("sensor.temp", "dev1", ("Temperature",), start)
+        coord, store, _ = _coord(
+            monkeypatch,
+            [_group(fields={"Temperature": "sensor.temp"}, outages=[open_.to_store()])],
+            {},
+            {},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == [open_.to_store()]
+        assert _events(coord) == []
+
+    async def test_a_late_check_ends_the_old_outage_before_it_starts_the_new(
+        self, monkeypatch
+    ):
+        start = T0 - timedelta(hours=10)
+        newest = T0 - STALE - timedelta(hours=1)
+        open_ = Outage("sensor.temp", "dev1", ("Temperature",), start)
+        coord, _, _ = _coord(
+            monkeypatch,
+            [_group(fields={"Temperature": "sensor.temp"}, outages=[open_.to_store()])],
+            {"sensor.temp": _state("sensor.temp", "18.0", newest)},
+            {"dev1": ["sensor.temp"]},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert [args[1]["stale"] for args in _events(coord)] == [False, True]
+
+
+class TestAReplacedDevice:
+    async def test_a_new_device_under_the_same_entity_ids_closes_the_outage(
+        self, monkeypatch
+    ):
+        """The old station died; the new one took over its entity ids. The entity
+        now belongs to the new device, which reports: the outage ends there."""
+        start = T0 - timedelta(hours=6)
+        back = T0 - timedelta(minutes=2)
+        open_ = Outage("sensor.temp", "old-station", ("Temperature",), start)
+        coord, store, issues = _coord(
+            monkeypatch,
+            [_group(fields={"Temperature": "sensor.temp"}, outages=[open_.to_store()])],
+            {
+                "sensor.temp": _state(
+                    "sensor.temp", "17.0", T0 - timedelta(seconds=30), changed=back
+                ),
+                "sensor.wind": _state("sensor.wind", "1.0", T0 - timedelta(seconds=30)),
+            },
+            {"new-station": ["sensor.temp", "sensor.wind"]},
+        )
+        issues.open["weather_sensor_stale_1"] = {}
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == [
+            Outage(
+                "sensor.temp", "old-station", ("Temperature",), start, back
+            ).to_store()
+        ]
+        assert issues.open == {}
+
+    async def test_an_entity_deleted_with_the_old_device_raises_the_notice(
+        self, monkeypatch
+    ):
+        """The sensor group still names an entity that no longer exists: no data
+        arrives, so after the limit the notice asks for the new entities."""
+        coord, store, issues = _coord(
+            monkeypatch,
+            [
+                _group(
+                    fields={"Temperature": "sensor.gone"},
+                    last_seen={
+                        "sensor.gone": (T0 - STALE - timedelta(seconds=1)).isoformat()
+                    },
+                )
+            ],
+            {},
+            {},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert len(store.mappings[1][const.MAPPING_SENSOR_OUTAGES]) == 1
+        assert "weather_sensor_stale_1" in issues.open
+
+    async def test_an_outage_left_by_another_path_ends_with_its_event(
+        self, monkeypatch
+    ):
+        """The ledger still holds an outage for an entity the group no longer reads
+        (its mapping changed without emptying the ledger): it ends now, with its
+        end event, and the notice goes."""
+        start = T0 - timedelta(hours=5)
+        open_ = Outage("sensor.gone", "dev1", ("Temperature",), start)
+        coord, store, issues = _coord(
+            monkeypatch,
+            [_group(fields={"Temperature": "sensor.new"}, outages=[open_.to_store()])],
+            {"sensor.new": _state("sensor.new", "16.0", T0 - timedelta(minutes=1))},
+            {"dev2": ["sensor.new"]},
+        )
+        issues.open["weather_sensor_stale_1"] = {}
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == [
+            Outage("sensor.gone", "dev1", ("Temperature",), start, T0).to_store()
+        ]
+        assert [(a[1]["entity_id"], a[1]["stale"]) for a in _events(coord)] == [
+            ("sensor.gone", False)
+        ]
+        assert issues.open == {}

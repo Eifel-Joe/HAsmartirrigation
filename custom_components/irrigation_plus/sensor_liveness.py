@@ -25,7 +25,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.util import dt as dt_util
 
 from . import const
-from .helpers import STAMP_FROM_STORE, coerce_stamp
+from .helpers import STAMP_FROM_STORE, coerce_stamp, local_naive_now
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -297,3 +297,146 @@ def _entities_of_device(hass, entity_id: str) -> tuple[str | None, list[str]]:
         for sibling in er.async_entries_for_device(registry, device_id)
         if sibling.entity_id != entity_id
     ]
+
+
+def _issue_registry():
+    """Home Assistant's issue registry module.
+
+    Reached through this one function so the tests can stand in for it: conftest
+    may replace ``homeassistant.helpers`` with a mock (see repairs.py).
+    """
+    from homeassistant.helpers import issue_registry as ir
+
+    return ir
+
+
+class SensorLivenessMixin:
+    """Coordinator glue: the periodic check, the ledger, the notice and the event."""
+
+    async def async_check_sensor_liveness(self, now: datetime | None = None) -> None:
+        """Check every sensor group once."""
+        now = now if now is not None else local_naive_now()
+        for mapping in await self.store.async_get_mappings():
+            try:
+                await self._async_check_mapping_liveness(mapping, now)
+            except Exception:
+                # A periodic check: one broken group must not stop the others,
+                # every five minutes, for good.
+                _LOGGER.exception(
+                    "Sensor liveness check failed for sensor group %s",
+                    mapping.get(const.MAPPING_ID),
+                )
+
+    async def _async_check_mapping_liveness(self, mapping: dict, now: datetime) -> None:
+        mapping_id = mapping[const.MAPPING_ID]
+        name = mapping.get(const.MAPPING_NAME) or str(mapping_id)
+        outages = outages_of(mapping)
+        open_start = {o.entity_id: o.start for o in outages if o.end is None}
+        remembered = mapping.get(const.MAPPING_SENSOR_LAST_SEEN) or {}
+        evidence: dict[str, Evidence] = {}
+        fields_by_entity = sensor_fields_by_entity(
+            mapping.get(const.MAPPING_MAPPINGS) or {}
+        )
+        for entity_id, fields in fields_by_entity.items():
+            own, siblings, device_id = self._sensor_liveness_snapshot(entity_id)
+            last = last_sign_of_life(
+                own, siblings, coerce_stamp(remembered.get(entity_id), STAMP_FROM_STORE)
+            )
+            if last is None:
+                # Never seen and nothing remembered: an open outage keeps its start;
+                # otherwise count the limit from this first look, not from never.
+                last = open_start.get(entity_id, now)
+            recovered = None
+            if entity_id in open_start:
+                recovered = first_report_after(own, siblings, open_start[entity_id])
+            evidence[entity_id] = Evidence(fields, device_id, last, recovered)
+
+        kept, opened, closed = advance_outages(outages, evidence, now)
+        self.store.set_mapping_sensor_last_seen(
+            mapping_id, {e: ev.last.isoformat() for e, ev in evidence.items()}
+        )
+        if kept != outages:
+            await self.store.async_update_mapping(
+                mapping_id,
+                {const.MAPPING_SENSOR_OUTAGES: [o.to_store() for o in kept]},
+            )
+        # Ends first: a late check can end an outage and start the next one of the
+        # same sensor, and the last event must say what is true now.
+        for outage in closed:
+            _LOGGER.info(
+                "Sensor group %s: the outage of %s is over (silent from %s to %s)",
+                name,
+                outage.entity_id,
+                outage.start,
+                outage.end,
+            )
+            self._fire_weather_stale(mapping_id, name, outage)
+        for outage in opened:
+            _LOGGER.warning(
+                "Sensor group %s: %s (%s) has not reported since %s; its last "
+                "value is still used",
+                name,
+                outage.entity_id,
+                ", ".join(outage.fields),
+                outage.start,
+            )
+            self._fire_weather_stale(mapping_id, name, outage)
+        if opened or closed:
+            self._sync_stale_issue(mapping_id, name, kept)
+
+    def _sensor_liveness_snapshot(self, entity_id: str):
+        """``(own, siblings, device_id)`` for one sensor-mapped entity."""
+        device_id, sibling_ids = _entities_of_device(self.hass, entity_id)
+        own = seen_from_state(self.hass.states.get(entity_id))
+        siblings = [
+            seen
+            for sibling_id in sibling_ids
+            if (seen := seen_from_state(self.hass.states.get(sibling_id))) is not None
+        ]
+        return own, siblings, device_id
+
+    def _fire_weather_stale(self, mapping_id, name: str, outage: Outage) -> None:
+        self.hass.bus.async_fire(
+            f"{const.DOMAIN}_{const.EVENT_WEATHER_STALE}",
+            outage_event_payload(mapping_id, name, outage),
+        )
+
+    def _sync_stale_issue(self, mapping_id, name: str, outages: list[Outage]) -> None:
+        """Raise, update or clear the group's repair issue from its outages."""
+        ir = _issue_registry()
+        issue_id = f"{const.ISSUE_WEATHER_SENSOR_STALE}_{mapping_id}"
+        placeholders = stale_issue_placeholders(name, outages)
+        if placeholders is None:
+            ir.async_delete_issue(self.hass, const.DOMAIN, issue_id)
+            return
+        ir.async_create_issue(
+            self.hass,
+            const.DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=const.ISSUE_WEATHER_SENSOR_STALE,
+            translation_placeholders=placeholders,
+        )
+
+    def _retire_outages(self, mapping: dict | None) -> None:
+        """End a group's open outages because its ledger is being emptied.
+
+        A source change (a sensor replaced), deleting the group or resetting the
+        weather data empties the ledger. Every open outage still gets its end
+        event, so an automation that reacted to the start hears that it is over,
+        and the group's notice goes. Without an open outage there is no notice --
+        it is raised from the ledger and, being non-persistent, does not outlive a
+        restart -- so the issue registry is not asked.
+        """
+        silent = [o for o in outages_of(mapping or {}) if o.end is None]
+        if not silent:
+            return
+        now = local_naive_now()
+        mapping_id = mapping[const.MAPPING_ID]
+        name = mapping.get(const.MAPPING_NAME) or str(mapping_id)
+        for outage in silent:
+            self._fire_weather_stale(mapping_id, name, replace(outage, end=now))
+        _issue_registry().async_delete_issue(
+            self.hass, const.DOMAIN, f"{const.ISSUE_WEATHER_SENSOR_STALE}_{mapping_id}"
+        )

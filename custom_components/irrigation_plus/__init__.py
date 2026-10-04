@@ -83,6 +83,7 @@ from .run_state import RunStateMixin
 from .run_watch import RunWatchMixin
 from .scheduler import RecurringScheduleManager
 from .self_closing import SelfClosingMixin
+from .sensor_liveness import SensorLivenessMixin
 from .services import ServiceHandlersMixin, async_register_services
 from .skip_conditions import SkipConditionsMixin
 from .store import BUFFER_FLUSH_INTERVAL, SmartIrrigationStorage, async_get_registry
@@ -531,6 +532,7 @@ class SmartIrrigationCoordinator(
     LiveEstimateMixin,
     ObservedWateringMixin,
     ContinuousUpdateMixin,
+    SensorLivenessMixin,
     SelfClosingMixin,
     OpenSprinklerMixin,
     # Before RunWatchMixin for the same reason OpenSprinklerMixin is: batch mode
