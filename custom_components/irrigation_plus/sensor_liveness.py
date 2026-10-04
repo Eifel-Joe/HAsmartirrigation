@@ -286,17 +286,21 @@ def seen_from_state(state) -> Seen | None:
 
 
 def _entities_of_device(hass, entity_id: str) -> tuple[str | None, list[str]]:
-    """The entity's HA device and the device's other enabled sensors that come from
-    the same integration entry.
+    """The entity's HA device and the device's other enabled sensors from its
+    own integration.
 
-    Helpers that Home Assistant attaches to their source's device (a utility
-    meter, a Riemann integral, a statistics or template sensor) write on their
-    own schedule, and an update or button entity says nothing about the
-    measurements: none of them may vouch for a silent sensor. Reached through
-    this one function so the tests can stand in for it: conftest may replace
-    ``homeassistant.helpers`` with a mock (see repairs.py), hence the import
+    Home Assistant attaches helpers to devices: a utility meter or Riemann
+    integral to its source's device, a template sensor to the one picked for it.
+    They can write on a schedule of their own, and an update entity of the
+    device's integration can too; neither says anything about the
+    measurements. So only sensors and binary sensors from the integration entry
+    that owns the device vouch, plus those of the mapped entity's own entry,
+    which lets a station vouch for a helper mapped from it. Reached through this
+    one function so the tests can stand in for it: conftest may replace
+    ``homeassistant.helpers`` with a mock (see repairs.py), hence the imports
     inside.
     """
+    from homeassistant.helpers import device_registry as dr
     from homeassistant.helpers import entity_registry as er
 
     registry = er.async_get(hass)
@@ -304,11 +308,18 @@ def _entities_of_device(hass, entity_id: str) -> tuple[str | None, list[str]]:
     device_id = entry.device_id if entry is not None else None
     if not device_id:
         return None, []
+    device = dr.async_get(hass).async_get(device_id)
+    # The integration entry that owns the device: config_entry_id in newer Home
+    # Assistant, primary_config_entry before. A helper's link changes neither.
+    owner = getattr(device, "config_entry_id", None) or getattr(
+        device, "primary_config_entry", None
+    )
+    vouching = {entry.config_entry_id, owner} - {None}
     return device_id, [
         sibling.entity_id
         for sibling in er.async_entries_for_device(registry, device_id)
         if sibling.entity_id != entity_id
-        and sibling.config_entry_id == entry.config_entry_id
+        and sibling.config_entry_id in vouching
         and sibling.entity_id.split(".", 1)[0] in const.SENSOR_LIVENESS_SIBLING_DOMAINS
     ]
 

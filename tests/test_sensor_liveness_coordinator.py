@@ -82,14 +82,17 @@ async def test_the_device_is_read_from_the_entity_registry(hass):
 
 
 async def test_only_the_integrations_own_sensors_vouch(hass):
-    """Helpers Home Assistant attaches to a device write on their own schedule,
-    and an update entity says nothing about the measurements."""
+    """Helpers Home Assistant attaches to a device can write on their own
+    schedule, and an update entity says nothing about the measurements; a
+    helper that is mapped itself is vouched for by its device's sensors."""
     entry = MockConfigEntry(domain="test")
     entry.add_to_hass(hass)
     helper = MockConfigEntry(domain="utility_meter")
     helper.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(
-        config_entry_id=entry.entry_id, identifiers={("test", "station")}
+        config_entry_id=entry.entry_id,
+        identifiers={("test", "station")},
+        name="Station",
     )
     registry = er.async_get(hass)
     temp = registry.async_get_or_create(
@@ -98,7 +101,7 @@ async def test_only_the_integrations_own_sensors_vouch(hass):
     rain = registry.async_get_or_create(
         "binary_sensor", "test", "raining", device_id=device.id, config_entry=entry
     )
-    registry.async_get_or_create(
+    meter = registry.async_get_or_create(
         "sensor",
         "utility_meter",
         "rain_today",
@@ -110,6 +113,10 @@ async def test_only_the_integrations_own_sensors_vouch(hass):
     )
 
     assert _entities_of_device(hass, temp.entity_id) == (device.id, [rain.entity_id])
+    assert _entities_of_device(hass, meter.entity_id) == (
+        device.id,
+        [temp.entity_id, rain.entity_id],
+    )
 
 
 EVENT = f"{const.DOMAIN}_{const.EVENT_WEATHER_STALE}"
