@@ -23,6 +23,66 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-04 (3) — Upstream-Runde leer; Eifel-Joe#8: Spec Revision 2 + Plan PR 1 an JustChrs Antwort angepasst, probegelaufen, freigegeben
+
+### Stand
+
+- **Upstream-Runde** 06:41 und 08:05 UTC, alle Autoren: leer. `master` = `e9c79ec4`, kein Release nach v2026.10.03,
+  JustChr#189 offen (0 Kommentare, 0 Reviews, CI 4/4 grün, mergeable). P2-Scan: nur Eifel-Joe#8 (→ JustChr#188 offen) und
+  Eifel-Joe#9 (→ JustChr#189 offen). production `4ebd458c`, 0 behind.
+- **JustChr#188** hat genau eine Antwort (2026-10-03 19:13 UTC, `5972596286`); sie ist die Grundlage dieser Arbeit.
+- **Spec Revision 2** `docs/superpowers/specs/2026-10-03-dead-weather-sensor-design.md`: JustChrs Bedingungen J1–J5,
+  dazu die User-Entscheidungen **8** (PR 2 schneidet nur ohne Stundenrechnung; Masken als Parameter) und **9** (neue Gruppen
+  pausieren, Bestand behält; Ausweg im Hinweis und in der Doku). Drei PRs samt Zwischenständen. Hinweistext PR 1 und
+  Doku-Abschnitt (DE/EN) stehen in der Spec.
+- **Plan PR 1 Revision 2** `docs/superpowers/plans/2026-10-03-dead-weather-sensor-common.md` (16 Tasks): kein
+  Schnitt-Versprechen; JustChrs drei Hinweis-Tests (`tests/test_sensor_liveness_repair.py`, echter Store, echte
+  Issue-Registry, `freezer`) in den Tasks 9/10/11; Doku-Abschnitt (Task 13); Task 15 Pre-Release + Live-Test HA-Test;
+  Task 16 PR + Nachlauf.
+- **Probelauf** gegen `e9c79ec4`: 75 Tests grün; Suite 7/3693/9/415 gegen Baseline 7/3618/9/415, 422 Namen identisch;
+  20/20 Mutationen; jeder Plan-Block per Skript gegen den Probe-Stand geprüft. Patch
+  `D:\Entwicklung\HASI\issue8-work\probe-2026-10-04.patch` (19 Dateien, +1769/−5).
+- **User-Freigabe 2026-10-04:** Spec + Plan; Live-Test **Variante 1** (YAML-MQTT unter `hasi_livetest/`, ohne Discovery).
+- **P1-Archiv** `e35e4c44` (Spec, Plan, `docs/superpowers/probes/2026-10-04-dead-weather-sensor-pr1/`), gepusht mit diesem
+  Eintrag.
+- **Aufgeräumt:** Wegwerf-Worktrees `issue8-work\probe-wt` und `issue8-work\base-wt`.
+- **Memories:** `hasi-livetest-capability-boundary` (HA-Test hängt am Prod-Broker), `hasi-dead-weather-sensor`.
+
+### Verworfen
+
+- Die Einstellung schon in PR 1: ein Schalter ohne Wirkung, solange nichts geschnitten wird.
+- PR 2 schneidet das Aggregat bei jeder Installation: im Stundenbetrieb scheitert dann der Abgleich zwischen Aggregat und
+  nachgespielter Bilanz (`calculation.py:999-1008`), die Bilanz fällt still auf die Einmal-Buchung zurück.
+- Live-Test per MQTT-Discovery (legte über den Prod-Broker Geräte auf HA-Prod an), per Template-Helfer ohne Gerät
+  (Geräte-Pfad liefe nicht live), per eigenem Broker (nähme HA-Test die Z2M-Geräte).
+
+### Fallen
+
+- **HA-Test-MQTT = Broker von HA-Prod:** nie Discovery publizieren, nur ein eigenes Präfix; retained Nachrichten danach
+  leeren.
+- In der Runden-Tabelle auch Bezüge **vor** dem Fenster nennen, wenn sie gerade Gegenstand der Arbeit sind (User-Rückfrage
+  „JustChr hat doch auf #188 geantwortet“, weil #188 in der Tabelle fehlte).
+- `check_plan_blocks.py` meldet inkrementelle Blöcke (später ergänzte Importe oder dazwischengeschobene Methoden) als
+  „nicht am Stück“; solche Blöcke abschnittsweise prüfen.
+- Die CI prüft `tests/` nicht mit black; die Plan-Snippets sind trotzdem black-formatiert (vier angepasst).
+
+### Nächste Schritte
+
+1. **Upstream-Runde** seit 2026-10-04 08:05 UTC, alle Autoren. JustChr#189 ist eine Zeile der Runde: Einwand → Kommentar
+   in Eifel-Joe#9, Fix im Worktree `issue9-work\wt`; Merge → #9 schließen, #42 Punkt 10, production-Rebuild, Worktree weg.
+2. **Eifel-Joe#8 PR 1 umsetzen** nach dem Plan, in frischer Sitzung mit `superpowers:subagent-driven-development`:
+   Tasks 0–14 im Worktree `issue8-work\wt` (Branch `fix/stale-weather-sensor`), dann Task 15 (Pre-Release + Live-Test,
+   Freigaben im Chat), dann Task 16 (PR; Texte deutsch, dann englisch zur Freigabe).
+3. **HA-Prod:** erster echter Lauf (Beet) frühestens um den 10.10.; ein Update nur auf Zuruf. Das Update auf ein Build mit
+   PR 1 startet den Feldtest, den JustChr vor PR 2 sehen will.
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:subagent-driven-development` (oder `superpowers:executing-plans`),
+  `superpowers:test-driven-development`, `superpowers:requesting-code-review`, `superpowers:verification-before-completion`,
+  `pr-workflow`; Memories `hasi-dead-weather-sensor`, `upstream-sweep-first`, `hasi-pr-build-recipe`,
+  `hasi-production-on-upstream`, `hasi-livetest-capability-boundary`, `no-own-issue-refs-upstream`.
+
 ## 2026-10-04 (2) — Eifel-Joe#9 abgeschlossen bis auf den Merge: Live-Test RED/GREEN, Pre-Release v2026.10.04b1, PR JustChr#189, P2, Archiv; JustChr#188 beantwortet
 
 ### Ergebnis der Freigabe (User: „1–7 freigegeben“)
@@ -77,6 +137,9 @@
 - `ha_manage_hacs download`: `repository_id` als `owner/repo`-String (Zahl wird abgelehnt), vorher `update_information`.
 - `--jq .body >` hängt ein `\n` an; nach `gh issue edit --body-file` ist die Remote-Fassung genau dieses Byte länger.
 - Stop service wird ohne `blocking` gerufen → beim Deaktivieren geht die Pumpe ~70 ms vor dem Ventil aus (gutmütig).
+- **Ein Geheimnis-Scan in einer `&&`-Kette hält sie nicht an:** `grep -c` endet auch bei Treffern mit Exit 0; der
+  Archiv-Push lief über einen Treffer hinweg (zum Glück nur der Feldname `pw_api_key` in einer Warnnotiz, der
+  heutige Zuwachs danach geprüft: 0 Schlüsselwerte, 0 IPs). Vor einem Push gaten: `! grep -qE '<muster>' <dateien>`.
 
 ### Nächste Schritte
 
