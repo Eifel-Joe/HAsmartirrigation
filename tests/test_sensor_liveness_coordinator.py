@@ -81,6 +81,37 @@ async def test_the_device_is_read_from_the_entity_registry(hass):
     assert _entities_of_device(hass, "sensor.not_registered") == (None, [])
 
 
+async def test_only_the_integrations_own_sensors_vouch(hass):
+    """Helpers Home Assistant attaches to a device write on their own schedule,
+    and an update entity says nothing about the measurements."""
+    entry = MockConfigEntry(domain="test")
+    entry.add_to_hass(hass)
+    helper = MockConfigEntry(domain="utility_meter")
+    helper.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id, identifiers={("test", "station")}
+    )
+    registry = er.async_get(hass)
+    temp = registry.async_get_or_create(
+        "sensor", "test", "temp", device_id=device.id, config_entry=entry
+    )
+    rain = registry.async_get_or_create(
+        "binary_sensor", "test", "raining", device_id=device.id, config_entry=entry
+    )
+    registry.async_get_or_create(
+        "sensor",
+        "utility_meter",
+        "rain_today",
+        device_id=device.id,
+        config_entry=helper,
+    )
+    registry.async_get_or_create(
+        "update", "test", "firmware", device_id=device.id, config_entry=entry
+    )
+
+    assert _entities_of_device(hass, temp.entity_id) == (device.id, [rain.entity_id])
+
+
 EVENT = f"{const.DOMAIN}_{const.EVENT_WEATHER_STALE}"
 STALE = timedelta(seconds=const.SENSOR_STALE_AFTER_SECONDS)
 

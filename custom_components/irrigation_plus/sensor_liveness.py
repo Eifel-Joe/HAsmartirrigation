@@ -281,11 +281,16 @@ def seen_from_state(state) -> Seen | None:
 
 
 def _entities_of_device(hass, entity_id: str) -> tuple[str | None, list[str]]:
-    """The entity's HA device and that device's other enabled entities.
+    """The entity's HA device and the device's other enabled sensors that come from
+    the same integration entry.
 
-    Reached through this one function so the tests can stand in for it: conftest
-    may replace ``homeassistant.helpers`` with a mock (see repairs.py), hence the
-    import inside.
+    Helpers that Home Assistant attaches to their source's device (a utility
+    meter, a Riemann integral, a statistics or template sensor) write on their
+    own schedule, and an update or button entity says nothing about the
+    measurements: none of them may vouch for a silent sensor. Reached through
+    this one function so the tests can stand in for it: conftest may replace
+    ``homeassistant.helpers`` with a mock (see repairs.py), hence the import
+    inside.
     """
     from homeassistant.helpers import entity_registry as er
 
@@ -298,6 +303,8 @@ def _entities_of_device(hass, entity_id: str) -> tuple[str | None, list[str]]:
         sibling.entity_id
         for sibling in er.async_entries_for_device(registry, device_id)
         if sibling.entity_id != entity_id
+        and sibling.config_entry_id == entry.config_entry_id
+        and sibling.entity_id.split(".", 1)[0] in const.SENSOR_LIVENESS_SIBLING_DOMAINS
     ]
 
 

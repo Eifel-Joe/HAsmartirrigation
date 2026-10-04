@@ -706,6 +706,9 @@ SENSOR_LIVENESS_STARTUP_GRACE_SECONDS = 600
 SENSOR_OUTAGE_RETENTION_DAYS = 7
 # Values set by hand: no sign of life is expected, so they never go stale.
 SENSOR_LIVENESS_EXEMPT_DOMAINS = ("input_number",)
+# Entities of the same device and integration that vouch for a silent one:
+# measurements, not update or button entities with a schedule of their own.
+SENSOR_LIVENESS_SIBLING_DOMAINS = ("sensor", "binary_sensor")
 # Stored on the sensor group (MappingEntry).
 MAPPING_SENSOR_OUTAGES = "sensor_outages"
 MAPPING_SENSOR_LAST_SEEN = "sensor_last_seen"
