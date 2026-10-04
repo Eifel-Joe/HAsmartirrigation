@@ -64,12 +64,12 @@ def last_sign_of_life(
     """The newest report that vouches for a field, or None when there is none.
 
     ``own`` is the field's entity (None when it does not exist). While it is
-    unavailable/unknown the field is silent whatever its device does, so only the
-    remembered sign counts. Otherwise its device vouches for it: at a living station
-    some value reports or changes within the limit, while a quiet rain gauge on the
-    same device may not change for days. ``remembered`` is the sign stored at the
-    previous check, so an outage that spans a restart keeps its start; a sign never
-    moves backwards.
+    missing, unavailable or unknown the field is silent whatever its device does,
+    so only the remembered sign counts. Otherwise its device vouches for it: at a
+    living station some value reports or changes within the limit, while a quiet
+    rain gauge on the same device may not change for days. ``remembered`` is the
+    sign stored at the previous check, so an outage that spans a restart keeps its
+    start; a sign never moves backwards.
     """
     candidates = [remembered] if remembered is not None else []
     if own is not None and own.valid:
@@ -85,7 +85,9 @@ def first_report_after(
 
     A returning device's first report changes most of its values, so the earliest
     ``last_changed`` after the outage began is the closest record of its return that
-    survives until the next check. None when nothing changed since ``start``.
+    survives until the next check. Unavailable or unknown states do not count. None
+    when nothing changed since ``start``. This only dates a return; whether the
+    outage has ended is ``last_sign_of_life``'s call.
     """
     states = ([own] if own is not None else []) + list(siblings)
     stamps = [s.changed for s in states if s.valid and s.changed > start]

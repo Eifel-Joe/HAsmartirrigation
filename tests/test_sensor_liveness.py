@@ -109,6 +109,12 @@ class TestLastSignOfLife:
         own = _seen(reported=T0 - timedelta(hours=1))
         assert last_sign_of_life(own, [], T0) == T0
 
+    def test_a_missing_entity_is_silent_whatever_its_device_does(self):
+        sibling = _seen("sensor.temp", reported=T0)
+        remembered = T0 - timedelta(hours=4)
+        assert last_sign_of_life(None, [sibling], remembered) == remembered
+        assert last_sign_of_life(None, [sibling], None) is None
+
 
 class TestFirstReportAfter:
     def test_the_earliest_change_after_the_start_marks_the_return(self):
@@ -129,3 +135,20 @@ class TestFirstReportAfter:
         start = T0 - timedelta(hours=6)
         own = _seen(valid=False, changed=T0)
         assert first_report_after(own, [], start) is None
+
+    def test_an_unavailable_sibling_is_not_a_return(self):
+        start = T0 - timedelta(hours=6)
+        own = _seen(changed=T0 - timedelta(minutes=3))
+        gone = _seen("sensor.battery", valid=False, changed=start + timedelta(hours=2))
+        assert first_report_after(own, [gone], start) == T0 - timedelta(minutes=3)
+
+    def test_a_change_at_the_start_itself_is_not_after_it(self):
+        start = T0 - timedelta(hours=6)
+        own = _seen(changed=T0 - timedelta(minutes=3))
+        last = _seen("sensor.temp", changed=start)
+        assert first_report_after(own, [last], start) == T0 - timedelta(minutes=3)
+
+    def test_without_a_device_the_entity_marks_its_own_return(self):
+        start = T0 - timedelta(hours=6)
+        own = _seen(changed=T0 - timedelta(minutes=3))
+        assert first_report_after(own, [], start) == T0 - timedelta(minutes=3)
