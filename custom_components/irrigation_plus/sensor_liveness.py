@@ -21,6 +21,8 @@ import logging
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
+from homeassistant.util import dt as dt_util
+
 from . import const
 from .helpers import STAMP_FROM_STORE, coerce_stamp
 
@@ -239,14 +241,20 @@ def stale_issue_placeholders(group_name: str, outages: list[Outage]) -> dict | N
 
 
 def outage_event_payload(mapping_id, group_name: str, outage: Outage) -> dict:
-    """The bus event's data for an outage starting (no end yet) or ending."""
+    """The bus event's data for an outage starting (no end yet) or ending.
+
+    Its stamps carry Home Assistant's offset: a consumer would read a naive one in
+    the process's zone, which need not be Home Assistant's.
+    """
     return {
         "mapping_id": mapping_id,
         "mapping": group_name,
         "entity_id": outage.entity_id,
         "device_id": outage.device_id,
         "fields": list(outage.fields),
-        "since": outage.start.isoformat(),
-        "until": outage.end.isoformat() if outage.end is not None else None,
+        "since": dt_util.as_local(outage.start).isoformat(),
+        "until": (
+            dt_util.as_local(outage.end).isoformat() if outage.end is not None else None
+        ),
         "stale": outage.end is None,
     }

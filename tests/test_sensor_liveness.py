@@ -1,8 +1,10 @@
 """Weather-sensor liveness: the pure rules, without a running Home Assistant."""
 
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
+from homeassistant.util import dt as dt_util
 
 from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.calculation import BUFFER_RETENTION
@@ -368,8 +370,48 @@ class TestStaleIssuePlaceholders:
             "since": "2026-07-01 06:00",
         }
 
+    def test_closed_outages_do_not_shape_the_notice(self):
+        gone_temp = Outage(
+            "sensor.temp",
+            "dev1",
+            ("Temperature",),
+            T0 - timedelta(hours=48),
+            T0 - timedelta(hours=43),
+        )
+        gone_wind = Outage(
+            "sensor.wind",
+            None,
+            ("Windspeed",),
+            T0 - timedelta(hours=24),
+            T0 - timedelta(hours=20),
+        )
+        silent = Outage(
+            "sensor.temp", "dev1", ("Temperature",), T0 - timedelta(hours=4)
+        )
+        assert stale_issue_placeholders("Garden", [gone_temp, gone_wind, silent]) == {
+            "group": "Garden",
+            "entities": "sensor.temp (Temperature)",
+            "since": "2026-07-01 08:00",
+        }
+
+    def test_entities_that_fell_silent_together_are_listed_by_entity_id(self):
+        start = T0 - timedelta(hours=4)
+        wind = Outage("sensor.wind", "dev1", ("Windspeed",), start)
+        temp = Outage("sensor.temp", "dev1", ("Temperature",), start)
+        assert stale_issue_placeholders("Garden", [wind, temp])["entities"] == (
+            "sensor.temp (Temperature), sensor.wind (Windspeed)"
+        )
+
 
 class TestOutageEventPayload:
+    @pytest.fixture(autouse=True)
+    def _berlin(self):
+        """Pin HA's zone: the offsets below must not follow the suite's zone."""
+        before = dt_util.get_default_time_zone()
+        dt_util.set_default_time_zone(ZoneInfo("Europe/Berlin"))
+        yield
+        dt_util.set_default_time_zone(before)
+
     def test_an_outage_starting(self):
         outage = Outage("sensor.t", "dev1", ("Temperature",), T0 - timedelta(hours=4))
         assert outage_event_payload(3, "Garden", outage) == {
@@ -378,14 +420,20 @@ class TestOutageEventPayload:
             "entity_id": "sensor.t",
             "device_id": "dev1",
             "fields": ["Temperature"],
-            "since": "2026-07-01T08:00:00",
+            "since": "2026-07-01T08:00:00+02:00",
             "until": None,
             "stale": True,
         }
 
     def test_an_outage_ending(self):
         outage = Outage("sensor.t", None, ("Temperature",), T0 - timedelta(hours=4), T0)
-        payload = outage_event_payload(3, "Garden", outage)
-        assert payload["stale"] is False
-        assert payload["until"] == "2026-07-01T12:00:00"
-        assert payload["device_id"] is None
+        assert outage_event_payload(3, "Garden", outage) == {
+            "mapping_id": 3,
+            "mapping": "Garden",
+            "entity_id": "sensor.t",
+            "device_id": None,
+            "fields": ["Temperature"],
+            "since": "2026-07-01T08:00:00+02:00",
+            "until": "2026-07-01T12:00:00+02:00",
+            "stale": False,
+        }
