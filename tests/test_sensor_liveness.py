@@ -15,8 +15,7 @@ def test_closed_outages_are_kept_as_long_as_the_buffer_may_keep_rows():
 
 def test_the_limits_are_the_documented_ones():
     """The docs name three hours and a check every five minutes; the startup grace
-    is ten minutes. Most tests derive their times from these constants, so this
-    one notices a changed value."""
+    is ten minutes."""
     assert const.SENSOR_STALE_AFTER_SECONDS == 3 * 3600
     assert const.SENSOR_LIVENESS_INTERVAL_SECONDS == 5 * 60
     assert const.SENSOR_LIVENESS_STARTUP_GRACE_SECONDS == 10 * 60
