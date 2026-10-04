@@ -250,7 +250,7 @@ class TestOutagesOf:
             {const.MAPPING_SENSOR_OUTAGES: 5},
         ],
     )
-    def test_a_group_without_a_ledger_list_has_no_outages(self, mapping):
+    def test_a_group_without_an_outage_list_has_no_outages(self, mapping):
         assert outages_of(mapping) == []
 
 

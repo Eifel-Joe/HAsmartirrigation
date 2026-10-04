@@ -1,4 +1,4 @@
-"""The sensor group's outage ledger and signs of life in the real store."""
+"""The sensor group's outage record and signs of life in the real store."""
 
 import pytest
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP

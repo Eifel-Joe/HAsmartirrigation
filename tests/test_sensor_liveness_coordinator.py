@@ -1,4 +1,4 @@
-"""Weather-sensor liveness in the coordinator: states, registry, ledger, notice, event."""
+"""Weather-sensor liveness in the coordinator: states, registry, record, notice, event."""
 
 import ast
 import copy
@@ -531,9 +531,9 @@ class TestAReplacedDevice:
     async def test_an_outage_left_by_another_path_ends_with_its_event(
         self, monkeypatch
     ):
-        """The ledger still holds an outage for an entity the group no longer reads
-        (its mapping changed without emptying the ledger): it ends now, with its
-        end event, and the notice goes."""
+        """The outage record still holds an outage for an entity the group no
+        longer reads (its mapping changed without emptying the record): it ends
+        now, with its end event, and the notice goes."""
         start = T0 - timedelta(hours=5)
         open_ = Outage("sensor.gone", "dev1", ("Temperature",), start)
         coord, store, issues = _coord(
@@ -757,8 +757,8 @@ def _sensor_group_zero(entity):
     return group
 
 
-class TestTheLedgerFollowsTheConfiguration:
-    async def test_a_source_change_empties_the_ledger_and_drops_the_notice(
+class TestTheOutageRecordFollowsTheConfiguration:
+    async def test_a_source_change_empties_the_record_and_drops_the_notice(
         self, monkeypatch
     ):
         coord, store, issues = _mock_store_coord(
@@ -811,7 +811,7 @@ class TestTheLedgerFollowsTheConfiguration:
         await coord.async_update_mapping_config(0, {const.ATTR_REMOVE: True})
         coord.hass.bus.async_fire.assert_not_called()
 
-    async def test_a_rename_keeps_the_ledger_and_the_notice(self, monkeypatch):
+    async def test_a_rename_keeps_the_record_and_the_notice(self, monkeypatch):
         coord, store, issues = _mock_store_coord(
             monkeypatch, _sensor_group_zero("sensor.old")
         )
@@ -833,7 +833,7 @@ class TestTheLedgerFollowsTheConfiguration:
         fired = [c.args for c in coord.hass.bus.async_fire.call_args_list]
         assert [(a[0], a[1]["stale"]) for a in fired] == [(EVENT, False)]
 
-    async def test_reset_all_weather_data_empties_the_ledger(self, monkeypatch):
+    async def test_reset_all_weather_data_empties_the_record(self, monkeypatch):
         other = Outage(
             "sensor.other", None, ("Temperature",), T0 - timedelta(hours=4)
         ).to_store()

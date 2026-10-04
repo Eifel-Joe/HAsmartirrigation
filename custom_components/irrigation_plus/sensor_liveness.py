@@ -1,4 +1,4 @@
-"""When a weather sensor stops reporting: liveness, the outage ledger, the notice.
+"""When a weather sensor stops reporting: liveness, the outage record, the notice.
 
 A sensor group carries a field's last value forward while nothing new arrives (the
 per-field boundary row, ``last_entry``). That is right for a value that is merely
@@ -9,7 +9,7 @@ longer than that on the sensor group, and tells the user: a repair issue per gro
 while an outage is open, and a bus event when one starts and when it ends (#188).
 
 Nothing here changes a calculation: a silent sensor's last value is still used, as
-before. The ledger records when it fell silent and the notice tells the user.
+before. The outage record says when it fell silent and the notice tells the user.
 
 The rules are plain functions, testable without a running Home Assistant; the
 ``SensorLivenessMixin`` at the end is the coordinator glue.
@@ -138,9 +138,9 @@ class Outage:
         Unreadable: not a dict, no entity id, no readable start, an end that is
         present but no stamp, ``fields`` that is not a list of strings (a missing
         or falsy value means none).
-        NOT-TO-DO: do not let this raise. The ledger is read in the setup and in the
-        configuration paths; a file edited by hand, or written by another build of
-        this integration, must cost one record, not the integration.
+        NOT-TO-DO: do not let this raise. The outage record is read in the setup and
+        in the configuration paths; a file edited by hand, or written by another
+        build of this integration, must cost one entry, not the integration.
         """
         if not isinstance(raw, dict) or not raw.get("entity_id"):
             return None
@@ -188,13 +188,13 @@ def advance_outages(
     stale_after: timedelta = STALE_AFTER,
     retention: timedelta = RETENTION,
 ) -> tuple[list[Outage], list[Outage], list[Outage]]:
-    """One check over one sensor group's ledger: ``(outages, opened, closed)``.
+    """One check over one sensor group's outage record: ``(outages, opened, closed)``.
 
     Closes an open outage once a sign newer than its start appears: at the
     field's return when that is known (``Evidence.recovered``: its own change,
     else its device's earliest), else at that sign.
     Ends one whose entity the group no longer reads (its sensor was replaced or
-    unmapped by a path that did not empty the ledger) at ``now``, so it does not
+    unmapped by a path that did not empty the record) at ``now``, so it does not
     stay open. Then, for each entity left without an open outage, opens one if
     its last sign is older than ``stale_after`` (strictly: a silence of exactly
     the limit is still bridged), starting AT that sign. Drops closed outages
@@ -336,14 +336,14 @@ def _issue_registry():
 
 
 class SensorLivenessMixin:
-    """Coordinator glue: the periodic check, the ledger, the notice and the event."""
+    """Coordinator glue: the periodic check, the record, the notice and the event."""
 
     async def async_setup_sensor_liveness(self) -> None:
-        """Arm the periodic check; show at once what the ledger still holds open.
+        """Arm the periodic check; show at once what the record still holds open.
 
         The first checks wait out a grace after setup so integrations can create
         their entities first; an outage that was open before a restart is shown
-        straight away, because the ledger already says the sensor is silent.
+        straight away, because the record already says the sensor is silent.
         """
         self.async_teardown_sensor_liveness()
         self._sensor_liveness_armed_at = local_naive_now() + timedelta(
