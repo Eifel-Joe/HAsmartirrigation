@@ -361,9 +361,10 @@ class CalculationMixin:
                     const.MAPPING_DATA_LAST_ENTRY: dict.fromkeys(
                         mapping.get(const.MAPPING_DATA_LAST_ENTRY) or {}
                     ),
-                    # Outages describe readings that no longer exist.
+                    # The outage record starts over with the readings. The signs
+                    # of life stay: they are about the device, not the readings,
+                    # so a sensor still silent is reported again at the next check.
                     const.MAPPING_SENSOR_OUTAGES: [],
-                    const.MAPPING_SENSOR_LAST_SEEN: {},
                 },
             )
             self._retire_outages(mapping)

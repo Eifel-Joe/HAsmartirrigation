@@ -1798,10 +1798,11 @@ class SmartIrrigationCoordinator(
                     **data,
                     const.MAPPING_DATA: [],
                     const.MAPPING_DATA_LAST_ENTRY: dict.fromkeys(stale),
-                    # A different sensor has no outage history: the old one's
-                    # outages and signs of life describe a different device.
+                    # Like the buffer, a source change starts the group's outage
+                    # record over: the old sensor's outages describe another device.
+                    # The signs of life stay; the next check keeps only the
+                    # sensors the group still reads.
                     const.MAPPING_SENSOR_OUTAGES: [],
-                    const.MAPPING_SENSOR_LAST_SEEN: {},
                 }
             await self.store.async_update_mapping(mapping_id, data)
             if source_changed:

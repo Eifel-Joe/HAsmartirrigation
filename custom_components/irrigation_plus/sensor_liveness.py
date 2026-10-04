@@ -487,14 +487,15 @@ class SensorLivenessMixin:
         )
 
     def _retire_outages(self, mapping: dict | None) -> None:
-        """End a group's open outages because its ledger is being emptied.
+        """End a group's open outages because its outage record is being emptied.
 
         A source change (a sensor replaced), deleting the group or resetting the
-        weather data empties the ledger. Every open outage still gets its end
-        event, so an automation that reacted to the start hears that it is over,
-        and the group's notice goes. Without an open outage there is no notice --
-        it is raised from the ledger and, being non-persistent, does not outlive a
-        restart -- so the issue registry is not asked.
+        weather data empties the record. Every open outage still gets its end
+        event, so an automation that reacted to the start hears that the outage
+        is no longer tracked, and the group's notice goes; a sensor that is still
+        silent starts a new outage at the next check. Without an open outage there
+        is no notice -- it is raised from the record and, being non-persistent,
+        does not outlive a restart -- so the issue registry is not asked.
         """
         silent = [o for o in outages_of(mapping or {}) if o.end is None]
         if not silent:

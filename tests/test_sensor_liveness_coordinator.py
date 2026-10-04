@@ -761,7 +761,7 @@ class TestTheLedgerFollowsTheConfiguration:
 
         args, _ = store.async_update_mapping.call_args
         assert args[1][const.MAPPING_SENSOR_OUTAGES] == []
-        assert args[1][const.MAPPING_SENSOR_LAST_SEEN] == {}
+        assert const.MAPPING_SENSOR_LAST_SEEN not in args[1]
         assert "weather_sensor_stale_0" not in issues.open
         # The replaced sensor's outage still ends, so an automation hears it.
         fired = [c.args for c in coord.hass.bus.async_fire.call_args_list]
@@ -841,6 +841,44 @@ class TestTheLedgerFollowsTheConfiguration:
         await coord._async_clear_all_weatherdata()
 
         assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == []
-        assert store.mappings[1][const.MAPPING_SENSOR_LAST_SEEN] == {}
+        assert store.mappings[1][const.MAPPING_SENSOR_LAST_SEEN] == {
+            "sensor.old": T0.isoformat()
+        }
         assert issues.open == {}
         assert [(a[0], a[1]["stale"]) for a in _events(coord)] == [(EVENT, False)]
+
+    async def test_a_sensor_still_silent_after_a_reset_is_reported_again(
+        self, monkeypatch
+    ):
+        """The reset empties the outage record, not the signs of life: the next
+        check opens the outage again, from the silence's real start."""
+        start = T0 - timedelta(hours=5)
+        open_ = Outage("sensor.old", "dev1", ("Temperature",), start)
+        coord, store, issues = _coord(
+            monkeypatch,
+            [
+                _group(
+                    fields={"Temperature": "sensor.old"},
+                    outages=[open_.to_store()],
+                    last_seen={"sensor.old": start.isoformat()},
+                )
+            ],
+            {"sensor.old": _state("sensor.old", "unavailable", start)},
+            {"dev1": ["sensor.old"]},
+        )
+        coord.clear_continuous_deadband_state = Mock()
+        coord.invalidate_live_estimate_carry = Mock()
+        monkeypatch.setattr(
+            "custom_components.irrigation_plus.calculation.async_dispatcher_send",
+            Mock(),
+        )
+
+        await coord._async_clear_all_weatherdata()
+        await coord.async_check_sensor_liveness(now=T0 + timedelta(minutes=5))
+
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == [open_.to_store()]
+        assert "weather_sensor_stale_1" in issues.open
+        assert [(a[1]["entity_id"], a[1]["stale"]) for a in _events(coord)] == [
+            ("sensor.old", False),
+            ("sensor.old", True),
+        ]
