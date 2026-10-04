@@ -39,7 +39,8 @@ def test_only_sensor_fields_with_an_entity_are_watched():
     mappings = {
         const.MAPPING_TEMPERATURE: _cfg(const.MAPPING_CONF_SOURCE_SENSOR, "sensor.t"),
         const.MAPPING_DEWPOINT: _cfg(const.MAPPING_CONF_SOURCE_SENSOR, "sensor.t"),
-        # A field switched away from a sensor can keep its old entity.
+        # The panel clears the entity when a field's source changes; another
+        # client can leave it behind.
         const.MAPPING_HUMIDITY: _cfg(
             const.MAPPING_CONF_SOURCE_WEATHER_SERVICE, "sensor.left_over"
         ),
@@ -51,7 +52,7 @@ def test_only_sensor_fields_with_an_entity_are_watched():
         ),
         const.MAPPING_WINDSPEED: _cfg(const.MAPPING_CONF_SOURCE_SENSOR, ""),
         # The setup wizard stores a sensor field without an entity key.
-        const.MAPPING_CURRENT_PRECIPITATION: _cfg(const.MAPPING_CONF_SOURCE_SENSOR),
+        const.MAPPING_PRECIPITATION: _cfg(const.MAPPING_CONF_SOURCE_SENSOR),
         const.MAPPING_SOLRAD: "legacy bare string",
     }
     assert sensor_fields_by_entity(mappings) == {
