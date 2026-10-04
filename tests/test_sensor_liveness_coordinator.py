@@ -713,6 +713,15 @@ OPEN_RECORD = Outage(
 ).to_store()
 
 
+CLOSED_RECORD = Outage(
+    "sensor.old",
+    "dev1",
+    ("Temperature",),
+    T0 - timedelta(days=2),
+    T0 - timedelta(days=1),
+).to_store()
+
+
 def _mock_store_coord(monkeypatch, mapping):
     """The harness of tests/test_mapping_source_change.py: a Mock store."""
     store = Mock()
@@ -818,6 +827,9 @@ class TestTheLedgerFollowsTheConfiguration:
         assert [(a[0], a[1]["stale"]) for a in fired] == [(EVENT, False)]
 
     async def test_reset_all_weather_data_empties_the_ledger(self, monkeypatch):
+        other = Outage(
+            "sensor.other", None, ("Temperature",), T0 - timedelta(hours=4)
+        ).to_store()
         coord, store, issues = _coord(
             monkeypatch,
             [
@@ -825,12 +837,19 @@ class TestTheLedgerFollowsTheConfiguration:
                     fields={"Temperature": "sensor.old"},
                     outages=[OPEN_RECORD],
                     last_seen={"sensor.old": T0.isoformat()},
-                )
+                ),
+                _group(
+                    2,
+                    "Orchard",
+                    fields={"Temperature": "sensor.other"},
+                    outages=[other],
+                ),
             ],
             {},
             {},
         )
         issues.open["weather_sensor_stale_1"] = {}
+        issues.open["weather_sensor_stale_2"] = {}
         coord.clear_continuous_deadband_state = Mock()
         coord.invalidate_live_estimate_carry = Mock()
         monkeypatch.setattr(
@@ -841,11 +860,15 @@ class TestTheLedgerFollowsTheConfiguration:
         await coord._async_clear_all_weatherdata()
 
         assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == []
+        assert store.mappings[2][const.MAPPING_SENSOR_OUTAGES] == []
         assert store.mappings[1][const.MAPPING_SENSOR_LAST_SEEN] == {
             "sensor.old": T0.isoformat()
         }
         assert issues.open == {}
-        assert [(a[0], a[1]["stale"]) for a in _events(coord)] == [(EVENT, False)]
+        assert [(a[1]["entity_id"], a[1]["stale"]) for a in _events(coord)] == [
+            ("sensor.old", False),
+            ("sensor.other", False),
+        ]
 
     async def test_a_sensor_still_silent_after_a_reset_is_reported_again(
         self, monkeypatch
@@ -882,3 +905,29 @@ class TestTheLedgerFollowsTheConfiguration:
             ("sensor.old", False),
             ("sensor.old", True),
         ]
+
+    async def test_only_open_outages_are_ended(self, monkeypatch):
+        group = _sensor_group_zero("sensor.old")
+        group[const.MAPPING_SENSOR_OUTAGES] = [CLOSED_RECORD, OPEN_RECORD]
+        coord, _, _ = _mock_store_coord(monkeypatch, group)
+
+        await coord.async_update_mapping_config(0, {const.ATTR_REMOVE: True})
+
+        fired = [c.args[1] for c in coord.hass.bus.async_fire.call_args_list]
+        assert [(p["since"], p["stale"]) for p in fired] == [
+            (dt_util.as_local(T0 - timedelta(hours=5)).isoformat(), False)
+        ]
+
+    async def test_closed_outages_alone_end_nothing(self, monkeypatch):
+        group = _sensor_group_zero("sensor.old")
+        group[const.MAPPING_SENSOR_OUTAGES] = [CLOSED_RECORD]
+        coord, _, _ = _mock_store_coord(monkeypatch, group)
+        monkeypatch.setattr(
+            sensor_liveness,
+            "_issue_registry",
+            Mock(side_effect=AssertionError("issue registry asked")),
+        )
+
+        await coord.async_update_mapping_config(0, {const.ATTR_REMOVE: True})
+
+        coord.hass.bus.async_fire.assert_not_called()

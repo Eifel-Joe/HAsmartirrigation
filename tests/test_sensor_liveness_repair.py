@@ -127,3 +127,27 @@ async def test_the_notice_goes_when_its_sensor_group_is_deleted(hass, freezer):
     assert coord.store.get_mapping(mapping_id) is None
     assert _notice(hass, mapping_id) is None
     assert heard == [(ENTITY, True), (ENTITY, False)]
+
+
+async def test_the_notice_goes_when_its_sensor_is_replaced(hass, freezer):
+    coord, mapping_id = await _garden(hass)
+    heard = _listen(hass)
+    await _silent_past_the_limit(hass, freezer, coord)
+    assert _notice(hass, mapping_id) is not None
+
+    await coord.async_update_mapping_config(
+        mapping_id,
+        {
+            const.MAPPING_MAPPINGS: {
+                const.MAPPING_TEMPERATURE: {
+                    const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                    const.MAPPING_CONF_SENSOR: "sensor.new_station_temperature",
+                }
+            }
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert _notice(hass, mapping_id) is None
+    assert heard == [(ENTITY, True), (ENTITY, False)]
+    assert coord.store.get_mapping(mapping_id)[const.MAPPING_SENSOR_OUTAGES] == []
