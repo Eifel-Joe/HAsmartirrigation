@@ -134,6 +134,8 @@ from .const import (
     MAPPING_PRECIPITATION,
     MAPPING_PRESSURE,
     MAPPING_RADIATION_CALIBRATION,
+    MAPPING_SENSOR_LAST_SEEN,
+    MAPPING_SENSOR_OUTAGES,
     MAPPING_SOLRAD,
     MAPPING_TEMPERATURE,
     MAPPING_TEMPERATURE_AMPLITUDES,
@@ -370,6 +372,13 @@ class MappingEntry:
     # ``[[window end date, measured, forecast or None, extraterrestrial], ...]``
     # in MJ m-2, capped at RADIATION_CALIBRATION_WINDOWS. Bounded like the above.
     radiation_calibration = attr.ib(type=list, factory=list)
+    # ``[{entity_id, device_id, fields, start, end}, ...]``: weather-sensor outages
+    # longer than SENSOR_STALE_AFTER_SECONDS, ISO stamps on HA's clock, pruned to
+    # SENSOR_OUTAGE_RETENTION_DAYS (sensor_liveness). Bounded like the two above.
+    sensor_outages = attr.ib(type=list, factory=list)
+    # ``{entity_id: ISO stamp}``: each sensor field's last sign of life, so an
+    # outage that spans a restart keeps its start. Rides along on the next write.
+    sensor_last_seen = attr.ib(type=dict, factory=dict)
 
 
 @attr.s(slots=True, frozen=True)
@@ -1375,6 +1384,8 @@ class SmartIrrigationStorage:
                         or [],
                         radiation_calibration=mapping.get(MAPPING_RADIATION_CALIBRATION)
                         or [],
+                        sensor_outages=mapping.get(MAPPING_SENSOR_OUTAGES) or [],
+                        sensor_last_seen=mapping.get(MAPPING_SENSOR_LAST_SEEN) or {},
                     )
             if "distributors" in data:
                 for dist in data["distributors"]:
@@ -2131,6 +2142,25 @@ class SmartIrrigationStorage:
         last_entry = dict(last_entry) if isinstance(last_entry, dict) else {}
         last_entry[key] = value
         self.mappings[mapping_id] = attr.evolve(entry, data_last_entry=last_entry)
+
+    @callback
+    def set_mapping_sensor_last_seen(self, mapping_id: int, seen: dict) -> None:
+        """Replace a sensor group's signs of life WITHOUT scheduling a save.
+
+        Refreshed at every liveness check, every few minutes; a write each time
+        would be a whole document for a value that only matters across a restart.
+        It is a MappingEntry field, so it rides along on the next write, like
+        ``data_last_entry`` (see ``set_mapping_last_entry_value``). A fresh dict, not
+        an in-place update: the attrs factory gives every entry its own, and evolving
+        keeps it that way.
+        """
+        if mapping_id is None:
+            return
+        mapping_id = int(mapping_id)
+        entry = self.mappings.get(mapping_id)
+        if entry is None:
+            return
+        self.mappings[mapping_id] = attr.evolve(entry, sensor_last_seen=dict(seen))
 
     async def async_create_mapping(self, data: dict) -> MappingEntry:
         """Create a new MappingEntry."""
