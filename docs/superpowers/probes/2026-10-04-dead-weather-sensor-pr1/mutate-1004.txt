@@ -1,0 +1,66 @@
+M01: KILLED | 2 failed, 73 passed in 6.53s 
+        TestLastSignOfLife::test_the_device_vouches_for_a_quiet_field
+        TestTheCheck::test_a_steady_rain_gauge_on_a_living_station_stays_quiet
+M02: KILLED | 3 failed, 72 passed in 6.49s 
+        TestLastSignOfLife::test_an_unavailable_entity_is_silent_whatever_its_device_does
+        TestTheCheck::test_an_outage_spanning_a_restart_keeps_its_start
+        test_the_notice_survives_a_restart_in_the_middle_of_an_outage
+M03: KILLED | 1 failed, 74 passed in 6.27s 
+        TestAdvanceOutages::test_silence_up_to_the_limit_is_bridged
+M04: KILLED | 1 failed, 74 passed in 6.40s 
+        TestAdvanceOutages::test_closed_outages_older_than_the_retention_are_dropped
+M05: KILLED | 3 failed, 72 passed in 6.56s 
+        TestAReplacedDevice::test_a_new_device_under_the_same_entity_ids_closes_the_outage
+        TestAdvanceOutages::test_a_new_sign_closes_it_at_the_first_report
+        TestTheCheck::test_the_return_closes_the_outage_at_the_first_report
+M06: KILLED | 2 failed, 73 passed in 6.26s 
+        TestTheCheck::test_a_value_set_by_hand_never_goes_stale
+        test_a_value_set_by_hand_is_never_watched
+M07: KILLED | 9 failed, 66 passed in 6.38s 
+        
+        TestAReplacedDevice::test_a_new_device_under_the_same_entity_ids_closes_the_outage
+        TestSeenFromState::test_state_stamps_land_on_has_clock
+        TestTheCheck::test_a_silent_station_opens_its_outages_fires_and_raises_the_notice
+        TestTheCheck::test_one_broken_group_does_not_stop_the_others
+        TestTheCheck::test_the_return_closes_the_outage_at_the_first_report
+        TestTheCheck::test_the_signs_of_life_ride_along_without_a_write
+        test_the_notice_clears_when_the_sensor_reports_again
+        test_the_notice_goes_when_its_sensor_group_is_deleted
+        test_the_notice_survives_a_restart_in_the_middle_of_an_outage
+M08: KILLED | 1 failed, 74 passed in 6.45s 
+        TestTimer::test_the_check_waits_out_the_startup_grace
+M09: KILLED | 1 failed, 74 passed in 6.49s 
+        
+        TestTheCheck::test_an_entity_never_seen_starts_its_bridge_at_the_first_look
+M10: KILLED | 1 failed, 74 passed in 6.28s 
+        TestTheLedgerFollowsTheConfiguration::test_a_source_change_empties_the_ledger_and_drops_the_notice
+M11: KILLED | 1 failed, 74 passed in 6.44s 
+        TestTheLedgerFollowsTheConfiguration::test_reset_all_weather_data_empties_the_ledger
+M12: KILLED | 1 failed, 74 passed in 6.45s 
+        test_refreshing_the_signs_schedules_no_write
+M13: KILLED | 1 failed, 74 passed in 6.47s 
+        TestTheCheck::test_one_broken_group_does_not_stop_the_others
+M14: KILLED | 1 failed, 74 passed in 6.56s 
+        TestTheLedgerFollowsTheConfiguration::test_a_group_without_an_open_outage_leaves_the_registry_alone
+M15: KILLED | 2 failed, 73 passed in 6.38s 
+        TestAReplacedDevice::test_an_outage_left_by_another_path_ends_with_its_event
+        TestAdvanceOutages::test_an_outage_of_an_entity_no_longer_watched_ends_now
+M16: KILLED | 4 failed, 71 passed in 6.49s 
+        TestTheLedgerFollowsTheConfiguration::test_a_source_change_empties_the_ledger_and_drops_the_notice
+        TestTheLedgerFollowsTheConfiguration::test_deleting_a_group_drops_its_notice
+        TestTheLedgerFollowsTheConfiguration::test_reset_all_weather_data_empties_the_ledger
+        test_the_notice_goes_when_its_sensor_group_is_deleted
+M17: KILLED | 4 failed, 71 passed in 6.41s 
+        TestAReplacedDevice::test_a_new_device_under_the_same_entity_ids_closes_the_outage
+        TestAReplacedDevice::test_an_outage_left_by_another_path_ends_with_its_event
+        TestTheCheck::test_the_return_closes_the_outage_at_the_first_report
+        test_the_notice_clears_when_the_sensor_reports_again
+M18: KILLED | 2 failed, 73 passed in 6.49s 
+        TestTimer::test_setup_shows_a_still_open_outage_at_once
+        test_the_notice_survives_a_restart_in_the_middle_of_an_outage
+M19: KILLED | 2 failed, 73 passed in 6.33s 
+        TestTheLedgerFollowsTheConfiguration::test_deleting_a_group_drops_its_notice
+        test_the_notice_goes_when_its_sensor_group_is_deleted
+M20: KILLED | 2 failed, 73 passed in 6.32s 
+        test_outages_and_signs_survive_a_restart
+        test_the_notice_survives_a_restart_in_the_middle_of_an_outage

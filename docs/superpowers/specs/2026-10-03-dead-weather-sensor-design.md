@@ -6,10 +6,12 @@ angegeben. Faktensammlung: `D:\Entwicklung\HASI\issue8-work\context-2026-10-03.m
 `docs/superpowers/probes/2026-10-03-dead-weather-sensor-survey.md` (Agent; die tragenden Aussagen am 2026-10-03
 selbst nachgelesen, Zeilen per `grep -n` bestätigt). Vorschlag an JustChr: `JustChr#188`.
 
-**Status:** Verhalten mit dem User am 2026-10-03 entschieden (sieben Fragen, vier Design-Abschnitte; siehe
-*Entscheidungen*). **Mit JustChr noch nicht abgestimmt:** Der Vorschlag geht zuerst als Issue auf sein Repo,
-gebaut wird nach seiner Antwort. Die Feinheit des Schnitts (Design 1 oder Design 2) soll er wählen; unsere
-Präferenz ist Design 2.
+**Status: Revision 2 (2026-10-04), angepasst an JustChrs Antwort.** Revision 1 (2026-10-03, Vorschlag mit
+Design 1 und 2 zur Wahl) liegt unverändert in `archive/design-history` `1c197e36`. JustChr hat den Bau am
+2026-10-03 um 19:13 UTC freigegeben (`JustChr#188`, Kommentar `5972596286`), mit Bedingungen (siehe *JustChrs
+Antwort*). Mit dem User am 2026-10-04 entschieden: der Schnitt von PR 2 nur ohne Stundenrechnung, neue Gruppen
+pausieren (Entscheidungen 8 und 9). **Revision 2 und der Plan für PR 1 vom User freigegeben am 2026-10-04**, Live-Test
+mit Variante 1 (MQTT-YAML unter eigenem Topic-Präfix, siehe *Ende-zu-Ende-Kriterium*).
 
 ## Der Defekt
 
@@ -27,15 +29,15 @@ zeitlich unbegrenzt und ohne dass es irgendwo sichtbar wird. Drei Träger:
    nachgespielter Bilanz.
 3. **`last_entry` füllt ungestempelt auf.** Fehlt ein Feld im Fenster, nimmt die Aggregation den letzten
    Ereigniswert ohne Zeitstempel (`weather_aggregate.py:371-396`); ebenso die Stundenzeilen (`:936`) und
-   der Temperatur-Anker des Live-Estimate (`live_estimate.py:880`).
+   der Temperatur-Anker der Live-Schätzung (`live_estimate.py:880`).
 
 Dazu im Poll-Betrieb: Ein toter Sensor, der seinen Zahlenwert behält, wird bei jedem Poll mit frischem
 Stempel neu geschrieben (`build_sensor_values_for_mapping`, `__init__.py:1871`) und sieht lebendig aus.
 
 Synthetisch nachgemessen (Agent, gegen `e9c79ec4`): Ein 30 Tage alter Temperaturwert übersteht das
 Ausdünnen (160 → 2 Zeilen) und kommt als Temperatur = Tmax = Tmin zurück, zeitgewichtet wie ungewichtet.
-Seit der letzten Nachprüfung (2026-09-29, `1876aa03`) unverändert: `a503dc40`, `faa05b0b` und `98859077`
-berühren die beiden Dateien, aber keinen der drei Träger.
+JustChr hat den Kern am 2026-10-03 auf seinem `master` nachgeprüft (Grenzzeile ohne Altersprüfung, ungestempelte
+`last_entry`-Auffüllung); Geräte-Lebendigkeit und das Neustempeln beim Poll hat er ausdrücklich noch nicht geprüft.
 
 ## Wie ein toter Sensor in HA aussieht (je nach Integration)
 
@@ -70,9 +72,28 @@ Wert, außer womöglich dem Regen.
   „verfügbar“ stehen**; erst ein HA-Neustart macht die Entitäten `unavailable`. Das einzige Zeichen ist das
   alternde `last_reported`. Gemessen am 2026-10-03: `last_reported` aller acht Entitäten 12 s alt, auch bei
   Luftfeuchte und Tagesregen, deren Wert seit 3,5 h gleich war.
-- Folge eines Ausfalls heute: Nächtliche Rechnung (Stundenform) und Live-Estimate, das auf Prod echte Läufe
+- Folge eines Ausfalls heute: Nächtliche Rechnung (Stundenform) und Live-Schätzung, die auf Prod echte Läufe
   bemisst, rechnen mit dem eingefrorenen Wert. Nachts eingefroren (99 % Feuchte, 10 °C) wird kaum ET
   gebucht, mittags eingefroren dauerhaft zu viel. Kein Hinweis.
+- HA-Prod rechnet in der **Stundenform**: Den Hinweis bekommt es mit PR 1, den Schnitt erst mit PR 3
+  (Entscheidung 8). Die Gruppe „Greimerath“ ist Bestand und steht nach PR 2 auf „letzten Wert behalten“; wer dort
+  pausieren will, stellt es um.
+
+## JustChrs Antwort (`JustChr#188`, 2026-10-03 19:13 UTC)
+
+Bau freigegeben („Go ahead and build it when you're ready.“), mit diesen Bedingungen, sinngemäß:
+
+1. **Einstellung je Sensorgruppe** „bei stummem Sensor: pausieren / letzten Wert behalten“. Bestehende Gruppen
+   stehen auf *letzten Wert behalten und melden*, damit sie byte-identisch bleiben; für neue Gruppen darf
+   *pausieren* der Standard sein. Erkennung, Ausfall-Liste und Hinweis dürfen zuerst kommen; die Schnitt-Regel
+   folgt nach einem Feldtest („once it has been field-tested“; wir lesen: Feldtest von PR 1, R9).
+2. **Design 2**, weil Design 1 die ET der ganzen Gruppe aussetzt, wenn ein Eingang stirbt; als größere Änderung
+   aufgeteilt in **drei PRs**: (1) Erkennung, Ausfall-Liste, Reparaturhinweis und Event **ohne
+   Verhaltensänderung**; (2) der Schnitt im Tagespfad; (3) Stundenpfad und Live-Schätzung.
+3. **Reparaturhinweis und Event** passen ihm. Tests verlangt: der Hinweis verschwindet bei Erholung, übersteht
+   einen Neustart mitten im Ausfall und fällt weg, wenn die Gruppe gelöscht wird.
+4. **Fest 3 h** ist für eine erste Fassung in Ordnung; eine Cloud-Integration mit 6-h-Abfrage löst aber
+   Fehlalarm aus, und das soll in der Doku stehen. Die Liste „nicht Teil davon“ hält er für vernünftig.
 
 ## Anforderungen
 
@@ -82,34 +103,55 @@ Wert, außer womöglich dem Regen.
 - **R2 Grenze fest 3 h.** Schweigen bis 3 h wird überbrückt wie heute.
 - **R3 Ausfälle werden mitgeschrieben** (Beginn = letztes Lebenszeichen, Ende = erste neue Meldung) und
   wirken rückwirkend auf jedes Fenster, das sie berühren, auch wenn das Gerät längst wieder meldet.
-- **R4 Was nicht gemessen ist, wird nicht gebucht.** Von Beginn + 3 h bis zum Ende zählen die Werte des
-  Feldes nicht. **Regenzähler (Aggregat `delta`) sind ausgenommen:** Ihr Stand nach der Rückkehr ist eine
-  Messung, nur spät übertragen.
-- **R5 Melden:** Reparaturhinweis je Sensorgruppe, Bus-Event bei Beginn und Ende, ein Satz in der
-  Berechnungs-Erklärung, Log.
-- **R6 Nur Sensorfelder.** Felder aus einem Wetterdienst und statische Werte bleiben unverändert.
-- **R7 Erst der Vorschlag an JustChr,** dann der Bau.
+- **R4 Einstellung je Sensorgruppe:** *pausieren* oder *letzten Wert behalten*. Bestehende Gruppen: behalten,
+  Rechnung und Erklärung byte-identisch. Neue Gruppen: pausieren.
+- **R5 Pausieren heißt: Was nicht gemessen ist, wird nicht gebucht.** Von Beginn + 3 h bis zum Ende zählen die
+  Werte des Feldes nicht. **Regenzähler (Aggregat `delta`) sind ausgenommen:** Ihr Stand nach der Rückkehr ist
+  eine Messung, nur spät übertragen.
+- **R6 Melden, für jede Einstellung:** Reparaturhinweis je Sensorgruppe, Bus-Event bei Beginn und Ende, Log;
+  bei pausierenden Gruppen zusätzlich ein Satz in der Berechnungs-Erklärung.
+- **R7 Nur Sensorfelder.** Felder aus einem Wetterdienst und statische Werte bleiben unverändert.
+- **R8 Drei PRs, jeder für sich prüfbar.** PR 1 ändert keine Rechnung; PR 2 schneidet nur, wo die
+  Stundenrechnung aus ist; PR 3 schneidet im Stundenpfad und in der Live-Schätzung.
+- **R9 Der Schnitt kommt erst nach dem Feldtest** von PR 1 (JustChrs Bedingung).
 
-## Entscheidungen (User, 2026-10-03)
+## Entscheidungen
+
+**User, 2026-10-03** (Vorschlag, Revision 1):
 
 | # | Frage | Entscheidung | Verworfen, weil |
 |---|---|---|---|
-| 1 | Was passiert bei einem Ausfall? | Nach der Grenze verwerfen, nichts buchen; die Bewässerung pausiert, bis der Sensor wieder liefert | Weiterrechnen: Menge ist Zufall des Ausfallzeitpunkts. Ersatzwert aus den letzten Tagen bzw. Wetterdienst-Rückfall: eigene Features; der Rückfall kehrt JustChrs Entscheidung aus `JustChr#149` um |
+| 1 | Was passiert bei einem Ausfall? | Nach der Grenze verwerfen, nichts buchen; die Bewässerung pausiert, bis der Sensor wieder liefert. **Seit JustChrs Antwort:** das Verhalten der Einstellung *pausieren*, Standard für neue Gruppen (Entscheidung 9) | Weiterrechnen: Menge ist Zufall des Ausfallzeitpunkts. Ersatzwert aus den letzten Tagen bzw. Wetterdienst-Rückfall: eigene Features; der Rückfall kehrt JustChrs Entscheidung aus `JustChr#149` um |
 | 2 | Woran erkennen? | Je Gerät. User: an einer lebenden Station ändert sich immer etwas, außer der Regenrate | Je Entität: Fehlalarm bei Integrationen, die nur bei Wertänderung schreiben. Zeilenalter: braucht feldweise Grenzen und sieht eingefrorene Poll-Werte nicht |
 | 3 | Laufende oder auch beendete Ausfälle? | Mitschreiben, rückwirkend | Nur laufende: ließe den häufigsten Fall (Ausfall endet vor der nächsten Rechnung) ungelöst |
 | 4 | Grenze | Fest 3 h | 1 h: knapp für langsame Integrationen und Nebelnächte. 6 h: zu lange eingefrorene Werte. Einstellbar: Umfang ohne Anlass |
 | 5 | Melden | Reparaturhinweis + Bus-Event | Nur Hinweis: kein Push möglich. Neuer Binärsensor: neue Entität, nachrüstbar. Die Problem-Sensoren passen nicht: ein Platz je Zone, ein guter Lauf löscht ihn (`irrigation.py:589-630`) |
-| 6 | Welche Quellen? | Nur Sensorfelder | Dienst-Felder brauchen eine eigene Regel (Abfragetakt bis „täglich“, Mischgruppen) → eigenes Issue |
+| 6 | Welche Quellen? | Nur Sensorfelder | Dienst-Felder brauchen eine eigene Regel (Abfragetakt bis „täglich“, Mischgruppen) → `Eifel-Joe#74` |
 | 7 | Weg zu JustChr | Vorschlag zuerst, Plan in der Wartezeit | Erst bauen: Risiko eines dauerhaften Fork-Deltas bei abweichender Produktentscheidung |
-| — | Feinheit des Schnitts | Design 1 (je Rolle) und Design 2 (je Feld) zur Wahl für JustChr, unsere Präferenz Design 2 | User: „Warum soll man lebende Entitäten verwerfen, nur weil eine vom selben Gerät tot ist.“ |
+
+**JustChr, 2026-10-03** (Antwort auf `JustChr#188`):
+
+| # | Frage | Entscheidung | Verworfen, weil |
+|---|---|---|---|
+| J1 | Verhalten bei Ausfall | Einstellung je Gruppe; Bestand *behalten + melden* (byte-identisch), neu darf *pausieren* | Verhalten für alle ändern: bestehende Installationen änderten sich still |
+| J2 | Feinheit des Schnitts | Design 2 (Masken je Feld) | Design 1 (Löcher je Rolle): setzt die ET der ganzen Gruppe aus, wenn ein Eingang stirbt |
+| J3 | Lieferung | Drei PRs: Erkennung ohne Verhaltensänderung → Tagespfad → Stundenpfad + Live-Schätzung; Schnitt erst nach Feldtest | Ein PR: zu groß für ein Review |
+| J4 | Tests | Hinweis: verschwindet bei Erholung, übersteht Neustart mitten im Ausfall, fällt beim Löschen der Gruppe weg | — |
+| J5 | Grenze | Fest 3 h für die erste Fassung; die Doku nennt den Fehlalarm einer 6-h-Cloud-Abfrage | — |
+
+**User, 2026-10-04** (Revision 2):
+
+| # | Frage | Entscheidung | Verworfen, weil |
+|---|---|---|---|
+| 8 | Wo schneidet PR 2? | Nur wo die Stundenrechnung aus ist: Die Masken sind ein Parameter, und in PR 2 übergibt ihn nur der Commit bei ausgeschalteter Stundenrechnung. Stundenbetrieb bleibt bis PR 3 wie heute | Aggregat für jede Installation: Mischzustand im Stundenbetrieb. Das Aggregat liefert dort den Niederschlag, die nachgespielte Bilanz gleicht sich damit ab (`calculation.py:999-1008`); geschnittene Regenrate gegen ungeschnittene Stundenzeilen → Abgleich scheitert, still Einmal-Buchung |
+| 9 | Standard neuer Gruppen | *Pausieren*; Bestand *behalten*. Ausweg im Hinweistext pausierender Gruppen und in der Doku: aktualisiert die Integration nur alle paar Stunden, auf *behalten* stellen | Alle behalten: das Verhalten aus Entscheidung 1 bekäme kaum jemand. Bekannter Preis: Eine Integration mit 6-h-Takt verliert bei *pausieren* in jedem Zyklus die halbe Zeit, bis der Nutzer umstellt |
 
 ## Das Design
 
-### Erkennung
+### Erkennung (PR 1)
 
-- Neues Modul (Arbeitsname `sensor_liveness.py`). Eine Prüfung alle 5 min (`async_track_time_interval`,
-  beim Entladen abgemeldet), die erste 10 min nach `EVENT_HOMEASSISTANT_STARTED`, damit Integrationen ihre
-  Entitäten erst anlegen können.
+- Neues Modul `sensor_liveness.py`. Eine Prüfung alle 5 min (`async_track_time_interval`, beim Entladen
+  abgemeldet), die erste 10 min nach dem Setup, damit Integrationen ihre Entitäten erst anlegen können.
 - Je Sensorgruppe, je Feld mit `source: sensor` und gesetzter Entität:
   - **Gerät** über die Entity-Registry. Lebenszeichen = jüngstes `last_reported` über alle Entitäten dieses
     Geräts, deren Zustand nicht `unavailable`/`unknown` ist; Batterie- oder Signal-Entitäten zählen mit.
@@ -124,10 +166,10 @@ Wert, außer womöglich dem Regen.
 - **Uhr:** Alle Stempel im Rahmen des Puffers, also HAs Uhr, naiv (`local_naive_now`; die UTC-Zeiten der
   Zustände werden umgerechnet). Damit erbt die Liste die bekannte Einschränkung des Puffers zur
   Rückstell-Stunde, mehr nicht.
-- Verbleibendes Fehlalarm-Risiko: ein Template-Sensor ohne Gerät mit konstantem Wert. Der Hinweistext nennt
-  dafür die Quelle „statisch“.
+- Verbleibendes Fehlalarm-Risiko: ein Template-Sensor ohne Gerät mit konstantem Wert, und jede Integration, die
+  seltener als alle 3 h aktualisiert (J5). Doku und Hinweistext nennen beides.
 
-### Ausfall-Liste
+### Ausfall-Liste (PR 1)
 
 - Zwei neue Felder an `MappingEntry`, gespeichert wie `radiation_calibration` (`store.py:372`): begrenzt, in
   der normalen Speicherung, **ohne Store-Versionssprung**. Ältere Versionen lesen beim Laden nur die
@@ -144,8 +186,27 @@ Wert, außer womöglich dem Regen.
 - **Schutz:** Das Panel schickt beim Speichern nur `{id, name, mappings}`, und das Schema des Views lässt andere
   Schlüssel nicht zu; ein Test hält fest, dass Speichern die Liste stehen lässt (siehe *Präzisierungen*).
 - Die Diagnose zeigt beide Felder über `async_get_mappings` ohne Zusatzarbeit.
+- In PR 1 liest **keine Rechnung** die Liste. Sie ist Aufzeichnung und Grundlage des Hinweises; die Schnitte von
+  PR 2 und PR 3 lesen sie später rückwirkend (R3).
 
-### Schneiden: gemeinsame Regeln
+### Einstellung je Sensorgruppe (PR 2)
+
+- Neues Feld `MappingEntry.on_silent_sensor` mit den Werten `keep` und `pause`, **ohne Store-Versionssprung**:
+  - Der Lade-Pfad (`store.py:1361`) setzt `keep`, wo der Schlüssel fehlt — **jede bestehende Gruppe** behält
+    ihren letzten Wert.
+  - Der Attribut-Standard ist `pause`. Damit pausieren die Gruppe der Erst-Einrichtung (`store.py:1539`) und jede
+    über Panel oder Assistent angelegte Gruppe (`store.async_create_mapping`, `__init__.py:1820`).
+  - Ob die Domain-Migration (`smart_irrigation` → `irrigation_plus`) Gruppen über den Lade-Pfad übernimmt und
+    sie damit `keep` behalten, prüft der Plan von PR 2 per Test; übernommene Gruppen sind Bestand.
+- Das View-Schema (`websockets.py:236-241`) nimmt den Schlüssel an; das Panel zeigt ihn als Auswahl in der Karte
+  der Sensorgruppe und schickt ihn beim Speichern mit (heute `{id, name, mappings}`,
+  `frontend/src/views/mappings/view-mappings.ts:379-380`). Beschriftungen in 8 Sprachen, dist neu bauen.
+- **Wirkung:** Die Liste ist unabhängig von der Einstellung. Jeder Commit wendet die **aktuelle** Einstellung auf
+  alle Ausfälle an, die sein Fenster berühren. Ein Wechsel auf *pausieren* gilt damit auch für schon
+  aufgezeichnete Ausfälle im nächsten Fenster (R3); ein Wechsel auf *behalten* beendet das Schneiden. Ein
+  Wechsel bei offenem Ausfall gleicht den Hinweistext sofort an.
+
+### Schneiden: gemeinsame Regeln (PR 2 und PR 3, nur Gruppen auf *pausieren*)
 
 - Gesperrte Zeit eines Eintrags: von `start` + 3 h bis `end`, bei offenem Eintrag bis jetzt. Die ersten 3 h
   werden mit dem letzten Wert überbrückt.
@@ -153,28 +214,20 @@ Wert, außer womöglich dem Regen.
 - **Regenzähler** (Precipitation mit Aggregat `delta`) werden nie gesperrt. Regenraten (`riemannsum`/`sum`)
   und alle Pegelwerte werden gesperrt. Current Precipitation wird gesperrt wie jeder Pegelwert, liest aber
   keine Rechnung.
+- Gruppen auf *behalten* bekommen keine Masken: derselbe Code-Pfad wie heute, Ergebnis und Erklärung
+  byte-identisch (R4).
 
-### Design 1: Löcher je Rolle (Alternative)
+### Schnitt im Tagespfad (PR 2)
 
-- Zwei Lückenlisten je Sensorgruppe: das **ET-Loch** (Vereinigung der Sperren aller Einträge mit einem
-  ET-Eingang: Temperatur, Taupunkt, Feuchte, Druck, Wind, Sonne, ET) und das **Regen-Loch** (Sperren der
-  Einträge mit einer Regenrate).
-- Im ET-Loch wird keine ET gebucht (Tagesform: Anteil des Fensters ohne Loch; Stundenform: Stunden im Loch
-  entfallen), im Regen-Loch kein Regen. Die Module brauchen keine Pflichtfeld-Logik; weniger Code.
-- **Unterschied zu Design 2:** Fällt nur ein Teil der ET-Eingänge aus (ein separater Sensor oder eine
-  einzelne `unavailable`-Entität an einem lebenden Gerät), setzt Design 1 die ET für die Lücke ganz aus;
-  Design 2 rechnet mit den lebenden Feldern weiter, wo das Modul es kann (in der Tagesform z. B. mit
-  geschätzter Sonne). Für eine Gruppe aus einem Gerät, wie auf HA-Prod, sind beide gleich.
-
-### Design 2: Masken je Feld (bevorzugt)
-
-- `aggregate_window`, `_effective_series`, `build_hourly_rows`, `build_substeps` und die Einstiege des
-  Live-Estimate erhalten die gesperrte Zeit je Feld.
+- **Gate (Entscheidung 8):** Die gesperrte Zeit je Feld ist ein Parameter von `aggregate_window`. In PR 2 übergibt
+  ihn nur der Commit (`_aggregate_for_zone`, `calculation.py:388-429`), und nur wenn die Gruppe pausiert **und**
+  `hourly_calculation_enabled(store)` falsch ist. Live-Schätzung (`live_estimate.py:607`) und Stundenpfad
+  übergeben nichts.
 - **Aggregation**, jedes Feld nur in seiner gültigen Zeit:
   - Ein Wert wird bis zur nächsten Messung gehalten, aber nie in eine Sperre hinein.
   - Zeilen innerhalb einer Sperre fallen weg (das trifft eingefrorene, frisch gestempelte Poll-Werte).
   - Mittel (zeitgewichtet wie einfach), Tmin/Tmax, Einzelwert-Zweig (`weather_aggregate.py:523`) und
-    `last_entry`-Auffüllung (`:371-396`, `:936`) gelten nur für die gültige Zeit.
+    `last_entry`-Auffüllung (`:371-396`) gelten nur für die gültige Zeit.
   - Hat ein Feld im Fenster keine gültige Zeit, fehlt es.
   - Das Ergebnis meldet je Feld seine gesperrten Abschnitte im Fenster.
 - **Buchen entscheidet das Modul anhand seiner Pflichtfelder:**
@@ -182,24 +235,40 @@ Wert, außer womöglich dem Regen.
     zugleich gültig sind (Taupunkt, Temperatur, Wind, Druck; Schnittmenge der gültigen Zeiten, nicht das
     Minimum der Einzelanteile). Fehlt nur die Sonne, schätzt PyETO sie wie heute
     (`calcmodules/pyeto/__init__.py:324-364`).
-  - **PyETO, Stundenform** (HA-Prod): Eine Stunde zählt mit dem Anteil, in dem Temperatur, Feuchte, Wind und
-    Sonne zugleich gültig sind. Fehlt nur der Druck, wird er wie heute aus der Höhe abgeleitet. Die gehaltene
-    Klarheitsquote der Sonne (`weather_aggregate.py:757`) überbrückt keine Sperre, weil sie vom toten Sensor
-    stammt.
   - **Passthrough:** der gültige Anteil des ET-Feldes.
   - **Regenrate:** integriert nur über die gültige Zeit; in der Sperre wird kein Regen gebucht.
-- **Weitere Leser:**
-  - **Live-Estimate** schneidet gleich, bei offenem Eintrag bis jetzt. `_latest_temperature`
-    (`live_estimate.py:880`) nimmt `last_entry` nicht als aktuell, solange die Temperatur gesperrt ist.
-  - `_record_window_radiation` (`calculation.py:685`) und `_record_window_amplitude` (`calculation.py:635`)
-    zeichnen kein Fenster auf, in dem Sonne bzw. Temperatur gesperrt war, damit kein Teiltag als ganzer Tag
-    in die 7-Tage-Reihen geht.
-  - **Nachgespielte Bilanz** (`build_substeps`): In gesperrten Stunden wird nach Zeit statt nach Sonne
-    verteilt (vorhandener Rückfall ohne Sonne).
+- `_record_window_radiation` (`calculation.py:685`) und `_record_window_amplitude` (`calculation.py:635`)
+  zeichnen kein Fenster auf, in dem Sonne bzw. Temperatur gesperrt war, damit kein Teiltag als ganzer Tag in die
+  7-Tage-Reihen geht.
+- **Satz in der Berechnungs-Erklärung** der Zone, je Sperre, die das Fenster berührt (siehe *Melden*).
+
+### Schnitt im Stundenpfad und in der Live-Schätzung (PR 3)
+
+- `build_hourly_rows`/`hourly_eto_priced`, `_effective_series` (`weather_aggregate.py:714`) und `build_substeps`
+  erhalten die gesperrte Zeit je Feld; die Stundenzeilen aus `last_entry` (`:936`) gelten nur in gültiger Zeit.
+- **PyETO, Stundenform** (HA-Prod): Eine Stunde zählt mit dem Anteil, in dem Temperatur, Feuchte, Wind und Sonne
+  zugleich gültig sind. Fehlt nur der Druck, wird er wie heute aus der Höhe abgeleitet. Die gehaltene
+  Klarheitsquote der Sonne (`weather_aggregate.py:757`) überbrückt keine Sperre, weil sie vom toten Sensor stammt.
+- **Nachgespielte Bilanz** (`build_substeps`): In gesperrten Stunden wird nach Zeit statt nach Sonne verteilt
+  (vorhandener Rückfall ohne Sonne). Weil Aggregat und Teilschritte dann dieselbe Sperre sehen, stimmt der Abgleich
+  (`calculation.py:999-1008`) wieder.
+- **Live-Schätzung** schneidet gleich, bei offenem Eintrag bis jetzt; ihr Aggregat-Aufruf (`live_estimate.py:607`)
+  bekommt die Masken. `_latest_temperature` (`live_estimate.py:880`) nimmt `last_entry` nicht als aktuell,
+  solange die Temperatur gesperrt ist.
+- Das Gate aus PR 2 fällt weg: Pausierende Gruppen schneiden in jeder Rechenform.
+
+### Zwischenstände, bewusst in Kauf genommen
+
+- **Nach PR 1:** Jede Gruppe verhält sich wie *behalten + melden*; nichts wird geschnitten.
+- **Nach PR 2:** Mit Stundenrechnung schneidet auch eine pausierende Gruppe noch nicht; sie bekommt den
+  *behalten*-Hinweistext, weil der zutrifft, und die Doku sagt es. Ohne Stundenrechnung schneidet der Commit, die
+  Live-Schätzung noch nicht: Bei Live-Schätzungs-Bewässerung kann ein Lauf während eines Ausfalls mehr ET bemessen,
+  als der Commit danach bucht.
+- **Nach PR 3:** keine Zwischenstände mehr.
 
 ### Melden
 
-- **Reparaturhinweis** `weather_sensor_stale_<mapping_id>`, einer je Sensorgruppe; Warnstufe, ohne
+- **Reparaturhinweis** `weather_sensor_stale_<mapping_id>` (PR 1), einer je Sensorgruppe; Warnstufe, ohne
   Reparatur-Dialog (also mit `description`, `repairs.py:50-52`).
   - Erscheint, sobald der erste Eintrag der Gruppe öffnet; wird aktualisiert, wenn sich die Menge der
     stummen Entitäten ändert; verschwindet, wenn kein Eintrag mehr offen ist.
@@ -207,57 +276,132 @@ Wert, außer womöglich dem Regen.
     die Integration einen Reparaturhinweis zur Laufzeit führt; heute entstehen sie nur beim Setup
     (`__init__.py:327`).
   - Platzhalter: Gruppe, stumme Entitäten mit ihren Feldern, Beginn.
-  - Textentwurf (EN): Titel „A weather sensor of {group} has stopped reporting“. Inhalt sinngemäß:
-    „Irrigation Plus has not heard from {entities} since {since}. After three hours of silence its readings
-    are no longer used and nothing is booked for that time, so zones depending on it water less or not at
-    all until it reports again. Check the device and its integration. If you replaced the device, select its
-    new entities in the sensor group. If the value is meant to be fixed, use the "Static value" source instead.
-    This notice clears itself when the sensor reports again.“
-- **Bus-Event `irrigation_plus_weather_stale`** bei Beginn und Ende jedes Eintrags. Inhalt: `mapping_id`,
+  - **Text von PR 1 (behalten).** Verspricht keinen Schnitt. Freigabe-Fassung Deutsch:
+    - Titel: „Ein Wettersensor von {group} meldet nicht mehr“
+    - Inhalt: „Irrigation Plus hat seit {since} nichts mehr von {entities} gehört. Die zuletzt gemeldeten Werte
+      werden weiter verwendet, als wären sie aktuell; Zonen, die davon abhängen, werden damit berechnet, bis wieder
+      Werte kommen.
+      Prüfe das Gerät und seine Integration. Hast du das Gerät ersetzt, wähle seine neuen Entitäten in der
+      Sensorgruppe. Soll der Wert fest sein, nutze stattdessen die Quelle „Fester Wert“. Aktualisiert die
+      Integration nur alle paar Stunden, erscheint dieser Hinweis zwischen ihren Updates und bedeutet keinen
+      Ausfall.
+      Dieser Hinweis verschwindet von selbst, sobald der Sensor wieder meldet.“
+
+    Englisch:
+    - Title: “A weather sensor of {group} has stopped reporting”
+    - Description: “Irrigation Plus has not heard from {entities} since {since}. The last reported values are still
+      used as if they were current, so zones that depend on them are calculated with those values until new ones
+      arrive.
+      Check the device and its integration. If you replaced the device, select its new entities in the sensor
+      group. If the value is meant to be fixed, use the "Static value" source instead. If the integration only
+      updates every few hours, this notice appears between its updates and does not mean the sensor has failed.
+      This notice clears itself when the sensor reports again.”
+
+    Die übrigen sechs Sprachen folgen dem englischen Text; die Quellen-Namen sind die Panel-Beschriftungen
+    (`frontend/localize/languages/*.json` → `panels.mappings.cards.mapping.sources.static`).
+  - **Variante für pausierende Gruppen (PR 2), Entwurf, Wortlaut wird mit dem Plan von PR 2 freigegeben:**
+    zweiter Schlüssel, gleicher Titel. Inhalt sinngemäß: „Nach drei Stunden Stille werden diese Werte nicht mehr
+    verwendet, und für diese Zeit wird nichts gebucht; Zonen, die davon abhängen, wässern deshalb weniger oder gar
+    nicht, bis wieder Werte kommen. … Aktualisiert die Integration nur alle paar Stunden, stelle die Sensorgruppe
+    auf „Letzten Wert behalten“ — sonst fehlt bei jedem Update ein Teil der Zeit.“ Der Hinweis wählt die Variante
+    nach der Einstellung und, bis PR 3, nach der Stundenrechnung (mit Stundenrechnung: Text von PR 1).
+- **Bus-Event `irrigation_plus_weather_stale`** (PR 1) bei Beginn und Ende jedes Eintrags. Inhalt: `mapping_id`,
   `mapping` (Name), `entity_id`, `device_id` (oder null), `fields`, `since`, `until` (null beim Beginn),
   `stale` (true/false). Derselbe Automations-Haken wie das vorhandene `irrigation_plus_zone_problem`. Jeder Start
   bekommt ein Ende, auch wenn die Gruppe den Sensor nicht mehr verfolgt (Präzisierung 6).
-- **Satz in der Berechnungs-Erklärung** der Zone, je Sperre, die das Fenster berührt; neuer Schlüssel
-  `module.calculation.explanation.sensor-outage`, etwa: „Sensordaten für {fields} fehlten von {start} bis
-  {end} (Gerät stumm); für diese Zeit wurde nichts gebucht.“
-- **Log:** WARNING beim Öffnen, INFO beim Schließen.
-- **Übersetzungen** in allen 8 Sprachen: Hinweis in `translations/*.json` (Block `issues`), Erklärungssatz in
-  `frontend/localize/languages/*.json`. `test_i18n_completeness` prüft beides. **`en.json` ist fest ins
-  Bundle importiert** (`frontend/localize/localize.ts:1`) → dist neu bauen.
+- **Log** (PR 1): WARNING beim Öffnen, ohne Schnitt-Versprechen („… has not reported since …; its last value is
+  still used“), INFO beim Schließen. Ab PR 2 nennt die WARNING den Schnitt, wo geschnitten wird (pausierende
+  Gruppe, bis PR 3 nur ohne Stundenrechnung).
+- **Satz in der Berechnungs-Erklärung** (PR 2, nur pausierende Gruppen), je Sperre, die das Fenster berührt; neuer
+  Schlüssel `module.calculation.explanation.sensor-outage`, etwa: „Sensordaten für {fields} fehlten von {start}
+  bis {end} (Gerät stumm); für diese Zeit wurde nichts gebucht.“ Gruppen auf *behalten* bekommen keinen Satz
+  (byte-identisch, R4).
+- **Übersetzungen** in allen 8 Sprachen: Hinweis in `translations/*.json` (Block `issues`; PR 1, Variante PR 2).
+  Erklärungssatz und Einstellungs-Beschriftungen in `frontend/localize/languages/*.json` (PR 2).
+  `test_i18n_completeness` prüft beides. **`en.json` des Frontends ist fest ins Bundle importiert**
+  (`frontend/localize/localize.ts:1`) → dist neu bauen, **erst in PR 2**; PR 1 ändert kein Frontend.
 
 ### Dokumentation
 
-- `docs/configuration-sensor-groups.md`: neuer Abschnitt „Wenn ein Sensor schweigt“ (Regel, 3 h,
-  Regenzähler-Ausnahme, `input_number`, Template-Hinweis, was in der Pause passiert).
-- `docs/usage-events.md`: das neue Event mit Beispiel-Automation (Push aufs Handy).
-- Docstring von `_prune_mapping_buffer` (`calculation.py:432-446`) berichtigt: Die Grenzzeile je Feld
-  überlebt die Frist absichtlich als Delta-Basis; gegen veraltete Werte wirkt die Ausfall-Liste.
+- **PR 1:** `docs/configuration-sensor-groups.md` bekommt vor *Deleting a sensor group* den Abschnitt „When a
+  sensor goes silent“. Freigabe-Fassung Deutsch:
 
-### Betroffene Stellen (Überblick für den Plan)
+  > **Wenn ein Sensor schweigt.** Irrigation Plus prüft alle fünf Minuten, ob die Sensoren einer Sensorgruppe noch
+  > melden. Maßgeblich ist das Home-Assistant-Gerät eines Sensors: Solange irgendeine Entität dieses Geräts meldet,
+  > gilt auch ein Wert als lebendig, der sich gerade nicht ändert, etwa ein Regenmesser an einem trockenen Tag. Ein
+  > Sensor ohne Gerät zählt für sich selbst. Steht ein Sensor auf `unavailable` oder `unknown`, gilt er als stumm,
+  > egal was sein Gerät tut. Werte aus einem `input_number`-Helfer gelten nie als stumm.
+  >
+  > Hat ein Sensor drei Stunden lang nicht gemeldet, zeigt Irrigation Plus einen Reparaturhinweis für seine
+  > Sensorgruppe und sendet das Event `irrigation_plus_weather_stale` (siehe Events). Meldet er wieder,
+  > verschwindet der Hinweis von selbst, und ein zweites Event markiert das Ende. Die Berechnung verwendet in dieser
+  > Zeit weiter den letzten Wert des Sensors.
+  >
+  > Die drei Stunden sind fest. Eine Integration, die seltener aktualisiert — etwa ein Cloud-Dienst, der nur alle
+  > sechs Stunden abgefragt wird —, löst den Hinweis deshalb zwischen ihren Updates aus, obwohl nichts ausgefallen
+  > ist.
+  >
+  > Auch ein Template-Sensor ohne Gerät, dessen Wert sich nie ändert, sieht wie ein stummer Sensor aus. Soll ein
+  > Wert fest sein, nutze die Quelle „Fester Wert“.
 
-| Datei | Änderung |
-|---|---|
-| neu: `sensor_liveness.py` | Prüfung, Liste, Hinweis, Event |
-| `__init__.py` | Timer an- und abmelden; Liste beim Quellwechsel leeren |
-| `store.py` | zwei Felder an `MappingEntry`, Laden und Speichern |
-| `calculation.py` | Sperren an die Aggregation, Buchungsanteil, Erklärungssatz, Aufzeichnungen überspringen, Reset leert die Liste, Docstring |
-| `weather_aggregate.py` | Sperren in `aggregate_window`, `_effective_series`, `build_hourly_rows`, `build_substeps` |
-| `calcmodules/pyeto/__init__.py` | nur Design 2: Buchungsanteil aus den Pflichtfeldern |
-| `live_estimate.py` | Sperren, Temperatur-Anker |
-| `repairs.py` | Hinweis zur Laufzeit |
-| `const.py` | Konstanten (3 h, 5 min, 10 min, Event-Name, Schlüssel) |
-| `translations/*.json` (8) | Hinweis |
-| `frontend/localize/languages/*.json` (8) | Erklärungssatz; dist neu bauen |
-| `docs/configuration-sensor-groups.md`, `docs/usage-events.md` | siehe *Dokumentation* |
+  Englisch:
+
+  > **When a sensor goes silent.** Irrigation Plus checks every five minutes whether the sensors of a sensor group
+  > still report. What counts is a sensor's Home Assistant device: as long as any entity of that device reports, a
+  > value that merely stays the same, such as a rain gauge on a dry day, counts as alive. A sensor without a device
+  > counts for itself. A sensor whose state is `unavailable` or `unknown` counts as silent whatever its device
+  > does. Values from an `input_number` helper never count as silent.
+  >
+  > Once a sensor has not reported for three hours, Irrigation Plus shows a repair notice for its sensor group and
+  > fires the `irrigation_plus_weather_stale` event (see [Events](usage-events.md)). When the sensor reports again,
+  > the notice clears itself and a second event marks the end. Meanwhile the calculation keeps using the sensor's
+  > last value.
+  >
+  > The three hours are fixed. An integration that updates less often, such as a cloud service polled every six
+  > hours, therefore raises the notice between its updates even though nothing has failed.
+  >
+  > A template sensor without a device whose value never changes looks silent too. If a value is meant to be
+  > fixed, use the "Static value" source instead.
+
+- **PR 1:** `docs/usage-events.md`: das Event mit seinen Feldern (Zeile nach `irrigation_plus_zone_problem`).
+- **PR 1:** Docstring von `_prune_mapping_buffer` (`calculation.py:432-446`) berichtigt: Die Grenzzeile je Feld
+  überlebt die Frist absichtlich als Delta-Basis; ob sie noch eine Messung ist, hält die Ausfall-Liste fest.
+- **PR 2:** derselbe Abschnitt um die Einstellung erweitert: was *pausieren* tut (nach 3 h nichts gebucht,
+  Regenzähler ausgenommen), die Standardwerte (bestehende Gruppen behalten, neue pausieren), der Rat für
+  Integrationen mit seltenen Updates (*behalten*), und: „Mit der stündlichen Berechnung wird der letzte Wert weiter
+  verwendet.“
+- **PR 3:** dieser letzte Satz entfällt; der Abschnitt beschreibt den Schnitt für beide Rechenformen.
+
+### Betroffene Stellen je PR
+
+| PR | Datei | Änderung |
+|---|---|---|
+| 1 | neu: `sensor_liveness.py` | Prüfung, Liste, Hinweis, Event |
+| 1 | `__init__.py` | Mixin; Timer an- und abmelden; Liste bei Quellwechsel leeren, Hinweis beim Löschen |
+| 1 | `store.py` | zwei Felder an `MappingEntry`, Laden, Setter ohne Speichern |
+| 1 | `calculation.py` | „Wetterdaten zurücksetzen“ leert die Liste; Docstring `_prune_mapping_buffer` |
+| 1 | `const.py` | Grenzen (3 h, 5 min, 10 min, 7 Tage), Schlüssel, Event- und Hinweis-Name |
+| 1 | `translations/*.json` (8) | Hinweis (Text von PR 1) |
+| 1 | `docs/configuration-sensor-groups.md`, `docs/usage-events.md` | Abschnitt, Event |
+| 2 | `store.py`, `websockets.py`, `const.py` | `on_silent_sensor`: Feld, Lade- und Attribut-Standard, Schema |
+| 2 | `frontend/src/views/mappings/view-mappings.ts`, `frontend/localize/languages/*.json` (8) | Auswahl, Beschriftungen, Erklärungssatz; dist neu bauen |
+| 2 | `weather_aggregate.py` | Masken in `aggregate_window` |
+| 2 | `sensor_liveness.py` | gesperrte Zeit je Feld aus der Liste; Hinweis-Variante |
+| 2 | `calculation.py` | Gate, Masken an den Commit, Aufzeichnungen überspringen, Erklärungssatz |
+| 2 | `calcmodules/pyeto/__init__.py`, `calcmodules/passthrough/` | Buchungsanteil (Tagesform) |
+| 2 | `translations/*.json` (8), Doku | Hinweis-Variante; Abschnitt erweitert |
+| 3 | `weather_aggregate.py` | Masken in `build_hourly_rows`, `_effective_series`, `build_substeps`; Klarheitsquote |
+| 3 | `calculation.py`, `live_estimate.py` | Masken im Stundenpfad und in der Live-Schätzung; Gate entfällt; Temperatur-Anker |
+| 3 | `translations/*.json` (8), Doku | vereinheitlicht |
 
 ### Präzisierungen aus der Planung (2026-10-03)
 
-Beim Schreiben des Plans gegen den Code gefunden; sie gehen dem Text oben vor:
+Beim Schreiben des Plans von PR 1 gegen den Code gefunden; sie gehen dem Text oben vor:
 
 1. **Keine Streichliste nötig.** Das Panel schickt beim Speichern nur `{id, name, mappings}`
    (`frontend/src/views/mappings/view-mappings.ts:379-380`), und das Schema des Mapping-Views lässt andere
    Schlüssel gar nicht zu (`websockets.py:235-250`). Stattdessen hält ein Test fest, dass ein Speichern die
-   Ausfall-Liste stehen lässt.
+   Ausfall-Liste stehen lässt. (PR 2 erweitert Panel und Schema um genau einen Schlüssel, `on_silent_sensor`.)
 2. **Ein Quellwechsel leert die Liste der ganzen Gruppe**, so wie er heute Puffer und `last_entry` der ganzen
    Gruppe leert (`__init__.py:1768-1790`), nicht nur die Einträge des geänderten Feldes. Ebenso beim Löschen
    einer Gruppe: Ihr Hinweis verschwindet.
@@ -275,7 +419,7 @@ Beim Schreiben des Plans gegen den Code gefunden; sie gehen dem Text oben vor:
      nicht hängen bleibt. Gleiches beim Löschen der Gruppe und bei „Wetterdaten zurücksetzen“.
    - *Neues Gerät unter denselben Entity-IDs*: Die Prüfung liest jedes Mal das aktuelle Gerät der Entität; meldet
      das neue, schließt der Ausfall regulär.
-   - *Altes Gerät gelöscht, Gruppe noch nicht umgestellt*: Nach 3 h erscheint der Hinweis. Er sagt jetzt auch:
+   - *Altes Gerät gelöscht, Gruppe noch nicht umgestellt*: Nach 3 h erscheint der Hinweis. Er sagt auch:
      „Hast du das Gerät ersetzt, wähle seine neuen Entitäten in der Sensorgruppe.“
    - *Selbstheilung*: Ein offener Ausfall einer Entität, die die Gruppe nicht mehr liest (Zuordnung auf anderem Weg
      geändert), endet bei der nächsten Prüfung mit End-Event; keine Liste und kein Hinweis überleben die
@@ -285,12 +429,15 @@ Beim Schreiben des Plans gegen den Code gefunden; sie gehen dem Text oben vor:
 
 ## Schwester-Pfade geprüft
 
-- **Poll-Schreiber mit eingefrorenem Zahlenwert:** abgedeckt; seine Zeilen liegen in der Sperre und fallen weg.
+- **Poll-Schreiber mit eingefrorenem Zahlenwert:** abgedeckt (pausierende Gruppen); seine Zeilen liegen in der Sperre
+  und fallen weg.
 - **`last_entry` auch bei abgeschaltetem `continuousupdates`** gelesen (`calculation.py:415`): abgedeckt, weil
   die Auffüllung nur in gültiger Zeit gilt.
 - **Stundenzeilen aus `last_entry`** (`weather_aggregate.py:936`), **Temperatur-Anker**
-  (`live_estimate.py:880`), **Kalibrier- und Amplituden-Aufzeichnung:** abgedeckt (siehe Design 2).
-- **`_effective_series`** stempelt ebenfalls um (`weather_aggregate.py:714`): bekommt dieselben Sperren.
+  (`live_estimate.py:880`), **Kalibrier- und Amplituden-Aufzeichnung:** abgedeckt (PR 2 bzw. PR 3).
+- **`_effective_series`** stempelt ebenfalls um (`weather_aggregate.py:714`): bekommt in PR 3 dieselben Sperren.
+- **Aggregat und nachgespielte Bilanz** müssen dieselbe Regensumme sehen (`calculation.py:999-1008`): Grund für das
+  Gate von PR 2 (Entscheidung 8); ab PR 3 sehen beide dieselbe Sperre.
 - **Zeilen-Obergrenze im Ereignis-Pfad** (`continuous_update.py:558-589`): unberührt; sie behält nur die
   älteste Zeile und ändert an Sperren nichts.
 - **Ereignis-Pfad und Start-Saat ignorieren `unavailable`/`unknown`** (`continuous_update.py:264`, `:359`):
@@ -300,66 +447,106 @@ Beim Schreiben des Plans gegen den Code gefunden; sie gehen dem Text oben vor:
 
 ## Ausdrücklich nicht in dieser Arbeit
 
-- Felder aus einem Wetterdienst (eigenes Issue, Text vorher zur Freigabe).
-- Eine einstellbare Grenze.
+- Felder aus einem Wetterdienst (`Eifel-Joe#74`).
+- Eine einstellbare Grenze, und ein Abschalten des Hinweises (J5: fest 3 h für die erste Fassung).
 - Eine Zustands-Entität „Wetterdaten veraltet“.
 - Ersatzwerte oder ein Rückfall auf den Wetterdienst während eines Ausfalls.
 - HAs eigene Ausfallzeit.
+- Ein Satz in der Berechnungs-Erklärung für Gruppen auf *behalten* (sie bleiben byte-identisch).
 - Ein toter Untersensor an einem lebenden Gerät, der seinen Zahlenwert behält (blinder Fleck aus Frage 2;
   wird er `unavailable`, ist er erfasst).
 - Integrationen, die die letzte Beobachtung eines Cloud-Dienstes weiterreichen und dabei denselben Wert
   weiter melden, obwohl die Station schweigt (zweiter blinder Fleck; bräuchte die Beobachtungszeit des
   Dienstes, die jede Integration anders oder gar nicht liefert).
 
+## Verworfen
+
+- **Design 1, Löcher je Rolle** (Revision 1): je Gruppe ein ET-Loch und ein Regen-Loch, weniger Code. JustChr wählt
+  Design 2, weil Design 1 die ET der ganzen Gruppe aussetzt, wenn ein Eingang stirbt (J2).
+- **„Teil 1 nie allein ausliefern“** (Plan Revision 1, weil der Hinweistext den Schnitt versprach): überholt durch
+  JustChrs Aufteilung (J3). Der Hinweistext von PR 1 verspricht deshalb keinen Schnitt.
+- **Die Einstellung schon in PR 1:** ein Schalter ohne Wirkung, solange nichts geschnitten wird.
+
 ## Tests
 
 Jeweils RED vor GREEN.
 
+**PR 1**
 - **Erkennung:** Geräte-Maximum; eigene Entität `unavailable`; Entität ohne Gerät; `input_number`;
   Start-Karenz; Lebenszeichen über einen Neustart; Stempel im Rahmen des Puffers.
 - **Liste:** Öffnen nach 3 h, nicht vorher; Schließen bei der ersten Meldung mit richtigem Ende;
   7-Tage-Kürzung; Leeren bei Quellwechsel und Reset; Speichern im Panel lässt die Liste stehen;
   Store-Rundlauf (beide Felder überleben Speichern und Laden, ein Store ohne sie lädt).
+- **Melden:** Event-Inhalt bei Beginn und Ende; Hinweistext in 8 Sprachen mit seinen Platzhaltern;
+  i18n-Vollständigkeit.
+- **JustChrs drei Hinweis-Tests** (J4), als eigene Testdatei, gegen **echten Store und echte Issue-Registry**
+  (lokal echt; der Registry-Test aus Plan-Task 8 lief im Probelauf echt):
+  1. der Hinweis verschwindet, wenn der Sensor wieder meldet;
+  2. er übersteht einen Neustart mitten im Ausfall: Liste gespeichert, neuer Store lädt sie, ein neuer
+     Koordinator zeigt den Hinweis beim Setup sofort wieder, mit unverändertem Beginn;
+  3. er fällt weg, wenn die Gruppe gelöscht wird, samt End-Event.
+- **Keine Verhaltensänderung:** Der Diff berührt keinen Rechenpfad; die volle Suite ist namensgleich mit der
+  Baseline.
+- Mutationen auf die tragenden Wächter (Geräte-Maximum, eigene `unavailable`-Entität, `input_number`, 3-h-Grenze,
+  Kürzung, Ende bei erster Meldung, Start-Karenz, Neustart-Wiederherstellung, Löschen, Quellwechsel, Reset,
+  Schreib-Sparsamkeit, Ausnahme-Schutz).
+
+**PR 2**
+- **Einstellung:** Bestand lädt als `keep`; Erst-Einrichtung und neue Gruppe sind `pause`; Domain-Migration behält
+  `keep`; Schema und Panel tragen den Schlüssel; Wechsel gleicht den Hinweis an.
+- **Byte-Identität:** Eine Gruppe auf *behalten* mit Ausfällen in der Liste liefert dasselbe Aggregat, dieselbe
+  Buchung und dieselbe Erklärung wie ohne Liste.
+- **Gate:** Mit Stundenrechnung schneidet auch eine pausierende Gruppe nicht.
 - **Sperren in der Aggregation:** zeitgewichtet; einfaches Mittel; Einzelwert; Tmin/Tmax; `last_entry`;
   Regenzähler ausgenommen; eingefrorene Poll-Zeilen fallen weg; Feld ohne gültige Zeit fehlt.
-- **Buchen:** Schnittmenge der Pflichtfelder in der Tagesform; Sonnenschätzung; Stundenanteil;
-  Klarheitsquote ohne Brücke; Passthrough; Regenrate.
-- **Weitere Leser:** Live-Estimate samt Temperatur-Anker; keine Kalibrier- oder Amplituden-Aufzeichnung über
-  eine Sperre.
-- **Melden:** Lebenszyklus des Hinweises samt Neustart; Event-Inhalt bei Beginn und Ende; Erklärungssatz;
-  i18n-Vollständigkeit.
-- Mutationen auf die tragenden Wächter (Regenzähler-Ausnahme, 3-h-Brücke, Geräte-Maximum, eigene
-  `unavailable`-Entität, `input_number`, Start-Karenz, Schnittmenge, Stundenanteil, Klarheitsquote,
-  Aufzeichnungs-Sperre); volle Suite mit Namensvergleich gegen die Baseline.
+- **Buchen:** Schnittmenge der Pflichtfelder in der Tagesform; Sonnenschätzung; Passthrough; Regenrate.
+- **Aufzeichnungen:** keine Kalibrier- oder Amplituden-Aufzeichnung über eine Sperre.
+- **Melden:** Erklärungssatz; Hinweis-Variante; i18n-Vollständigkeit.
+
+**PR 3**
+- Stundenanteil; Klarheitsquote ohne Brücke; Druck aus der Höhe; nachgespielte Bilanz samt Abgleich;
+  Live-Schätzung samt Temperatur-Anker; Gate entfernt.
+
+Jeder PR: volle Suite mit Namensvergleich gegen die Baseline; Mutationen auf seine Wächter.
 
 ## Ende-zu-Ende-Kriterium
 
-**HA-Test**, eine Sensorgruppe aus Entitäten eines Geräts, das wir steuern (etwa ein MQTT-Gerät mit
-minütlichem Senden, falls auf HA-Test ein Broker läuft, sonst Template-Helfer mit Gerät; das Mittel klärt der
-Plan):
+**PR 1, HA-Test.** Sensorgruppen aus Entitäten von Geräten, die wir steuern: MQTT-Sensoren per YAML unter einem
+eigenen Topic-Präfix, **ohne Discovery** (Plan, Task 15). Die MQTT-Integration von HA-Test hängt am Broker von HA-Prod
+(gelesen 2026-10-04); Discovery könnte dort Geräte anlegen, ein eigenes Präfix abonniert HA-Prod nicht. Vom User
+freigegeben am 2026-10-04 (Variante 1; verworfen: Template-Helfer ohne Gerät, weil der Geräte-Pfad dann nicht live
+liefe; eigener Broker für HA-Test, weil das HA-Test die Z2M-Geräte nähme).
 
-1. Das Gerät meldet 3,5 h lang **unveränderte** Werte → es entsteht kein Ausfall. Für beide Schreibweisen:
-   ein Gerät, das bei jedem Update schreibt (`last_reported` rückt vor), und eines, das nur bei Änderung
-   schreibt und dessen Felder bis auf eines ruhig bleiben.
-2. Dann 3,5 h Stille → der Hinweis erscheint rund 3 h nach der letzten Meldung, das Event kommt an, und eine
-   Berechnung nennt die Sperre in ihrer Erklärung und bucht ET nur für den gültigen Teil.
-3. Das Gerät meldet wieder → der Hinweis verschwindet, das Erholungs-Event kommt an, und der Eintrag schließt
-   mit dem richtigen Ende.
-4. Ein HA-Neustart mitten im Ausfall lässt Beginn und Hinweis unverändert.
+1. Ein Gerät meldet 3,5 h lang **unveränderte** Werte → es entsteht kein Ausfall. Für beide Schreibweisen,
+   soweit das Mittel sie hergibt: ein Gerät, das bei jedem Update schreibt (`last_reported` rückt vor), und eines,
+   das nur bei Änderung schreibt und dessen Felder bis auf eines ruhig bleiben.
+2. Zwei Geräte schweigen → der Hinweis erscheint rund 3 h nach der letzten Meldung, das Start-Event kommt an,
+   und eine Berechnung aller Zonen in dieser Zeit läuft ohne Fehler (PR 1 ändert keine Rechnung; dass sie
+   unverändert ist, belegen Diff und Suite).
+3. HA-Test-Neustart mitten im Ausfall (angekündigt) → Beginn und Hinweis unverändert.
+4. Das eine Gerät meldet wieder → der Hinweis verschwindet, das End-Event kommt an, der Eintrag schließt mit dem
+   richtigen Ende.
+5. Die Gruppe des anderen Geräts wird gelöscht → ihr Hinweis verschwindet, das End-Event kommt an.
 
-**HA-Prod**, passiv nach dem Update: In den ersten Tagen entsteht kein Fehlalarm, auch nicht in
-Nebelnächten mit 99 % Feuchte.
+**PR 1, HA-Prod (Feldtest, R9):** nach dem Update auf ein production-Build mit PR 1 (nur auf Zuruf des Users)
+passiv beobachten: kein Fehlalarm, auch nicht in Nebelnächten mit 99 % Feuchte; ein echter Ausfall, falls einer
+vorkommt, mit plausiblem Beginn und Ende. Dauer legt der User fest; Richtwert eine Woche.
+
+**PR 2, HA-Test** mit ausgeschalteter Stundenrechnung (HA-Test ist Wegwerf): Eine pausierende Gruppe schweigt
+3,5 h → die Berechnung nennt die Sperre in ihrer Erklärung und bucht ET nur für den gültigen Teil; eine Gruppe auf
+*behalten* rechnet wie vorher. Mit eingeschalteter Stundenrechnung schneidet nichts.
+
+**PR 3, HA-Test** mit eingeschalteter Stundenrechnung: dasselbe für Stundenform, nachgespielte Bilanz und
+Live-Schätzung. **HA-Prod** danach passiv, sobald die Gruppe dort pausiert (Umstellen ist Sache des Users).
 
 ## Lieferung
 
-1. **Issue an JustChr** (englisch; Text vorher zur Freigabe; keine Verweise auf unsere Issues): Befund mit
-   Datei:Zeile auf seinem aktuellen `master`, Folgen, Vorschlag, Design 1 und Design 2 in dieser Reihenfolge
-   mit Design 2 als unserer Präferenz, Abgrenzung, Testplan. Ausdrücklich gefragt: die Pause-Regel, die Design-Wahl, der neue Hinweis
-   samt Event. Danach P2: `upstream:gemeldet` auf Eifel-Joe#8, Kommentar mit Link, #42 nachziehen.
-2. **Plan:** der gemeinsame Teil (Erkennung, Liste, Melden, Doku, Docstring) in der Wartezeit, der
-   Schnitt-Teil nach seiner Wahl.
-3. **Bau** nach seiner Antwort: Branch von `upstream/master`, PR nur Fix und Test, dist neu wegen `en.json`;
-   Rezept: Memory `hasi-pr-build-recipe`.
-4. **production** bekommt den Fix nach dem Bau sofort (User-Regel), auch vor dem Merge.
-5. **Eigenes Issue für die Dienst-Felder** (Text vorher zur Freigabe).
-6. **P1:** Spec und Plan beim Abschluss nach `archive/design-history`.
+1. ~~Issue an JustChr~~ — erledigt: `JustChr#188`, beantwortet 2026-10-03; Eifel-Joe#8 trägt
+   `upstream:freigegeben`.
+2. **PR 1:** Plan (`docs/superpowers/plans/2026-10-03-dead-weather-sensor-common.md`, an Revision 2 angepasst,
+   probegelaufen) → Bau im Worktree von `upstream/master` → Live-Test HA-Test → PR an JustChr (Texte vorher zur
+   Freigabe, keine Verweise auf unsere Issues; Rezept: Memory `hasi-pr-build-recipe`) → **production** bekommt
+   PR 1 sofort (User-Regel), auch vor dem Merge → Feldtest auf HA-Prod nach Zuruf.
+3. **PR 2:** eigener Plan, frühestens nach dem Merge von PR 1; gepostet nach dem Feldtest (R9).
+4. **PR 3:** eigener Plan nach PR 2.
+5. **P1:** Spec und Pläne nach jeder Freigabe und beim Abschluss nach `archive/design-history`.

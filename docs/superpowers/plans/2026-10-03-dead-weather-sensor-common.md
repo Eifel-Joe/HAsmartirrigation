@@ -1,47 +1,66 @@
-# Stummer Wettersensor, gemeinsamer Teil — Implementierungsplan
+# Stummer Wettersensor, PR 1 (Erkennung, Ausfall-Liste, Hinweis, Event) — Implementierungsplan
 
 > **Für agentische Ausführung:** PFLICHT-SKILL: `superpowers:subagent-driven-development` (empfohlen) oder
 > `superpowers:executing-plans`, Task für Task. Schritte nutzen Checkboxen (`- [ ]`).
 
 **Ziel:** Integration Plus erkennt, wenn ein Wettersensor einer Sensorgruppe verstummt, schreibt jeden Ausfall
-über 3 h an die Sensorgruppe und meldet ihn per Reparaturhinweis und Bus-Event.
+über 3 h an die Sensorgruppe und meldet ihn per Reparaturhinweis und Bus-Event, ohne eine Rechnung zu ändern.
 
 **Architektur:** Neues Modul `sensor_liveness.py`: zuerst reine Funktionen (Lebenszeichen je HA-Gerät,
 Ausfall-Liste fortschreiben, Hinweis- und Event-Inhalt), ohne Home Assistant testbar; dahinter
 `SensorLivenessMixin` als Koordinator-Kleber (5-Minuten-Prüfung, Entity-Registry, Store, Reparaturhinweis,
 Event). Die Liste und das letzte Lebenszeichen liegen als zwei neue Felder an `MappingEntry`, ohne
-Store-Versionssprung.
+Store-Versionssprung. Keine Rechnung liest die Liste.
 
 **Tech-Stack:** Python 3.12 (lokale Test-Env), Home Assistant 2024.12.5 über
-`pytest-homeassistant-custom-component`, `attrs`, `freezegun` nicht nötig (Zeiten werden übergeben).
+`pytest-homeassistant-custom-component`, `attrs`. Zeiten werden übergeben; nur JustChrs drei Hinweis-Tests nutzen das
+`freezer`-Fixture (Tasks 9–11).
 
-**Spec:** `docs/superpowers/specs/2026-10-03-dead-weather-sensor-design.md` (mit *Präzisierungen aus der
-Planung*). Upstream-Vorschlag: `JustChr#188`.
+**Spec:** `docs/superpowers/specs/2026-10-03-dead-weather-sensor-design.md`, **Revision 2** (2026-10-04, angepasst an
+JustChrs Antwort auf `JustChr#188`). Dieser Plan ist **PR 1** von dreien; PR 2 (Einstellung und Schnitt im Tagespfad)
+und PR 3 (Stundenpfad und Live-Schätzung) bekommen eigene Pläne.
 
-**Probelauf (2026-10-03, gegen `e9c79ec4`):** Der Endstand aller Tasks wurde in einem Wegwerf-Worktree umgesetzt
-(jeder Anker dieses Plans passte genau einmal) und geprüft:
-- **72 neue Tests grün** (40 rein, 6 Store, 26 Koordinator); black und ruff sauber.
-- **Volle Suite:** 7 failed / 3690 passed / 9 skipped / 415 errors. Die FAILED/ERROR-Namen (422) sind per `diff`
-  identisch mit der Baseline auf `e9c79ec4`, und 3618 + 72 = 3690.
-- **16/16 Mutationen getötet**, jede von dem in Task 14 genannten Test.
-- **Zwei Befunde, beide eingearbeitet:** (1) bedingungsloser Registry-Aufruf machte 11 Mock-`hass`-Tests rot
-  (Task 9, *Probelauf-Befunde*); (2) Gerätetausch ließ Ausfälle ohne End-Event enden (User-Anforderung; Tasks 5, 9,
-  11, 12, 13).
-- Der getestete Endstand liegt als Patch vor: `D:\Entwicklung\HASI\issue8-work\probe-2026-10-03.patch` (17 Dateien,
-  +1622/−5). **Weicht ein Snippet dieses Plans vom Patch ab, gilt der Patch** (er ist der getestete Stand); die
-  Abweichung dann im Plan berichtigen. Probe-Skripte daneben (`probe_apply.py`, `probe_fix1.py`, `probe_fix2.py`,
-  `probe_mutate.py`).
+**Freigabe:** Spec Revision 2 und dieser Plan vom User freigegeben am 2026-10-04; Live-Test-Mittel Variante 1
+(MQTT-YAML unter eigenem Topic-Präfix, Task 15).
+
+**Revision 2 (2026-10-04)** gegenüber dem am 2026-10-03 freigegebenen Plan (Archiv `archive/design-history`
+`1c197e36`):
+- PR 1 wird allein ausgeliefert; die Liefer-Regel „Teil 1 nie allein“ entfällt. Deshalb verspricht kein Text mehr einen
+  Schnitt: Konstanten-Kommentar (Task 1), Modul-Docstring (Task 2), Log-Warnung (Task 9), Hinweistext (Task 12).
+- JustChrs drei Hinweis-Tests in `tests/test_sensor_liveness_repair.py`, gegen echten Store und echte Issue-Registry
+  (Tasks 9, 10, 11).
+- Doku-Abschnitt „When a sensor goes silent“ mit dem 6-h-Satz (Task 13).
+- Neue Testdateien black-formatiert (Snippets in Tasks 1, 5, 9 und 11 angepasst).
+- Mutationen 17–20 (Task 14); neu: Pre-Release und Live-Test auf HA-Test (Task 15), PR und Nachlauf (Task 16).
+
+**Probelauf (2026-10-04, gegen `e9c79ec4`):** der getestete Stand vom 2026-10-03
+(`D:\Entwicklung\HASI\issue8-work\probe-2026-10-03.patch`), darauf die Revision-2-Änderungen per Skript
+(`probe_rev2.py`; jeder Anker passte genau einmal) und die neue Testdatei; geprüft in einem Wegwerf-Worktree:
+- **75 neue Tests grün** (40 rein, 6 Store, 26 Koordinator, 3 Hinweis-Tests gegen die echte Registry); black und ruff
+  sauber auf `custom_components/irrigation_plus/`, die vier Testdateien black-sauber; `test_i18n_completeness` 67 grün.
+- **Volle Suite:** 7 failed / 3693 passed / 9 skipped / 415 errors gegen die frisch gemessene Baseline 7 / 3618 / 9 / 415
+  (identisch mit der Baseline von `issue9-work` auf demselben Commit). Die 422 FAILED/ERROR-Namen sind per `diff`
+  identisch, und 3618 + 75 = 3693.
+- **20/20 Mutationen getötet** (`probe_mutate2.py`, jede gegen alle vier Testdateien, Ergebnis `mutate-1004.txt`); die
+  Killer stehen in Task 14.
+- Der Probelauf vom 2026-10-03 (72 Tests, 16/16 Mutationen, zwei eingearbeitete Befunde) bleibt im Archiv beschrieben.
+- Der getestete Endstand liegt als Patch vor: `D:\Entwicklung\HASI\issue8-work\probe-2026-10-04.patch` (19 Dateien,
+  +1769/−5). **Weicht ein Snippet dieses Plans vom Patch ab, gilt der Patch** (er ist der getestete Stand); die
+  Abweichung dann im Plan berichtigen.
 
 ---
 
 ## Rahmen
 
-- **Nicht in diesem Plan:** der Schnitt in der Rechnung (Design 1 oder 2, JustChr wählt), der Satz in der
-  Berechnungs-Erklärung, der Doku-Abschnitt „Wenn ein Sensor schweigt“. Das ist Plan Teil 2, geschrieben nach
-  JustChrs Antwort.
-- **Liefer-Regel:** Teil 1 **nie allein ausliefern.** Der Hinweistext sagt „nothing is booked for that time“;
-  das stimmt erst mit Teil 2. PR an JustChr und production bekommen Teil 1 + Teil 2 zusammen. Gebaut wird
-  erst nach seiner Antwort; ändert er die Pause-Regel, ändern sich die Hinweistexte in Task 12.
+- **Dieser Plan ist PR 1 von dreien** (Spec Revision 2): Erkennung, Ausfall-Liste, Reparaturhinweis, Event, Doku —
+  **ohne Verhaltensänderung**. Keine Rechnung liest die Ausfall-Liste, und kein Text verspricht einen Schnitt; der
+  Hinweis sagt, dass die zuletzt gemeldeten Werte weiter verwendet werden.
+- **Nicht in diesem Plan:** die Einstellung „pausieren / letzten Wert behalten“ und der Schnitt im Tagespfad samt Satz
+  in der Berechnungs-Erklärung (PR 2), der Schnitt im Stundenpfad und in der Live-Schätzung (PR 3). Beide bekommen
+  eigene Pläne; PR 2 wird erst nach dem Feldtest dieses PRs gepostet (JustChrs Bedingung).
+- **Liefer-Reihenfolge:** Tasks 0–14 im Worktree → Task 15 production-Pre-Release und Live-Test auf HA-Test → Task 16
+  PR an JustChr und Nachlauf. Alles, was nach außen geht (Push, Release, PR, Kommentare, Issue-Änderungen), nur nach
+  Freigabe im Chat; Texte vorher zeigen, deutsch, dann englisch.
 - **Basis:** Alle Zeilenangaben beziehen sich auf `upstream/master` = `e9c79ec4`. Hat sich `master` beim Bau
   bewegt, vor Task 1 jede Anker-Stelle per `grep -n` neu suchen (die Anker sind zitiert).
 - **Keine Verweise auf unsere Issues** in Code, Kommentaren, Commit-Messages (Memory
@@ -51,7 +70,8 @@ Planung*). Upstream-Vorschlag: `JustChr#188`.
 - **Uhr:** Jeder Stempel liegt im Rahmen des Puffers: HAs Uhr, naiv (`local_naive_now`). Zustands-Stempel
   (`last_reported`, `last_changed`) sind aware UTC und werden mit `dt_util.as_local(...).replace(tzinfo=None)`
   umgerechnet. In den Tests ist HAs Zone US/Pacific (autouse `hass`-Fixture), die Prozesszone per `TZ=UTC`
-  UTC: Ein vergessenes `as_local` fällt dadurch auf (Task 8).
+  UTC: Ein vergessenes `as_local` fällt dadurch auf (Task 8). JustChrs drei Hinweis-Tests laufen mit dem
+  `freezer`-Fixture: `local_naive_now()` liest `dt_util.now()` und folgt ihm, ebenso die Zustands-Stempel.
 
 ## Dateien
 
@@ -63,10 +83,12 @@ Planung*). Upstream-Vorschlag: `JustChr#188`.
 | `custom_components/irrigation_plus/__init__.py` | Mixin in die Basen, Setup/Unload, Quellwechsel und Löschen |
 | `custom_components/irrigation_plus/calculation.py` | „Wetterdaten zurücksetzen“ leert die Liste; Docstring von `_prune_mapping_buffer` |
 | `custom_components/irrigation_plus/translations/*.json` (8) | Reparaturhinweis `weather_sensor_stale` |
+| `docs/configuration-sensor-groups.md` | Abschnitt „When a sensor goes silent“ (mit dem 6-h-Satz) |
 | `docs/usage-events.md` | Event `irrigation_plus_weather_stale` |
 | neu: `tests/test_sensor_liveness.py` | reine Regeln, Übersetzungen |
 | neu: `tests/test_sensor_liveness_store.py` | echter Store (Laden, Speichern, Teilen) |
 | neu: `tests/test_sensor_liveness_coordinator.py` | Kleber mit Mock-`hass`, echte Registry, Verdrahtung |
+| neu: `tests/test_sensor_liveness_repair.py` | JustChrs drei Hinweis-Tests: echter Store, echte Issue-Registry, eingefrorene Uhr |
 
 ---
 
@@ -119,7 +141,9 @@ from custom_components.irrigation_plus.calculation import BUFFER_RETENTION
 def test_closed_outages_are_kept_as_long_as_the_buffer_keeps_rows():
     """A window cannot reach back further than the reading buffer keeps rows, so an
     outage that ended before that can no longer touch any calculation."""
-    assert const.SENSOR_OUTAGE_RETENTION_DAYS * 86400 == BUFFER_RETENTION.total_seconds()
+    assert (
+        const.SENSOR_OUTAGE_RETENTION_DAYS * 86400 == BUFFER_RETENTION.total_seconds()
+    )
 ```
 
 - [ ] **Step 2: Test laufen lassen, RED prüfen**
@@ -131,10 +155,11 @@ Expected: FAIL mit `AttributeError: module 'custom_components.irrigation_plus.co
 
 ```python
 # --- Weather-sensor liveness (#188) -------------------------------------------
-# A sensor field whose HA device has not reported for this long counts as dead:
-# its outage is recorded on the sensor group and the user is told. Long enough
-# for an HA restart, a cloud integration's polling interval and a quiet night on
-# an integration that writes only on change.
+# A sensor field whose HA device has not reported for this long counts as
+# silent: its outage is recorded on the sensor group and the user is told. Long
+# enough for an HA restart and a quiet night on an integration that writes only
+# on change. Fixed: an integration that updates less often than this raises the
+# notice between its updates, which docs/configuration-sensor-groups.md says.
 SENSOR_STALE_AFTER_SECONDS = 3 * 3600
 # How often the check runs, and how long it waits after setup so that
 # integrations have created their entities first.
@@ -170,10 +195,11 @@ git add custom_components/irrigation_plus/const.py tests/test_sensor_liveness.py
 git commit -F - <<'EOF'
 feat(liveness): constants for weather-sensor outages
 
-The limit after which a silent sensor counts as dead (3 h), the check cadence,
-the startup grace, the retention of closed outages (the reading buffer's 7 days,
-pinned by a test), the exempt helper domain, the sensor-group keys, the repair
-issue key and the bus event name.
+The limit after which a silent sensor is reported (3 h, fixed; an integration
+that updates less often raises the notice between its updates), the check
+cadence, the startup grace, the retention of closed outages (the reading
+buffer's 7 days, pinned by a test), the exempt helper domain, the sensor-group
+keys, the repair issue key and the bus event name.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
@@ -241,8 +267,8 @@ sensor's HA *device* -- at a living station some value reports or changes within
 longer than that on the sensor group, and tells the user: a repair issue per group
 while an outage is open, and a bus event when one starts and when it ends (#188).
 
-Cutting an outage out of the calculation is not done here; the aggregation reads the
-ledger this module writes.
+Nothing here changes a calculation: a silent sensor's last value is still used, as
+before. The ledger records when it fell silent and the notice tells the user.
 
 The rules are pure functions, testable without Home Assistant; the
 ``SensorLivenessMixin`` at the end is the coordinator glue.
@@ -630,7 +656,9 @@ class TestAdvanceOutages:
             edge - timedelta(hours=5),
             edge - timedelta(seconds=1),
         )
-        kept = Outage("sensor.b", None, ("Temperature",), edge - timedelta(hours=5), edge)
+        kept = Outage(
+            "sensor.b", None, ("Temperature",), edge - timedelta(hours=5), edge
+        )
         still_open = Outage("sensor.c", None, ("Temperature",), T0 - timedelta(days=30))
         evidence = {"sensor.c": _evidence(T0 - timedelta(days=30), device=None)}
         outages, _, _ = advance_outages([old, kept, still_open], evidence, T0)
@@ -1387,8 +1415,12 @@ class TestTheCheck:
             {
                 # Restored as unavailable at the restart; its device's battery
                 # entity reports again, which must not vouch for the dead one.
-                "sensor.temp": _state("sensor.temp", "unavailable", T0 - timedelta(minutes=2)),
-                "sensor.battery": _state("sensor.battery", "80", T0 - timedelta(minutes=1)),
+                "sensor.temp": _state(
+                    "sensor.temp", "unavailable", T0 - timedelta(minutes=2)
+                ),
+                "sensor.battery": _state(
+                    "sensor.battery", "80", T0 - timedelta(minutes=1)
+                ),
             },
             {"dev1": ["sensor.temp", "sensor.battery"]},
         )
@@ -1572,7 +1604,98 @@ class TestAReplacedDevice:
 Die ersten zwei dieser Tests sind Charakterisierungen: Sie waren im Probelauf schon vor jeder Änderung grün und halten
 fest, dass der Entwurf die Fälle trägt; der dritte braucht den Zweig aus Task 5.
 
-- [ ] **Step 2: RED prüfen** — Expected: `AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_check_sensor_liveness'`
+Dazu JustChrs erster Hinweis-Test (`JustChr#188`: „the repair issue clearing on recovery“), in einer eigenen Datei
+gegen den **echten** Store und die **echte** Issue-Registry von Home Assistant; die Uhr steht im `freezer`-Fixture
+(`local_naive_now()` liest `dt_util.now()` und folgt ihm). Neue Datei `tests/test_sensor_liveness_repair.py`:
+
+```python
+"""The repair issue of a silent weather sensor, in Home Assistant's own issue
+registry and over the integration's real store (#188): it clears when the sensor
+reports again, it survives a restart in the middle of an outage, and it goes when
+its sensor group is deleted."""
+
+from datetime import timedelta
+
+from homeassistant.core import callback
+from homeassistant.helpers import issue_registry as ir
+
+from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
+from custom_components.irrigation_plus.store import SmartIrrigationStorage
+
+ENTITY = "sensor.station_temperature"
+EVENT = f"{const.DOMAIN}_{const.EVENT_WEATHER_STALE}"
+# One minute past the limit: the outage opens at the next check.
+SILENCE = timedelta(seconds=const.SENSOR_STALE_AFTER_SECONDS + 60)
+
+
+def _coordinator_over(hass, store):
+    coord = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
+    coord.hass = hass
+    coord.store = store
+    return coord
+
+
+async def _garden(hass):
+    """A coordinator over a fresh real store with one sensor group reading ENTITY."""
+    store = SmartIrrigationStorage(hass)
+    await store.async_load()
+    group = await store.async_create_mapping(
+        {
+            const.MAPPING_NAME: "Garden",
+            const.MAPPING_MAPPINGS: {
+                const.MAPPING_TEMPERATURE: {
+                    const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                    const.MAPPING_CONF_SENSOR: ENTITY,
+                }
+            },
+        }
+    )
+    return _coordinator_over(hass, store), group[const.MAPPING_ID]
+
+
+def _notice(hass, mapping_id):
+    """The group's repair issue as Home Assistant shows it, or None."""
+    issue = ir.async_get(hass).async_get_issue(
+        const.DOMAIN, f"{const.ISSUE_WEATHER_SENSOR_STALE}_{mapping_id}"
+    )
+    return issue if issue is not None and issue.active else None
+
+
+def _listen(hass):
+    """Every irrigation_plus_weather_stale event, as (entity_id, stale)."""
+    heard = []
+
+    @callback
+    def _on(event):
+        heard.append((event.data["entity_id"], event.data["stale"]))
+
+    hass.bus.async_listen(EVENT, _on)
+    return heard
+
+
+async def _silent_past_the_limit(hass, freezer, coord):
+    """ENTITY reports once, then nothing for longer than the limit; one check."""
+    hass.states.async_set(ENTITY, "21.5")
+    freezer.tick(SILENCE)
+    await coord.async_check_sensor_liveness()
+
+
+async def test_the_notice_clears_when_the_sensor_reports_again(hass, freezer):
+    coord, mapping_id = await _garden(hass)
+    heard = _listen(hass)
+    await _silent_past_the_limit(hass, freezer, coord)
+    assert _notice(hass, mapping_id) is not None
+
+    hass.states.async_set(ENTITY, "18.0")
+    await coord.async_check_sensor_liveness()
+    await hass.async_block_till_done()
+
+    assert _notice(hass, mapping_id) is None
+    assert heard == [(ENTITY, True), (ENTITY, False)]
+```
+
+- [ ] **Step 2: RED prüfen** — Expected: `AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_check_sensor_liveness'`,
+in beiden Dateien (`tests/test_sensor_liveness_coordinator.py`, `tests/test_sensor_liveness_repair.py`)
 
 - [ ] **Step 3: Implementieren**
 
@@ -1642,13 +1765,12 @@ class SensorLivenessMixin:
             )
         for outage in opened:
             _LOGGER.warning(
-                "Sensor group %s: %s (%s) has not reported since %s; its readings "
-                "count only until %s hours after that",
+                "Sensor group %s: %s (%s) has not reported since %s; its last "
+                "value is still used",
                 name,
                 outage.entity_id,
                 ", ".join(outage.fields),
                 outage.start,
-                const.SENSOR_STALE_AFTER_SECONDS // 3600,
             )
             self._fire_weather_stale(mapping_id, name, outage)
         for outage in closed:
@@ -1745,12 +1867,13 @@ und in den Basen von `SmartIrrigationCoordinator` direkt nach `ContinuousUpdateM
     SensorLivenessMixin,
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `17 passed` in `tests/test_sensor_liveness_coordinator.py`
+- [ ] **Step 4: GREEN prüfen** — Expected: `17 passed` in `tests/test_sensor_liveness_coordinator.py`, `1 passed` in
+`tests/test_sensor_liveness_repair.py`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add custom_components/irrigation_plus/sensor_liveness.py custom_components/irrigation_plus/__init__.py tests/test_sensor_liveness_coordinator.py
+git add custom_components/irrigation_plus/sensor_liveness.py custom_components/irrigation_plus/__init__.py tests/test_sensor_liveness_coordinator.py tests/test_sensor_liveness_repair.py
 git commit -F - <<'EOF'
 feat(liveness): the coordinator checks each sensor group's sensors
 
@@ -1847,7 +1970,49 @@ def test_setup_arms_the_check_and_unload_disarms_it():
     assert "async_teardown_sensor_liveness" in _attribute_calls_in("async_unload")
 ```
 
-- [ ] **Step 2: RED prüfen** — Expected: `AttributeError: … 'async_setup_sensor_liveness'` bzw. die AST-Assertion schlägt fehl
+Dazu JustChrs zweiter Hinweis-Test („surviving a restart in the middle of an outage“), angehängt an
+`tests/test_sensor_liveness_repair.py`. Der Neustart wird so nachgestellt, wie Home Assistant ihn erlebt: Ein nicht
+dauerhafter Hinweis kommt nicht von selbst zurück, die Entität steht danach auf `unavailable`, und ein neuer Store
+liest, was der alte geschrieben hat.
+
+```python
+async def test_the_notice_survives_a_restart_in_the_middle_of_an_outage(hass, freezer):
+    coord, mapping_id = await _garden(hass)
+    await _silent_past_the_limit(hass, freezer, coord)
+    since = _notice(hass, mapping_id).translation_placeholders["since"]
+    await coord.store.async_save()
+
+    # The restart. Home Assistant does not put a non-persistent issue back on
+    # screen by itself, the station's entity comes back unavailable, and a new
+    # store reads what the old one wrote.
+    ir.async_delete_issue(
+        hass, const.DOMAIN, f"{const.ISSUE_WEATHER_SENSOR_STALE}_{mapping_id}"
+    )
+    hass.states.async_set(ENTITY, "unavailable")
+    store = SmartIrrigationStorage(hass)
+    await store.async_load()
+    after = _coordinator_over(hass, store)
+
+    await after.async_setup_sensor_liveness()
+    try:
+        notice = _notice(hass, mapping_id)
+        assert notice is not None
+        assert notice.translation_placeholders["since"] == since
+        # Still silent at the first check after the grace: same outage, same start.
+        freezer.tick(timedelta(seconds=const.SENSOR_LIVENESS_STARTUP_GRACE_SECONDS))
+        await after.async_check_sensor_liveness()
+        notice = _notice(hass, mapping_id)
+        assert notice is not None
+        assert notice.translation_placeholders["since"] == since
+    finally:
+        after.async_teardown_sensor_liveness()
+```
+
+`async_teardown_sensor_liveness` im `finally`: Der Test arbeitet mit dem echten `hass`, und ein stehengebliebener
+Intervall-Timer würde die Aufräumprüfung des Fixtures rot machen.
+
+- [ ] **Step 2: RED prüfen** — Expected: `AttributeError: … 'async_setup_sensor_liveness'` (auch im neuen Hinweis-Test)
+bzw. die AST-Assertion schlägt fehl
 
 - [ ] **Step 3: Implementieren**
 
@@ -1910,12 +2075,13 @@ In `__init__.py`, `async_unload`, nach `self.async_teardown_continuous_updates()
         self.async_teardown_sensor_liveness()
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `21 passed`
+- [ ] **Step 4: GREEN prüfen** — Expected: `21 passed` in `tests/test_sensor_liveness_coordinator.py`, `2 passed` in
+`tests/test_sensor_liveness_repair.py`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add custom_components/irrigation_plus/sensor_liveness.py custom_components/irrigation_plus/__init__.py tests/test_sensor_liveness_coordinator.py
+git add custom_components/irrigation_plus/sensor_liveness.py custom_components/irrigation_plus/__init__.py tests/test_sensor_liveness_coordinator.py tests/test_sensor_liveness_repair.py
 git commit -F - <<'EOF'
 feat(liveness): run the check every five minutes, after a startup grace
 
@@ -2064,7 +2230,8 @@ class TestTheLedgerFollowsTheConfiguration:
         coord.clear_continuous_deadband_state = Mock()
         coord.invalidate_live_estimate_carry = Mock()
         monkeypatch.setattr(
-            "custom_components.irrigation_plus.calculation.async_dispatcher_send", Mock()
+            "custom_components.irrigation_plus.calculation.async_dispatcher_send",
+            Mock(),
         )
 
         await coord._async_clear_all_weatherdata()
@@ -2075,9 +2242,28 @@ class TestTheLedgerFollowsTheConfiguration:
         assert [(a[0], a[1]["stale"]) for a in _events(coord)] == [(EVENT, False)]
 ```
 
+Dazu JustChrs dritter Hinweis-Test („being removed when the group is deleted“), angehängt an
+`tests/test_sensor_liveness_repair.py`:
+
+```python
+async def test_the_notice_goes_when_its_sensor_group_is_deleted(hass, freezer):
+    coord, mapping_id = await _garden(hass)
+    heard = _listen(hass)
+    await _silent_past_the_limit(hass, freezer, coord)
+    assert _notice(hass, mapping_id) is not None
+
+    await coord.async_update_mapping_config(mapping_id, {const.ATTR_REMOVE: True})
+    await hass.async_block_till_done()
+
+    assert coord.store.get_mapping(mapping_id) is None
+    assert _notice(hass, mapping_id) is None
+    assert heard == [(ENTITY, True), (ENTITY, False)]
+```
+
 - [ ] **Step 2: RED prüfen** — Expected: 3 FAIL (`KeyError: 'sensor_outages'` in den `call_args`, Hinweis noch offen);
 `test_a_group_without_an_open_outage_…` und `test_a_rename_keeps_…` PASS (schon vor der Änderung wahr; sie halten
-die Abgrenzung fest und werden rot, wenn die Prüfung auf offene Ausfälle verloren geht)
+die Abgrenzung fest und werden rot, wenn die Prüfung auf offene Ausfälle verloren geht). Im Hinweis-Test FAIL
+`test_the_notice_goes_when_its_sensor_group_is_deleted` (Hinweis noch offen, kein End-Event).
 
 - [ ] **Step 3: Implementieren**
 
@@ -2139,14 +2325,15 @@ dem Zurücksetzen):
             self._retire_outages(mapping)
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `26 passed`; zusätzlich unverändert grün (die Tests mit Mock-`hass`, an
-denen der Probelauf den Fehler fand):
+- [ ] **Step 4: GREEN prüfen** — Expected: `26 passed` in `tests/test_sensor_liveness_coordinator.py`, `3 passed` in
+`tests/test_sensor_liveness_repair.py`; zusätzlich unverändert grün (die Tests mit Mock-`hass`, an denen der Probelauf
+den Fehler fand):
 `TZ=UTC … -m pytest tests/test_mapping_source_change.py tests/test_continuous_update.py tests/test_clear_all_weatherdata.py tests/test_clear_weatherdata_resets_deadband.py -p _local_socket_unblock -q`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add custom_components/irrigation_plus/__init__.py custom_components/irrigation_plus/calculation.py tests/test_sensor_liveness_coordinator.py
+git add custom_components/irrigation_plus/__init__.py custom_components/irrigation_plus/calculation.py tests/test_sensor_liveness_coordinator.py tests/test_sensor_liveness_repair.py
 git commit -F - <<'EOF'
 feat(liveness): the ledger follows source changes, deletion and reset
 
@@ -2202,7 +2389,7 @@ gültiges JSON):
 ```json
     "weather_sensor_stale": {
       "title": "A weather sensor of {group} has stopped reporting",
-      "description": "Irrigation Plus has not heard from {entities} since {since}. After three hours of silence its readings are no longer used and nothing is booked for that time, so zones depending on it water less or not at all until it reports again.\n\nCheck the device and its integration. If you replaced the device, select its new entities in the sensor group. If the value is meant to be fixed, use the \"Static value\" source instead.\n\nThis notice clears itself when the sensor reports again."
+      "description": "Irrigation Plus has not heard from {entities} since {since}. The last reported values are still used as if they were current, so zones that depend on them are calculated with those values until new ones arrive.\n\nCheck the device and its integration. If you replaced the device, select its new entities in the sensor group. If the value is meant to be fixed, use the \"Static value\" source instead. If the integration only updates every few hours, this notice appears between its updates and does not mean the sensor has failed.\n\nThis notice clears itself when the sensor reports again."
     },
 ```
 
@@ -2210,7 +2397,7 @@ gültiges JSON):
 ```json
     "weather_sensor_stale": {
       "title": "Ein Wettersensor von {group} meldet nicht mehr",
-      "description": "Irrigation Plus hat seit {since} nichts mehr von {entities} gehört. Nach drei Stunden Stille werden seine Werte nicht mehr verwendet, und für diese Zeit wird nichts gebucht. Zonen, die davon abhängen, wässern deshalb weniger oder gar nicht, bis er wieder meldet.\n\nPrüfe das Gerät und seine Integration. Hast du das Gerät ersetzt, wähle seine neuen Entitäten in der Sensorgruppe. Soll der Wert fest sein, nutze stattdessen die Quelle „Fester Wert“.\n\nDieser Hinweis verschwindet von selbst, sobald der Sensor wieder meldet."
+      "description": "Irrigation Plus hat seit {since} nichts mehr von {entities} gehört. Die zuletzt gemeldeten Werte werden weiter verwendet, als wären sie aktuell; Zonen, die davon abhängen, werden damit berechnet, bis wieder Werte kommen.\n\nPrüfe das Gerät und seine Integration. Hast du das Gerät ersetzt, wähle seine neuen Entitäten in der Sensorgruppe. Soll der Wert fest sein, nutze stattdessen die Quelle „Fester Wert“. Aktualisiert die Integration nur alle paar Stunden, erscheint dieser Hinweis zwischen ihren Updates und bedeutet keinen Ausfall.\n\nDieser Hinweis verschwindet von selbst, sobald der Sensor wieder meldet."
     },
 ```
 
@@ -2218,7 +2405,7 @@ gültiges JSON):
 ```json
     "weather_sensor_stale": {
       "title": "Un sensor meteorológico de {group} ha dejado de informar",
-      "description": "Irrigation Plus no tiene noticias de {entities} desde {since}. Tras tres horas de silencio sus lecturas dejan de usarse y no se contabiliza nada para ese tiempo, así que las zonas que dependen de él riegan menos o nada hasta que vuelva a informar.\n\nRevisa el dispositivo y su integración. Si has sustituido el dispositivo, selecciona sus nuevas entidades en el grupo de sensores. Si el valor debe ser fijo, usa en su lugar la fuente «Valor estático».\n\nEste aviso desaparece solo cuando el sensor vuelve a informar."
+      "description": "Irrigation Plus no tiene noticias de {entities} desde {since}. Los últimos valores recibidos se siguen usando como si fueran actuales, así que las zonas que dependen de ellos se calculan con esos valores hasta que lleguen otros nuevos.\n\nRevisa el dispositivo y su integración. Si has sustituido el dispositivo, selecciona sus nuevas entidades en el grupo de sensores. Si el valor debe ser fijo, usa en su lugar la fuente «Valor estático». Si la integración solo se actualiza cada pocas horas, este aviso aparece entre sus actualizaciones y no significa que el sensor haya fallado.\n\nEste aviso desaparece solo cuando el sensor vuelve a informar."
     },
 ```
 
@@ -2226,7 +2413,7 @@ gültiges JSON):
 ```json
     "weather_sensor_stale": {
       "title": "Un capteur météo de {group} n’envoie plus de mesures",
-      "description": "Irrigation Plus n’a plus de nouvelles de {entities} depuis {since}. Après trois heures de silence, ses mesures ne sont plus utilisées et rien n’est comptabilisé pour cette période : les zones qui en dépendent arrosent moins, voire plus du tout, jusqu’à ce qu’il envoie de nouveau des mesures.\n\nVérifiez l’appareil et son intégration. Si vous avez remplacé l’appareil, sélectionnez ses nouvelles entités dans le groupe de capteurs. Si la valeur doit rester fixe, utilisez plutôt la source « Valeur statique ».\n\nCet avis disparaît de lui-même dès que le capteur envoie de nouveau des mesures."
+      "description": "Irrigation Plus n’a plus de nouvelles de {entities} depuis {since}. Les dernières valeurs reçues restent utilisées comme si elles étaient actuelles : les zones qui en dépendent sont calculées avec ces valeurs jusqu’à l’arrivée de nouvelles mesures.\n\nVérifiez l’appareil et son intégration. Si vous avez remplacé l’appareil, sélectionnez ses nouvelles entités dans le groupe de capteurs. Si la valeur doit rester fixe, utilisez plutôt la source « Valeur statique ». Si l’intégration ne se met à jour qu’à quelques heures d’intervalle, cet avis apparaît entre ses mises à jour et ne signifie pas que le capteur est en panne.\n\nCet avis disparaît de lui-même dès que le capteur envoie de nouveau des mesures."
     },
 ```
 
@@ -2234,7 +2421,7 @@ gültiges JSON):
 ```json
     "weather_sensor_stale": {
       "title": "Un sensore meteo di {group} ha smesso di inviare dati",
-      "description": "Irrigation Plus non riceve notizie da {entities} dal {since}. Dopo tre ore di silenzio le sue letture non vengono più usate e per quel periodo non viene contabilizzato nulla, quindi le zone che ne dipendono irrigano meno o per niente finché non torna a inviare dati.\n\nControlla il dispositivo e la sua integrazione. Se hai sostituito il dispositivo, seleziona le sue nuove entità nel gruppo di sensori. Se il valore deve restare fisso, usa invece la sorgente «Valore statico».\n\nQuesto avviso scompare da solo quando il sensore torna a inviare dati."
+      "description": "Irrigation Plus non riceve notizie da {entities} dal {since}. Gli ultimi valori ricevuti continuano a essere usati come se fossero attuali, quindi le zone che ne dipendono vengono calcolate con questi valori finché non ne arrivano di nuovi.\n\nControlla il dispositivo e la sua integrazione. Se hai sostituito il dispositivo, seleziona le sue nuove entità nel gruppo di sensori. Se il valore deve restare fisso, usa invece la sorgente «Valore statico». Se l’integrazione si aggiorna solo ogni poche ore, questo avviso compare tra un aggiornamento e l’altro e non significa che il sensore sia guasto.\n\nQuesto avviso scompare da solo quando il sensore torna a inviare dati."
     },
 ```
 
@@ -2242,7 +2429,7 @@ gültiges JSON):
 ```json
     "weather_sensor_stale": {
       "title": "Een weersensor van {group} meldt niets meer",
-      "description": "Irrigation Plus heeft sinds {since} niets meer van {entities} gehoord. Na drie uur stilte worden de metingen niet meer gebruikt en wordt er voor die tijd niets geboekt, dus zones die ervan afhangen geven minder of helemaal geen water tot hij weer meldt.\n\nControleer het apparaat en de integratie ervan. Heb je het apparaat vervangen, kies dan de nieuwe entiteiten ervan in de sensorgroep. Moet de waarde vast zijn, gebruik dan de bron ‘Vaste waarde’.\n\nDeze melding verdwijnt vanzelf zodra de sensor weer meldt."
+      "description": "Irrigation Plus heeft sinds {since} niets meer van {entities} gehoord. De laatst gemelde waarden worden nog steeds gebruikt alsof ze actueel zijn, dus zones die ervan afhangen worden met die waarden berekend tot er nieuwe binnenkomen.\n\nControleer het apparaat en de integratie ervan. Heb je het apparaat vervangen, kies dan de nieuwe entiteiten ervan in de sensorgroep. Moet de waarde vast zijn, gebruik dan de bron ‘Vaste waarde’. Werkt de integratie maar om de paar uur bij, dan verschijnt deze melding tussen haar updates en betekent ze niet dat de sensor defect is.\n\nDeze melding verdwijnt vanzelf zodra de sensor weer meldt."
     },
 ```
 
@@ -2250,7 +2437,7 @@ gültiges JSON):
 ```json
     "weather_sensor_stale": {
       "title": "En værsensor i {group} har sluttet å rapportere",
-      "description": "Irrigation Plus har ikke hørt fra {entities} siden {since}. Etter tre timer uten signal brukes ikke målingene lenger, og ingenting bokføres for den tiden, så soner som er avhengige av den vanner mindre eller ikke i det hele tatt til den rapporterer igjen.\n\nSjekk enheten og integrasjonen. Har du byttet ut enheten, velg de nye entitetene i sensorgruppen. Hvis verdien skal være fast, bruk heller kilden «Statisk verdi».\n\nDenne meldingen forsvinner av seg selv når sensoren rapporterer igjen."
+      "description": "Irrigation Plus har ikke hørt fra {entities} siden {since}. De sist rapporterte verdiene brukes fortsatt som om de var aktuelle, så soner som er avhengige av dem, beregnes med disse verdiene til nye kommer inn.\n\nSjekk enheten og integrasjonen. Har du byttet ut enheten, velg de nye entitetene i sensorgruppen. Hvis verdien skal være fast, bruk heller kilden «Statisk verdi». Oppdateres integrasjonen bare med noen timers mellomrom, vises denne meldingen mellom oppdateringene og betyr ikke at sensoren har sviktet.\n\nDenne meldingen forsvinner av seg selv når sensoren rapporterer igjen."
     },
 ```
 
@@ -2258,7 +2445,7 @@ gültiges JSON):
 ```json
     "weather_sensor_stale": {
       "title": "Meteorologický senzor skupiny {group} prestal hlásiť hodnoty",
-      "description": "Irrigation Plus od {since} nedostal nič od {entities}. Po troch hodinách ticha sa jeho hodnoty prestanú používať a za tento čas sa nič nezapočíta, takže zóny, ktoré od neho závisia, zavlažujú menej alebo vôbec, kým sa znova neozve.\n\nSkontroluj zariadenie a jeho integráciu. Ak si zariadenie vymenil, vyber jeho nové entity v skupine senzorov. Ak má byť hodnota pevná, použi namiesto toho zdroj „Statická hodnota“.\n\nToto upozornenie zmizne samo, keď senzor znova začne hlásiť hodnoty."
+      "description": "Irrigation Plus od {since} nedostal nič od {entities}. Naposledy nahlásené hodnoty sa naďalej používajú, akoby boli aktuálne, takže zóny, ktoré od nich závisia, sa počítajú s týmito hodnotami, kým neprídu nové.\n\nSkontroluj zariadenie a jeho integráciu. Ak si zariadenie vymenil, vyber jeho nové entity v skupine senzorov. Ak má byť hodnota pevná, použi namiesto toho zdroj „Statická hodnota“. Ak sa integrácia aktualizuje len raz za niekoľko hodín, toto upozornenie sa zobrazuje medzi jej aktualizáciami a neznamená poruchu senzora.\n\nToto upozornenie zmizne samo, keď senzor znova začne hlásiť hodnoty."
     },
 ```
 
@@ -2279,10 +2466,10 @@ git commit -F - <<'EOF'
 feat(liveness): the repair notice in all eight languages
 
 Names the group, the silent entities with their fields and since when; says that
-the readings stop counting after three hours and the zones water less or not at
-all; points at the device, its integration, the sensor group for a replaced
-device and the "Static value" source; clears itself when the sensor reports
-again.
+the last reported values are still used as if they were current; points at the
+device, its integration, the sensor group for a replaced device and the "Static
+value" source; says that an integration updating only every few hours raises it
+between its updates; clears itself when the sensor reports again.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
@@ -2290,20 +2477,37 @@ EOF
 
 ---
 
-### Task 13: Event-Doku und Docstring
+### Task 13: Doku-Abschnitt, Event-Doku und Docstring
 
 **Files:**
-- Modify: `docs/usage-events.md` (Tabelle, nach der Zeile `irrigation_plus_zone_problem`, `docs/usage-events.md:20`), `custom_components/irrigation_plus/calculation.py` (Docstring `_prune_mapping_buffer`, `calculation.py:432-446`)
+- Modify: `docs/configuration-sensor-groups.md` (neuer Abschnitt vor `## Deleting a sensor group`, `docs/configuration-sensor-groups.md:54`), `docs/usage-events.md` (Tabelle, nach der Zeile `irrigation_plus_zone_problem`, `docs/usage-events.md:20`), `custom_components/irrigation_plus/calculation.py` (Docstring `_prune_mapping_buffer`, `calculation.py:432-446`)
 
 Keine Verhaltensänderung, daher kein neuer Test; geprüft wird per Lesen und durch die volle Suite in Task 14.
 
-- [ ] **Step 1: Event-Zeile einfügen** (nach der `zone_problem`-Zeile)
+- [ ] **Step 1: Abschnitt „When a sensor goes silent“** (JustChr: der Fehlalarm bei einer 6-h-Cloud-Abfrage gehört in
+die Doku) — in `docs/configuration-sensor-groups.md` direkt vor der Zeile `## Deleting a sensor group` einfügen,
+gefolgt von einer Leerzeile:
+
+```markdown
+## When a sensor goes silent
+Irrigation Plus checks every five minutes whether the sensors of a sensor group still report. What counts is a sensor's Home Assistant device: as long as any entity of that device reports, a value that merely stays the same, such as a rain gauge on a dry day, counts as alive. A sensor without a device counts for itself. A sensor whose state is `unavailable` or `unknown` counts as silent whatever its device does. Values from an `input_number` helper never count as silent.
+
+Once a sensor has not reported for three hours, Irrigation Plus shows a repair notice for its sensor group and fires the `irrigation_plus_weather_stale` event (see [Events](usage-events.md)). When the sensor reports again, the notice clears itself and a second event marks the end. Meanwhile the calculation keeps using the sensor's last value.
+
+The three hours are fixed. An integration that updates less often, such as a cloud service polled every six hours, therefore raises the notice between its updates even though nothing has failed.
+
+A template sensor without a device whose value never changes looks silent too. If a value is meant to be fixed, use the "Static value" source instead.
+```
+
+Die Absätze stehen je auf einer Zeile, wie im Rest der Datei.
+
+- [ ] **Step 2: Event-Zeile einfügen** (nach der `zone_problem`-Zeile)
 
 ```markdown
 |`irrigation_plus_weather_stale`|When a weather sensor of a sensor group has not reported for three hours, and again when it reports again. Its HA device counts: while any entity of that device reports, a quiet value such as a rain gauge on a dry day is not stale. Carries `mapping_id`, `mapping`, `entity_id`, `device_id` (null without a device), `fields`, `since` (its last sign of life), `until` (null while it is silent) and `stale` (true when the outage starts, false when it ends; also false when a silent sensor stops being tracked because it was replaced in its sensor group, the group was deleted or the weather data was reset). A repair issue is shown for as long as the sensor stays silent.|
 ```
 
-- [ ] **Step 2: Docstring berichtigen** — in `_prune_mapping_buffer` die Sätze
+- [ ] **Step 3: Docstring berichtigen** — in `_prune_mapping_buffer` die Sätze
 
 ```
         Keeps everything after the oldest enabled-zone watermark (so no zone
@@ -2325,17 +2529,21 @@ ersetzen durch
         not hold the buffer.
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add docs/usage-events.md custom_components/irrigation_plus/calculation.py
+git add docs/configuration-sensor-groups.md docs/usage-events.md custom_components/irrigation_plus/calculation.py
 git commit -F - <<'EOF'
-docs(liveness): the weather_stale event; the prune keeps a silent field's last row
+docs(liveness): when a sensor goes silent; the weather_stale event; the prune keeps a silent field's last row
 
-The event table gains irrigation_plus_weather_stale. The prune's docstring said
-rows older than the retention cap are hard-dropped; a field's boundary row is
-kept whatever its age, which the docstring now says, and why that is the
-liveness ledger's concern.
+The sensor-group page explains the check: the device counts, three hours,
+the notice and the event, and that the last value is still used. The three
+hours are fixed, so an integration that updates less often, such as a cloud
+service polled every six hours, raises the notice between its updates; the
+page says so. The event table gains irrigation_plus_weather_stale. The prune's
+docstring said rows older than the retention cap are hard-dropped; a field's
+boundary row is kept whatever its age, which the docstring now says, and why
+that is the liveness ledger's concern.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
@@ -2352,11 +2560,13 @@ EOF
 ```bash
 uvx black custom_components/irrigation_plus/
 uvx ruff check custom_components/irrigation_plus/
+uvx black tests/test_sensor_liveness.py tests/test_sensor_liveness_store.py tests/test_sensor_liveness_coordinator.py tests/test_sensor_liveness_repair.py
 git status --short
 ```
 
 Expected: `ruff` „All checks passed!“; hat `black` umformatiert, die Dateien prüfen und als
-`style: black` committen.
+`style: black` committen. Die Testdateien prüft die CI nicht; die Snippets dieses Plans sind schon black-formatiert
+(im Probelauf: „left unchanged“).
 
 - [ ] **Step 2: Volle Suite, Namensvergleich gegen die Baseline aus Task 0**
 
@@ -2368,31 +2578,37 @@ tail -c 400 ../suite-after.txt
 ```
 
 Expected: `identical`; `passed` um genau die neuen Tests höher (zählen:
-`TZ=UTC … -m pytest tests/test_sensor_liveness*.py -p _local_socket_unblock --collect-only -q | tail -1`).
+`TZ=UTC … -m pytest tests/test_sensor_liveness*.py -p _local_socket_unblock --collect-only -q | tail -1` → 75).
+Im Probelauf auf `e9c79ec4`: 7 failed / 3618 → **3693** passed / 9 skipped / 415 errors, 422 Namen identisch.
 
-- [ ] **Step 3: Mutationen auf die tragenden Wächter** — je Zeile die Änderung von Hand setzen, die genannte
-Testdatei laufen lassen, Ergebnis notieren, mit `git checkout -- <datei>` zurücknehmen. Jede Mutation muss
-mindestens einen Test rot machen; ein Überlebender heißt zuerst: Test zu schwach (Memory
-`mutation-survivor-suspects-the-test`).
+- [ ] **Step 3: Mutationen auf die tragenden Wächter** — je Zeile die Änderung von Hand setzen, **alle vier**
+Testdateien laufen lassen, Ergebnis notieren, mit `git checkout -- <datei>` zurücknehmen. Jede Mutation muss mindestens
+einen Test rot machen, und der Lauf muss Tests gesammelt haben (Summenzeile „N failed, M passed“, kein Sammelfehler); ein
+Überlebender heißt zuerst: Test zu schwach (Memory `mutation-survivor-suspects-the-test`). Automatisiert:
+`python D:/Entwicklung/HASI/issue8-work/probe_mutate2.py <worktree>` (stellt jede Datei wieder her, auch nach einem Hänger).
 
-| # | Mutation (in `sensor_liveness.py`, sofern nicht anders genannt) | Test-Datei | Erwartet rot |
-|---|---|---|---|
-| 1 | `last_sign_of_life`: Zeile `candidates.extend(s.reported for s in siblings if s.valid)` löschen | `test_sensor_liveness.py` | `test_the_device_vouches_for_a_quiet_field` |
-| 2 | `last_sign_of_life`: `if own is not None and own.valid:` → `if own is not None:` | `test_sensor_liveness.py` | `test_an_unavailable_entity_is_silent_…` |
-| 3 | `advance_outages`: `now - seen.last > stale_after` → `>=` | `test_sensor_liveness.py` | `test_silence_up_to_the_limit_is_bridged` |
-| 4 | `advance_outages`: `now - outage.end <= retention` → `<` | `test_sensor_liveness.py` | `test_closed_outages_older_than_the_retention_are_dropped` |
-| 5 | `advance_outages`: `end = back if … else seen.last` → `end = seen.last` | `test_sensor_liveness.py` | `test_a_new_sign_closes_it_at_the_first_report` |
-| 6 | `const.SENSOR_LIVENESS_EXEMPT_DOMAINS = ()` (in `const.py`) | `test_sensor_liveness.py` | `test_a_value_set_by_hand_is_never_watched` |
-| 7 | `_on_has_clock`: `dt_util.as_local(stamp)` → `stamp` | `test_sensor_liveness_coordinator.py` | `test_state_stamps_land_on_has_clock` |
-| 8 | `_async_sensor_liveness_tick`: die Karenz-Rückkehr löschen | `test_sensor_liveness_coordinator.py` | `test_the_check_waits_out_the_startup_grace` |
-| 9 | `_async_check_mapping_liveness`: `if last is None: last = now` löschen | `test_sensor_liveness_coordinator.py` | `test_an_entity_never_seen_starts_its_bridge_…` |
-| 10 | `__init__.py`: `self._retire_outages(before)` im Quellwechsel löschen | `test_sensor_liveness_coordinator.py` | `test_a_source_change_empties_the_ledger_…` |
-| 11 | `calculation.py`: die zwei Ledger-Schlüssel im Reset löschen | `test_sensor_liveness_coordinator.py` | `test_reset_all_weather_data_empties_the_ledger` |
-| 12 | `store.py`: im Setter zusätzlich `self.async_schedule_save()` | `test_sensor_liveness_store.py` | `test_refreshing_the_signs_schedules_no_write` |
-| 13 | `async_check_sensor_liveness`: `try/except` entfernen | `test_sensor_liveness_coordinator.py` | `test_one_broken_group_does_not_stop_the_others` |
-| 14 | `_retire_outages`: `if not silent: return` löschen | `test_sensor_liveness_coordinator.py` | `test_a_group_without_an_open_outage_leaves_the_registry_alone` (und die 11 Mock-`hass`-Tests aus Task 11) |
-| 15 | `advance_outages`: den Zweig `if seen is None:` (Ende jetzt) löschen | `test_sensor_liveness.py` | `test_an_outage_of_an_entity_no_longer_watched_ends_now` |
-| 16 | `_retire_outages`: die Schleife mit `_fire_weather_stale` löschen | `test_sensor_liveness_coordinator.py` | Quellwechsel-, Lösch- und Reset-Test (End-Event fehlt) |
+| # | Mutation (in `sensor_liveness.py`, sofern nicht anders genannt) | Rot im Probelauf (2026-10-04) |
+|---|---|---|
+| 1 | `last_sign_of_life`: Zeile `candidates.extend(s.reported for s in siblings if s.valid)` löschen | `test_the_device_vouches_for_a_quiet_field`, `test_a_steady_rain_gauge_on_a_living_station_stays_quiet` |
+| 2 | `last_sign_of_life`: `if own is not None and own.valid:` → `if own is not None:` | `test_an_unavailable_entity_is_silent_…`, `test_an_outage_spanning_a_restart_keeps_its_start`, `test_the_notice_survives_a_restart_…` |
+| 3 | `advance_outages`: `now - seen.last > stale_after` → `>=` | `test_silence_up_to_the_limit_is_bridged` |
+| 4 | `advance_outages`: `now - outage.end <= retention` → `<` | `test_closed_outages_older_than_the_retention_are_dropped` |
+| 5 | `advance_outages`: `end = back if … else seen.last` → `end = seen.last` | `test_a_new_sign_closes_it_at_the_first_report` und zwei Koordinator-Tests |
+| 6 | `const.SENSOR_LIVENESS_EXEMPT_DOMAINS = ()` (in `const.py`) | `test_a_value_set_by_hand_is_never_watched`, `test_a_value_set_by_hand_never_goes_stale` |
+| 7 | `_on_has_clock`: `dt_util.as_local(stamp)` → `stamp` | `test_state_stamps_land_on_has_clock` und 8 weitere, darunter alle drei Hinweis-Tests |
+| 8 | `_async_sensor_liveness_tick`: die Karenz-Rückkehr löschen | `test_the_check_waits_out_the_startup_grace` |
+| 9 | `_async_check_mapping_liveness`: `if last is None: last = now` löschen | `test_an_entity_never_seen_starts_its_bridge_…` |
+| 10 | `__init__.py`: `self._retire_outages(before)` im Quellwechsel löschen | `test_a_source_change_empties_the_ledger_…` |
+| 11 | `calculation.py`: die zwei Ledger-Schlüssel im Reset löschen | `test_reset_all_weather_data_empties_the_ledger` |
+| 12 | `store.py`: im Setter zusätzlich `self.async_schedule_save()` | `test_refreshing_the_signs_schedules_no_write` |
+| 13 | `async_check_sensor_liveness`: `try/except` entfernen | `test_one_broken_group_does_not_stop_the_others` |
+| 14 | `_retire_outages`: `if not silent: return` löschen | `test_a_group_without_an_open_outage_leaves_the_registry_alone` |
+| 15 | `advance_outages`: den Zweig `if seen is None:` (Ende jetzt) löschen | `test_an_outage_of_an_entity_no_longer_watched_ends_now`, `test_an_outage_left_by_another_path_…` |
+| 16 | `_retire_outages`: die Schleife mit `_fire_weather_stale` löschen | Quellwechsel-, Lösch- und Reset-Test, `test_the_notice_goes_when_its_sensor_group_is_deleted` |
+| 17 | `_async_check_mapping_liveness`: `if opened or closed:` → `if opened:` (Erholung räumt den Hinweis nicht) | `test_the_notice_clears_when_the_sensor_reports_again` und drei Koordinator-Tests |
+| 18 | `async_setup_sensor_liveness`: den `_sync_stale_issue`-Aufruf in der Schleife löschen (Neustart) | `test_the_notice_survives_a_restart_…`, `test_setup_shows_a_still_open_outage_at_once` |
+| 19 | `__init__.py`: `self._retire_outages(res)` im Lösch-Zweig löschen | `test_the_notice_goes_when_its_sensor_group_is_deleted`, `test_deleting_a_group_drops_its_notice` |
+| 20 | `store.py`: `sensor_outages=…` im Lade-Pfad löschen (Liste kommt nach dem Neustart nicht zurück) | `test_outages_and_signs_survive_a_restart`, `test_the_notice_survives_a_restart_…` |
 
 Runner mit Zeitgrenze (eine Mutation kann einen Test hängen lassen): bei Bedarf
 `timeout 300 TZ=UTC … -m pytest <datei> -p _local_socket_unblock -q -x`; hängt er, unter Windows
@@ -2402,11 +2618,215 @@ Runner mit Zeitgrenze (eine Mutation kann einen Test hängen lassen): bei Bedarf
 diesem Plan; Rückmeldungen über `superpowers:receiving-code-review` prüfen.
 
 - [ ] **Step 5: Stand festhalten** — `docs/SESSION-STAND.md` ergänzen (Abschnitt mit Datum), Häkchen in diesem Plan
-setzen. **Nicht pushen, keinen PR öffnen:** Teil 2 (Schnitt) fehlt noch (siehe *Liefer-Regel*).
+setzen. Weiter mit Task 15.
 
 ---
 
-## Selbstprüfung gegen die Spec
+### Task 15: Pre-Release und Live-Test auf HA-Test
+
+**Files:** keine Codeänderung. Belege nach `D:\Entwicklung\HASI\issue8-work\livetest\`.
+
+Prüft das Ende-zu-Ende-Kriterium der Spec (*PR 1, HA-Test*, Schritte 1–5). **Mittel:** MQTT-Sensoren per YAML unter
+dem eigenen Topic-Präfix `hasi_livetest/`, **ohne Discovery**. Hintergrund: Die MQTT-Integration von HA-Test hängt am
+Broker von HA-Prod (Titel des Config-Entrys, gelesen 2026-10-04). Discovery-Nachrichten könnten deshalb auf HA-Prod
+Geräte anlegen; Nachrichten unter `hasi_livetest/` abonniert HA-Prod dagegen nicht. HA-Test hat weder Packages noch
+einen `mqtt:`-Schlüssel in der `configuration.yaml` (gelesen 2026-10-04); der Testblock lässt sich also sauber
+hinzufügen und wieder entfernen. **Alles hier betrifft nur HA-Test; HA-Prod bleibt unberührt.** Mittel vom User
+freigegeben am 2026-10-04 (Variante 1).
+
+- [ ] **Step 1: Basis prüfen**
+
+```bash
+cd /d/Entwicklung/HASI/issue8-work/wt
+git fetch upstream
+git rev-list --count HEAD..upstream/master
+```
+
+Expected: `0`. Sonst: Upstream-Runde (Memory `upstream-sweep-first`), den noch nicht gepushten Branch auf
+`upstream/master` rebasen und Task 14 Steps 1–3 wiederholen.
+
+- [ ] **Step 2: production-Pre-Release** (Freigabe im Chat vorher; Rezept: CLAUDE.md *Produktiv-Rebuild/-Release* und
+Memory `hasi-production-on-upstream`, Schnellweg per Cherry-Pick)
+
+Delta = `upstream/master` + JustChr#189 (solange offen) + die Commits dieses Branches + Branding-Commit + Build-Commit.
+Version `vJJJJ.MM.TTb1` (Datum des Baus) in `manifest.json` und `const.py` (mit `v`), in `frontend/package.json`
+ohne; dist mit Node 24 bauen, mit `git add -f` stagen, Dateizahl prüfen. Prüfen, bevor etwas nach außen geht:
+
+```bash
+git rev-list --count HEAD..upstream/master                                         # 0
+grep -c "https://github.com" custom_components/irrigation_plus/translations/en.json  # 0
+```
+
+Suite mit Namensvergleich gegen die Baseline des Rebuild-Basis-Commits. Release `--prerelease`, `--target production`,
+Titel mit Beschreibung, englische Kurznotiz ohne IP und ohne Issue-Verweise. ZIP aus dem **SHA**, nie aus dem Tag-Namen;
+vor dem Upload:
+
+```bash
+unzip -p irrigation_plus.zip sensor_liveness.py | grep -c "class SensorLivenessMixin"   # 1
+```
+
+Installation auf **HA-Test** per HACS (`update_information`, dann `download` mit `version`; `repository_id` als
+`"Eifel-Joe/HAsmartirrigation"`), Neustart von HA-Test ankündigen und ausführen. Danach: Integration `loaded`,
+Version = Pre-Release, Log ohne Fehler von `irrigation_plus`.
+
+- [ ] **Step 3: Testaufbau auf HA-Test** (ankündigen; HA-Test ist Wegwerf)
+
+Drei MQTT-Geräte in der `configuration.yaml` von HA-Test (`ha_config_set_yaml`, `yaml_path: mqtt`, `action: add`,
+Vorschau prüfen, dann mit Token anwenden; danach Dienst `mqtt.reload`):
+
+```yaml
+sensor:
+  - name: Livetest A Temperature
+    unique_id: hasi_livetest_a_temperature
+    state_topic: hasi_livetest/a/temperature
+    unit_of_measurement: "°C"
+    device_class: temperature
+    device:
+      identifiers: [hasi_livetest_a]
+      name: HASI Livetest A
+  - name: Livetest B Temperature
+    unique_id: hasi_livetest_b_temperature
+    state_topic: hasi_livetest/b/temperature
+    unit_of_measurement: "°C"
+    device_class: temperature
+    device:
+      identifiers: [hasi_livetest_b]
+      name: HASI Livetest B
+  - name: Livetest C Temperature
+    unique_id: hasi_livetest_c_temperature
+    state_topic: hasi_livetest/c/temperature
+    unit_of_measurement: "°C"
+    device_class: temperature
+    device:
+      identifiers: [hasi_livetest_c]
+      name: HASI Livetest C
+  - name: Livetest C Humidity
+    unique_id: hasi_livetest_c_humidity
+    state_topic: hasi_livetest/c/humidity
+    unit_of_measurement: "%"
+    device_class: humidity
+    device:
+      identifiers: [hasi_livetest_c]
+      name: HASI Livetest C
+```
+
+Rollen: **A** schweigt und kehrt zurück (Erholung, Neustart). **B** schweigt, seine Gruppe wird gelöscht. **C** meldet
+durchgehend denselben Wert (MQTT schreibt bei jeder Nachricht, `last_reported` rückt vor), und seine Feuchte meldet nur
+einmal: ein ruhiges Feld an einem lebenden Gerät. Damit sind beide Schreibweisen aus Schritt 1 der Spec abgedeckt.
+
+Sender als Automationen (`ha_config_set_automation`, HA-Test):
+- `HASI Livetest A`: Auslöser `time_pattern` mit `minutes: "/1"`, Aktion `mqtt.publish` auf
+  `hasi_livetest/a/temperature`, Nutzlast `"18.5"`.
+- `HASI Livetest B`: dasselbe für `hasi_livetest/b/temperature`, Nutzlast `"17.0"`.
+- `HASI Livetest C`: dasselbe für `hasi_livetest/c/temperature`, Nutzlast `"16.0"`.
+- `HASI Livetest Event`: Auslöser Event `irrigation_plus_weather_stale`; Aktion `system_log.write` mit `level: warning`,
+  `logger: hasi_livetest`, `message: "{{ trigger.event.data | tojson }}"`.
+
+Einmalig: `mqtt.publish` auf `hasi_livetest/c/humidity`, Nutzlast `"80"`, `retain: true`. Retained, damit der Wert den
+Neustart übersteht; danach wird nicht mehr gesendet.
+
+Drei Sensorgruppen auf HA-Test über dieselbe HTTP-View, die das Panel beim Speichern nutzt
+(`/api/irrigation_plus/mappings`, `websockets.py:229-272`). Der User meldet sich im Browser-Bereich bei HA-Test an
+(Passwort nie selbst eingeben); dann in der Seite (bewährt, Memory `hasi-livetest-capability-boundary`):
+
+```js
+const hass = document.querySelector("home-assistant").hass;
+const field = (entity, unit) => ({source: "sensor", sensorentity: entity, unit, aggregate: "average"});
+await hass.callApi("POST", "irrigation_plus/mappings", {name: "Livetest A", mappings: {Temperature: field("sensor.livetest_a_temperature", "°C")}});
+await hass.callApi("POST", "irrigation_plus/mappings", {name: "Livetest B", mappings: {Temperature: field("sensor.livetest_b_temperature", "°C")}});
+await hass.callApi("POST", "irrigation_plus/mappings", {name: "Livetest C", mappings: {Temperature: field("sensor.livetest_c_temperature", "°C"), Humidity: field("sensor.livetest_c_humidity", "%")}});
+```
+
+Jede Antwort trägt die `id` der neuen Gruppe; die drei IDs notieren. Entity-IDs vorher per `ha_search` bestätigen. Keine
+Zone nutzt diese Gruppen.
+
+- [ ] **Step 4: Ablauf** (Zeiten in UTC notieren; Report-Zeiten nur per `ha_eval_template`, Memory
+`mcp-last-reported-is-wrong`)
+
+1. Nach mindestens 15 min Lauf (Karenz 10 min abgewartet) die Automationen **A und B ausschalten** (`automation.turn_off`).
+   Zeitpunkt t1 und die letzten Report-Zeiten von A und B notieren.
+2. **t1 + 3 h + bis zu 5 min:** Reparaturhinweise für „Livetest A“ und „Livetest B“ vorhanden (Einstellungen →
+   Reparaturen; Wortlaut wie in Task 12), für „Livetest C“ keiner. Log: zwei `hasi_livetest`-Zeilen mit `stale: true` und
+   `since` = letzte Report-Zeit, dazu die WARNING der Integration. Diagnose der Integration: zwei offene Einträge in
+   `sensor_outages`. Dann `irrigation_plus.calculate_all_zones` → kein Fehler im Log (die Berechnung liest die Liste nicht).
+3. **t1 + 3 h 10 min:** Neustart von HA-Test (ankündigen). Gleich nach dem Start, vor Ablauf der Karenz: beide Hinweise
+   wieder da, `since` unverändert; die Diagnose zeigt dieselben Anfänge. „Livetest C“ bleibt ohne Hinweis, auch nach den
+   ersten Prüfungen.
+4. **t1 + 3 h 30 min:** Automation **A einschalten**. Spätestens 5 min nach der ersten Meldung: Hinweis „Livetest A“
+   weg; Log-Zeile mit `stale: false` und `until` = erste Meldung; Diagnose: Eintrag mit diesem Ende.
+5. **Danach:** Gruppe „Livetest B“ löschen — `await hass.callApi("POST", "irrigation_plus/mappings", {id: <B>, remove:
+   true})`, derselbe Weg wie der Lösch-Knopf → ihr Hinweis ist weg; Log-Zeile mit `stale: false` für B.
+
+Jede Abweichung stoppt den Test: erst `superpowers:systematic-debugging`, dann ein Fix nach TDD, dann Task 14 Steps 1–3
+und dieser Task von vorn.
+
+- [ ] **Step 5: Aufräumen** (HA-Test)
+
+Gruppen „Livetest A“ und „Livetest C“ löschen (wie in Step 4.5); die vier Automationen löschen; den Schlüssel `mqtt` aus der
+`configuration.yaml` entfernen (`ha_config_set_yaml`, `action: remove`) und `mqtt.reload`; retained Nachricht
+leeren (`mqtt.publish` auf `hasi_livetest/c/humidity`, leere Nutzlast, `retain: true`). Danach `ha_search` nach
+`livetest` → keine Entität und keine Automation mehr.
+
+- [ ] **Step 6: Beleg** — `D:\Entwicklung\HASI\issue8-work\livetest\L-pr1.md`: Version, Zeiten, je Schritt die
+beobachteten Hinweise, Log-Zeilen und Diagnose-Ausschnitte. Keine IP, kein Schlüssel.
+
+---
+
+### Task 16: PR an JustChr und Nachlauf
+
+**Files:** Texte unter `D:\Entwicklung\HASI\issue8-work\texts\` (`pr1-de.md`, `pr1-en.md`, `comment-8-pr1.md`,
+`issue42-pr1.md`).
+
+- [ ] **Step 1: Upstream-Runde wiederholen** (lange Sitzungen überholen die eigene Runde; Memory `upstream-sweep-first`):
+`gh api "repos/JustChr/HAsmartirrigation/issues?state=all&since=<letzter Blick>"` und
+`gh api "repos/JustChr/HAsmartirrigation/issues/comments?since=<letzter Blick>"`; JustChr#188 neu lesen (nur das Konto
+`JustChr` zählt, Memory `justchr-watchtower-bot-unreviewed`); Doppelarbeit ausschließen:
+`gh pr list --repo JustChr/HAsmartirrigation --state all --search "sensor stale"`.
+
+- [ ] **Step 2: Greps vor dem Push, gegated** (Memory `no-own-issue-refs-upstream`; erst das `!` hält die Kette an)
+
+```bash
+cd /d/Entwicklung/HASI/issue8-work/wt
+! git diff upstream/master..HEAD -- custom_components/ tests/ docs/ | grep "^+" | grep -nE "Eifel-Joe|spec D[0-9]|spec §|Task [0-9]|M[0-9][a-z]?:|PR [A-T]\b" \
+  && ! git log upstream/master..HEAD --format='%H%n%B' | grep -n "Eifel-Joe#" \
+  && ! git grep -n "Eifel-Joe#" HEAD -- custom_components tests \
+  && ! git diff upstream/master..HEAD | grep -nE "192\.168\.|api_key|apikey" \
+  && echo "sauber"
+```
+
+Expected: `sauber`.
+
+- [ ] **Step 3: PR-Text zur Freigabe** — erst deutsch, dann englisch im Chat zeigen. Aufbau `## Problem` / `## Fix` /
+`## Testing`, Footer „🤖 Generated with [Claude Code](https://claude.com/claude-code)“. Inhalt: der Defekt in zwei Sätzen;
+dieser PR ist der erste der drei, um die JustChr auf #188 gebeten hat (Erkennung, Ausfall-Liste, Reparaturhinweis, Event,
+keine Änderung an der Rechnung); Erkennung über das Gerät; fest 3 h mit dem Doku-Satz zur 6-h-Abfrage; die drei
+erbetenen Hinweis-Tests mit Namen; Live-Test auf einer Testinstanz; lokale Suite namensgleich mit `master`. Keine
+Verweise auf unsere Issues, keine Branch-SHAs, keine IP. Keine Liste dessen, was nicht drin ist.
+
+- [ ] **Step 4: Push und PR** (nach Freigabe)
+
+```bash
+git push -u origin fix/stale-weather-sensor
+gh pr create --repo JustChr/HAsmartirrigation --base master --head Eifel-Joe:fix/stale-weather-sensor \
+  --title "feat(liveness): notice when a weather sensor stops reporting" \
+  --body-file /d/Entwicklung/HASI/issue8-work/texts/pr1-en.md
+```
+
+Danach den PR binden (`get_status`, sonst `bind_pr`) und die CI lesen; kein eigenes Polling.
+
+- [ ] **Step 5: P2** (Texte vorher zur Freigabe) — Kommentar auf Eifel-Joe#8 mit Link auf den PR, ein Satz zum Stand;
+Label bleibt `upstream:freigegeben`. `Eifel-Joe#42` nachziehen. Der Feldtest auf HA-Prod beginnt erst mit dem Update auf
+das Pre-Release, und das nur auf Zuruf des Users.
+
+- [ ] **Step 6: P1** — Spec, dieser Plan und die Belege (`probe-2026-10-04.patch`, `probe_rev2.py`, `probe_mutate2.py`,
+`mutate-1004.txt`, Namenslisten, `livetest/L-pr1.md`) nach `archive/design-history` (CLAUDE.md *Design-Historie
+archivieren*).
+
+- [ ] **Step 7: Übergabe** — `docs/SESSION-STAND.md` und Memory `hasi-dead-weather-sensor` nachziehen.
+
+---
+
+## Selbstprüfung gegen die Spec (Revision 2)
 
 | Spec-Punkt | Task |
 |---|---|
@@ -2417,8 +2837,12 @@ setzen. **Nicht pushen, keinen PR öffnen:** Teil 2 (Schnitt) fehlt noch (siehe 
 | Liste begrenzt auf 7 Tage, ohne Store-Versionssprung | 1, 5, 7 |
 | Leeren bei Quellwechsel, Reset; Hinweis weg beim Löschen | 11 |
 | Panel-Speichern lässt die Liste stehen | 7 |
-| R5 Reparaturhinweis (Laufzeit, Neustart), Event, Log, 8 Sprachen | 6, 9, 10, 12 |
-| Event-Doku, Docstring | 13 |
-| R4 Schnitt, Erklärungssatz, Doku-Abschnitt „Wenn ein Sensor schweigt“ | **Plan Teil 2** |
-| R6 nur Sensorfelder | 2 |
-| R7 erst Vorschlag (`JustChr#188`) | Rahmen: Bau nach seiner Antwort |
+| R6 Hinweis (Laufzeit, Neustart), Event, Log, 8 Sprachen; kein Schnitt-Versprechen | 1, 2, 6, 9, 10, 12 |
+| J4 drei Hinweis-Tests: Erholung, Neustart mitten im Ausfall, Löschen der Gruppe (echter Store, echte Registry) | 9, 10, 11 |
+| J5 Doku: fest 3 h, Fehlalarm bei 6-h-Abfrage | 13 |
+| Event-Doku, Docstring `_prune_mapping_buffer` | 13 |
+| R7 nur Sensorfelder | 2 |
+| R8 PR 1 ohne Verhaltensänderung | Rahmen; 14 (Suite namensgleich); 15 (Berechnung ohne Fehler) |
+| Ende-zu-Ende PR 1 auf HA-Test, Schritte 1–5 | 15 |
+| R4, R5 Einstellung, Schnitt, Erklärungssatz | **PR 2 und PR 3**, eigene Pläne |
+| R9 Schnitt erst nach dem Feldtest | 16 (Feldtest nur auf Zuruf); Plan PR 2 |
