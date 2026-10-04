@@ -191,7 +191,8 @@ def advance_outages(
     """One check over one sensor group's ledger: ``(outages, opened, closed)``.
 
     Closes an open outage once a sign newer than its start appears: at the
-    device's first report after the start when that is known, else at that sign.
+    field's return when that is known (``Evidence.recovered``: its own change,
+    else its device's earliest), else at that sign.
     Ends one whose entity the group no longer reads (its sensor was replaced or
     unmapped by a path that did not empty the ledger) at ``now``, so it does not
     stay open. Then, for each entity left without an open outage, opens one if
