@@ -1,4 +1,4 @@
-"""Weather-sensor liveness: the pure rules, without Home Assistant."""
+"""Weather-sensor liveness: the pure rules, without a running Home Assistant."""
 
 from datetime import datetime, timedelta
 
@@ -209,7 +209,7 @@ class TestOutageInTheStore:
     @pytest.mark.parametrize(
         "raw", [_record(), _record(fields=None), _record(fields=[])]
     )
-    def test_a_record_without_its_optional_keys_still_reads(self, raw):
+    def test_a_record_with_no_fields_and_no_device_still_reads(self, raw):
         assert Outage.from_store(raw) == Outage(
             "sensor.t", None, (), T0 - timedelta(hours=4)
         )

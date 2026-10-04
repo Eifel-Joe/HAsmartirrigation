@@ -11,7 +11,7 @@ while an outage is open, and a bus event when one starts and when it ends (#188)
 Nothing here changes a calculation: a silent sensor's last value is still used, as
 before. The ledger records when it fell silent and the notice tells the user.
 
-The rules are pure functions, testable without Home Assistant; the
+The rules are pure functions, testable without a running Home Assistant; the
 ``SensorLivenessMixin`` at the end is the coordinator glue.
 """
 
@@ -127,8 +127,8 @@ class Outage:
         """Read one stored record; anything unreadable is dropped, never raised.
 
         Unreadable: not a dict, no entity id, no readable start, an end that is
-        present but no stamp, ``fields`` that is not a list of strings (missing or
-        empty means none).
+        present but no stamp, ``fields`` that is not a list of strings (a missing
+        or falsy value means none).
         NOT-TO-DO: do not let this raise. The ledger is read in the setup and in the
         configuration paths; a file edited by hand, or written by another build of
         this integration, must cost one record, not the integration.
@@ -181,14 +181,14 @@ def advance_outages(
 ) -> tuple[list[Outage], list[Outage], list[Outage]]:
     """One check over one sensor group's ledger: ``(outages, opened, closed)``.
 
-    Opens an outage for an entity without an open one whose last sign is older
-    than ``stale_after`` (strictly: a silence of exactly the limit is still
-    bridged), starting AT that sign. Closes an open one once a sign newer than its
-    start appears: at the device's first report after the start when that is
-    known, else at that sign. Ends one whose entity the group no longer reads (its
-    sensor was replaced or unmapped by a path that did not empty the ledger) at
-    ``now``, so neither it nor its notice stays open. Drops closed outages that
-    ended more than ``retention`` ago; open ones stay whatever their age.
+    Closes an open outage once a sign newer than its start appears: at the
+    device's first report after the start when that is known, else at that sign.
+    Ends one whose entity the group no longer reads (its sensor was replaced or
+    unmapped by a path that did not empty the ledger) at ``now``, so it does not
+    stay open. Then, for each entity left without an open outage, opens one if
+    its last sign is older than ``stale_after`` (strictly: a silence of exactly
+    the limit is still bridged), starting AT that sign. Drops closed outages
+    that ended more than ``retention`` ago; open ones stay whatever their age.
     """
     kept: list[Outage] = []
     opened: list[Outage] = []
