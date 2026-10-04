@@ -589,6 +589,49 @@ class TestTimer:
         assert "weather_sensor_stale_2" in issues.open
         assert coord._sensor_liveness_unsub is unsub
 
+    async def test_the_timer_runs_the_tick_and_the_tick_waits_out_the_grace(
+        self, monkeypatch
+    ):
+        coord, _, _ = _coord(monkeypatch, [], {}, {})
+        track = Mock(return_value=Mock())
+        monkeypatch.setattr(sensor_liveness, "async_track_time_interval", track)
+        clock = {"now": T0}
+        monkeypatch.setattr(sensor_liveness, "local_naive_now", lambda: clock["now"])
+
+        await coord.async_setup_sensor_liveness()
+
+        hass, action, interval = track.call_args.args
+        assert hass is coord.hass
+        assert interval == timedelta(seconds=const.SENSOR_LIVENESS_INTERVAL_SECONDS)
+        coord.async_check_sensor_liveness = AsyncMock()
+        grace = timedelta(seconds=const.SENSOR_LIVENESS_STARTUP_GRACE_SECONDS)
+
+        # Home Assistant calls the action with its own, aware UTC time. The check
+        # works on the outage record's naive clock, so that time must not reach it.
+        clock["now"] = T0 + grace - timedelta(seconds=1)
+        await action(dt_util.utcnow())
+        coord.async_check_sensor_liveness.assert_not_awaited()
+
+        clock["now"] = T0 + grace
+        await action(dt_util.utcnow())
+        coord.async_check_sensor_liveness.assert_awaited_once_with()
+
+    async def test_a_second_setup_cancels_the_first_timer(self, monkeypatch):
+        coord, _, _ = _coord(monkeypatch, [], {}, {})
+        first, second = Mock(), Mock()
+        monkeypatch.setattr(
+            sensor_liveness,
+            "async_track_time_interval",
+            Mock(side_effect=[first, second]),
+        )
+
+        await coord.async_setup_sensor_liveness()
+        await coord.async_setup_sensor_liveness()
+
+        first.assert_called_once()
+        second.assert_not_called()
+        assert coord._sensor_liveness_unsub is second
+
 
 INIT = (
     pathlib.Path(__file__).parent.parent
@@ -598,24 +641,40 @@ INIT = (
 )
 
 
-def _attribute_calls_in(function_name):
+def _own_statements_of(function_name):
+    """``(name, awaited)`` of each ``self.<name>(...)`` that is a statement of the
+    function's own body: not inside an ``if``, a loop, a ``try`` or a nested def."""
     tree = ast.parse(INIT.read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if (
             isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
             and node.name == function_name
         ):
-            return {
-                call.func.attr
-                for call in ast.walk(node)
-                if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
-            }
+            found = set()
+            for statement in node.body:
+                if not isinstance(statement, ast.Expr):
+                    continue
+                call, awaited = statement.value, False
+                if isinstance(call, ast.Await):
+                    call, awaited = call.value, True
+                if (
+                    isinstance(call, ast.Call)
+                    and isinstance(call.func, ast.Attribute)
+                    and isinstance(call.func.value, ast.Name)
+                    and call.func.value.id == "self"
+                ):
+                    found.add((call.func.attr, awaited))
+            return found
     raise AssertionError(f"{function_name} not found in __init__.py")
 
 
 def test_setup_arms_the_check_and_unload_disarms_it():
-    assert "async_setup_sensor_liveness" in _attribute_calls_in("async_setup_timers")
-    assert "async_teardown_sensor_liveness" in _attribute_calls_in("async_unload")
+    assert ("async_setup_sensor_liveness", True) in _own_statements_of(
+        "async_setup_timers"
+    )
+    assert ("async_teardown_sensor_liveness", False) in _own_statements_of(
+        "async_unload"
+    )
 
 
 OPEN_RECORD = Outage(
