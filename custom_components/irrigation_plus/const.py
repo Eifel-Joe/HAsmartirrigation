@@ -690,7 +690,6 @@ RADIATION_CALIBRATION_MAX_AGE_DAYS = 7
 # catch failures such as a dead sensor booking no energy.
 RADIATION_CALIBRATION_MIN_PAIRS = 2
 RADIATION_CALIBRATION_RATIO_BOUNDS = (0.5, 2.0)
-# --- Weather-sensor liveness (#188) -------------------------------------------
 # A sensor field whose HA device has not reported for this long counts as
 # silent: its outage is recorded on the sensor group and the user is told. Long
 # enough for an HA restart and a quiet night on an integration that writes only

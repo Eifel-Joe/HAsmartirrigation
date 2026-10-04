@@ -98,8 +98,8 @@ def first_report_after(
     (a rain gauge at zero) has none, so the device's earliest change since then
     stands in -- a returning device's first report changes most of its values.
     Unavailable or unknown states do not count. None when nothing changed since
-    ``start``. This only dates a return; whether the outage has ended is
-    ``last_sign_of_life``'s call.
+    ``start``. This only dates a return; whether the outage has ended,
+    ``advance_outages`` decides from the field's last sign of life.
     """
     if own is not None and own.valid and own.changed > start:
         return own.changed
@@ -111,9 +111,10 @@ def first_report_after(
 class Outage:
     """One stretch in which a sensor entity stayed silent for longer than the limit.
 
-    ``start`` is its last sign of life, ``end`` its first report afterwards (None
-    while it is still silent). Stored as ISO strings on HA's clock: the frame the
-    reading buffer's row stamps are in.
+    ``start`` is its last sign of life, ``end`` its first report afterwards, or
+    the moment its group stopped reading it (None while it is still silent).
+    Stored as ISO strings on HA's clock: the frame the reading buffer's row
+    stamps are in.
     """
 
     entity_id: str
@@ -295,7 +296,7 @@ def _entities_of_device(hass, entity_id: str) -> tuple[str | None, list[str]]:
     measurements. So only sensors and binary sensors vouch, and only those of the
     integration entry that owns the device -- which lets a station vouch for a
     helper mapped from it -- or of the mapped entity's own entry, which still counts
-    where another integration owns the device (MQTT ranks low) or no owner is
+    where the device is shared and another integration owns it, or no owner is
     recorded. Reached through this one function so the tests can stand in for it:
     conftest may replace ``homeassistant.helpers`` with a mock (see repairs.py),
     hence the imports inside.

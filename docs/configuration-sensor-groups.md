@@ -52,13 +52,13 @@ Please note:
 - Current preciptation is currently unused. Total precipitation should be used instead.
 
 ## When a sensor goes silent
-Irrigation Plus checks every five minutes whether the sensors of a sensor group still report. What counts is a sensor's Home Assistant device: as long as any sensor of that device from the same integration reports, a value that merely stays the same, such as a rain gauge on a dry day, counts as alive. Helpers attached to the device, such as a utility meter, do not count. A sensor without a device counts for itself. A sensor whose state is `unavailable` or `unknown` counts as silent whatever its device does. Values from an `input_number` helper never count as silent.
+Irrigation Plus checks every five minutes whether the sensors of a sensor group still report. What counts is a sensor's Home Assistant device: as long as any sensor of that device reports, a value that merely stays the same, such as a rain gauge on a dry day, counts as alive. Only sensors of the device's own integration count: a helper attached to the device, such as a utility meter, does not keep the device alive, but a helper you map yourself is covered by the device's sensors. A sensor without a device counts for itself. A sensor whose state is `unavailable` or `unknown` counts as silent whatever its device does. Values from an `input_number` helper never count as silent.
 
 Once a sensor has not reported for three hours, Irrigation Plus shows a repair notice for its sensor group and fires the `irrigation_plus_weather_stale` event (see [Events](usage-events.md)). When the sensor reports again, the notice clears itself and a second event marks the end. Meanwhile the calculation keeps using the sensor's last value.
 
 The three hours are fixed. An integration that updates less often, such as a cloud service polled every six hours, therefore raises the notice between its updates even though nothing has failed.
 
-A template sensor without a device whose value never changes looks silent too. If a value is meant to be fixed, use the "Static value" source instead.
+A sensor without a device whose value does not change for three hours looks silent too, such as a template sensor, or a utility meter set up in YAML that counts rain on a dry day; one set up in the UI belongs to its source's device and is covered by it. If a value is meant to be fixed, use the "Static value" source instead.
 
 ## Deleting a sensor group
 ![](assets/images/configuration-sensor-groups-1.png)

@@ -5,7 +5,11 @@ its sensor group is deleted."""
 
 from datetime import timedelta
 
-from homeassistant.core import callback
+from homeassistant.const import (
+    EVENT_HOMEASSISTANT_FINAL_WRITE,
+    EVENT_HOMEASSISTANT_STOP,
+)
+from homeassistant.core import CoreState, callback
 from homeassistant.helpers import issue_registry as ir
 
 from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
@@ -87,7 +91,15 @@ async def test_the_notice_survives_a_restart_in_the_middle_of_an_outage(hass, fr
     coord, mapping_id = await _garden(hass)
     await _silent_past_the_limit(hass, freezer, coord)
     since = _notice(hass, mapping_id).translation_placeholders["since"]
-    await coord.store.async_save()
+    # A clean stop as Home Assistant runs it, with nothing saved by hand: what
+    # reaches the disk is the store's pending write, flushed at FINAL_WRITE.
+    hass.set_state(CoreState.stopping)
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STOP)
+    await hass.async_block_till_done()
+    hass.set_state(CoreState.final_write)
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_FINAL_WRITE)
+    await hass.async_block_till_done()
+    hass.set_state(CoreState.running)
 
     # The restart. Home Assistant does not put a non-persistent issue back on
     # screen by itself, the station's entity comes back unavailable, and a new
