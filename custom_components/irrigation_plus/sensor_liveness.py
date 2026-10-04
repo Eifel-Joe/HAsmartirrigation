@@ -181,14 +181,14 @@ def advance_outages(
 ) -> tuple[list[Outage], list[Outage], list[Outage]]:
     """One check over one sensor group's ledger: ``(outages, opened, closed)``.
 
-    Opens an outage for an entity whose last sign is older than ``stale_after``
-    (strictly: a silence of exactly the limit is still bridged), starting AT that
-    sign. Closes an open one once a sign newer than its start appears, at the
-    device's first report after the start when that is known, and ends one whose
-    entity the group no longer reads (its sensor was replaced or unmapped by a
-    path that did not empty the ledger) at ``now``, so neither it nor its notice
-    outlives the configuration. Drops closed outages that ended more than
-    ``retention`` ago; open ones stay whatever their age.
+    Opens an outage for an entity without an open one whose last sign is older
+    than ``stale_after`` (strictly: a silence of exactly the limit is still
+    bridged), starting AT that sign. Closes an open one once a sign newer than its
+    start appears: at the device's first report after the start when that is
+    known, else at that sign. Ends one whose entity the group no longer reads (its
+    sensor was replaced or unmapped by a path that did not empty the ledger) at
+    ``now``, so neither it nor its notice stays open. Drops closed outages that
+    ended more than ``retention`` ago; open ones stay whatever their age.
     """
     kept: list[Outage] = []
     opened: list[Outage] = []

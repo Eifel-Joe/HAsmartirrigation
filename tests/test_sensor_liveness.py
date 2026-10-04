@@ -305,5 +305,46 @@ class TestAdvanceOutages:
         )
         still_open = Outage("sensor.c", None, ("Temperature",), T0 - timedelta(days=30))
         evidence = {"sensor.c": _evidence(T0 - timedelta(days=30), device=None)}
-        outages, _, _ = advance_outages([old, kept, still_open], evidence, T0)
-        assert outages == [kept, still_open]
+        assert advance_outages([old, kept, still_open], evidence, T0) == (
+            [kept, still_open],
+            [],
+            [],
+        )
+
+    def test_a_sensor_that_recovered_can_fall_silent_again(self):
+        """A closed record neither blocks the next outage nor is reported again."""
+        earlier = Outage(
+            "sensor.t",
+            "dev1",
+            ("Temperature",),
+            T0 - timedelta(days=2),
+            T0 - timedelta(days=1),
+        )
+        last = T0 - STALE - timedelta(seconds=1)
+        again = Outage("sensor.t", "dev1", ("Temperature",), last)
+        assert advance_outages([earlier], {"sensor.t": _evidence(last)}, T0) == (
+            [earlier, again],
+            [again],
+            [],
+        )
+
+    def test_a_change_elsewhere_on_the_device_does_not_end_a_silent_field(self):
+        """No sign newer than the start: a dated return alone ends nothing."""
+        start = T0 - timedelta(hours=5)
+        open_ = Outage("sensor.t", "dev1", ("Temperature",), start)
+        evidence = {"sensor.t": _evidence(start, recovered=T0 - timedelta(minutes=4))}
+        assert advance_outages([open_], evidence, T0) == ([open_], [], [])
+
+    def test_a_late_check_closes_and_reopens_in_one_go(self):
+        """A sign after the start, but older than the limit: the outage ends at that
+        sign and a new one starts there."""
+        start = T0 - timedelta(hours=10)
+        newest = T0 - STALE - timedelta(hours=1)
+        open_ = Outage("sensor.t", "dev1", ("Temperature",), start)
+        ended = Outage("sensor.t", "dev1", ("Temperature",), start, newest)
+        again = Outage("sensor.t", "dev1", ("Temperature",), newest)
+        assert advance_outages([open_], {"sensor.t": _evidence(newest)}, T0) == (
+            [ended, again],
+            [again],
+            [ended],
+        )
