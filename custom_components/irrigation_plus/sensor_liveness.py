@@ -222,3 +222,31 @@ def advance_outages(
             kept.append(outage)
             opened.append(outage)
     return kept, opened, closed
+
+
+def stale_issue_placeholders(group_name: str, outages: list[Outage]) -> dict | None:
+    """The repair issue's placeholders for a group's OPEN outages, or None."""
+    silent = sorted(
+        (o for o in outages if o.end is None), key=lambda o: (o.start, o.entity_id)
+    )
+    if not silent:
+        return None
+    return {
+        "group": group_name,
+        "entities": ", ".join(f"{o.entity_id} ({', '.join(o.fields)})" for o in silent),
+        "since": silent[0].start.strftime("%Y-%m-%d %H:%M"),
+    }
+
+
+def outage_event_payload(mapping_id, group_name: str, outage: Outage) -> dict:
+    """The bus event's data for an outage starting (no end yet) or ending."""
+    return {
+        "mapping_id": mapping_id,
+        "mapping": group_name,
+        "entity_id": outage.entity_id,
+        "device_id": outage.device_id,
+        "fields": list(outage.fields),
+        "since": outage.start.isoformat(),
+        "until": outage.end.isoformat() if outage.end is not None else None,
+        "stale": outage.end is None,
+    }

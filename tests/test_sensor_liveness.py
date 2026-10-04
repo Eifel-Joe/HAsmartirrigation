@@ -13,8 +13,10 @@ from custom_components.irrigation_plus.sensor_liveness import (
     advance_outages,
     first_report_after,
     last_sign_of_life,
+    outage_event_payload,
     outages_of,
     sensor_fields_by_entity,
+    stale_issue_placeholders,
 )
 
 
@@ -348,3 +350,42 @@ class TestAdvanceOutages:
             [again],
             [ended],
         )
+
+
+class TestStaleIssuePlaceholders:
+    def test_no_open_outage_means_no_notice(self):
+        closed = Outage("sensor.t", None, ("Temperature",), T0 - timedelta(hours=5), T0)
+        assert stale_issue_placeholders("Garden", [closed]) is None
+
+    def test_the_notice_names_every_silent_entity_and_the_earliest_start(self):
+        temp = Outage(
+            "sensor.temp", "dev1", ("Temperature", "Dewpoint"), T0 - timedelta(hours=4)
+        )
+        wind = Outage("sensor.wind", "dev1", ("Windspeed",), T0 - timedelta(hours=6))
+        assert stale_issue_placeholders("Garden", [temp, wind]) == {
+            "group": "Garden",
+            "entities": "sensor.wind (Windspeed), sensor.temp (Temperature, Dewpoint)",
+            "since": "2026-07-01 06:00",
+        }
+
+
+class TestOutageEventPayload:
+    def test_an_outage_starting(self):
+        outage = Outage("sensor.t", "dev1", ("Temperature",), T0 - timedelta(hours=4))
+        assert outage_event_payload(3, "Garden", outage) == {
+            "mapping_id": 3,
+            "mapping": "Garden",
+            "entity_id": "sensor.t",
+            "device_id": "dev1",
+            "fields": ["Temperature"],
+            "since": "2026-07-01T08:00:00",
+            "until": None,
+            "stale": True,
+        }
+
+    def test_an_outage_ending(self):
+        outage = Outage("sensor.t", None, ("Temperature",), T0 - timedelta(hours=4), T0)
+        payload = outage_event_payload(3, "Garden", outage)
+        assert payload["stale"] is False
+        assert payload["until"] == "2026-07-01T12:00:00"
+        assert payload["device_id"] is None
