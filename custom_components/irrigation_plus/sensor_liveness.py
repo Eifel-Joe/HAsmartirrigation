@@ -90,16 +90,20 @@ def last_sign_of_life(
 def first_report_after(
     own: Seen | None, siblings: list[Seen], start: datetime
 ) -> datetime | None:
-    """When the device spoke again after ``start``: its earliest change since then.
+    """When the field spoke again after ``start``.
 
-    A returning device's first report changes most of its values, so the earliest
-    ``last_changed`` after the outage began is the closest record of its return that
-    survives until the next check. Unavailable or unknown states do not count. None
-    when nothing changed since ``start``. This only dates a return; whether the
-    outage has ended is ``last_sign_of_life``'s call.
+    Its own entity's change marks its return when there is one: a return from
+    unavailable is a change, and the device's other entities may have changed
+    while this one was dead. A quiet field whose value did not change on return
+    (a rain gauge at zero) has none, so the device's earliest change since then
+    stands in -- a returning device's first report changes most of its values.
+    Unavailable or unknown states do not count. None when nothing changed since
+    ``start``. This only dates a return; whether the outage has ended is
+    ``last_sign_of_life``'s call.
     """
-    states = ([own] if own is not None else []) + list(siblings)
-    stamps = [s.changed for s in states if s.valid and s.changed > start]
+    if own is not None and own.valid and own.changed > start:
+        return own.changed
+    stamps = [s.changed for s in siblings if s.valid and s.changed > start]
     return min(stamps) if stamps else None
 
 

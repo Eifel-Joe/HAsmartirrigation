@@ -128,14 +128,23 @@ class TestLastSignOfLife:
 
 
 class TestFirstReportAfter:
-    def test_the_earliest_change_after_the_start_marks_the_return(self):
+    def test_the_fields_own_change_marks_its_return(self):
+        """The device kept changing while the field was dead: its own return counts."""
         start = T0 - timedelta(hours=6)
         own = _seen(changed=T0 - timedelta(minutes=3))
-        sibling = _seen("sensor.temp", changed=T0 - timedelta(minutes=4))
+        battery = _seen("sensor.battery", changed=start + timedelta(minutes=30))
         quiet = _seen("sensor.rain", changed=start - timedelta(hours=1))
-        assert first_report_after(own, [sibling, quiet], start) == T0 - timedelta(
-            minutes=4
+        assert first_report_after(own, [battery, quiet], start) == T0 - timedelta(
+            minutes=3
         )
+
+    def test_a_quiet_field_takes_the_devices_earliest_change(self):
+        """A rain gauge at zero does not change when its station returns."""
+        start = T0 - timedelta(hours=6)
+        own = _seen(changed=start - timedelta(hours=1))
+        temp = _seen("sensor.temp", changed=T0 - timedelta(minutes=3))
+        wind = _seen("sensor.wind", changed=T0 - timedelta(minutes=4))
+        assert first_report_after(own, [temp, wind], start) == T0 - timedelta(minutes=4)
 
     def test_nothing_changed_since_the_start(self):
         start = T0 - timedelta(hours=6)
@@ -149,15 +158,24 @@ class TestFirstReportAfter:
 
     def test_an_unavailable_sibling_is_not_a_return(self):
         start = T0 - timedelta(hours=6)
-        own = _seen(changed=T0 - timedelta(minutes=3))
+        quiet = _seen(changed=start - timedelta(hours=1))
         gone = _seen("sensor.battery", valid=False, changed=start + timedelta(hours=2))
-        assert first_report_after(own, [gone], start) == T0 - timedelta(minutes=3)
+        alive = _seen("sensor.temp", changed=T0 - timedelta(minutes=4))
+        assert first_report_after(quiet, [gone, alive], start) == T0 - timedelta(
+            minutes=4
+        )
 
     def test_a_change_at_the_start_itself_is_not_after_it(self):
         start = T0 - timedelta(hours=6)
-        own = _seen(changed=T0 - timedelta(minutes=3))
-        last = _seen("sensor.temp", changed=start)
-        assert first_report_after(own, [last], start) == T0 - timedelta(minutes=3)
+        later = _seen("sensor.temp", changed=T0 - timedelta(minutes=3))
+        # Neither the field's own change at the start nor a sibling's counts.
+        at_start = _seen(changed=start)
+        assert first_report_after(at_start, [later], start) == T0 - timedelta(minutes=3)
+        quiet = _seen(changed=start - timedelta(hours=1))
+        sibling_at_start = _seen("sensor.wind", changed=start)
+        assert first_report_after(quiet, [sibling_at_start, later], start) == (
+            T0 - timedelta(minutes=3)
+        )
 
     def test_without_a_device_the_entity_marks_its_own_return(self):
         start = T0 - timedelta(hours=6)
