@@ -158,7 +158,7 @@ async def test_a_deleted_config_is_not_written_back_for_the_signs(hass) -> None:
 
 
 @pytest.mark.asyncio
-async def test_signs_that_are_not_a_mapping_load_as_none(hass, hass_storage) -> None:
+async def test_signs_that_are_not_a_dict_load_as_none(hass, hass_storage) -> None:
     store, a, _ = await _store_with_two_groups(hass)
     await store.async_save()
     for mapping in hass_storage[STORAGE_KEY]["data"]["mappings"]:

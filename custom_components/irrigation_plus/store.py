@@ -1605,7 +1605,9 @@ class SmartIrrigationStorage:
         self._unsub_stop = None
         if not (self._buffers_dirty or self._last_seen_dirty):
             return
-        _LOGGER.debug("Queueing buffered sensor readings for the shutdown write")
+        _LOGGER.debug(
+            "Queueing unwritten readings and signs of life for the shutdown write"
+        )
         self.async_schedule_save()
 
     @callback
