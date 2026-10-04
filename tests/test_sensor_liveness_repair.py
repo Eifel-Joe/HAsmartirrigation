@@ -81,3 +81,35 @@ async def test_the_notice_clears_when_the_sensor_reports_again(hass, freezer):
 
     assert _notice(hass, mapping_id) is None
     assert heard == [(ENTITY, True), (ENTITY, False)]
+
+
+async def test_the_notice_survives_a_restart_in_the_middle_of_an_outage(hass, freezer):
+    coord, mapping_id = await _garden(hass)
+    await _silent_past_the_limit(hass, freezer, coord)
+    since = _notice(hass, mapping_id).translation_placeholders["since"]
+    await coord.store.async_save()
+
+    # The restart. Home Assistant does not put a non-persistent issue back on
+    # screen by itself, the station's entity comes back unavailable, and a new
+    # store reads what the old one wrote.
+    ir.async_delete_issue(
+        hass, const.DOMAIN, f"{const.ISSUE_WEATHER_SENSOR_STALE}_{mapping_id}"
+    )
+    hass.states.async_set(ENTITY, "unavailable")
+    store = SmartIrrigationStorage(hass)
+    await store.async_load()
+    after = _coordinator_over(hass, store)
+
+    await after.async_setup_sensor_liveness()
+    try:
+        notice = _notice(hass, mapping_id)
+        assert notice is not None
+        assert notice.translation_placeholders["since"] == since
+        # Still silent at the first check after the grace: same outage, same start.
+        freezer.tick(timedelta(seconds=const.SENSOR_LIVENESS_STARTUP_GRACE_SECONDS))
+        await after.async_check_sensor_liveness()
+        notice = _notice(hass, mapping_id)
+        assert notice is not None
+        assert notice.translation_placeholders["since"] == since
+    finally:
+        after.async_teardown_sensor_liveness()

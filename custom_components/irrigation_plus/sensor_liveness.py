@@ -22,6 +22,8 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.core import callback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import dt as dt_util
 
 from . import const
@@ -312,6 +314,54 @@ def _issue_registry():
 
 class SensorLivenessMixin:
     """Coordinator glue: the periodic check, the ledger, the notice and the event."""
+
+    async def async_setup_sensor_liveness(self) -> None:
+        """Arm the periodic check; show at once what the ledger still holds open.
+
+        The first checks wait out a grace after setup so integrations can create
+        their entities first; an outage that was open before a restart is shown
+        straight away, because the ledger already says the sensor is silent.
+        """
+        self.async_teardown_sensor_liveness()
+        self._sensor_liveness_armed_at = local_naive_now() + timedelta(
+            seconds=const.SENSOR_LIVENESS_STARTUP_GRACE_SECONDS
+        )
+        for mapping in await self.store.async_get_mappings():
+            try:
+                outages = outages_of(mapping)
+                if not any(o.end is None for o in outages):
+                    continue  # nothing to show: a notice exists only for an open outage
+                mapping_id = mapping[const.MAPPING_ID]
+                self._sync_stale_issue(
+                    mapping_id,
+                    mapping.get(const.MAPPING_NAME) or str(mapping_id),
+                    outages,
+                )
+            except Exception:
+                # Only a notice: it must not keep the integration from setting up.
+                _LOGGER.exception(
+                    "Could not show the open outages of sensor group %s",
+                    mapping.get(const.MAPPING_ID),
+                )
+        self._sensor_liveness_unsub = async_track_time_interval(
+            self.hass,
+            self._async_sensor_liveness_tick,
+            timedelta(seconds=const.SENSOR_LIVENESS_INTERVAL_SECONDS),
+        )
+
+    @callback
+    def async_teardown_sensor_liveness(self) -> None:
+        """Cancel the periodic check (unload, reload)."""
+        unsub = getattr(self, "_sensor_liveness_unsub", None)
+        if unsub is not None:
+            unsub()
+        self._sensor_liveness_unsub = None
+
+    async def _async_sensor_liveness_tick(self, _now=None) -> None:
+        armed_at = getattr(self, "_sensor_liveness_armed_at", None)
+        if armed_at is not None and local_naive_now() < armed_at:
+            return
+        await self.async_check_sensor_liveness()
 
     async def async_check_sensor_liveness(self, now: datetime | None = None) -> None:
         """Check every sensor group once."""

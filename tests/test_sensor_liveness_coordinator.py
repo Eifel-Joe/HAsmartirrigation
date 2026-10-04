@@ -489,3 +489,104 @@ class TestAReplacedDevice:
             ("sensor.gone", False)
         ]
         assert issues.open == {}
+
+
+class TestTimer:
+    async def test_setup_shows_a_still_open_outage_at_once(self, monkeypatch):
+        open_ = Outage("sensor.temp", "dev1", ("Temperature",), T0 - timedelta(hours=5))
+        coord, _, issues = _coord(
+            monkeypatch,
+            [_group(fields={"Temperature": "sensor.temp"}, outages=[open_.to_store()])],
+            {},
+            {},
+        )
+        unsub = Mock()
+        monkeypatch.setattr(
+            sensor_liveness, "async_track_time_interval", Mock(return_value=unsub)
+        )
+
+        await coord.async_setup_sensor_liveness()
+
+        assert "weather_sensor_stale_1" in issues.open
+        assert coord._sensor_liveness_unsub is unsub
+
+    async def test_the_check_waits_out_the_startup_grace(self, monkeypatch):
+        coord, _, _ = _coord(monkeypatch, [], {}, {})
+        coord.async_check_sensor_liveness = AsyncMock()
+        coord._sensor_liveness_armed_at = T0
+        clock = {"now": T0 - timedelta(seconds=1)}
+        monkeypatch.setattr(sensor_liveness, "local_naive_now", lambda: clock["now"])
+
+        await coord._async_sensor_liveness_tick()
+        coord.async_check_sensor_liveness.assert_not_awaited()
+
+        clock["now"] = T0
+        await coord._async_sensor_liveness_tick()
+        coord.async_check_sensor_liveness.assert_awaited_once()
+
+    def test_teardown_cancels_the_timer(self, monkeypatch):
+        coord, _, _ = _coord(monkeypatch, [], {}, {})
+        unsub = Mock()
+        coord._sensor_liveness_unsub = unsub
+
+        coord.async_teardown_sensor_liveness()
+
+        unsub.assert_called_once()
+        assert coord._sensor_liveness_unsub is None
+
+    async def test_one_broken_group_does_not_stop_the_setup(self, monkeypatch):
+        open_ = Outage("sensor.temp", "dev1", ("Temperature",), T0 - timedelta(hours=5))
+        coord, _, issues = _coord(
+            monkeypatch,
+            [
+                _group(1, "Broken", outages=[open_.to_store()]),
+                _group(2, "Fine", outages=[open_.to_store()]),
+            ],
+            {},
+            {},
+        )
+        real = coord._sync_stale_issue
+
+        def boom(mapping_id, name, outages):
+            if mapping_id == 1:
+                raise RuntimeError("issue registry exploded")
+            real(mapping_id, name, outages)
+
+        coord._sync_stale_issue = boom
+        unsub = Mock()
+        monkeypatch.setattr(
+            sensor_liveness, "async_track_time_interval", Mock(return_value=unsub)
+        )
+
+        await coord.async_setup_sensor_liveness()
+
+        assert "weather_sensor_stale_2" in issues.open
+        assert coord._sensor_liveness_unsub is unsub
+
+
+INIT = (
+    pathlib.Path(__file__).parent.parent
+    / "custom_components"
+    / "irrigation_plus"
+    / "__init__.py"
+)
+
+
+def _attribute_calls_in(function_name):
+    tree = ast.parse(INIT.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == function_name
+        ):
+            return {
+                call.func.attr
+                for call in ast.walk(node)
+                if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+            }
+    raise AssertionError(f"{function_name} not found in __init__.py")
+
+
+def test_setup_arms_the_check_and_unload_disarms_it():
+    assert "async_setup_sensor_liveness" in _attribute_calls_in("async_setup_timers")
+    assert "async_teardown_sensor_liveness" in _attribute_calls_in("async_unload")

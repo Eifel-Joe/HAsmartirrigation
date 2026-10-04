@@ -787,6 +787,8 @@ class SmartIrrigationCoordinator(
         await self.async_setup_observed_watering()
         # Event-driven weather-sensor ingestion (no-op unless enabled).
         await self.async_setup_continuous_updates()
+        # Weather-sensor liveness: notices a mapped sensor that has fallen silent.
+        await self.async_setup_sensor_liveness()
         # Reading appends deliberately schedule no store write (store.buffers), so
         # something has to. A no-op tick when nothing was appended.
         if self._track_buffer_flush_unsub is None:
@@ -2260,6 +2262,10 @@ class SmartIrrigationCoordinator(
         # debounce timers — a surviving async_call_later would fire against this
         # dead coordinator and ghost-write to the store.
         self.async_teardown_continuous_updates()
+
+        # The liveness check is a plain interval timer; a reload would otherwise
+        # leave the old coordinator checking alongside the new one.
+        self.async_teardown_sensor_liveness()
 
         # Release the recurring-schedule listeners. These are plain HA event
         # listeners (not entry-scoped), so nothing else cancels them: a reload
