@@ -363,8 +363,14 @@ class SensorLivenessMixin:
             return
         await self.async_check_sensor_liveness()
 
-    async def async_check_sensor_liveness(self, now: datetime | None = None) -> None:
-        """Check every sensor group once."""
+    async def async_check_sensor_liveness(self, *, now: datetime | None = None) -> None:
+        """Check every sensor group once.
+
+        NOT-TO-DO: do not let anything between reading a group and writing its
+        outages back yield to the event loop (the store calls here do not). A
+        source change in between would have its emptied record overwritten with
+        this check's stale copy, and the outages and their events would return.
+        """
         now = now if now is not None else local_naive_now()
         for mapping in await self.store.async_get_mappings():
             try:
@@ -486,6 +492,13 @@ class SensorLivenessMixin:
         mapping_id = mapping[const.MAPPING_ID]
         name = mapping.get(const.MAPPING_NAME) or str(mapping_id)
         for outage in silent:
+            _LOGGER.info(
+                "Sensor group %s: the outage of %s ends with a change to the group "
+                "(silent since %s)",
+                name,
+                outage.entity_id,
+                outage.start,
+            )
             self._fire_weather_stale(mapping_id, name, replace(outage, end=now))
         _issue_registry().async_delete_issue(
             self.hass, const.DOMAIN, f"{const.ISSUE_WEATHER_SENSOR_STALE}_{mapping_id}"

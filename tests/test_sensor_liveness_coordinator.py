@@ -350,7 +350,7 @@ class TestTheCheck:
             Outage("sensor.ghost", None, ("Temperature",), T0).to_store()
         ]
 
-    async def test_one_broken_group_does_not_stop_the_others(self, monkeypatch):
+    async def test_one_broken_group_does_not_stop_the_others(self, monkeypatch, caplog):
         last = T0 - STALE - timedelta(seconds=1)
         coord, store, _ = _coord(
             monkeypatch,
@@ -373,6 +373,12 @@ class TestTheCheck:
         await coord.async_check_sensor_liveness(now=T0)
 
         assert len(store.mappings[2][const.MAPPING_SENSOR_OUTAGES]) == 1
+        # The broken group is left as it was, and its failure is logged once.
+        assert store.mappings[1][const.MAPPING_SENSOR_LAST_SEEN] == {}
+        assert [mapping_id for mapping_id, _ in store.updates] == [2]
+        failures = [r for r in caplog.records if r.levelname == "ERROR"]
+        assert len(failures) == 1
+        assert "sensor group 1" in failures[0].getMessage()
 
     async def test_an_open_outage_without_a_remembered_sign_stays_open(
         self, monkeypatch
@@ -407,6 +413,26 @@ class TestTheCheck:
         await coord.async_check_sensor_liveness(now=T0)
 
         assert [args[1]["stale"] for args in _events(coord)] == [False, True]
+
+    async def test_a_group_left_without_sensor_fields_ends_its_outage(
+        self, monkeypatch
+    ):
+        start = T0 - timedelta(hours=5)
+        open_ = Outage("sensor.gone", "dev1", ("Temperature",), start)
+        coord, store, issues = _coord(
+            monkeypatch,
+            [_group(fields={"Pressure": "input_number.p"}, outages=[open_.to_store()])],
+            {},
+            {},
+        )
+        issues.open["weather_sensor_stale_1"] = {}
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == [
+            Outage("sensor.gone", "dev1", ("Temperature",), start, T0).to_store()
+        ]
+        assert issues.open == {}
 
 
 class TestAReplacedDevice:
