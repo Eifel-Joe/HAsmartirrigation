@@ -18,13 +18,16 @@ The rules are pure functions, testable without Home Assistant; the
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
 
 from . import const
 from .helpers import STAMP_FROM_STORE, coerce_stamp
 
 _LOGGER = logging.getLogger(__name__)
+
+STALE_AFTER = timedelta(seconds=const.SENSOR_STALE_AFTER_SECONDS)
+RETENTION = timedelta(days=const.SENSOR_OUTAGE_RETENTION_DAYS)
 
 
 def sensor_fields_by_entity(mappings_config: dict) -> dict[str, tuple[str, ...]]:
@@ -155,3 +158,66 @@ def outages_of(mapping: dict) -> list[Outage]:
     if not isinstance(stored, list):
         return []
     return [outage for raw in stored if (outage := Outage.from_store(raw)) is not None]
+
+
+@dataclass(frozen=True)
+class Evidence:
+    """What one check learned about one sensor-mapped entity."""
+
+    fields: tuple[str, ...]
+    device_id: str | None
+    last: datetime | None  # its last sign of life; None: no evidence at all
+    recovered: datetime | None = None  # first report after an open outage began
+
+
+def advance_outages(
+    outages: list[Outage],
+    evidence: dict[str, Evidence],
+    now: datetime,
+    *,
+    stale_after: timedelta = STALE_AFTER,
+    retention: timedelta = RETENTION,
+) -> tuple[list[Outage], list[Outage], list[Outage]]:
+    """One check over one sensor group's ledger: ``(outages, opened, closed)``.
+
+    Opens an outage for an entity whose last sign is older than ``stale_after``
+    (strictly: a silence of exactly the limit is still bridged), starting AT that
+    sign. Closes an open one once a sign newer than its start appears, at the
+    device's first report after the start when that is known, and ends one whose
+    entity the group no longer reads (its sensor was replaced or unmapped by a
+    path that did not empty the ledger) at ``now``, so neither it nor its notice
+    outlives the configuration. Drops closed outages that ended more than
+    ``retention`` ago; open ones stay whatever their age.
+    """
+    kept: list[Outage] = []
+    opened: list[Outage] = []
+    closed: list[Outage] = []
+    still_open: set[str] = set()
+    for outage in outages:
+        if outage.end is not None:
+            if now - outage.end <= retention:
+                kept.append(outage)
+            continue
+        seen = evidence.get(outage.entity_id)
+        if seen is None:
+            ended = replace(outage, end=now)
+            kept.append(ended)
+            closed.append(ended)
+            continue
+        if seen.last is not None and seen.last > outage.start:
+            back = seen.recovered
+            end = back if back is not None and back > outage.start else seen.last
+            ended = replace(outage, end=end)
+            kept.append(ended)
+            closed.append(ended)
+            continue
+        kept.append(outage)
+        still_open.add(outage.entity_id)
+    for entity_id, seen in evidence.items():
+        if entity_id in still_open or seen.last is None:
+            continue
+        if now - seen.last > stale_after:
+            outage = Outage(entity_id, seen.device_id, seen.fields, seen.last)
+            kept.append(outage)
+            opened.append(outage)
+    return kept, opened, closed

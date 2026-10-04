@@ -7,8 +7,10 @@ import pytest
 from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.calculation import BUFFER_RETENTION
 from custom_components.irrigation_plus.sensor_liveness import (
+    Evidence,
     Outage,
     Seen,
+    advance_outages,
     first_report_after,
     last_sign_of_life,
     outages_of,
@@ -224,3 +226,80 @@ class TestOutagesOf:
     )
     def test_a_group_without_a_ledger_list_has_no_outages(self, mapping):
         assert outages_of(mapping) == []
+
+
+STALE = timedelta(seconds=const.SENSOR_STALE_AFTER_SECONDS)
+
+
+def _evidence(last, *, fields=("Temperature",), device="dev1", recovered=None):
+    return Evidence(fields=fields, device_id=device, last=last, recovered=recovered)
+
+
+class TestAdvanceOutages:
+    def test_silence_up_to_the_limit_is_bridged(self):
+        assert advance_outages([], {"sensor.t": _evidence(T0 - STALE)}, T0) == (
+            [],
+            [],
+            [],
+        )
+
+    def test_silence_past_the_limit_opens_an_outage_at_the_last_sign(self):
+        last = T0 - STALE - timedelta(seconds=1)
+        expected = Outage("sensor.t", "dev1", ("Temperature",), last)
+        assert advance_outages([], {"sensor.t": _evidence(last)}, T0) == (
+            [expected],
+            [expected],
+            [],
+        )
+
+    def test_an_open_outage_is_not_opened_twice(self):
+        start = T0 - timedelta(hours=5)
+        open_ = Outage("sensor.t", "dev1", ("Temperature",), start)
+        assert advance_outages([open_], {"sensor.t": _evidence(start)}, T0) == (
+            [open_],
+            [],
+            [],
+        )
+
+    def test_a_new_sign_closes_it_at_the_first_report(self):
+        start = T0 - timedelta(hours=5)
+        back = T0 - timedelta(minutes=4)
+        open_ = Outage("sensor.t", "dev1", ("Temperature",), start)
+        ended = Outage("sensor.t", "dev1", ("Temperature",), start, back)
+        assert advance_outages(
+            [open_], {"sensor.t": _evidence(T0, recovered=back)}, T0
+        ) == ([ended], [], [ended])
+
+    def test_without_a_recorded_change_the_newest_report_ends_it(self):
+        start = T0 - timedelta(hours=5)
+        open_ = Outage("sensor.t", "dev1", ("Temperature",), start)
+        _, _, closed = advance_outages(
+            [open_], {"sensor.t": _evidence(T0 - timedelta(minutes=1))}, T0
+        )
+        assert closed[0].end == T0 - timedelta(minutes=1)
+
+    def test_an_outage_of_an_entity_no_longer_watched_ends_now(self):
+        start = T0 - timedelta(hours=5)
+        open_ = Outage("sensor.gone", "dev1", ("Temperature",), start)
+        ended = Outage("sensor.gone", "dev1", ("Temperature",), start, T0)
+        assert advance_outages([open_], {}, T0) == ([ended], [], [ended])
+
+    def test_no_evidence_opens_nothing(self):
+        assert advance_outages([], {"sensor.t": _evidence(None)}, T0) == ([], [], [])
+
+    def test_closed_outages_older_than_the_retention_are_dropped(self):
+        edge = T0 - timedelta(days=const.SENSOR_OUTAGE_RETENTION_DAYS)
+        old = Outage(
+            "sensor.a",
+            None,
+            ("Temperature",),
+            edge - timedelta(hours=5),
+            edge - timedelta(seconds=1),
+        )
+        kept = Outage(
+            "sensor.b", None, ("Temperature",), edge - timedelta(hours=5), edge
+        )
+        still_open = Outage("sensor.c", None, ("Temperature",), T0 - timedelta(days=30))
+        evidence = {"sensor.c": _evidence(T0 - timedelta(days=30), device=None)}
+        outages, _, _ = advance_outages([old, kept, still_open], evidence, T0)
+        assert outages == [kept, still_open]
