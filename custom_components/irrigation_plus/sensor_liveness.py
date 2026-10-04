@@ -21,6 +21,7 @@ import logging
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.util import dt as dt_util
 
 from . import const
@@ -258,3 +259,41 @@ def outage_event_payload(mapping_id, group_name: str, outage: Outage) -> dict:
         ),
         "stale": outage.end is None,
     }
+
+
+def _on_has_clock(stamp: datetime) -> datetime:
+    """An HA state stamp (aware, UTC) in the buffer's frame: HA's wall time, naive."""
+    return dt_util.as_local(stamp).replace(tzinfo=None)
+
+
+def seen_from_state(state) -> Seen | None:
+    """A liveness snapshot of one HA state, or None when the entity has no state."""
+    if state is None:
+        return None
+    return Seen(
+        entity_id=state.entity_id,
+        valid=state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN),
+        reported=_on_has_clock(state.last_reported),
+        changed=_on_has_clock(state.last_changed),
+    )
+
+
+def _entities_of_device(hass, entity_id: str) -> tuple[str | None, list[str]]:
+    """The entity's HA device and that device's other enabled entities.
+
+    Reached through this one function so the tests can stand in for it: conftest
+    may replace ``homeassistant.helpers`` with a mock (see repairs.py), hence the
+    import inside.
+    """
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(hass)
+    entry = registry.async_get(entity_id)
+    device_id = entry.device_id if entry is not None else None
+    if not device_id:
+        return None, []
+    return device_id, [
+        sibling.entity_id
+        for sibling in er.async_entries_for_device(registry, device_id)
+        if sibling.entity_id != entity_id
+    ]
