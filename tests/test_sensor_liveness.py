@@ -33,9 +33,19 @@ def test_only_sensor_fields_with_an_entity_are_watched():
     mappings = {
         const.MAPPING_TEMPERATURE: _cfg(const.MAPPING_CONF_SOURCE_SENSOR, "sensor.t"),
         const.MAPPING_DEWPOINT: _cfg(const.MAPPING_CONF_SOURCE_SENSOR, "sensor.t"),
-        const.MAPPING_HUMIDITY: _cfg(const.MAPPING_CONF_SOURCE_WEATHER_SERVICE),
-        const.MAPPING_PRESSURE: _cfg(const.MAPPING_CONF_SOURCE_STATIC_VALUE),
+        # A field switched away from a sensor can keep its old entity.
+        const.MAPPING_HUMIDITY: _cfg(
+            const.MAPPING_CONF_SOURCE_WEATHER_SERVICE, "sensor.left_over"
+        ),
+        const.MAPPING_PRESSURE: _cfg(
+            const.MAPPING_CONF_SOURCE_STATIC_VALUE, "sensor.left_over"
+        ),
+        const.MAPPING_EVAPOTRANSPIRATION: _cfg(
+            const.MAPPING_CONF_SOURCE_NONE, "sensor.left_over"
+        ),
         const.MAPPING_WINDSPEED: _cfg(const.MAPPING_CONF_SOURCE_SENSOR, ""),
+        # The setup wizard stores a sensor field without an entity key.
+        const.MAPPING_CURRENT_PRECIPITATION: _cfg(const.MAPPING_CONF_SOURCE_SENSOR),
         const.MAPPING_SOLRAD: "legacy bare string",
     }
     assert sensor_fields_by_entity(mappings) == {
@@ -47,6 +57,12 @@ def test_a_value_set_by_hand_is_never_watched():
     mappings = {
         const.MAPPING_PRESSURE: _cfg(
             const.MAPPING_CONF_SOURCE_SENSOR, "input_number.pressure"
-        )
+        ),
+        # Exempt is the input_number domain, not a name that merely contains it.
+        const.MAPPING_HUMIDITY: _cfg(
+            const.MAPPING_CONF_SOURCE_SENSOR, "sensor.input_number_mirror"
+        ),
     }
-    assert sensor_fields_by_entity(mappings) == {}
+    assert sensor_fields_by_entity(mappings) == {
+        "sensor.input_number_mirror": (const.MAPPING_HUMIDITY,)
+    }
