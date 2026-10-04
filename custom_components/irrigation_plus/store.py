@@ -373,11 +373,13 @@ class MappingEntry:
     # in MJ m-2, capped at RADIATION_CALIBRATION_WINDOWS. Bounded like the above.
     radiation_calibration = attr.ib(type=list, factory=list)
     # ``[{entity_id, device_id, fields, start, end}, ...]``: weather-sensor outages
-    # longer than SENSOR_STALE_AFTER_SECONDS, ISO stamps on HA's clock, pruned to
-    # SENSOR_OUTAGE_RETENTION_DAYS (sensor_liveness). Bounded like the two above.
+    # longer than SENSOR_STALE_AFTER_SECONDS, ISO stamps on HA's clock (see
+    # sensor_liveness). Bounded: at most one open outage per entity, and closed
+    # ones go SENSOR_OUTAGE_RETENTION_DAYS after their end.
     sensor_outages = attr.ib(type=list, factory=list)
     # ``{entity_id: ISO stamp}``: each sensor field's last sign of life, so an
-    # outage that spans a restart keeps its start. Rides along on the next write.
+    # outage that spans a restart keeps its start. Rides along on the next write;
+    # a clean stop writes it too (set_mapping_sensor_last_seen).
     sensor_last_seen = attr.ib(type=dict, factory=dict)
 
 
@@ -962,6 +964,16 @@ def _as_buffer(value) -> list:
     return []
 
 
+def _as_last_seen(value) -> dict:
+    """Coerce a stored ``sensor_last_seen`` into signs of life.
+
+    Anything that is not a dict reads as none: the liveness check reads it every
+    few minutes and must not trip over a value edited by hand or written by
+    another build.
+    """
+    return value if isinstance(value, dict) else {}
+
+
 class SmartIrrigationStorage:
     """Class to hold Irrigation Plus configuration data."""
 
@@ -982,6 +994,9 @@ class SmartIrrigationStorage:
         # True when self.buffers holds rows that are not in the file yet. Read at
         # write time to decide which payload to emit; see _data_to_save_scheduled.
         self._buffers_dirty = False
+        # True when a sensor group's signs of life changed since the last write;
+        # the shutdown flush writes them (set_mapping_sensor_last_seen).
+        self._last_seen_dirty = False
         self._unsub_stop = None
         self._store = MigratableStore(
             hass, STORAGE_VERSION, STORAGE_KEY, minor_version=STORAGE_MINOR_VERSION
@@ -1385,7 +1400,9 @@ class SmartIrrigationStorage:
                         radiation_calibration=mapping.get(MAPPING_RADIATION_CALIBRATION)
                         or [],
                         sensor_outages=mapping.get(MAPPING_SENSOR_OUTAGES) or [],
-                        sensor_last_seen=mapping.get(MAPPING_SENSOR_LAST_SEEN) or {},
+                        sensor_last_seen=_as_last_seen(
+                            mapping.get(MAPPING_SENSOR_LAST_SEEN)
+                        ),
                     )
             if "distributors" in data:
                 for dist in data["distributors"]:
@@ -1426,6 +1443,7 @@ class SmartIrrigationStorage:
         self.buffers = buffers
         # Everything just loaded is by definition already on disk.
         self._buffers_dirty = False
+        self._last_seen_dirty = False
         self.async_ensure_stop_listener()
 
     @callback
@@ -1583,9 +1601,9 @@ class SmartIrrigationStorage:
 
     @callback
     def _async_flush_on_stop(self, _event) -> None:
-        """Queue the buffered readings for HA's shutdown write."""
+        """Queue unwritten readings and signs of life for HA's shutdown write."""
         self._unsub_stop = None
-        if not self._buffers_dirty:
+        if not (self._buffers_dirty or self._last_seen_dirty):
             return
         _LOGGER.debug("Queueing buffered sensor readings for the shutdown write")
         self.async_schedule_save()
@@ -1643,6 +1661,8 @@ class SmartIrrigationStorage:
         store_data["distributors"] = [
             attr.asdict(entry) for entry in self.distributors.values()
         ]
+        # Every payload carries the sensor groups' signs of life.
+        self._last_seen_dirty = False
         return store_data
 
     @callback
@@ -1672,6 +1692,7 @@ class SmartIrrigationStorage:
             self._unsub_stop = None
         self.buffers = {}
         self._buffers_dirty = False
+        self._last_seen_dirty = False
         # self.config = Config()
         # await self.async_factory_default_zones()
         # await self.async_factory_default_modules()
@@ -2149,10 +2170,10 @@ class SmartIrrigationStorage:
 
         Refreshed at every liveness check, every few minutes; a write each time
         would be a whole document for a value that only matters across a restart.
-        It is a MappingEntry field, so it rides along on the next write, like
-        ``data_last_entry`` (see ``set_mapping_last_entry_value``). A fresh dict, not
-        an in-place update: the attrs factory gives every entry its own, and evolving
-        keeps it that way.
+        It is a MappingEntry field, so it rides along on the next write. Unlike
+        ``data_last_entry`` nothing can rebuild it, so a change also marks it for
+        the shutdown write (``_async_flush_on_stop``): a clean restart keeps it.
+        The store keeps a copy, never the caller's dict.
         """
         if mapping_id is None:
             return
@@ -2160,7 +2181,10 @@ class SmartIrrigationStorage:
         entry = self.mappings.get(mapping_id)
         if entry is None:
             return
-        self.mappings[mapping_id] = attr.evolve(entry, sensor_last_seen=dict(seen))
+        fresh = dict(seen)
+        if fresh != entry.sensor_last_seen:
+            self._last_seen_dirty = True
+        self.mappings[mapping_id] = attr.evolve(entry, sensor_last_seen=fresh)
 
     async def async_create_mapping(self, data: dict) -> MappingEntry:
         """Create a new MappingEntry."""
