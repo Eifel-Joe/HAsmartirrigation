@@ -127,7 +127,8 @@ class Outage:
         """Read one stored record; anything unreadable is dropped, never raised.
 
         Unreadable: not a dict, no entity id, no readable start, an end that is
-        present but no stamp, ``fields`` that is not a list of strings.
+        present but no stamp, ``fields`` that is not a list of strings (missing or
+        empty means none).
         NOT-TO-DO: do not let this raise. The ledger is read in the setup and in the
         configuration paths; a file edited by hand, or written by another build of
         this integration, must cost one record, not the integration.

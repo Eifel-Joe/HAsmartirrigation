@@ -197,14 +197,18 @@ class TestOutageInTheStore:
             _record(fields=5),
             _record(fields="Temperature"),
             _record(fields=[1]),
+            _record(fields=["Temperature", 1]),
             _record(end="garbage"),
         ],
     )
     def test_an_unreadable_record_is_dropped_not_raised(self, raw):
         assert Outage.from_store(raw) is None
 
-    def test_a_record_without_its_optional_keys_still_reads(self):
-        assert Outage.from_store(_record()) == Outage(
+    @pytest.mark.parametrize(
+        "raw", [_record(), _record(fields=None), _record(fields=[])]
+    )
+    def test_a_record_without_its_optional_keys_still_reads(self, raw):
+        assert Outage.from_store(raw) == Outage(
             "sensor.t", None, (), T0 - timedelta(hours=4)
         )
 
