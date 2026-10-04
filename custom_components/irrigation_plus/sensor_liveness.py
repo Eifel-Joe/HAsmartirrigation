@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from . import const
+from .helpers import STAMP_FROM_STORE, coerce_stamp
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -92,3 +93,53 @@ def first_report_after(
     states = ([own] if own is not None else []) + list(siblings)
     stamps = [s.changed for s in states if s.valid and s.changed > start]
     return min(stamps) if stamps else None
+
+
+@dataclass(frozen=True)
+class Outage:
+    """A sensor entity that stayed silent for longer than the limit.
+
+    ``start`` is its last sign of life, ``end`` its first report afterwards (None
+    while it is still silent). Stored as ISO strings on HA's clock, the frame of the
+    reading buffer whose rows the outage is compared with.
+    """
+
+    entity_id: str
+    device_id: str | None
+    fields: tuple[str, ...]
+    start: datetime
+    end: datetime | None = None
+
+    def to_store(self) -> dict:
+        return {
+            "entity_id": self.entity_id,
+            "device_id": self.device_id,
+            "fields": list(self.fields),
+            "start": self.start.isoformat(),
+            "end": self.end.isoformat() if self.end is not None else None,
+        }
+
+    @classmethod
+    def from_store(cls, raw) -> Outage | None:
+        """Read one stored record; anything unreadable is dropped, never raised."""
+        if not isinstance(raw, dict) or not raw.get("entity_id"):
+            return None
+        start = coerce_stamp(raw.get("start"), STAMP_FROM_STORE)
+        if start is None:
+            return None
+        return cls(
+            entity_id=str(raw["entity_id"]),
+            device_id=raw.get("device_id"),
+            fields=tuple(raw.get("fields") or ()),
+            start=start,
+            end=coerce_stamp(raw.get("end"), STAMP_FROM_STORE),
+        )
+
+
+def outages_of(mapping: dict) -> list[Outage]:
+    """The readable outages stored on a sensor group."""
+    return [
+        outage
+        for raw in (mapping.get(const.MAPPING_SENSOR_OUTAGES) or [])
+        if (outage := Outage.from_store(raw)) is not None
+    ]

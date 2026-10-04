@@ -2,9 +2,12 @@
 
 from datetime import datetime, timedelta
 
+import pytest
+
 from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.calculation import BUFFER_RETENTION
 from custom_components.irrigation_plus.sensor_liveness import (
+    Outage,
     Seen,
     first_report_after,
     last_sign_of_life,
@@ -153,3 +156,37 @@ class TestFirstReportAfter:
         start = T0 - timedelta(hours=6)
         own = _seen(changed=T0 - timedelta(minutes=3))
         assert first_report_after(own, [], start) == T0 - timedelta(minutes=3)
+
+
+class TestOutageInTheStore:
+    def test_round_trip(self):
+        outage = Outage(
+            "sensor.t", "dev1", ("Temperature",), T0 - timedelta(hours=4), T0
+        )
+        assert outage.to_store() == {
+            "entity_id": "sensor.t",
+            "device_id": "dev1",
+            "fields": ["Temperature"],
+            "start": "2026-07-01T08:00:00",
+            "end": "2026-07-01T12:00:00",
+        }
+        assert Outage.from_store(outage.to_store()) == outage
+
+    def test_an_open_outage_has_no_end(self):
+        outage = Outage("sensor.t", None, ("Temperature",), T0)
+        assert outage.to_store()["end"] is None
+        assert Outage.from_store(outage.to_store()) == outage
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            None,
+            "text",
+            {},
+            {"entity_id": "sensor.t"},
+            {"entity_id": "sensor.t", "start": "garbage"},
+            {"start": "2026-07-01T08:00:00"},
+        ],
+    )
+    def test_an_unreadable_record_is_dropped_not_raised(self, raw):
+        assert Outage.from_store(raw) is None
