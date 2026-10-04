@@ -286,19 +286,19 @@ def seen_from_state(state) -> Seen | None:
 
 
 def _entities_of_device(hass, entity_id: str) -> tuple[str | None, list[str]]:
-    """The entity's HA device and the device's other enabled sensors from its
-    own integration.
+    """The entity's HA device and the other enabled sensors on it that vouch for it.
 
     Home Assistant attaches helpers to devices: a utility meter or Riemann
     integral to its source's device, a template sensor to the one picked for it.
     They can write on a schedule of their own, and an update entity of the
     device's integration can too; neither says anything about the
-    measurements. So only sensors and binary sensors from the integration entry
-    that owns the device vouch, plus those of the mapped entity's own entry,
-    which lets a station vouch for a helper mapped from it. Reached through this
-    one function so the tests can stand in for it: conftest may replace
-    ``homeassistant.helpers`` with a mock (see repairs.py), hence the imports
-    inside.
+    measurements. So only sensors and binary sensors vouch, and only those of the
+    integration entry that owns the device -- which lets a station vouch for a
+    helper mapped from it -- or of the mapped entity's own entry, which still counts
+    where another integration owns the device (MQTT ranks low) or no owner is
+    recorded. Reached through this one function so the tests can stand in for it:
+    conftest may replace ``homeassistant.helpers`` with a mock (see repairs.py),
+    hence the imports inside.
     """
     from homeassistant.helpers import device_registry as dr
     from homeassistant.helpers import entity_registry as er
