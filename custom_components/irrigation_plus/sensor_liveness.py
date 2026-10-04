@@ -18,6 +18,8 @@ The rules are pure functions, testable without Home Assistant; the
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
+from datetime import datetime
 
 from . import const
 
@@ -44,3 +46,47 @@ def sensor_fields_by_entity(mappings_config: dict) -> dict[str, tuple[str, ...]]
             continue
         found.setdefault(entity_id, []).append(field_name)
     return {entity_id: tuple(fields) for entity_id, fields in found.items()}
+
+
+@dataclass(frozen=True)
+class Seen:
+    """One entity's state as liveness reads it, stamps naive on HA's clock."""
+
+    entity_id: str
+    valid: bool  # not unavailable/unknown
+    reported: datetime  # State.last_reported
+    changed: datetime  # State.last_changed
+
+
+def last_sign_of_life(
+    own: Seen | None, siblings: list[Seen], remembered: datetime | None
+) -> datetime | None:
+    """The newest report that vouches for a field, or None when there is none.
+
+    ``own`` is the field's entity (None when it does not exist). While it is
+    unavailable/unknown the field is silent whatever its device does, so only the
+    remembered sign counts. Otherwise its device vouches for it: at a living station
+    some value reports or changes within the limit, while a quiet rain gauge on the
+    same device may not change for days. ``remembered`` is the sign stored at the
+    previous check, so an outage that spans a restart keeps its start; a sign never
+    moves backwards.
+    """
+    candidates = [remembered] if remembered is not None else []
+    if own is not None and own.valid:
+        candidates.append(own.reported)
+        candidates.extend(s.reported for s in siblings if s.valid)
+    return max(candidates) if candidates else None
+
+
+def first_report_after(
+    own: Seen | None, siblings: list[Seen], start: datetime
+) -> datetime | None:
+    """When the device spoke again after ``start``: its earliest change since then.
+
+    A returning device's first report changes most of its values, so the earliest
+    ``last_changed`` after the outage began is the closest record of its return that
+    survives until the next check. None when nothing changed since ``start``.
+    """
+    states = ([own] if own is not None else []) + list(siblings)
+    stamps = [s.changed for s in states if s.valid and s.changed > start]
+    return min(stamps) if stamps else None
