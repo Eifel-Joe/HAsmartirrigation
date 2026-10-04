@@ -1767,6 +1767,8 @@ class SmartIrrigationCoordinator(
             if not res:
                 return None
             await self.store.async_delete_mapping(mapping_id)
+            # Its notice would otherwise outlive it until the next restart.
+            self._retire_outages(res)
         elif mapping_id is not None and self.store.get_mapping(mapping_id):
             # modify a mapping
             # A source/sensor switch makes the buffered readings incomparable to
@@ -1790,16 +1792,20 @@ class SmartIrrigationCoordinator(
                 # caller omits straight back in — so each stale key is overwritten
                 # with None, which aggregate_window ignores. A fresh reading from
                 # the new source replaces it.
-                stale = (self.store.get_mapping(mapping_id) or {}).get(
-                    const.MAPPING_DATA_LAST_ENTRY
-                ) or {}
+                before = self.store.get_mapping(mapping_id) or {}
+                stale = before.get(const.MAPPING_DATA_LAST_ENTRY) or {}
                 data = {
                     **data,
                     const.MAPPING_DATA: [],
                     const.MAPPING_DATA_LAST_ENTRY: dict.fromkeys(stale),
+                    # A different sensor has no outage history: the old one's
+                    # outages and signs of life describe a different device.
+                    const.MAPPING_SENSOR_OUTAGES: [],
+                    const.MAPPING_SENSOR_LAST_SEEN: {},
                 }
             await self.store.async_update_mapping(mapping_id, data)
             if source_changed:
+                self._retire_outages(before)
                 now = local_naive_now()
                 for zone_id in await self._get_zones_that_use_this_mapping(mapping_id):
                     await self.store.async_update_zone(

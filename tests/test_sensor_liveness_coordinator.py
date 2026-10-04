@@ -590,3 +590,141 @@ def _attribute_calls_in(function_name):
 def test_setup_arms_the_check_and_unload_disarms_it():
     assert "async_setup_sensor_liveness" in _attribute_calls_in("async_setup_timers")
     assert "async_teardown_sensor_liveness" in _attribute_calls_in("async_unload")
+
+
+OPEN_RECORD = Outage(
+    "sensor.old", "dev1", ("Temperature",), T0 - timedelta(hours=5)
+).to_store()
+
+
+def _mock_store_coord(monkeypatch, mapping):
+    """The harness of tests/test_mapping_source_change.py: a Mock store."""
+    store = Mock()
+    store.get_mapping = Mock(return_value=mapping)
+    store.async_update_mapping = AsyncMock()
+    store.async_update_zone = AsyncMock()
+    store.async_delete_mapping = AsyncMock(return_value=True)
+    coord = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
+    coord.store = store
+    coord.hass = Mock()
+    coord._get_zones_that_use_this_mapping = AsyncMock(return_value=[])
+    issues = _FakeIssues()
+    issues.open["weather_sensor_stale_0"] = {}
+    monkeypatch.setattr(sensor_liveness, "_issue_registry", lambda: issues)
+    return coord, store, issues
+
+
+def _sensor_group_zero(entity):
+    group = _group(
+        0,
+        fields={"Temperature": entity},
+        outages=[OPEN_RECORD],
+        last_seen={"sensor.old": T0.isoformat()},
+    )
+    group[const.MAPPING_DATA_LAST_ENTRY] = {}
+    return group
+
+
+class TestTheLedgerFollowsTheConfiguration:
+    async def test_a_source_change_empties_the_ledger_and_drops_the_notice(
+        self, monkeypatch
+    ):
+        coord, store, issues = _mock_store_coord(
+            monkeypatch, _sensor_group_zero("sensor.old")
+        )
+        new = {
+            const.MAPPING_MAPPINGS: {
+                "Temperature": {
+                    const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                    const.MAPPING_CONF_SENSOR: "sensor.new",
+                }
+            }
+        }
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_mapping_config(0, new)
+
+        args, _ = store.async_update_mapping.call_args
+        assert args[1][const.MAPPING_SENSOR_OUTAGES] == []
+        assert args[1][const.MAPPING_SENSOR_LAST_SEEN] == {}
+        assert "weather_sensor_stale_0" not in issues.open
+        # The replaced sensor's outage still ends, so an automation hears it.
+        fired = [c.args for c in coord.hass.bus.async_fire.call_args_list]
+        assert [(a[0], a[1]["entity_id"], a[1]["stale"]) for a in fired] == [
+            (EVENT, "sensor.old", False)
+        ]
+        assert fired[0][1]["until"] is not None
+
+    async def test_a_group_without_an_open_outage_leaves_the_registry_alone(
+        self, monkeypatch
+    ):
+        """No open outage, no notice to clear: the issue registry is not asked."""
+        group = _sensor_group_zero("sensor.old")
+        group[const.MAPPING_SENSOR_OUTAGES] = []
+        coord, _, _ = _mock_store_coord(monkeypatch, group)
+        monkeypatch.setattr(
+            sensor_liveness,
+            "_issue_registry",
+            Mock(side_effect=AssertionError("issue registry asked")),
+        )
+        new = {
+            const.MAPPING_MAPPINGS: {
+                "Temperature": {
+                    const.MAPPING_CONF_SOURCE: const.MAPPING_CONF_SOURCE_SENSOR,
+                    const.MAPPING_CONF_SENSOR: "sensor.new",
+                }
+            }
+        }
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_mapping_config(0, new)
+        await coord.async_update_mapping_config(0, {const.ATTR_REMOVE: True})
+        coord.hass.bus.async_fire.assert_not_called()
+
+    async def test_a_rename_keeps_the_ledger_and_the_notice(self, monkeypatch):
+        coord, store, issues = _mock_store_coord(
+            monkeypatch, _sensor_group_zero("sensor.old")
+        )
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_mapping_config(0, {const.MAPPING_NAME: "renamed"})
+
+        args, _ = store.async_update_mapping.call_args
+        assert const.MAPPING_SENSOR_OUTAGES not in args[1]
+        assert "weather_sensor_stale_0" in issues.open
+
+    async def test_deleting_a_group_drops_its_notice(self, monkeypatch):
+        coord, store, issues = _mock_store_coord(
+            monkeypatch, _sensor_group_zero("sensor.old")
+        )
+        await coord.async_update_mapping_config(0, {const.ATTR_REMOVE: True})
+
+        store.async_delete_mapping.assert_awaited_once()
+        assert "weather_sensor_stale_0" not in issues.open
+        fired = [c.args for c in coord.hass.bus.async_fire.call_args_list]
+        assert [(a[0], a[1]["stale"]) for a in fired] == [(EVENT, False)]
+
+    async def test_reset_all_weather_data_empties_the_ledger(self, monkeypatch):
+        coord, store, issues = _coord(
+            monkeypatch,
+            [
+                _group(
+                    fields={"Temperature": "sensor.old"},
+                    outages=[OPEN_RECORD],
+                    last_seen={"sensor.old": T0.isoformat()},
+                )
+            ],
+            {},
+            {},
+        )
+        issues.open["weather_sensor_stale_1"] = {}
+        coord.clear_continuous_deadband_state = Mock()
+        coord.invalidate_live_estimate_carry = Mock()
+        monkeypatch.setattr(
+            "custom_components.irrigation_plus.calculation.async_dispatcher_send",
+            Mock(),
+        )
+
+        await coord._async_clear_all_weatherdata()
+
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES] == []
+        assert store.mappings[1][const.MAPPING_SENSOR_LAST_SEEN] == {}
+        assert issues.open == {}
+        assert [(a[0], a[1]["stale"]) for a in _events(coord)] == [(EVENT, False)]

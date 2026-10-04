@@ -361,8 +361,12 @@ class CalculationMixin:
                     const.MAPPING_DATA_LAST_ENTRY: dict.fromkeys(
                         mapping.get(const.MAPPING_DATA_LAST_ENTRY) or {}
                     ),
+                    # Outages describe readings that no longer exist.
+                    const.MAPPING_SENSOR_OUTAGES: [],
+                    const.MAPPING_SENSOR_LAST_SEEN: {},
                 },
             )
+            self._retire_outages(mapping)
         for zone in await self.store.async_get_zones():
             zone_id = zone.get(const.ZONE_ID)
             await self.store.async_update_zone(

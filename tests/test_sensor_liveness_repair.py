@@ -113,3 +113,17 @@ async def test_the_notice_survives_a_restart_in_the_middle_of_an_outage(hass, fr
         assert notice.translation_placeholders["since"] == since
     finally:
         after.async_teardown_sensor_liveness()
+
+
+async def test_the_notice_goes_when_its_sensor_group_is_deleted(hass, freezer):
+    coord, mapping_id = await _garden(hass)
+    heard = _listen(hass)
+    await _silent_past_the_limit(hass, freezer, coord)
+    assert _notice(hass, mapping_id) is not None
+
+    await coord.async_update_mapping_config(mapping_id, {const.ATTR_REMOVE: True})
+    await hass.async_block_till_done()
+
+    assert coord.store.get_mapping(mapping_id) is None
+    assert _notice(hass, mapping_id) is None
+    assert heard == [(ENTITY, True), (ENTITY, False)]
