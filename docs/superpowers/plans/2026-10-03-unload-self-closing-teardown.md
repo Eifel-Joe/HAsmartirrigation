@@ -2421,7 +2421,9 @@ Expected: beides leer.
 - [x] **Step 5: Review** — `superpowers:requesting-code-review` über den Diff `upstream/master..HEAD` mit Spec und
 diesem Plan; Rückmeldungen über `superpowers:receiving-code-review` prüfen.
 
-- [ ] **Step 6: Stand festhalten** — `docs/SESSION-STAND.md` ergänzen, Häkchen in diesem Plan setzen. **Nicht pushen,
+- [x] **Step 6: Stand festhalten** — `docs/SESSION-STAND.md` ergänzen, Häkchen in diesem Plan setzen.
+**Erledigt 2026-10-04:** Live-Test RED/GREEN auf HA-Test (`docs/superpowers/probes/2026-10-04-unload-teardown-live/`),
+Pre-Release v2026.10.04b1, PR JustChr#189, P2, Archiv. **Nicht pushen,
 keinen PR öffnen**, bevor der PR-Text freigegeben ist (deutsch, dann englisch). Danach Live-Test auf HA-Test nach
 dem Ende-zu-Ende-Kriterium der Spec (Pre-Release, RED-Seite vorher auf dem installierten Stand). Alles Weitere —
 PR, P2 auf Eifel-Joe#9 und #42, production, die neuen Issues, P1-Archiv — steht in der Spec unter *Lieferung*.

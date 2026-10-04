@@ -23,7 +23,134 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
-## 2026-10-03 (2) — Upstream-Runde leer; Eifel-Joe#9: Spec + Plan freigegeben, Plan probegelaufen
+## 2026-10-04 (2) — Eifel-Joe#9 abgeschlossen bis auf den Merge: Live-Test RED/GREEN, Pre-Release v2026.10.04b1, PR JustChr#189, P2, Archiv; JustChr#188 beantwortet
+
+### Ergebnis der Freigabe (User: „1–7 freigegeben“)
+
+- **PR [JustChr#189](https://github.com/JustChr/HAsmartirrigation/pull/189)** offen, CI 4/4 grün, mergeable; Body =
+  `issue9-work\texts\pr-en-body.md` (freigegebener Text + Live-Zeile), Greps vorher leer, kein Doppel-PR upstream.
+- **P2:** Eifel-Joe#9 Kommentar `5977317350` + `upstream:gemeldet`; Eifel-Joe#8 Kommentar `5977329194` +
+  `upstream:gemeldet` → `upstream:freigegeben`; Kommentare auf Eifel-Joe#15/#51/#67; **neu Eifel-Joe#78** (Master-Abgleich
+  beim Neuladen, `groesse:M`), **#79** (Master im Zyklus geändert), **#80** (Batch-Abbruch wirft), **#81**
+  (Verteiler-Pause nach Dispatch-Flag), alle `typ:fehler` + `schwere:niedrig`; #42 Punkte 9/10 + 39i–39l (Body
+  byte-gleich mit Entwurf geprüft).
+- **P1-Archiv** `1cf0dfc1`: Spec + Plan (Baustand), `probes/2026-10-04-unload-teardown-live/` (Belege, Rasterskripte,
+  Live-Plan), `probes/2026-10-04-unload-teardown-build/` (Mutations-Treiber + Ergebnis, Spec-Check, Namenslisten, README).
+- **Aufgeräumt:** `prodrebuild-1004-work` (Worktree + Branch `rebuild/v2026.10.04b1`; kleine Belege nach
+  `issue9-work\rebuild-evidence\`), Worktree `issue9-work\vwt`. **Bleibt:** `issue9-work\wt` bis zum Merge;
+  `prodrebuild-1003-work` (SESSION-STAND 2026-10-03 verweist auf dessen `texts\`); lokale Sicherung
+  `backup/production-pre-v2026.10.04b1` (= Tag v2026.10.03). Zone 8 behält den Durchflusssensor (User: egal auf HA-Test).
+- **Memories:** `hasi-unload-teardown`, `hasi-dead-weather-sensor`, `hasi-production-on-upstream`, `hasi-todo-file`
+  aktualisiert, neu `ha-profiler-timer-grid`.
+
+### Stand (vor der Freigabe)
+
+- **Live-Test HA-Test** (Belege `D:\Entwicklung\HASI\issue9-work\livetest\`, je `L1/L2-red/green.md` + Rasterskripte):
+  - L1 Neuladen: RED (`v2026.09.30b2`) — der Abtaster des alten Koordinators steht nach Laufende weiter in der
+    Timer-Liste (Ticks 12/20/33/55, noch 13,7 min nach Start); GREEN (`v2026.10.04b1`) — direkt nach dem Neuladen weg.
+    Buchung auf beiden Seiten genau eine, nach Zeit (12 L).
+  - L2 Deaktivieren: RED — Ventil bis zum Countdown, toter Koordinator bucht `completed` 180 s/18,9 L, Pumpe +5,000 s;
+    GREEN — Abbruch-Warnung, Pumpe +0,10 s, Ventil +0,17 s (Stop service), Teillauf 61 s/6,05 L gemessen.
+  - Methode: Profiler `log_event_loop_scheduled` zeigt Intervall-Timer ohne Ziel → Abtaster am 15-s-Raster ab
+    Laufstart erkannt (Offset Epoche−Schleife aus `_TrackPointUTCTime`-Zeilen, über den Neustart konstant).
+  - Objektbestand ist **kein** Merkmal: der abgebaute Koordinator bleibt auch mit Fix einige Minuten im Speicher.
+  - Aufgeräumt: Flussquelle 0. **Offen (User):** Durchflusssensor an Zone 8 wieder leeren; Profiler darf bleiben.
+- **Pre-Release `v2026.10.04b1`** (freigegeben „ohne weitere Rückfrage“): production `d804bbf3` → **`4ebd458c`**
+  (Backup `backup/production-pre-v2026.10.04b1`), force-with-lease; Release mit ZIP aus dem SHA (204 Einträge,
+  sha256 `2b0a0e48…`, Download byte-gleich, HTTP 200); Tag lokal+remote → `4ebd458c`; HACS/hassfest/Pages grün;
+  Rebuild-Suite 7/3676/9/415, Namen identisch. Auf HA-Test per HACS installiert + Neustart (angekündigt).
+  **HA-Prod unberührt.**
+- **Upstream-Runde 08:0x:** JustChr hat **JustChr#188 am 2026-10-03 19:13 UTC beantwortet** (nach der Runde von
+  16:34 UTC): Bau freigegeben, Bedingungen: Einstellung je Gruppe (Bestand: letzten Wert behalten + melden), Design 2 in
+  drei PRs (Erkennung zuerst, ohne Verhaltensänderung), drei Repair-Tests, Doku-Hinweis 6-h-Cloud-Takt. Sonst leer,
+  `upstream/master` weiter `e9c79ec4`.
+- **Text-Bündel zur Freigabe** in `issue9-work\texts\`: `pr-de.md`/`pr-en.md` (Live-Zeile ergänzt), `issues-en.md`
+  (A–D + Kommentare #67/#51/#15), `comment-8.md`, `comment-9.md`, `issue42-edits.md`. Tracker-Greps über Diff, Messages
+  und PR-Text leer.
+
+### Fallen
+
+- **Lange Sitzung überholt die eigene Upstream-Runde:** die Runde von 16:34 UTC lag vor JustChrs Antwort auf #188
+  (19:13 UTC), gefunden erst vor dem PR. Vor jedem Außen-Schritt einer langen Sitzung die Runde wiederholen.
+- **Profiler zeigt Intervall-Timer ohne Ziel** — Suche nach `_tick` findet nichts; Raster-Methode: Memory
+  `ha-profiler-timer-grid`. Eine Toleranz, die mit k wächst, lässt Tages-/Stunden-Timer durch → k ≤ 60, Basis-Abzug.
+- `ha_manage_hacs download`: `repository_id` als `owner/repo`-String (Zahl wird abgelehnt), vorher `update_information`.
+- `--jq .body >` hängt ein `\n` an; nach `gh issue edit --body-file` ist die Remote-Fassung genau dieses Byte länger.
+- Stop service wird ohne `blocking` gerufen → beim Deaktivieren geht die Pumpe ~70 ms vor dem Ventil aus (gutmütig).
+
+### Nächste Schritte
+
+1. **Upstream-Runde** (alle Autoren, seit 2026-10-04 05:50 UTC — die letzte lief gegen 05:56 UTC): JustChr#189 lesen — Einwand → Kommentar in #9 (Link +
+   kurzer Satz), Fix im Worktree `issue9-work\wt`, Greps; Merge → #9 schließen, #42 Punkt 10, production-Rebuild.
+2. **Eifel-Joe#8:** Spec + Plan an JustChrs Bedingungen anpassen (Einstellung je Gruppe, Design 2, drei PRs, drei
+   Repair-Tests, Doku 6-h-Takt; Hinweistext von PR 1 verspricht KEINEN Schnitt) → User-Freigabe → PR 1 bauen.
+3. HA-Prod: erster echter Lauf (Beet) frühestens um den 10.10.; ein HA-Prod-Update auf v2026.10.04b1 nur auf Zuruf.
+
+### Empfohlene Skills
+
+- `superpowers:brainstorming` (Spec-Anpassung #8), `superpowers:writing-plans`, danach `task-loop`; Memories
+  `hasi-dead-weather-sensor`, `upstream-sweep-first`, `hasi-unload-teardown`.
+
+## 2026-10-04 — Eifel-Joe#9 gebaut (12 Commits), alle Gates grün, Abschluss-Review „ready“; nichts gepusht
+
+### Stand
+
+- **Upstream-Runde** ab 2026-10-03 15:05 UTC, gefahren 16:34 UTC: leer. `upstream/master` weiter `e9c79ec4`,
+  JustChr#188 ohne Antwort, keine offenen PRs. Keine P2-, production- oder HA-Prod-Folge.
+- **Bau Eifel-Joe#9:** Worktree `D:\Entwicklung\HASI\issue9-work\wt`, Branch `fix/unload-self-closing-handles`
+  (`--no-track`, kein Upstream), **12 Commits auf `e9c79ec4`, Kopf `ab3eb45f`**, 9 Dateien +1319/−67. Ablauf
+  subagent-driven: kuratierte Auftragsdateien `issue9-work\prompts\tN-full.md`, Spec-Check per Skript
+  (`spec_check.py`: jeder Commit blob-genau = Basis + Plan-Operationen, Testdatei = Folge der Plan-Blöcke, Message),
+  Quality-Review je Task mit Re-Review, Abschluss-Review (opus) über die ganze Serie: **„ready for the pull request“**.
+- **Nachträge beim Bau**, alle im Plan („Beim Bau …“ / „Nachtrag“) und in der Spec vermerkt: Tests verschärft in Task 1,
+  3 (Verdrahtung, Boot-Bereinigung; die Spec-Annahme „dort steht nie ein Timer an“ war falsch), 4, 5, 6, 7 (Schutz der
+  Kettenfreigabe), 8 (Reihenfolge mit Argumenten, `off_after`-Parameter, Absorption unter freezegun, Entfernen-Szene);
+  **neu Task 4b** (Verteiler ohne Master löscht `_master_on` nicht mehr, upstream-Test umgekehrt), **9a** (Texte:
+  Batch-Resume, „kein Service-Zwilling“, Doku-Satz, Entfernen-Kommentar), **9b** (Rückgabewert, Warnzeile).
+- **User-Entscheidungen 2026-10-03/04:** Batch-Resume ohne Backstop → eigenes Issue (besteht schon: **Eifel-Joe#15**);
+  Verteiler-Flag → Ursache beheben (Task 4b).
+- **Gates auf `ab3eb45f`:** volle Suite 7/3667/9/415, die 422 FAILED/ERROR-Namen identisch mit der Baseline
+  (+49 Tests: 45 in `tests/test_self_closing_teardown.py`, +4 netto in `tests/test_distributor.py`); Mutationsmatrix
+  **53/53** mit benanntem Killer (`final_mutate.py`, `mutate-final-53.txt`); black/ruff sauber; Tracker-Greps über Diff,
+  Messages und Baum leer.
+- Entwürfe: PR-Text deutsch `issue9-work\texts\pr-de.md` (Live-Test-Zeile offen), Live-Test-Plan
+  `issue9-work\texts\livetest-plan.md`. HA-Test gelesen: Zone 8 „Grace Test“ ist die einzige Service-Zone (ohne
+  Flusssensor), Master `input_boolean.test_pumpe` mit `master_off_after`, Profiler fehlt.
+
+### Verworfen
+
+- Batch-Resume im selben PR fixen: kein Einzeiler (pausierte Läufe), User: eigenes Issue (#15).
+- Verteiler-Flag lokal oder hinnehmen: Ursache in `distributor.py` behoben (User).
+- Methode umbenennen in `async_abort_service_runs`: freigegebener Spec-Name bleibt, Docstring ist eindeutig.
+
+### Fallen
+
+- **`| tail -1` verschluckt den Exit-Code von `black --check`:** eine `&&`-Kette lief trotz „would reformat“ weiter,
+  9b musste nachgebessert werden. Black immer ohne Pipe prüfen.
+- **Bash-Heredoc frisst Backslashes:** `\\f` wurde ein Seitenvorschub im Plan (repariert). Pfade mit Backslash nur per
+  Write-Tool oder `chr(92)`.
+- **Amend nur auf HEAD:** Nachträge zu älteren Tasks als eigene Commits (9a/9b); `spec_check.py` mappt Commit → Task.
+- **Plan-Snippets vor dem Dispatch im Wegwerf-Worktree `vwt` messen** (`verify_task.py`: Stand nach Commit N, RED-Seite,
+  Mutanten) und black auf den ganzen Endstand — so fielen ein black-Umbruch und ein unbenutzter Import vorher auf.
+- Reviewer-Agenten widerlegen sich gelegentlich selbst (Task 1, Task 6) — jede Behauptung messen, bevor sie in Code geht.
+
+### Nächste Schritte
+
+1. **PR-Text** deutsch → englisch freigeben lassen.
+2. **Live-Test HA-Test vor dem PR** (User-Regel 19.09.): Profiler hinzufügen; Zone 8 Flusssensor
+   `input_number.hasi_flow_probe` per Panel; RED auf installiertem `v2026.09.30b2`, GREEN auf dem Pre-Release.
+3. **production/Pre-Release** (`upstream/master` + 12 Commits + Branding-Cherry-Pick, Version synchron, dist neu) —
+   Push freigabepflichtig.
+4. **PR** an JustChr, dann **P2**: Eifel-Joe#9 Kommentar + `upstream:gemeldet`, Eifel-Joe#15 Kommentar (Neuladen teilt die
+   Lücke, kein Einzeiler, drei falsche Kommentare), #42 Punkt 10; Issue-Kandidaten aus den Reviews nach User-Wahl.
+5. **P1-Archiv** (Spec, Plan, Skripte, Belege) nach `archive/design-history`.
+
+### Empfohlene Skills
+
+- `pr-workflow`, `superpowers:finishing-a-development-branch`; Memories `hasi-pr-build-recipe`,
+  `hasi-production-on-upstream`, `hasi-livetest-capability-boundary`, `preserve-design-docs-archive-branch`.
+
+## 2026-10-03 (2) — Upstream-Runde leer; Eifel-Joe#9: Spec + Plan freigegeben, Plan probegelaufen; Eifel-Joe#75–#77 neu
 
 ### Stand
 
@@ -42,10 +169,14 @@
   Getesteter Endstand: `D:\Entwicklung\HASI\issue9-work\probe-2026-10-03.patch` (6 Dateien, +956/−38; bei
   Abweichung gilt der Patch). Skripte daneben: `probe_mutate.py`, `check_plan_blocks.py`. Probe-Worktree entfernt.
 - **Archiv:** Spec, Plan, Patch (als `docs/superpowers/probes/2026-10-03-unload-self-closing-teardown-probe.patch`)
-  und dieser Stand nach `archive/design-history` (Push freigegeben).
-- Nebenbefunde für eigene Issues (Texte gebündelt zur Freigabe vorgelegt, siehe *Nächste Schritte*): Abo-Lecks
-  (`core_config_updated`-Listener, Dispatcher-Abos in Entitäts-Konstruktoren); Pumpen-Aus beim echten
-  Herunterfahren hängt am 5-s-Timer (gelesen, nicht gemessen); Master-Kick beim Wiederaufnehmen.
+  und der Stand vor dem Posten nach `archive/design-history` **`31112a23`** (Push freigegeben, Blobs gleich).
+- **P2 (freigegeben, gepostet, byte-gleich geprüft):** Eifel-Joe#9 Kommentar `5970929205` (Umfang: Deaktivieren,
+  Entfernen, Master-Aus-Timer; Probelauf) + `groesse:S` → `groesse:M`. Neu: **Eifel-Joe#75** Master-Kick beim
+  Wiederaufnehmen (`niedrig`, `prod-scharf`, `S`), **Eifel-Joe#76** Pumpe bleibt beim echten Herunterfahren an
+  (`niedrig`, `M`; **User-Entscheidung: einstellbar**, jede Anlage wählt; Richtung: wer „nach Lauf aus“ nutzt, dessen
+  Master auch beim Herunterfahren aus), **Eifel-Joe#77** Abo-Lecks (`niedrig`, `M`; 16 Dispatcher-Abos + der
+  `core_config_updated`-Listener). #42: Punkt 10 „Spec + Plan fertig und probegelaufen, Bau als Nächstes“, neue
+  Punkte 39f–39h (EN + DE). Texte + Skripte: `D:\Entwicklung\HASI\issue9-work\texts\`.
 
 ### Verworfen
 
@@ -66,6 +197,10 @@
 - Die Lingering-Timer-Prüfung der HA-Testumgebung macht einen Test mit scharfem Timer zusätzlich zum ERROR — ein
   gutes RED-Signal für Lecks.
 - HA-Test hat **keine Profiler-Integration** (für das Ende-zu-Ende-Kriterium nötig; vor dem Live-Test hinzufügen).
+- **Freigegebener Wortlaut ist der gezeigte:** Die Issue-Dateien entstanden zuerst aus dem internen Entwurf und wichen
+  im Deutschen leicht von der freigegebenen Chat-Fassung ab — vor dem Posten aus der gezeigten Fassung neu geschrieben.
+- Der User hatte „Master-Kick beim Wiederaufnehmen“ als meinen Vorschlag gelesen („Warum willst du eine laufende
+  Pumpe neu starten?“): Befunde über heutiges Verhalten ausdrücklich als „der Code tut heute …“ formulieren.
 
 ### Nächste Schritte
 
