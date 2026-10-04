@@ -97,11 +97,11 @@ def first_report_after(
 
 @dataclass(frozen=True)
 class Outage:
-    """A sensor entity that stayed silent for longer than the limit.
+    """One stretch in which a sensor entity stayed silent for longer than the limit.
 
     ``start`` is its last sign of life, ``end`` its first report afterwards (None
-    while it is still silent). Stored as ISO strings on HA's clock, the frame of the
-    reading buffer whose rows the outage is compared with.
+    while it is still silent). Stored as ISO strings on HA's clock: the frame the
+    reading buffer's row stamps are in.
     """
 
     entity_id: str
@@ -121,25 +121,37 @@ class Outage:
 
     @classmethod
     def from_store(cls, raw) -> Outage | None:
-        """Read one stored record; anything unreadable is dropped, never raised."""
+        """Read one stored record; anything unreadable is dropped, never raised.
+
+        Unreadable: not a dict, no entity id, no readable start, an end that is
+        present but no stamp, ``fields`` that is not a list of strings.
+        NOT-TO-DO: do not let this raise. The ledger is read in the setup and in the
+        configuration paths; a file edited by hand, or written by another build of
+        this integration, must cost one record, not the integration.
+        """
         if not isinstance(raw, dict) or not raw.get("entity_id"):
+            return None
+        fields = raw.get("fields") or []
+        if not isinstance(fields, list) or not all(isinstance(f, str) for f in fields):
             return None
         start = coerce_stamp(raw.get("start"), STAMP_FROM_STORE)
         if start is None:
             return None
+        end = coerce_stamp(raw.get("end"), STAMP_FROM_STORE)
+        if end is None and raw.get("end") is not None:
+            return None  # a closed record must not come back open
         return cls(
             entity_id=str(raw["entity_id"]),
             device_id=raw.get("device_id"),
-            fields=tuple(raw.get("fields") or ()),
+            fields=tuple(fields),
             start=start,
-            end=coerce_stamp(raw.get("end"), STAMP_FROM_STORE),
+            end=end,
         )
 
 
 def outages_of(mapping: dict) -> list[Outage]:
-    """The readable outages stored on a sensor group."""
-    return [
-        outage
-        for raw in (mapping.get(const.MAPPING_SENSOR_OUTAGES) or [])
-        if (outage := Outage.from_store(raw)) is not None
-    ]
+    """The readable outages stored on a sensor group; never raises."""
+    stored = mapping.get(const.MAPPING_SENSOR_OUTAGES)
+    if not isinstance(stored, list):
+        return []
+    return [outage for raw in stored if (outage := Outage.from_store(raw)) is not None]

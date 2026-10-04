@@ -11,6 +11,7 @@ from custom_components.irrigation_plus.sensor_liveness import (
     Seen,
     first_report_after,
     last_sign_of_life,
+    outages_of,
     sensor_fields_by_entity,
 )
 
@@ -158,6 +159,10 @@ class TestFirstReportAfter:
         assert first_report_after(own, [], start) == T0 - timedelta(minutes=3)
 
 
+def _record(**changes):
+    return {"entity_id": "sensor.t", "start": "2026-07-01T08:00:00"} | changes
+
+
 class TestOutageInTheStore:
     def test_round_trip(self):
         outage = Outage(
@@ -186,7 +191,36 @@ class TestOutageInTheStore:
             {"entity_id": "sensor.t"},
             {"entity_id": "sensor.t", "start": "garbage"},
             {"start": "2026-07-01T08:00:00"},
+            _record(entity_id=""),
+            _record(fields=5),
+            _record(fields="Temperature"),
+            _record(fields=[1]),
+            _record(end="garbage"),
         ],
     )
     def test_an_unreadable_record_is_dropped_not_raised(self, raw):
         assert Outage.from_store(raw) is None
+
+    def test_a_record_without_its_optional_keys_still_reads(self):
+        assert Outage.from_store(_record()) == Outage(
+            "sensor.t", None, (), T0 - timedelta(hours=4)
+        )
+
+
+class TestOutagesOf:
+    def test_it_keeps_what_is_readable_and_skips_the_rest(self):
+        first = Outage("sensor.t", "dev1", ("Temperature",), T0 - timedelta(hours=6))
+        last = Outage("sensor.w", None, ("Windspeed",), T0 - timedelta(hours=4), T0)
+        stored = [first.to_store(), "junk", None, _record(fields=5), last.to_store()]
+        assert outages_of({const.MAPPING_SENSOR_OUTAGES: stored}) == [first, last]
+
+    @pytest.mark.parametrize(
+        "mapping",
+        [
+            {},
+            {const.MAPPING_SENSOR_OUTAGES: None},
+            {const.MAPPING_SENSOR_OUTAGES: 5},
+        ],
+    )
+    def test_a_group_without_a_ledger_list_has_no_outages(self, mapping):
+        assert outages_of(mapping) == []
