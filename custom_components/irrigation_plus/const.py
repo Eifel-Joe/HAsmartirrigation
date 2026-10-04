@@ -701,8 +701,8 @@ SENSOR_STALE_AFTER_SECONDS = 3 * 3600
 # integrations have created their entities first.
 SENSOR_LIVENESS_INTERVAL_SECONDS = 300
 SENSOR_LIVENESS_STARTUP_GRACE_SECONDS = 600
-# Closed outages are kept as long as the reading buffer keeps rows
-# (calculation.BUFFER_RETENTION), so they cover the same days as the readings.
+# Closed outages are kept as long as the reading buffer may keep rows (its cap,
+# calculation.BUFFER_RETENTION).
 SENSOR_OUTAGE_RETENTION_DAYS = 7
 # Values set by hand: no sign of life is expected, so they never go stale.
 SENSOR_LIVENESS_EXEMPT_DOMAINS = ("input_number",)
