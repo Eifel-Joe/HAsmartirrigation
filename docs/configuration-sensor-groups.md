@@ -58,7 +58,7 @@ Once a sensor has not reported for three hours, Irrigation Plus shows a repair n
 
 The three hours are fixed. An integration that updates less often, such as a cloud service polled every six hours, therefore raises the notice between its updates even though nothing has failed.
 
-A sensor without a device whose value does not change for three hours looks silent too, such as a template sensor, or a utility meter set up in YAML that counts rain on a dry day; one set up in the UI belongs to its source's device and is covered by it. If a value is meant to be fixed, use the "Static value" source instead.
+A sensor without a device that reports only when its value changes, such as a template sensor or a utility meter set up in YAML that counts rain, looks silent too once the value has stayed the same for three hours, on a dry day for instance. A utility meter set up in the UI belongs to its source's device, if the source has one, and is covered by it. If a value is meant to be fixed, use the "Static value" source instead.
 
 ## Deleting a sensor group
 ![](assets/images/configuration-sensor-groups-1.png)

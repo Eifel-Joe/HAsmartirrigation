@@ -119,6 +119,35 @@ async def test_only_the_integrations_own_sensors_vouch(hass):
     )
 
 
+async def test_the_mapped_sensors_own_integration_vouches_on_a_shared_device(hass):
+    """The device belongs to one integration, a sensor of another sits on it: that
+    other integration's second sensor vouches for it, next to the owner's."""
+    owner = MockConfigEntry(domain="test")
+    owner.add_to_hass(hass)
+    other = MockConfigEntry(domain="other")
+    other.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id,
+        identifiers={("test", "station")},
+        name="Station",
+    )
+    registry = er.async_get(hass)
+    mapped = registry.async_get_or_create(
+        "sensor", "other", "rain", device_id=device.id, config_entry=other
+    )
+    twin = registry.async_get_or_create(
+        "sensor", "other", "wind", device_id=device.id, config_entry=other
+    )
+    station = registry.async_get_or_create(
+        "sensor", "test", "temp", device_id=device.id, config_entry=owner
+    )
+
+    device_id, siblings = _entities_of_device(hass, mapped.entity_id)
+
+    assert device_id == device.id
+    assert sorted(siblings) == sorted([twin.entity_id, station.entity_id])
+
+
 EVENT = f"{const.DOMAIN}_{const.EVENT_WEATHER_STALE}"
 STALE = timedelta(seconds=const.SENSOR_STALE_AFTER_SECONDS)
 
