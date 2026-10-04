@@ -455,7 +455,7 @@
   "issues": {
     "weather_sensor_stale": {
       "title": "Un sensore meteo di {group} ha smesso di inviare dati",
-      "description": "Irrigation Plus non riceve notizie da {entities} dal {since}. Gli ultimi valori ricevuti continuano a essere usati come se fossero attuali, quindi le zone che ne dipendono vengono calcolate con questi valori finché non ne arrivano di nuovi.\n\nControlla il dispositivo e la sua integrazione. Se hai sostituito il dispositivo, seleziona le sue nuove entità nel gruppo di sensori. Se il valore deve restare fisso, usa invece la sorgente «Valore statico». Se l’integrazione si aggiorna solo ogni poche ore, questo avviso compare tra un aggiornamento e l’altro e non significa che il sensore sia guasto.\n\nQuesto avviso scompare da solo quando il sensore torna a inviare dati."
+      "description": "Irrigation Plus non riceve notizie da {entities} dal {since}. Gli ultimi valori ricevuti continuano a essere usati come se fossero attuali, quindi le zone che ne dipendono vengono calcolate con questi valori finché non ne arrivano di nuovi.\n\nControlla il dispositivo e la sua integrazione. Se hai sostituito il dispositivo, seleziona le sue nuove entità nel gruppo di sensori. Se il valore deve restare fisso, usa invece la fonte «Valore statico». Se l’integrazione si aggiorna solo ogni poche ore, questo avviso compare tra un aggiornamento e l’altro e non significa che il sensore sia guasto.\n\nQuesto avviso scompare da solo quando il sensore torna a inviare dati."
     },
     "leftover_legacy_directory": {
       "title": "La vecchia cartella Smart Irrigation è ancora installata",

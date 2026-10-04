@@ -482,3 +482,7 @@ def test_the_stale_notice_has_texts_with_their_placeholders(lang):
     # No other placeholder: the notice supplies only these three.
     for text in notice.values():
         assert set(re.findall(r"\{(\w+)\}", text)) <= {"group", "entities", "since"}
+        # An ASCII apostrophe before a brace quotes it in ICU, and a lone brace
+        # breaks the message: either would leave a placeholder unfilled.
+        assert not re.search(r"'[{}<>]", text)
+        assert text.count("{") == text.count("}") == len(re.findall(r"\{\w+\}", text))
