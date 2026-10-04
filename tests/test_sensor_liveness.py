@@ -1,5 +1,8 @@
 """Weather-sensor liveness: the pure rules, without a running Home Assistant."""
 
+import json
+import pathlib
+import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -455,3 +458,27 @@ class TestOutageEventPayload:
             "until": "2026-07-01T12:00:00+02:00",
             "stale": False,
         }
+
+
+TRANSLATIONS = (
+    pathlib.Path(__file__).parent.parent
+    / "custom_components"
+    / "irrigation_plus"
+    / "translations"
+)
+
+
+@pytest.mark.parametrize("lang", ["de", "en", "es", "fr", "it", "nl", "no", "sk"])
+def test_the_stale_notice_has_texts_with_their_placeholders(lang):
+    issues = json.loads((TRANSLATIONS / f"{lang}.json").read_text(encoding="utf-8"))[
+        "issues"
+    ]
+    notice = issues[const.ISSUE_WEATHER_SENSOR_STALE]
+    # Not fixable, so a description and no fix_flow (Home Assistant allows one).
+    assert set(notice) == {"title", "description"}
+    assert "{group}" in notice["title"]
+    assert "{entities}" in notice["description"]
+    assert "{since}" in notice["description"]
+    # No other placeholder: the notice supplies only these three.
+    for text in notice.values():
+        assert set(re.findall(r"\{(\w+)\}", text)) <= {"group", "entities", "since"}
