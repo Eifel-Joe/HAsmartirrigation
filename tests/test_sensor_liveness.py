@@ -209,7 +209,7 @@ class TestOutageInTheStore:
         assert Outage.from_store(raw) is None
 
     @pytest.mark.parametrize(
-        "raw", [_record(), _record(fields=None), _record(fields=[])]
+        "raw", [_record(), _record(fields=None), _record(fields=[]), _record(fields="")]
     )
     def test_a_record_with_no_fields_and_no_device_still_reads(self, raw):
         assert Outage.from_store(raw) == Outage(

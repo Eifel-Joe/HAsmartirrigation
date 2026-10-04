@@ -11,7 +11,7 @@ while an outage is open, and a bus event when one starts and when it ends (#188)
 Nothing here changes a calculation: a silent sensor's last value is still used, as
 before. The ledger records when it fell silent and the notice tells the user.
 
-The rules are pure functions, testable without a running Home Assistant; the
+The rules are plain functions, testable without a running Home Assistant; the
 ``SensorLivenessMixin`` at the end is the coordinator glue.
 """
 
@@ -243,7 +243,7 @@ def stale_issue_placeholders(group_name: str, outages: list[Outage]) -> dict | N
 def outage_event_payload(mapping_id, group_name: str, outage: Outage) -> dict:
     """The bus event's data for an outage starting (no end yet) or ending.
 
-    Its stamps carry Home Assistant's offset: a consumer would read a naive one in
+    Its stamps carry Home Assistant's offset: a consumer may read a naive one in
     the process's zone, which need not be Home Assistant's.
     """
     return {
