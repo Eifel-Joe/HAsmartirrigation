@@ -48,8 +48,11 @@
   Review-Aussagen waren falsch und sind berichtigt. Belege: `issue8-work\deviations.md`.
 - **P2 erledigt:** Kommentar auf Eifel-Joe#8; Folge-Issue **Eifel-Joe#82** (Deaktivieren/Entfernen lässt offene Hinweise
   ohne End-Event stehen); #42 Punkt 9 + neuer Punkt 39m.
-- **Offen, wartet auf Freigabe:** Eifel-Joe#9 schließen (freigegebener Text galt „ohne Kommentar“ — durch JustChrs Kommentar
-  überholt, neu vorzulegen), #42 Punkt 10, Umgang mit JustChrs Nit.
+- **#189-Folgen erledigt (Freigabe 7–10):** Eifel-Joe#9 mit Kommentar geschlossen (JustChrs Merge-Kommentar verlinkt,
+  sinngemäß, ein Zitat); JustChrs Nit als **Eifel-Joe#83** (`typ:politur`, `schwere:niedrig`); #42 Punkt 10 durchgestrichen,
+  neuer Punkt 39n; Hinweis auf JustChr#190 zum roten Check.
+- **CI JustChr#190:** `lint`, `test-ha-floor`, `validate` grün; `test (3.13)` rot **nur im Codecov-Upload** (SSL-Handshake beim
+  tokenlosen Fork-Upload) — der Testschritt selbst: 3790 passed, 9 skipped = JustChrs Baseline 3674 + 116.
 - **P1:** Spec Revision 3, Plan (Häkchen 0–15), Live-Beleg, Abweichungsprotokoll, Review-Texte, Skripte, Namenslisten →
   `archive/design-history` (mit diesem Eintrag).
 - **Worktree `issue9-work\wt` entfernt** (#189 gemergt; Belege im Archiv).
@@ -82,8 +85,8 @@
 
 ### Nächste Schritte
 
-1. **Freigabe einholen:** Schließkommentar #9 neu (JustChrs Kommentar als Link + kurzer Satz + sinngemäß), #42 Punkt 10,
-   JustChrs Nit (eigenes Issue oder nur im #9-Kommentar).
+1. **Upstream-Runde zuerst** (alle Autoren, seit 2026-10-05 06:30 UTC): JustChr#190 (Kommentare, Reviews, Re-Run der CI),
+   JustChr#188, neue Releases.
 2. **JustChr#190 beobachten:** CI meldet die App; Antwort von JustChr → bei Einwand Kommentar in Eifel-Joe#8 (in seinen
    Worten) und Fix im Worktree `issue8-work\wt`; bei Merge #8 schließen, #42 Punkt 9, production-Rebuild, Worktree weg,
    Feldtest-Frage.
