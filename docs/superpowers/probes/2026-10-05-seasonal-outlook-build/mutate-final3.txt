@@ -1,0 +1,102 @@
+M01 PyETO ET carries rain again: KILLED | =================== 2 failed, 23 passed, 23 errors in 4.02s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_pyeto_month_carries_no_rain
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_pyeto_zone_has_the_rain_subtracted_once
+M02 PyETO ET keeps the sign: KILLED | =================== 4 failed, 21 passed, 23 errors in 3.86s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_pyeto_month_carries_no_rain
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_pyeto_zone_has_the_rain_subtracted_once
+    tests/test_watering_calendar.py::TestWateringCalendar::test_calculate_monthly_et_pyeto
+    tests/test_watering_calendar.py::TestWateringCalendar::test_identical_weather_prices_july_above_january
+M03 PyETO month is 30 days: KILLED | =================== 2 failed, 23 passed, 23 errors in 4.78s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_pyeto_month_carries_no_rain
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_pyeto_zone_has_the_rain_subtracted_once
+M04 Kc ignored: KILLED | =================== 3 failed, 22 passed, 23 errors in 4.62s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_module_without_rain_gets_none_subtracted
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_zone_whose_kc_is_none_reads_as_the_default
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_kc_scales_the_et_term_and_not_the_rain
+M05 Kc scales the rain too: KILLED | =================== 1 failed, 24 passed, 23 errors in 5.36s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_kc_scales_the_et_term_and_not_the_rain
+M06 Kc None guard dropped: KILLED | =================== 1 failed, 24 passed, 23 errors in 4.29s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_zone_whose_kc_is_none_reads_as_the_default
+M07 rain subtracted for every module: KILLED | =================== 3 failed, 22 passed, 23 errors in 4.18s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_module_without_rain_gets_none_subtracted
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_passthrough_month_has_its_own_number_of_days
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_static_demand_becomes_a_monthly_volume
+M08 rain never subtracted: KILLED | =================== 5 failed, 20 passed, 23 errors in 4.02s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_pyeto_zone_has_the_rain_subtracted_once
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_zone_whose_kc_is_none_reads_as_the_default
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_kc_scales_the_et_term_and_not_the_rain
+    tests/test_watering_calendar.py::TestWateringCalendar::test_calculate_monthly_watering_volume
+    tests/test_watering_calendar.py::TestWateringCalendar::test_calculate_monthly_watering_volume_no_irrigation_needed
+M09 static sign flipped: KILLED | =================== 2 failed, 23 passed, 23 errors in 3.86s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_static_demand_becomes_a_monthly_volume
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_static_surplus_needs_nothing
+M10 static surplus not clamped: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.91s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_static_surplus_needs_nothing
+M11 static month is 30 days: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.82s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_static_demand_becomes_a_monthly_volume
+M12 passthrough month is 30 days: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.80s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_passthrough_month_has_its_own_number_of_days
+M13 loop month from a non-leap year: KILLED | =================== 2 failed, 23 passed, 23 errors in 3.74s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_passthrough_month_has_its_own_number_of_days
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_static_demand_becomes_a_monthly_volume
+M14 humidity peaks in summer: KILLED | =================== 2 failed, 23 passed, 23 errors in 3.73s ===================
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_a_northern_winter_is_wetter_windier_and_more_humid
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_the_southern_hemisphere_mirrors_every_temperate_curve
+M15 wind peaks in summer: KILLED | =================== 2 failed, 23 passed, 23 errors in 3.85s ===================
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_a_northern_winter_is_wetter_windier_and_more_humid
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_the_southern_hemisphere_mirrors_every_temperate_curve
+M16 temperate rain peaks in summer: KILLED | =================== 2 failed, 23 passed, 23 errors in 3.89s ===================
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_a_northern_winter_is_wetter_windier_and_more_humid
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_the_southern_hemisphere_mirrors_every_temperate_curve
+M17 hemisphere ignored: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.75s ===================
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_the_southern_hemisphere_mirrors_every_temperate_curve
+M18 daily ET not mirrored: KILLED | =================== 1 failed, 24 passed, 23 errors in 4.18s ===================
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_the_southern_hemisphere_mirrors_every_temperate_curve
+M19 temperature not mirrored: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.78s ===================
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_the_southern_hemisphere_mirrors_every_temperate_curve
+M20 tropical rain curve changed: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.83s ===================
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_tropical_rain_keeps_its_curve
+M21 notes claim typical climate: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.87s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_each_month_notes_its_climate_comes_from_latitude
+M22 service description reverted: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.87s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_service_description_says_where_the_climate_comes_from
+M23 services.yaml reverted: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.86s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_service_description_says_where_the_climate_comes_from
+M24 card note removed: KILLED | =================== 1 failed, 24 passed, 23 errors in 4.42s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_seasonal_card_shows_the_illustration_note
+M25 PyETO reference year not a leap year: KILLED | =================== 1 failed, 24 passed, 23 errors in 4.07s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_pyeto_month_carries_no_rain
+M26 rain subtracted twice: KILLED | =================== 4 failed, 21 passed, 23 errors in 4.09s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_pyeto_zone_has_the_rain_subtracted_once
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_zone_whose_kc_is_none_reads_as_the_default
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_kc_scales_the_et_term_and_not_the_rain
+    tests/test_watering_calendar.py::TestWateringCalendar::test_calculate_monthly_watering_volume
+M27 Kc only where rain is booked: KILLED | =================== 1 failed, 24 passed, 23 errors in 4.32s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_module_without_rain_gets_none_subtracted
+M28 Kc 0 falls back to the default: KILLED | =================== 1 failed, 24 passed, 23 errors in 4.11s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_zone_whose_kc_is_none_reads_as_the_default
+M29 static month is a literal 31: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.93s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_static_demand_becomes_a_monthly_volume
+M30 passthrough month is a literal 29: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.99s ===================
+    tests/test_watering_calendar.py::TestAMonthIsPricedByTheCalculationsRules::test_a_passthrough_month_has_its_own_number_of_days
+M31 tropical rain mirrored too: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.99s ===================
+    tests/test_watering_calendar.py::TestTheClimateCurvesDoWhatTheirCommentsSay::test_tropical_rain_keeps_its_curve
+M32 notes drop 'illustrative': KILLED | =================== 1 failed, 24 passed, 23 errors in 4.10s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_each_month_notes_its_climate_comes_from_latitude
+M33 EN description keeps latitude, not the claim: KILLED | =================== 1 failed, 24 passed, 23 errors in 4.10s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_service_description_says_where_the_climate_comes_from
+M34 services.yaml keeps latitude, not the claim: KILLED | =================== 1 failed, 24 passed, 23 errors in 4.03s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_service_description_says_where_the_climate_comes_from
+M35 DE description back on the old claim: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.95s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_service_description_says_where_the_climate_comes_from
+M37 services.yaml keeps the old claim and adds the new words: KILLED | =================== 1 failed, 24 passed, 23 errors in 4.24s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_service_description_says_where_the_climate_comes_from
+M36 card note drops 'illustrative': KILLED | =================== 1 failed, 24 passed, 23 errors in 4.17s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_seasonal_card_shows_the_illustration_note
+M38 view asks a misspelled key: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.94s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_seasonal_card_shows_the_illustration_note
+M39 note only in the empty state: KILLED | =================== 1 failed, 24 passed, 23 errors in 4.26s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_seasonal_card_shows_the_illustration_note
+M40 note in both branches: KILLED | =================== 1 failed, 24 passed, 23 errors in 3.97s ===================
+    tests/test_watering_calendar.py::TestTheOutlookSaysWhatItIs::test_the_seasonal_card_shows_the_illustration_note
+TOTAL 40, not killed 0

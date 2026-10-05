@@ -23,6 +23,117 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-05 (7) — Eifel-Joe#10: PR `JustChr#191` offen; Pre-Release v2026.10.05b2 auf HA-Test live bestanden
+
+### Stand
+
+- **Upstream-Runden bis 14:56 UTC:** leer (master `bbf2e151`, JustChr#190 ohne Review, kein Release).
+- **User-Entscheidungen:** Kartenhinweis „latitude only“ bleibt; deutsche Dienstbeschreibung „…allein aus dem
+  Breitengrad abgeleiteten Beispielklimas“ (eingebaut); Abstand Hinweis/Tabelle in Ordnung (Sichtprüfung).
+- **Branch `fix/seasonal-outlook` = 9 Commits, Kopf `34633730`, gepusht nach origin (Tracking origin).** Am Kopf:
+  Spec-Check OK, 40/40 Mutanten (`mutate-final3.txt`), Suite 7/3681/9/427 (`names-final3.txt` für `ec70de5f`; danach nur
+  `de.json` geändert, Datei-Läufe grün). 13 der 14 neuen Tests scheitern auf master (Wegwerf-Worktree gemessen), der
+  tropische Pin besteht dort.
+- **production = `b1307c8b` = Pre-Release [v2026.10.05b2](https://github.com/Eifel-Joe/HAsmartirrigation/releases/tag/v2026.10.05b2)**
+  (upstream v2026.10.04 + Branding + JustChr#190 + #10 + Build); Backup `backup/production-pre-v2026.10.05b2` = `5a780270`;
+  ZIP 205 Einträge, Download byte-gleich; hassfest/HACS/Pages grün.
+- **HA-Test auf v2026.10.05b2, Live-Test bestanden** (`issue10-work\livetest\L-calendar.md`): 84 Zonen-Monate folgen
+  `max(0, ET × Kc − Regen) × Mult × Fläche`, Regen Jan 120 / Jul 60, Hinweis sichtbar. **HA-Prod unverändert (b1).**
+- **[JustChr#191](https://github.com/JustChr/HAsmartirrigation/pull/191) eröffnet** (Text DE→EN freigegeben,
+  zurückgelesen gleich), an die Sitzung gebunden; CI startete noch nicht beim Anlegen.
+- **Feldtest #8:** 12:41 UTC weiter ruhig (keine Hinweise, `sensor_outages` leer).
+
+### Nächste Schritte
+
+1. Upstream-Runde; JustChr#190 und JustChr#191 sind Zeilen der Runde (Einwand → Kommentar im Issue + Fix nach TDD;
+   Merge → Kommentar, #42, production-Rebuild, Worktree weg). #191: CI ansehen.
+2. Nach Freigabe (Texte liegen in `issue10-work\texts\`): Kommentar `c10-pr.md` auf Eifel-Joe#10 + Label
+   `upstream:gemeldet`; #42 Punkt 11 (`i42-after2.md`); Archiv (Plan mit Häkchen, Bau- und Live-Belege, dieser Stand).
+3. Nebenbefunde als Issues anbieten: Kalender-Events fehlen in `usage-events.md`; fehlgeschlagener Monat zeigt 0,0 neben
+   `error`; Regen-Regel je Modul (PyETO ohne Niederschlagssensor); PyETO-ZeroDivisionError in der Polarnacht.
+4. Feldtest #8 beobachten (erster Beet-Lauf ~10.10.). Aufräumen nach den Merges (`issue8-work`, `issue10-work`,
+   `prodrebuild-*`, `rebuild/*`, `backup/*`).
+
+## 2026-10-05 (6) — Eifel-Joe#10 gebaut (Tasks 0–10, 9 Commits, alle Reviews durch); Upstream-Runden leer; Feldtest #8 ruhig
+
+### Stand
+
+- **Upstream-Runden 08:13, 09:46, 12:41 UTC** (alle Autoren): leer. master `bbf2e151`, JustChr#190 offen ohne Review,
+  kein Release. Kein production-Rebuild nötig (0 behind).
+- **Feldtest Eifel-Joe#8 (HA-Prod, v2026.10.05b1):** 08:13 und 12:41 UTC keine aktiven Reparaturhinweise,
+  `sensor_outages` leer, alle 8 Sensoren laufend gesehen (zuletzt 12:37 UTC).
+- **Eifel-Joe#10 umgesetzt** im Worktree `issue10-work\wt`, Branch `fix/seasonal-outlook` = 9 Commits auf `bbf2e151`,
+  **Kopf `ec70de5f`**, nicht gepusht, ohne Tracking. subagent-driven: je Task Plan-Blöcke per `apply_plan_task.py`,
+  RED/GREEN wie gemessen, Spec-Check byte-genau (`spec_check.py`), volle Suite + Namensvergleich (`expect_names.py`),
+  Quality-Review (Sonnet) + Nachprüfung; Abschluss-Review Opus „READY FOR PR“.
+- **Belege am Kopf `ec70de5f`:** Spec-Check OK (23 Dateien + 2 Bundles; nicht abgewichene Dateien und Bundles
+  blob-gleich mit `probe-2026-10-05.patch`); volle Suite `7 / 3681 / 9 / 427`, neu genau 12 teardown-Namen
+  (`names-final3.txt`); **40/40 Mutanten getötet** (`mutate-final2.txt`); black/ruff sauber; Frontend-Neubau = Commit.
+- **Abweichungen vom Plan** (alle mit Befund + Grund in `issue10-work\deviations.md`): zusätzliche Test-Pins
+  (Februar/Juli je Zweig, Kc 0 und Kc ohne Regen, Szenen-Wächter, Tropen-Regen ±10°, Kartentext im Daten-Zweig,
+  sprachunabhängiger Ausschluss des alten „repräsentativ“), Kommentar-/Docstring-Wahrheit (u. a. kein „representative“
+  mehr), präzisere Commit-Messages (Tasks 4, 5), Testname `…mirrors_every_temperate_curve`, slowakisch einheitlich
+  „ilustratívny“, Doku nennt das Event `irrigation_plus_watering_calendar_generated` (der Dienst liefert keine Antwort).
+- Plan-Häkchen Tasks 0–10 gesetzt (Hauptbaum, untracked). Memory neu: `msys-env-path-conversion`.
+
+### PAUSE (User startet den Rechner neu, ≈ 13:15 UTC) — Task 11 halb fertig, Außen-Schritte FREIGEGEBEN
+
+- **User-Entscheidungen:** Task 11 komplett freigegeben; Kartenhinweis „latitude only“ BLEIBT; deutsche
+  Dienstbeschreibung „…allein aus dem Breitengrad abgeleiteten Beispielklimas“ (eingebaut, Kopf jetzt **`34633730`**,
+  Spec-Check OK, 40/40 Mutanten).
+- **Rebuild lokal fertig + belegt:** Worktree `prodrebuild-1005b2-work\wt`, Branch `rebuild/v2026.10.05b2`, Build-Commit
+  **`b1307c8b`** = `bbf2e151` + Branding (`4b505598`) + PR 1 (`16ed6406^..bd3b7ebd`) + 9 Kalender-Commits + Versionen
+  b2/dist; 0 behind; black/ruff; en.json 0; Bundles nur Versionsstring; Suite 7/3806/9/427 gegen b1 7/3792/9/415, +12
+  Namen genau die Kalender-Tests; ZIP `prodrebuild-1005b2-work\irrigation_plus.zip` (205 Einträge = b1-Menge, sha256
+  `fde2ccac…`).
+- **Push/Release FREIGEGEBEN (Chat, mit genau diesem Text):** `issue10-work\texts\release-b2.md` (Titel + Notiz).
+  Ablauf: Upstream-Runde (seit 13:11 UTC) → Backup `backup/production-pre-v2026.10.05b2` = `5a780270` →
+  `git branch -f production b1307c8b` → `git push --force-with-lease=production:5a780270 origin production` →
+  `gh release create v2026.10.05b2 --target production --prerelease --title … --notes-file …` → ZIP hochladen → Tag
+  lokal/remote prüfen, Download byte-gleich + HTTP 200 → CI. Danach HA-Test: HACS `update_information` + `download`
+  (Version `v2026.10.05b2`, Repo `Eifel-Joe/HAsmartirrigation`), Neustart HA-Test ankündigen, Live-Test →
+  `issue10-work\livetest\L-calendar.md` (Vorher-Teil schon gemessen).
+- **Erst auf Zuruf des Users weitermachen** (er meldet sich nach dem Neustart).
+- **Nach dem Neustart (14:15 UTC) erledigt:** Upstream-Runde leer; Backup `backup/production-pre-v2026.10.05b2` =
+  `5a780270`; production → `b1307c8b` gepusht (force-with-lease; 0 behind / 15 ahead); Pre-Release
+  [v2026.10.05b2](https://github.com/Eifel-Joe/HAsmartirrigation/releases/tag/v2026.10.05b2) mit freigegebenem Text
+  (zurückgelesen, gleich), ZIP angehängt (Download sha256 = `fde2ccac…`, HTTP 200), Tag lokal+remote `b1307c8b`;
+  hassfest/HACS/Pages grün auf production und Tag. **Offen:** HA-Test-Install + Neustart + Live-Test — die HA-MCP-Server
+  sind seit dem PC-Neustart getrennt (Hosts erreichbar, Add-on :9583 → 403, Core → 401; Desktop-Config-Server, nicht
+  per Claude neu verbindbar) → User verbindet per `/mcp` neu.
+
+### Offen beim User (Freigaben / Entscheidungen)
+
+- **Task 11:** production-Pre-Release `v2026.10.05b2` (= upstream + JustChr#190 + `fix/seasonal-outlook` + Branding),
+  Push/Release/ZIP, HA-Test-Install + Neustart, Live-Test nach Spec-Kriterium. Erst dann Task 12 (PR-Text DE → EN).
+- **Wortlaut:** (1) „derived from latitude only“ lassen oder „aus Breitengrad und Höhe“/„climate“ statt „values“
+  (Abschluss-Review: bei Static-Zonen kommt die ET-Spalte gar nicht aus dem Breitengrad); (2) deutsche
+  Dienstbeschreibung „veranschaulichenden Klimas“ vs. „…allein aus dem Breitengrad abgeleiteten Beispielklimas“;
+  (3) Abstand Hinweis/Tabelle — Sichtprüfung im Live-Test.
+- Notizen für PR und Live-Test: `issue10-work\final-review-carry.md` (Südhalbkugel ändert effektiv nur Passthrough-ET;
+  `calculation_notes` API-sichtbar; Regen-Regel je Modul, nicht je Zone; Doku-Screenshot veraltet).
+
+### Fallen
+
+- **MSYS zerlegt Env-Werte mit Pfaden** (`GIT_EDITOR="/d/… D:/…"`) → `MSYS2_ENV_CONV_EXCL=GIT_EDITOR` davor.
+- **Plan-Blöcke enden mit Zeilenende:** ein Anker mitten in einer Zeile passt nie — bis zum Zeilenende nehmen.
+- **black zieht 88 Zeichen auf eine Zeile:** die Grenze ist inklusive; Zeilenlängen vor dem Diktat nachzählen.
+- **Abweichungs-Abschnitte nur ans Dateiende anhängen** — ein Abschnitt mitten in einem anderen Task stiehlt dessen
+  Blöcke (`parse` ordnet nach der letzten Task-Überschrift).
+- **Nur Englisch ist im Bundle**, andere Panel-Sprachen lädt `localize.ts` zur Laufzeit → Katalogänderung ≠ Bundle.
+
+### Nächste Schritte
+
+1. Upstream-Runde (seit 12:41 UTC). 2. Mit Freigabe Task 11 nach Plan/Memory `hasi-production-on-upstream`
+   (Basis `upstream/master` + `fix/stale-weather-sensor` + `fix/seasonal-outlook` + Branding-Cherry-Pick).
+3. Task 12 nach Live-Test. 4. Feldtest #8 weiter beobachten (erster Beet-Lauf ~10.10.).
+5. Aufräumen nach Merge von #190 (Probenordner `issue8-work`, `rebuild/*`, `backup/*`).
+
+### Empfohlene Skills
+
+- `superpowers:verification-before-completion`, `pr-workflow`, `superpowers:finishing-a-development-branch`;
+  Memories `hasi-production-on-upstream`, `hasi-pr-build-recipe`, `no-own-issue-refs-upstream`, `hasi-seasonal-outlook`.
+
 ## 2026-10-05 (5) — Upstream-Runde leer; HA-Prod auf v2026.10.05b1 (Feldtest Eifel-Joe#8 läuft); Eifel-Joe#10: Spec + Plan freigegeben, probegelaufen
 
 ### Stand

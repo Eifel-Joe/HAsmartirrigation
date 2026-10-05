@@ -31,6 +31,14 @@ genau einmal (`probe-run-2.txt`).
   fällt durch einen Verhaltenstest; nur die drei Text-Mutationen (M22–M24) fallen durch die Text-Prüfungen, wie gemeint.
 - Getesteter Stand: `D:\Entwicklung\HASI\issue10-work\probe-2026-10-05.patch` (gilt bei Abweichung vom Plan).
 
+**Umsetzung (2026-10-05, subagent-driven):** Tasks 0–10 erledigt, Branch `fix/seasonal-outlook` = 9 Commits auf
+`bbf2e151`, Kopf `ec70de5f` (nach den Fixups des Abschluss-Reviews). Jeder Task: Plan-Blöcke per
+`issue10-work\apply_plan_task.py`, RED/GREEN wie gemessen, Spec-Check byte-genau (`spec_check.py`), volle Suite mit
+Namensvergleich (`expect_names.py`), Quality-Review + Nachprüfung; danach Abschluss-Review des ganzen Branches (Opus).
+Alle Abweichungen vom Plan (Test-Pins, Kommentar-/Doku-Wahrheit, ein Testname, zwei Commit-Messages, slowakischer
+Kartentext) mit Befund und Begründung in `D:\Entwicklung\HASI\issue10-work\deviations.md`; Mutanten 40 (statt 24),
+alle getötet (`mutate-final2.txt`). Offene Fragen an den User und PR-Notizen: `issue10-work\final-review-carry.md`.
+
 ## Arbeitsumgebung
 
 - **Worktree:** `D:\Entwicklung\HASI\issue10-work\wt`, Branch `fix/seasonal-outlook`, Basis `bbf2e151`
@@ -68,10 +76,10 @@ genau einmal (`probe-run-2.txt`).
 
 ### Task 0: Baseline
 
-- [ ] **Schritt 1:** `bash /d/Entwicklung/HASI/issue10-work/run_suite.sh base` (nur falls `../names-base.txt` fehlt).
+- [x] **Schritt 1:** `bash /d/Entwicklung/HASI/issue10-work/run_suite.sh base` (nur falls `../names-base.txt` fehlt).
   Erwartet: `BASE NAMES IDENTICAL WITH issue8 bbf2 BASELINE (422 names)`; Zählerzeile `7 failed, 3667 passed, 9 skipped,
   415 errors` (die 7/415 sind Vorbestand der lokalen Windows-Umgebung, siehe Memory `hasi-local-test-env-rebuild`).
-- [ ] **Schritt 2:** `/d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest
+- [x] **Schritt 2:** `/d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest
   tests/test_watering_calendar.py tests/test_watering_calendar_api.py tests/test_i18n_completeness.py -p
   _local_socket_unblock -q` → `82 passed, 11 errors` (die elf teardown-ERRORs der Kalender-Tests, siehe
   Arbeitsumgebung).
@@ -83,7 +91,7 @@ genau einmal (`probe-run-2.txt`).
 **Files:** Modify `custom_components/irrigation_plus/watering_calendar.py` (Docstring, Imports,
 `_calculate_monthly_et_pyeto`); Test `tests/test_watering_calendar.py`.
 
-- [ ] **Schritt 1: Imports und Hilfen der Testdatei**
+- [x] **Schritt 1: Imports und Hilfen der Testdatei**
 
 **Ersetze in `tests/test_watering_calendar.py`:**
 ```python
@@ -111,7 +119,7 @@ from unittest.mock import AsyncMock, Mock, patch
     ZONE_MAPPING,
 ```
 
-- [ ] **Schritt 2: Die zwei roten Tests anhängen**
+- [x] **Schritt 2: Die zwei roten Tests anhängen**
 
 **Hänge an `tests/test_watering_calendar.py` an:**
 ```python
@@ -188,12 +196,12 @@ class TestAMonthIsPricedByTheCalculationsRules:
         )
 ```
 
-- [ ] **Schritt 3: RED prüfen**
+- [x] **Schritt 3: RED prüfen**
 
 Run: `… -m pytest tests/test_watering_calendar.py -k "carries_no_rain or subtracted_once" -p _local_socket_unblock -q`
 Expected: 2 failed — `assert 112.0 == 62.0 ± …` und `assert 122.0 == 62.0 ± …` (heute steckt der Monatsregen in der ET). Dazu 2 teardown-ERRORs.
 
-- [ ] **Schritt 4: Implementierung**
+- [x] **Schritt 4: Implementierung**
 
 **Ersetze in `custom_components/irrigation_plus/watering_calendar.py`:**
 ```python
@@ -236,12 +244,12 @@ import logging
         return abs(daily_et_delta) * days_in_month
 ```
 
-- [ ] **Schritt 5: GREEN prüfen**
+- [x] **Schritt 5: GREEN prüfen**
 
 Run: wie Schritt 3. Expected: 2 passed (+ 2 teardown-ERRORs). Dann `… -m pytest tests/test_watering_calendar.py -p
 _local_socket_unblock -q` → kein „failed“.
 
-- [ ] **Schritt 6: Lint und Commit**
+- [x] **Schritt 6: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_watering_calendar.py
@@ -266,7 +274,7 @@ EOF
 **Files:** Modify `custom_components/irrigation_plus/watering_calendar.py` (Import, `_calculate_monthly_watering_volume`);
 Test `tests/test_watering_calendar.py`.
 
-- [ ] **Schritt 1: Die zwei bestehenden Volumen-Tests bekommen ihr Modul ausdrücklich**
+- [x] **Schritt 1: Die zwei bestehenden Volumen-Tests bekommen ihr Modul ausdrücklich**
 
 Der Mock-Store liefert für jede ID das PyETO-Modul; die Zonen dieser zwei Tests nennen künftig ihr Modul selbst, statt
 vom Auffangverhalten des Mocks zu leben. Erwartungen unverändert.
@@ -300,7 +308,7 @@ vom Auffangverhalten des Mocks zu leben. Erwartungen unverändert.
         }
 ```
 
-- [ ] **Schritt 2: Rote Tests anhängen**
+- [x] **Schritt 2: Rote Tests anhängen**
 
 **Hänge an `tests/test_watering_calendar.py` an:**
 ```python
@@ -342,14 +350,14 @@ vom Auffangverhalten des Mocks zu leben. Erwartungen unverändert.
         assert volume == pytest.approx(930.0)
 ```
 
-- [ ] **Schritt 3: RED prüfen**
+- [x] **Schritt 3: RED prüfen**
 
 Run: `… -m pytest tests/test_watering_calendar.py -k "kc_scales or kc_is_none or module_without_rain" -p
 _local_socket_unblock -q`
 Expected: 2 failed (`420.0 == 110.0`, `330.0 == 930.0`), 1 passed (`kc_is_none` ist ein Pin für den `None`-Fall; er
 ist schon heute grün, weil Kc noch gar nicht gelesen wird). Dazu 3 teardown-ERRORs.
 
-- [ ] **Schritt 4: Implementierung**
+- [x] **Schritt 4: Implementierung**
 
 **Ersetze in `custom_components/irrigation_plus/watering_calendar.py`:**
 ```python
@@ -420,11 +428,11 @@ from .const import SmartIrrigationError
         net_water_need_mm = max(0, et_mm * kc - precipitation_mm)
 ```
 
-- [ ] **Schritt 5: GREEN prüfen**
+- [x] **Schritt 5: GREEN prüfen**
 
 Run: wie Schritt 3. Expected: 3 passed (+ 3 teardown-ERRORs). Dann die ganze Datei → kein „failed“.
 
-- [ ] **Schritt 6: Lint und Commit**
+- [x] **Schritt 6: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_watering_calendar.py
@@ -450,7 +458,7 @@ EOF
 **Files:** Modify `custom_components/irrigation_plus/watering_calendar.py` (Schleife in
 `_calculate_monthly_watering_for_zone`); Test `tests/test_watering_calendar.py`.
 
-- [ ] **Schritt 1: Rote Tests anhängen**
+- [x] **Schritt 1: Rote Tests anhängen**
 
 **Hänge an `tests/test_watering_calendar.py` an:**
 ```python
@@ -497,12 +505,12 @@ EOF
         assert july["estimated_watering_volume_liters"] == 0.0
 ```
 
-- [ ] **Schritt 2: RED prüfen**
+- [x] **Schritt 2: RED prüfen**
 
 Run: `… -m pytest tests/test_watering_calendar.py -k "static_demand or static_surplus" -p _local_socket_unblock -q`
 Expected: 2 failed (`-3.0 == 93.0`, `2.0 == 0.0`), dazu 2 teardown-ERRORs.
 
-- [ ] **Schritt 3: Implementierung**
+- [x] **Schritt 3: Implementierung**
 
 **Ersetze in `custom_components/irrigation_plus/watering_calendar.py`:**
 ```python
@@ -531,11 +539,11 @@ Expected: 2 failed (`-3.0 == 93.0`, `2.0 == 0.0`), dazu 2 teardown-ERRORs.
                     et_estimate = max(0.0, -modinst.calculate()) * days_in_month
 ```
 
-- [ ] **Schritt 4: GREEN prüfen**
+- [x] **Schritt 4: GREEN prüfen**
 
 Run: wie Schritt 2. Expected: 2 passed (+ 2 teardown-ERRORs). Ganze Datei ohne „failed“.
 
-- [ ] **Schritt 5: Lint und Commit**
+- [x] **Schritt 5: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_watering_calendar.py
@@ -559,7 +567,7 @@ EOF
 
 **Files:** Modify `custom_components/irrigation_plus/watering_calendar.py`; Test `tests/test_watering_calendar.py`.
 
-- [ ] **Schritt 1: Roten Test anhängen**
+- [x] **Schritt 1: Roten Test anhängen**
 
 **Hänge an `tests/test_watering_calendar.py` an:**
 ```python
@@ -589,12 +597,12 @@ EOF
         )
 ```
 
-- [ ] **Schritt 2: RED prüfen**
+- [x] **Schritt 2: RED prüfen**
 
 Run: `… -m pytest tests/test_watering_calendar.py -k "own_number_of_days" -p _local_socket_unblock -q`
 Expected: 1 failed (`8.04 == 7.77`: ET mit 30 statt 29 Tagen), dazu 1 teardown-ERROR.
 
-- [ ] **Schritt 3: Implementierung**
+- [x] **Schritt 3: Implementierung**
 
 **Ersetze in `custom_components/irrigation_plus/watering_calendar.py`:**
 ```python
@@ -609,11 +617,11 @@ Expected: 1 failed (`8.04 == 7.77`: ET mit 30 statt 29 Tagen), dazu 1 teardown-E
                     )  # mm/month
 ```
 
-- [ ] **Schritt 4: GREEN prüfen**
+- [x] **Schritt 4: GREEN prüfen**
 
 Run: wie Schritt 2. Expected: 1 passed (+ 1 teardown-ERROR). Ganze Datei ohne „failed“.
 
-- [ ] **Schritt 5: Lint und Commit**
+- [x] **Schritt 5: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_watering_calendar.py
@@ -636,7 +644,7 @@ EOF
 **Files:** Modify `custom_components/irrigation_plus/watering_calendar.py` (`_generate_monthly_climate_data`);
 Test `tests/test_watering_calendar.py`.
 
-- [ ] **Schritt 1: Rote Tests anhängen (neue Klasse)**
+- [x] **Schritt 1: Rote Tests anhängen (neue Klasse)**
 
 **Hänge an `tests/test_watering_calendar.py` an:**
 ```python
@@ -694,13 +702,13 @@ class TestTheClimateCurvesDoWhatTheirCommentsSay:
         ]
 ```
 
-- [ ] **Schritt 2: RED prüfen**
+- [x] **Schritt 2: RED prüfen**
 
 Run: `… -m pytest tests/test_watering_calendar.py -k "TestTheClimateCurves" -p _local_socket_unblock -q`
 Expected: 2 failed (Norden: Feuchte Januar `50.0 == 80.0`; Süden: `average_daily_et` Januar nicht über Juli),
 1 passed (der tropische Pin ist schon heute grün), dazu 3 teardown-ERRORs.
 
-- [ ] **Schritt 3: Implementierung**
+- [x] **Schritt 3: Implementierung**
 
 **Ersetze in `custom_components/irrigation_plus/watering_calendar.py`:**
 ```python
@@ -767,12 +775,12 @@ Expected: 2 failed (Norden: Feuchte Januar `50.0 == 80.0`; Süden: `average_dail
                     "average_daily_et": 2.0 + 2.0 * summer,  # Higher ET in summer
 ```
 
-- [ ] **Schritt 4: GREEN prüfen**
+- [x] **Schritt 4: GREEN prüfen**
 
 Run: wie Schritt 2. Expected: 3 passed (+ 3 teardown-ERRORs). Ganze Datei ohne „failed“ (auch `test_generate_monthly_climate_data`: Juli wärmer als
 Januar).
 
-- [ ] **Schritt 5: Lint und Commit**
+- [x] **Schritt 5: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_watering_calendar.py
@@ -796,7 +804,7 @@ EOF
 
 **Files:** Modify `custom_components/irrigation_plus/watering_calendar.py`; Test `tests/test_watering_calendar.py`.
 
-- [ ] **Schritt 1: Roten Test anhängen (neue Klasse)**
+- [x] **Schritt 1: Roten Test anhängen (neue Klasse)**
 
 **Hänge an `tests/test_watering_calendar.py` an:**
 ```python
@@ -822,12 +830,12 @@ class TestTheOutlookSaysWhatItIs:
         assert all("latitude" in note for note in notes), notes
 ```
 
-- [ ] **Schritt 2: RED prüfen**
+- [x] **Schritt 2: RED prüfen**
 
 Run: `… -m pytest tests/test_watering_calendar.py -k "comes_from_latitude" -p _local_socket_unblock -q`
 Expected: 1 failed (`Based on typical January climate patterns`), dazu 1 teardown-ERROR.
 
-- [ ] **Schritt 3: Implementierung**
+- [x] **Schritt 3: Implementierung**
 
 **Ersetze in `custom_components/irrigation_plus/watering_calendar.py`:**
 ```python
@@ -838,7 +846,7 @@ Expected: 1 failed (`Based on typical January climate patterns`), dazu 1 teardow
                         "calculation_notes": f"Illustrative {month_name} climate derived from latitude only",
 ```
 
-- [ ] **Schritt 4: GREEN prüfen**, dann **Lint und Commit**
+- [x] **Schritt 4: GREEN prüfen**, dann **Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_watering_calendar.py
@@ -861,7 +869,7 @@ EOF
 **Files:** Modify `custom_components/irrigation_plus/services.yaml`, `custom_components/irrigation_plus/translations/*.json`
 (8); Test `tests/test_watering_calendar.py`.
 
-- [ ] **Schritt 1: Roten Test anhängen**
+- [x] **Schritt 1: Roten Test anhängen**
 
 **Hänge an `tests/test_watering_calendar.py` an:**
 ```python
@@ -883,12 +891,12 @@ EOF
         assert "representative climate data" not in yaml_text
 ```
 
-- [ ] **Schritt 2: RED prüfen**
+- [x] **Schritt 2: RED prüfen**
 
 Run: `… -m pytest tests/test_watering_calendar.py -k "service_description" -p _local_socket_unblock -q`
 Expected: 1 failed.
 
-- [ ] **Schritt 3: Implementierung (9 Dateien)**
+- [x] **Schritt 3: Implementierung (9 Dateien)**
 
 **Ersetze in `custom_components/irrigation_plus/services.yaml`:**
 ```yaml
@@ -971,12 +979,12 @@ Expected: 1 failed.
       "description": "Vygenerovať 12-mesačný zavlažovací kalendár pre zavlažovacie zóny na základe ilustratívnej klímy odvodenej iba zo zemepisnej šírky",
 ```
 
-- [ ] **Schritt 4: GREEN prüfen**
+- [x] **Schritt 4: GREEN prüfen**
 
 Run: `… -m pytest tests/test_watering_calendar.py tests/test_i18n_completeness.py -p _local_socket_unblock -q` → kein
 „failed“; die ERRORs sind nur teardown-ERRORs.
 
-- [ ] **Schritt 5: Commit**
+- [x] **Schritt 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/services.yaml custom_components/irrigation_plus/translations/ tests/test_watering_calendar.py
@@ -999,7 +1007,7 @@ EOF
 `custom_components/irrigation_plus/frontend/localize/languages/*.json` (8), `frontend/dist/` (gebaut);
 Test `tests/test_watering_calendar.py`.
 
-- [ ] **Schritt 1: Roten Test anhängen**
+- [x] **Schritt 1: Roten Test anhängen**
 
 **Hänge an `tests/test_watering_calendar.py` an:**
 ```python
@@ -1021,12 +1029,12 @@ Test `tests/test_watering_calendar.py`.
         assert "latitude" in en["panels"]["setup"]["weather_data"]["seasonal_note"]
 ```
 
-- [ ] **Schritt 2: RED prüfen**
+- [x] **Schritt 2: RED prüfen**
 
 Run: `… -m pytest tests/test_watering_calendar.py -k "illustration_note" -p _local_socket_unblock -q`
 Expected: 1 failed.
 
-- [ ] **Schritt 3: Implementierung — Ansicht**
+- [x] **Schritt 3: Implementierung — Ansicht**
 
 **Ersetze in `custom_components/irrigation_plus/frontend/src/views/weather/view-weather-data.ts`:**
 ```ts
@@ -1042,7 +1050,7 @@ Expected: 1 failed.
                 <div class="seasonal-table">
 ```
 
-- [ ] **Schritt 4: Implementierung — acht Sprachdateien**
+- [x] **Schritt 4: Implementierung — acht Sprachdateien**
 
 **Ersetze in `custom_components/irrigation_plus/frontend/localize/languages/en.json`:**
 ```json
@@ -1124,12 +1132,12 @@ Expected: 1 failed.
         "seasonal_note": "Ilustračné hodnoty odvodené iba zo zemepisnej šírky, nie namerané údaje o počasí."
 ```
 
-- [ ] **Schritt 5: GREEN prüfen**
+- [x] **Schritt 5: GREEN prüfen**
 
 Run: `… -m pytest tests/test_watering_calendar.py tests/test_i18n_completeness.py -p _local_socket_unblock -q` → kein
 „failed“, nur teardown-ERRORs (die Vollständigkeitstests prüfen den neuen Schlüssel in allen acht Sprachen und dass keiner englisch geblieben ist).
 
-- [ ] **Schritt 6: Frontend bauen**
+- [x] **Schritt 6: Frontend bauen**
 
 ```bash
 cd custom_components/irrigation_plus/frontend && npm ci && npm run build && npx tsc --noEmit -p . ; cd -
@@ -1140,7 +1148,7 @@ Probelauf +4/−1 Zeilen) und `irrigation-plus-card-impl.js` (enthält die Katal
 `-card-legacy.js` inhaltlich gleich. Bundles, die `git diff --quiet` als gleich
 meldet und `git status` trotzdem mit `M` zeigt, sind nur `autocrlf`: `git checkout -- <bundle>`.
 
-- [ ] **Schritt 7: Commit**
+- [x] **Schritt 7: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/frontend/src/views/weather/view-weather-data.ts custom_components/irrigation_plus/frontend/localize/languages/ tests/test_watering_calendar.py
@@ -1163,7 +1171,7 @@ EOF
 
 **Files:** Modify `docs/configuration-weather-location.md`, `docs/usage-services.md`.
 
-- [ ] **Schritt 1: Implementierung**
+- [x] **Schritt 1: Implementierung**
 
 **Ersetze in `docs/configuration-weather-location.md`:**
 ```markdown
@@ -1183,7 +1191,7 @@ A rough 12-month illustration: evapotranspiration, precipitation and average tem
 |`Irrigation Plus: generate_watering_calendar`|Generate a 12-month watering calendar for a zone based on an illustrative climate derived from latitude only (not measured weather).|
 ```
 
-- [ ] **Schritt 2: Prüfen und Commit**
+- [x] **Schritt 2: Prüfen und Commit**
 
 ```bash
 git grep -n -i "representative climate\|climate estimate for your location" -- docs custom_components ; echo "exit $? (1 = nichts gefunden, gewollt)"
@@ -1199,7 +1207,7 @@ EOF
 
 ### Task 10: Gesamtprüfung
 
-- [ ] **Schritt 1: Volle Suite** — `bash /d/Entwicklung/HASI/issue10-work/run_suite.sh final`.
+- [x] **Schritt 1: Volle Suite** — `bash /d/Entwicklung/HASI/issue10-work/run_suite.sh final`.
   Expected (im Probelauf so gemessen): `7 failed, 3681 passed, 9 skipped, 427 errors` gegen die Baseline
   `7 / 3667 / 9 / 415`: +14 passed = die 14 neuen Tests, +12 errors = die 12 neuen Tests am `coordinator`-Fixture mit dem
   teardown-ERROR. `NAMES DIFFER (422 -> 434)`, unter „added“ **genau** diese zwölf, unter „gone“ nichts:
@@ -1211,15 +1219,15 @@ EOF
   `test_a_northern_winter_is_wetter_windier_and_more_humid`, `test_the_southern_hemisphere_mirrors_every_seasonal_curve`,
   `test_tropical_rain_keeps_its_curve`; `TestTheOutlookSaysWhatItIs::test_each_month_notes_its_climate_comes_from_latitude`.
   Jeder andere neue oder fehlende Name ist ein echter Befund: STOP.
-- [ ] **Schritt 2: Lint** — `uvx black --check custom_components/irrigation_plus/` und `uvx ruff check
+- [x] **Schritt 2: Lint** — `uvx black --check custom_components/irrigation_plus/` und `uvx ruff check
   custom_components/irrigation_plus/` sauber; `uvx black --check tests/test_watering_calendar.py` sauber.
-- [ ] **Schritt 3: Frontend-Frische** — im `frontend/`: `npm run build`, danach `git status --short -- dist/` zeigt keine
+- [x] **Schritt 3: Frontend-Frische** — im `frontend/`: `npm run build`, danach `git status --short -- dist/` zeigt keine
   inhaltliche Änderung (`git diff --quiet` je Bundle).
-- [ ] **Schritt 4: Mutationen** — `/d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe
+- [x] **Schritt 4: Mutationen** — `/d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe
   D:/Entwicklung/HASI/issue10-work/mutate.py` (wendet jede Mutation auf eine Kopie der Datei im Worktree an, führt
   `tests/test_watering_calendar.py` mit Timeout aus, stellt die Datei wieder her). Expected: jede Mutation `KILLED`,
   keine `SURVIVED`, keine `HANG`; Ergebnis in `D:\Entwicklung\HASI\issue10-work\mutate-final.txt`.
-- [ ] **Schritt 5: Keine eigenen Verweise** (Diff und Commit-Messages):
+- [x] **Schritt 5: Keine eigenen Verweise** (Diff und Commit-Messages):
 
 ```bash
 git diff bbf2e151..HEAD -- custom_components/ tests/ docs/ | grep "^+" | grep -nE "Eifel-Joe|spec D[0-9]|spec §|Task [0-9]|M[0-9][a-z]?:|PR [A-T]\b"
@@ -1227,7 +1235,7 @@ git log bbf2e151..HEAD --format='%H%n%B' | grep -n "Eifel-Joe#"
 ```
 Expected: beide ohne Ausgabe.
 
-- [ ] **Schritt 6: Schwester-Pfade** — `git grep -n 'precipitation' custom_components/irrigation_plus/watering_calendar.py`:
+- [x] **Schritt 6: Schwester-Pfade** — `git grep -n 'precipitation' custom_components/irrigation_plus/watering_calendar.py`:
   jeder Regenabzug läuft über den einen Zweig in `_calculate_monthly_watering_volume`.
 
 ---
