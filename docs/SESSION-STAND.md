@@ -23,6 +23,66 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-05 (5) — Upstream-Runde leer; HA-Prod auf v2026.10.05b1 (Feldtest Eifel-Joe#8 läuft); Eifel-Joe#10: Spec + Plan freigegeben, probegelaufen
+
+### Stand
+
+- **Upstream-Runden 06:40, 06:55, 07:54 UTC** (seit 06:30, alle Autoren): leer. JustChr#190 offen, keine Review, CI
+  unverändert (nur Codecov-Upload rot); master `bbf2e151`; kein Release. production 0 behind / 6 ahead → kein Rebuild.
+- **HA-Prod-Core wurde 06:40:51 UTC über den Supervisor neu gestartet** („Restarting homeassistant“), nicht von mir (nur
+  gelesen), kein Absturz (kein Watchdog, Fault-Log leer, VM seit 04.10. 00:03 UTC, Core 2026.9.4). Auslöser
+  unbestätigt: vermutlich vom User (Nachfrage blieb unbeantwortet).
+- **HA-Prod auf v2026.10.05b1 (Freigabe Update + ein Neustart):** HACS `update_information` + `download` mit `version`;
+  vor dem Neustart Dateigrößen = ZIP (`sensor_liveness.py` 23 451, `const.py` 73 150); Neustart 06:57 UTC. Geprüft:
+  geladen, Hub `sw_version` v2026.10.05b1, HACS installiert b1, Zonenwerte über den Neustart gleich, nur
+  `via_device`-Warnung, einziger Reparaturhinweis fremd (spook/homekit). Erste scharfe Prüfung 07:06:53 UTC →
+  `sensor_last_seen` mit allen 8 Sensoren, `sensor_outages` leer. **Feldtest läuft.** Kommentar auf Eifel-Joe#8
+  (`5990447726`), `Eifel-Joe#42` Punkt 9.
+- **Eifel-Joe#10 (#42 Punkt 11):** User-Entscheidungen E1–E7 in der Spec
+  (`docs/superpowers/specs/2026-10-05-seasonal-outlook-design.md`), Plan `docs/superpowers/plans/2026-10-05-seasonal-outlook.md`
+  (beide im Hauptbaum untracked; Archiv `1e262f66`, `71ef3039`, gepusht). Kommentar auf #10 (`5990448039`), #42 Punkt 11.
+  Memory `hasi-seasonal-outlook`.
+- **Worktree `issue10-work\wt`**, Branch `fix/seasonal-outlook` auf `bbf2e151`, ohne Tracking, **unverändert**.
+  Baseline `issue10-work\names-base.txt` (7/3667/9/415, 422 Namen = issue8-Baseline).
+- **Probelauf** (`issue10-work\probe_plan.py` wendet die Plan-Blöcke wörtlich an): jeder Anker einmal, jeder Task RED wie
+  angegeben und GREEN; volle Suite 7/3681/9/427 (neu genau die 12 Fixture-Tests als teardown-ERROR); 24/24 Mutationen
+  (`mutate-probe.txt`); getesteter Stand `probe-2026-10-05.patch`; Probe-Worktree und Branch entfernt.
+
+### Verworfen
+
+- „stabil v2026.10.04“ als HA-Prod-Ziel (aus der Übergabe): gibt es im Fork nicht; Fork-Latest ist v2026.10.03.
+- #10: Ansatz 2 (reine Funktionen), Ansatz 3 (echte Tagesrechnung), Beschriftung über den Kartentitel, echte Klimadaten
+  (nur als Folgeschritt anbieten), Entfernen.
+
+### Fallen
+
+- **HA-MCP meldet 502 nach einem Core-Neustart**, minutenlang: Core direkt per WebSocket-Handshake prüfen
+  (`auth_required` nennt die Version), Auslöser im Supervisor-Log (`ha_get_logs source=system_service slug=supervisor`).
+- **`pathlib.write_text` schreibt unter Windows CRLF** → Body-Dateien vor `gh` mit `tr -d '\r'`; nach dem Senden
+  zurücklesen und vergleichen (`--jq .body` hängt ein `\n` an).
+- **Lokal: Tests am `coordinator`-Fixture enden mit teardown-ERROR „Lingering timer“** → RED/GREEN an der Testphase.
+- **Liveness erst nach 10 min scharf:** `sensor_last_seen` vorher leer ist erwartet, kein Defekt.
+- **Kein `sleep` im Vordergrund:** auf Hintergrundläufe per `run_in_background` + `until`-Schleife warten.
+
+### Nächste Schritte
+
+1. **Upstream-Runde** (seit 2026-10-05 07:54 UTC, alle Autoren): JustChr#190 (Einwand → Kommentar in #8 + Fix im
+   Worktree `issue8-work\wt`; Merge → #8-Kommentar, #42 Punkt 9, production-Rebuild, Worktree weg; #8 bleibt offen).
+2. **Eifel-Joe#10 umsetzen:** Plan Tasks 0–10 im Worktree `issue10-work\wt` (subagent-driven, TDD, ein Commit je Task);
+   danach Task 11 (production-Rebuild mit #190 + `fix/seasonal-outlook` als Pre-Release, Live-Test HA-Test) und Task 12
+   (PR-Text DE → EN zur Freigabe, PR, P2, Archiv). Außen-Schritte nur mit Freigabe.
+3. **Feldtest #8 beobachten:** Hinweis `weather_sensor_stale_1` / Event `irrigation_plus_weather_stale` auf HA-Prod;
+   erster Beet-Lauf frühestens um den 10.10.
+4. **Aufräumen nach dem Merge von #190:** Probenordner in `issue8-work` (vorher kleine Ordner ansehen), lokale Branches
+   `rebuild/*` und `backup/*`.
+
+### Empfohlene Skills
+
+- `superpowers:subagent-driven-development`, `superpowers:test-driven-development`,
+  `superpowers:verification-before-completion`, `pr-workflow`, `code-doku`; Memories `hasi-seasonal-outlook`,
+  `upstream-sweep-first`, `hasi-pr-build-recipe`, `hasi-production-on-upstream`, `no-own-issue-refs-upstream`,
+  `hasi-local-test-env-rebuild`.
+
 ## 2026-10-04/05 (4) — Eifel-Joe#8: PR `JustChr#190` offen (gebaut, live getestet, gefaltet, rebased); JustChr#189 gemergt → stabil v2026.10.04; production v2026.10.05b1
 
 ### Stand
