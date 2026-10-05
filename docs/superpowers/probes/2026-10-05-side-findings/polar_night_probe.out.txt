@@ -1,0 +1,157 @@
+==============================================================================
+0. Solar geometry at bbf2e151 (FAO-56 sol_dec, vendored sunset_hour_angle)
+   max |sol_dec| = 23.434 deg  -> polar-night threshold lat = 66.566 deg
+   lat   50.0  2026-12-21  doy 355  sha 1.0280 rad  daylight  7.853 h  Ra   7.4448 MJ/m2/d
+   lat   65.0  2026-12-21  doy 355  sha 0.3778 rad  daylight  2.886 h  Ra   0.2666 MJ/m2/d
+   lat   66.5  2026-12-21  doy 355  sha 0.0799 rad  daylight  0.611 h  Ra   0.0024 MJ/m2/d
+   lat   66.6  2026-12-21  doy 355  sha 0.0000 rad  daylight  0.000 h  Ra   0.0000 MJ/m2/d
+   lat   69.0  2026-12-21  doy 355  sha 0.0000 rad  daylight  0.000 h  Ra   0.0000 MJ/m2/d
+   lat   69.0  2026-06-21  doy 172  sha 3.1416 rad  daylight 24.000 h  Ra  42.4173 MJ/m2/d
+   lat  -69.0  2026-06-21  doy 172  sha 0.0000 rad  daylight  0.000 h  Ra   0.0000 MJ/m2/d
+   lat  -69.0  2026-12-21  doy 355  sha 3.1416 rad  daylight 24.000 h  Ra  45.2642 MJ/m2/d
+   lat   90.0  2026-12-21  doy 355  sha 0.0000 rad  daylight  0.000 h  Ra   0.0000 MJ/m2/d
+
+==============================================================================
+1. Days per year with daylight == 0 (sha == 0), non-leap 2026 (doy 1..365)
+   lat   60.0: polar-night days =   0  -;   midnight-sun days =   0
+   lat   65.0: polar-night days =   0  -;   midnight-sun days =   0
+   lat   66.5: polar-night days =   0  -;   midnight-sun days =   0
+   lat   66.6: polar-night days =   6  12-18..12-23;   midnight-sun days =   7
+   lat   67.0: polar-night days =  22  12-10..12-31;   midnight-sun days =  23
+   lat   68.0: polar-night days =  40  01-01..12-31 (wraps: 12-01..12-31 + 01-01..01-09);   midnight-sun days =  41
+   lat   69.0: polar-night days =  54  01-01..12-31 (wraps: 11-24..12-31 + 01-01..01-16);   midnight-sun days =  53
+   lat   69.7: polar-night days =  60  01-01..12-31 (wraps: 11-21..12-31 + 01-01..01-19);   midnight-sun days =  61
+   lat   70.0: polar-night days =  64  01-01..12-31 (wraps: 11-19..12-31 + 01-01..01-21);   midnight-sun days =  63
+   lat   71.0: polar-night days =  72  01-01..12-31 (wraps: 11-15..12-31 + 01-01..01-25);   midnight-sun days =  73
+   lat   75.0: polar-night days = 102  01-01..12-31 (wraps: 10-31..12-31 + 01-01..02-09);   midnight-sun days = 101
+   lat   80.0: polar-night days = 132  01-01..12-31 (wraps: 10-16..12-31 + 01-01..02-24);   midnight-sun days = 131
+   lat   85.0: polar-night days = 158  01-01..12-31 (wraps: 10-03..12-31 + 01-01..03-09);   midnight-sun days = 157
+   lat   89.9: polar-night days = 182  01-01..12-31 (wraps: 09-21..12-31 + 01-01..03-21);   midnight-sun days = 182
+   lat  -66.6: polar-night days =   7  06-18..06-24;   midnight-sun days =   6
+   lat  -67.0: polar-night days =  23  06-10..07-02;   midnight-sun days =  22
+   lat  -69.0: polar-night days =  53  05-26..07-17;   midnight-sun days =  54
+   lat  -70.0: polar-night days =  63  05-21..07-22;   midnight-sun days =  64
+   lat  -75.0: polar-night days = 101  05-02..08-10;   midnight-sun days = 102
+   lat  -80.0: polar-night days = 131  04-17..08-25;   midnight-sun days = 132
+
+==============================================================================
+2. calculate_et_for_day (the real method) on a polar-night day: behaviour x latitude
+   weather: Tmin -10, Tmax -5, Tdew -8, wind 3 m/s, 1000 hPa; elevation 100 m
+   --- lat 50.0 on 2026-12-21 ---
+      EstimateFromTemp (DEFAULT)                   -> OK  delta=-0.0693 mm
+      EstimateFromSunHours                         -> OK  delta=0.0430 mm
+      DontEstimate, no Solar Radiation value       -> OK  delta=0.0430 mm
+      DontEstimate, Solar Radiation sensor = 1.0   -> OK  delta=-0.1551 mm
+      EstimateFromSunHoursAndTemperature           -> OK  delta=-0.0132 mm
+   --- lat 66.5 on 2026-12-21 ---
+      EstimateFromTemp (DEFAULT)                   -> OK  delta=0.0706 mm
+      EstimateFromSunHours                         -> OK  delta=0.2971 mm
+      DontEstimate, no Solar Radiation value       -> OK  delta=0.2971 mm
+      DontEstimate, Solar Radiation sensor = 1.0   -> OK  delta=0.3762 mm
+      EstimateFromSunHoursAndTemperature           -> OK  delta=0.1839 mm
+   --- lat 69.0 on 2026-12-21 ---
+      EstimateFromTemp (DEFAULT)                   -> ZeroDivisionError: float division by zero @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)
+      EstimateFromSunHours                         -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+      DontEstimate, no Solar Radiation value       -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+      DontEstimate, Solar Radiation sensor = 1.0   -> ZeroDivisionError: float division by zero @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)
+      EstimateFromSunHoursAndTemperature           -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+   --- lat 70.0 on 2026-12-21 ---
+      EstimateFromTemp (DEFAULT)                   -> ZeroDivisionError: float division by zero @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)
+      EstimateFromSunHours                         -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+      DontEstimate, no Solar Radiation value       -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+      DontEstimate, Solar Radiation sensor = 1.0   -> ZeroDivisionError: float division by zero @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)
+      EstimateFromSunHoursAndTemperature           -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+   --- lat -69.0 on 2026-06-21 ---
+      EstimateFromTemp (DEFAULT)                   -> ZeroDivisionError: float division by zero @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)
+      EstimateFromSunHours                         -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+      DontEstimate, no Solar Radiation value       -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+      DontEstimate, Solar Radiation sensor = 1.0   -> ZeroDivisionError: float division by zero @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)
+      EstimateFromSunHoursAndTemperature           -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+
+==============================================================================
+3. calculate() as called by calculation.py:1195 (weather_data, forecast_data=None, day=..., forecast_first_day=...)
+   69N 21 Dec  EstimateFromTemp (DEFAULT)                   -> ZeroDivisionError: float division by zero @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)
+   69N 21 Dec  EstimateFromSunHours                         -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+   69N 21 Dec  DontEstimate, no Solar Radiation value       -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+   69N 21 Dec  DontEstimate, Solar Radiation sensor = 1.0   -> ZeroDivisionError: float division by zero @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)
+   69N 21 Dec  EstimateFromSunHoursAndTemperature           -> ZeroDivisionError: float division by zero @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)
+
+==============================================================================
+4. watering_calendar.py:286 -- calculate_et_for_day(weather_data, day=date(2024, month, 15)) per month, 69N
+   behaviour 1 (EstimateFromTemp (DEFAULT)): ['ZeroD', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ZeroD']
+   behaviour 2 (EstimateFromSunHours): ['ZeroD', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ZeroD']
+   behaviour 4 (EstimateFromSunHoursAndTemperature): ['ZeroD', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ZeroD']
+
+==============================================================================
+5. Full-year sweep (2026, 365 days): number of days on which calculate_et_for_day RAISES
+   lat     beh 1  beh 2  beh 3  beh3s  beh 4
+     50.0      0      0      0      0      0
+     60.0      0      0      0      0      0
+     66.0      0      0      0      0      0
+     66.6      6      6      6      6      6
+           beh 1: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 2: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3s: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 4: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+     68.0     40     40     40     40     40
+           beh 1: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 2: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3s: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 4: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+     69.0     54     54     54     54     54
+           beh 1: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 2: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3s: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 4: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+     70.0     64     64     64     64     64
+           beh 1: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 2: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3s: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 4: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+     75.0    102    102    102    102    102
+           beh 1: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 2: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3s: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 4: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+     80.0    132    132    132    132    132
+           beh 1: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 2: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3s: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 4: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+    -66.6      7      7      7      7      7
+           beh 1: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 2: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3s: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 4: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+    -69.0     53     53     53     53     53
+           beh 1: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 2: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3s: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 4: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+    -75.0    101    101    101    101    101
+           beh 1: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 2: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+           beh 3s: ['ZeroDivisionError @ fao.py:461 (tmp3 = 1.35 * (sol_rad / cs_rad) - 0.35)']
+           beh 4: ['ZeroDivisionError @ fao.py:590 (return (0.5 * sunshine_hours / daylight_hours + 0.25) * et_rad)']
+
+==============================================================================
+6. Edge: first/last day with exact zero at 66.6N and 69N, and the smallest non-zero daylight next to it
+   lat 66.6: 2026-12-16  daylight 0.449909 h  Ra 0.000962
+   lat 66.6: 2026-12-17  daylight 0.217705 h  Ra 0.000109
+   lat 66.6: 2026-12-18  daylight 0.000000 h  Ra 0.000000
+   lat 66.6: 2026-12-19  daylight 0.000000 h  Ra 0.000000
+
+   lat 69.0: 2026-11-22  daylight 1.417122 h  Ra 0.027413
+   lat 69.0: 2026-11-23  daylight 0.932002 h  Ra 0.007806
+   lat 69.0: 2026-11-24  daylight 0.000000 h  Ra 0.000000
+   lat 69.0: 2026-11-25  daylight 0.000000 h  Ra 0.000000
+

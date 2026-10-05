@@ -1,0 +1,15 @@
+constants: MAPPING_CONF_SOURCE_NONE = 'none' | DEFAULT precipitation aggregate = delta | CUMULATIVE_RESET_FRAC = 0.1
+
+A. strip_foreign_source_values (calculation.py:255) on a service row, by Precipitation source
+   Precipitation source 'none'            : Precipitation still in row? True
+   Precipitation source 'sensor'          : Precipitation still in row? False
+   Precipitation source 'static'          : Precipitation still in row? False
+   Precipitation source 'weather_service' : Precipitation still in row? True
+
+B. The aggregate the calculation then books (hourly service rows: 0.0, 0.4, 0.4, 0.0 mm in the past hour)
+   Precipitation source 'weather_service' : aggregate rule = riemannsum -> weatherdata['Precipitation'] = 0.800 mm
+   Precipitation source 'none'            : aggregate rule = delta      -> weatherdata['Precipitation'] = 0.400 mm
+   (None / not used, i.e. what the label promises: 0.000 mm)
+
+C. Case (b): no weather service, sensor group supplies no precipitation => the row has no Precipitation key
+   weatherdata.get('Precipitation', 0) -> 0  (calculation.py:1209)

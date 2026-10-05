@@ -1,0 +1,29 @@
+Daily calc at 23:00 (CONF_DEFAULT_CALC_TIME, const.py:321), default behaviour EstimateFromTemp,
+simulated 2026-11-02 .. 2027-03-01 with NO user intervention (no bucket edit, no weather reset):
+  lat  50.0: no failures
+  lat  66.5: no failures
+  lat  66.6: first FAIL calc on 2026-12-18 (prices day 2026-12-18); 74 failing calcs; days priced while failing: 2026-12-18..2026-12-18 (1 distinct); successful calcs after first failure: 0; last calc in window (2027-03-01): FAIL
+  lat  68.0: first FAIL calc on 2026-12-01 (prices day 2026-12-01); 91 failing calcs; days priced while failing: 2026-12-01..2026-12-01 (1 distinct); successful calcs after first failure: 0; last calc in window (2027-03-01): FAIL
+  lat  69.0: first FAIL calc on 2026-11-24 (prices day 2026-11-24); 98 failing calcs; days priced while failing: 2026-11-24..2026-11-24 (1 distinct); successful calcs after first failure: 0; last calc in window (2027-03-01): FAIL
+  lat  70.0: first FAIL calc on 2026-11-19 (prices day 2026-11-19); 103 failing calcs; days priced while failing: 2026-11-19..2026-11-19 (1 distinct); successful calcs after first failure: 0; last calc in window (2027-03-01): FAIL
+
+Same with calc at 00:00:
+  lat  69.0: first FAIL calc on 2026-11-25 (prices day 2026-11-24); 97 failing calcs; days priced while failing: 2026-11-24..2026-11-24 (1 distinct); successful calcs after first failure: 0; last calc in window (2027-03-01): FAIL
+
+Ground truth for comparison: days with daylight == 0 at 69N (stateless view):
+  2026-11-24 .. 2027-01-16  (54 days)
+
+Timeline excerpt at 69N / 23:00 around the start and after the sun returns:
+  calc on 2026-11-22 23:00 prices day 2026-11-22 -> ok
+  calc on 2026-11-23 23:00 prices day 2026-11-23 -> ok
+  calc on 2026-11-24 23:00 prices day 2026-11-24 -> FAIL
+  calc on 2026-11-25 23:00 prices day 2026-11-24 -> FAIL
+  calc on 2026-12-21 23:00 prices day 2026-11-24 -> FAIL
+  calc on 2027-01-16 23:00 prices day 2026-11-24 -> FAIL
+  calc on 2027-01-17 23:00 prices day 2026-11-24 -> FAIL
+  calc on 2027-01-18 23:00 prices day 2026-11-24 -> FAIL
+  calc on 2027-02-01 23:00 prices day 2026-11-24 -> FAIL
+  calc on 2027-03-01 23:00 prices day 2026-11-24 -> FAIL
+
+Recovery check (user sets the bucket by hand => watermark moves to 'now', __init__.py:2021):
+  after manual bucket edit: calc on 2027-02-01 23:00:00 prices day 2027-02-02 -> ok
