@@ -228,8 +228,9 @@ Neu in `tests/test_watering_calendar.py`, jeder vor dem Fix rot:
    müssen grün bleiben).
 
 Bestehende Tests: `test_calculate_monthly_watering_volume` und `…_no_irrigation_needed` (`:166`, `:186`) benutzen eine
-Zone **ohne Modul** und erwarten den Regenabzug. Mit A2 zieht eine solche Zone keinen Regen mehr ab; die Fixtures
-bekommen ein PyETO-Modul, ihre Erwartungen (4 000 L, 0 L) bleiben.
+Zone **ohne Modul** und erwarten den Regenabzug. Sie bekommen ihr PyETO-Modul ausdrücklich, ihre Erwartungen (4 000 L,
+0 L) bleiben. *(Präzisiert in der Planung, siehe unten: Grün blieben sie auch ohne, der Mock-Store antwortet auf jede ID
+mit PyETO; das Modul steht trotzdem in der Zone, damit die Tests nicht von diesem Auffangverhalten leben.)*
 
 Danach: volle Suite mit Namensvergleich gegen eine Baseline auf derselben Basis; Mutationslauf gegen die geänderten
 Zeilen (jede Mutation muss einen Test rot machen).
@@ -248,6 +249,18 @@ Erst auf HA-Test (Pre-Release per HACS), nach dem Release auch auf HA-Prod, je m
 3. Die Karte „Saisonaler Ausblick“ zeigt die Hinweiszeile (Sichtprüfung im Panel nach Strg+F5).
 
 Vorher-Werte für den Vergleich stehen oben unter *Gemessen auf HA-Prod*.
+
+## Präzisierungen aus der Planung (2026-10-05)
+
+- **Fixtures der alten Volumen-Tests:** `mock_store.get_module` liefert für jede ID (auch `None`) das PyETO-Modul. Die
+  zwei Tests wären mit A2 also auch ohne Modul in der Zone grün geblieben; die Spec sagte das Gegenteil. Sie bekommen
+  das Modul trotzdem ausdrücklich (Plan, Task 2).
+- **Lokale teardown-ERRORs:** Jeder Test am `coordinator`-Fixture endet lokal zusätzlich mit „Lingering timer after
+  test“ (Zeit-Listener `_reset_event_fired_today`); alle elf bestehenden Kalender-Tests stehen so in der Baseline
+  `bbf2e151`, in JustChrs CI laufen sie sauber. Die neuen Fixture-Tests kommen deshalb lokal als neue ERROR-Namen in
+  den Namensvergleich, sonst nichts.
+- **Bundles:** Der Probelauf änderte genau `irrigation-plus.js` und `irrigation-plus-card-impl.js` (Kataloge);
+  `-card.js` und `-card-legacy.js` bleiben inhaltlich gleich.
 
 ## Lieferung
 
