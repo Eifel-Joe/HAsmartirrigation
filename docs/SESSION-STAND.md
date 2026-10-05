@@ -88,8 +88,9 @@
 1. **Upstream-Runde zuerst** (alle Autoren, seit 2026-10-05 06:30 UTC): JustChr#190 (Kommentare, Reviews, Re-Run der CI),
    JustChr#188, neue Releases.
 2. **JustChr#190 beobachten:** CI meldet die App; Antwort von JustChr → bei Einwand Kommentar in Eifel-Joe#8 (in seinen
-   Worten) und Fix im Worktree `issue8-work\wt`; bei Merge #8 schließen, #42 Punkt 9, production-Rebuild, Worktree weg,
-   Feldtest-Frage.
+   Worten) und Fix im Worktree `issue8-work\wt`; bei Merge: Kommentar in #8, #42 Punkt 9, production-Rebuild, Worktree weg.
+   **Eifel-Joe#8 bleibt danach offen** — es umfasst PR 1–3, sein Upstream-Bezug ist JustChr#188; PR 2 erst nach dem
+   Feldtest auf HA-Prod (Update nur auf Zuruf).
 3. **HA-Prod:** Update (stabil v2026.10.04 oder v2026.10.05b1 mit PR 1) nur auf Zuruf; v2026.10.05b1 startet den Feldtest,
    den JustChr vor PR 2 sehen will; erster Beet-Lauf frühestens um den 10.10.
 4. **Aufräumen:** überholte Worktrees `prodrebuild-1003-work\wt`, `prodrebuild-1004b2-work\wt`, `issue8-work\base-bbf2`.
