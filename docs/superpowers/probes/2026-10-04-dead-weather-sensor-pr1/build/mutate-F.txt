@@ -1,0 +1,181 @@
+M01: KILLED | 2 failed, 114 passed in 8.65s 
+        TestLastSignOfLife::test_the_device_vouches_for_a_quiet_field
+        TestTheCheck::test_a_steady_rain_gauge_on_a_living_station_stays_quiet
+M02: KILLED | 3 failed, 113 passed in 8.35s 
+        TestLastSignOfLife::test_an_unavailable_entity_is_silent_whatever_its_device_does
+        TestTheCheck::test_an_outage_spanning_a_restart_keeps_its_start
+        test_the_notice_survives_a_restart_in_the_middle_of_an_outage
+M03: KILLED | 1 failed, 115 passed in 8.33s 
+        TestAdvanceOutages::test_silence_up_to_the_limit_is_bridged
+M04: KILLED | 1 failed, 115 passed in 8.53s 
+        TestAdvanceOutages::test_closed_outages_older_than_the_retention_are_dropped
+M05: KILLED | 3 failed, 113 passed in 8.60s 
+        TestAReplacedDevice::test_a_new_device_under_the_same_entity_ids_closes_the_outage
+        TestAdvanceOutages::test_a_new_sign_closes_it_at_the_first_report
+        TestTheCheck::test_the_return_closes_the_outage_at_the_first_report
+M06: KILLED | 2 failed, 114 passed in 8.48s 
+        TestTheCheck::test_a_value_set_by_hand_never_goes_stale
+        test_a_value_set_by_hand_is_never_watched
+M07: KILLED | 11 failed, 105 passed in 8.98s 
+        
+        TestAReplacedDevice::test_a_new_device_under_the_same_entity_ids_closes_the_outage
+        TestSeenFromState::test_state_stamps_land_on_has_clock
+        TestTheCheck::test_a_late_check_ends_the_old_outage_before_it_starts_the_new
+        TestTheCheck::test_a_silent_station_opens_its_outages_fires_and_raises_the_notice
+        TestTheCheck::test_one_broken_group_does_not_stop_the_others
+        TestTheCheck::test_the_return_closes_the_outage_at_the_first_report
+        TestTheCheck::test_the_signs_of_life_ride_along_without_a_write
+        test_the_notice_clears_when_the_sensor_reports_again
+        test_the_notice_goes_when_its_sensor_group_is_deleted
+        test_the_notice_goes_when_its_sensor_is_replaced
+        test_the_notice_survives_a_restart_in_the_middle_of_an_outage
+M08: KILLED | 2 failed, 114 passed in 8.56s 
+        TestTimer::test_the_check_waits_out_the_startup_grace
+        TestTimer::test_the_timer_runs_the_tick_and_the_tick_waits_out_the_grace
+M09: KILLED | 1 failed, 115 passed in 8.58s 
+        
+        TestTheCheck::test_an_entity_never_seen_starts_its_bridge_at_the_first_look
+M10: KILLED | 2 failed, 114 passed in 8.46s 
+        TestTheOutageRecordFollowsTheConfiguration::test_a_source_change_empties_the_record_and_drops_the_notice
+        test_the_notice_goes_when_its_sensor_is_replaced
+M11: KILLED | 2 failed, 114 passed in 8.41s 
+        TestTheOutageRecordFollowsTheConfiguration::test_a_sensor_still_silent_after_a_reset_is_reported_again
+        TestTheOutageRecordFollowsTheConfiguration::test_reset_all_weather_data_empties_the_record
+M12: KILLED | 3 failed, 113 passed in 8.48s 
+        test_a_clean_stop_writes_the_refreshed_signs
+        test_refreshing_the_signs_schedules_no_write
+        test_unchanged_signs_queue_no_stop_write
+M13: KILLED | 1 failed, 115 passed in 8.33s 
+        TestTheCheck::test_one_broken_group_does_not_stop_the_others
+M14: KILLED | 2 failed, 114 passed in 8.83s 
+        TestTheOutageRecordFollowsTheConfiguration::test_a_group_without_an_open_outage_leaves_the_registry_alone
+        TestTheOutageRecordFollowsTheConfiguration::test_closed_outages_alone_end_nothing
+M15: KILLED | 3 failed, 113 passed in 8.65s 
+        TestAReplacedDevice::test_an_outage_left_by_another_path_ends_with_its_event
+        TestAdvanceOutages::test_an_outage_of_an_entity_no_longer_watched_ends_now
+        TestTheCheck::test_a_group_left_without_sensor_fields_ends_its_outage
+M16: KILLED | 7 failed, 109 passed in 9.08s 
+        TestTheOutageRecordFollowsTheConfiguration::test_a_sensor_still_silent_after_a_reset_is_reported_again
+        TestTheOutageRecordFollowsTheConfiguration::test_a_source_change_empties_the_record_and_drops_the_notice
+        TestTheOutageRecordFollowsTheConfiguration::test_deleting_a_group_drops_its_notice
+        TestTheOutageRecordFollowsTheConfiguration::test_only_open_outages_are_ended
+        TestTheOutageRecordFollowsTheConfiguration::test_reset_all_weather_data_empties_the_record
+        test_the_notice_goes_when_its_sensor_group_is_deleted
+        test_the_notice_goes_when_its_sensor_is_replaced
+M17: KILLED | 5 failed, 111 passed in 10.06s 
+        TestAReplacedDevice::test_a_new_device_under_the_same_entity_ids_closes_the_outage
+        TestAReplacedDevice::test_an_outage_left_by_another_path_ends_with_its_event
+        TestTheCheck::test_a_group_left_without_sensor_fields_ends_its_outage
+        TestTheCheck::test_the_return_closes_the_outage_at_the_first_report
+        test_the_notice_clears_when_the_sensor_reports_again
+M18: KILLED | 3 failed, 113 passed in 9.42s 
+        TestTimer::test_one_broken_group_does_not_stop_the_setup
+        TestTimer::test_setup_shows_a_still_open_outage_at_once
+        test_the_notice_survives_a_restart_in_the_middle_of_an_outage
+M19: KILLED | 3 failed, 113 passed in 8.85s 
+        TestTheOutageRecordFollowsTheConfiguration::test_deleting_a_group_drops_its_notice
+        TestTheOutageRecordFollowsTheConfiguration::test_only_open_outages_are_ended
+        test_the_notice_goes_when_its_sensor_group_is_deleted
+M20: KILLED | 2 failed, 114 passed in 9.35s 
+        test_outages_and_signs_survive_a_restart
+        test_the_notice_survives_a_restart_in_the_middle_of_an_outage
+M21: KILLED | 1 failed, 115 passed in 9.27s 
+        test_the_limits_are_the_documented_ones
+M22: KILLED | 1 failed, 115 passed in 9.48s 
+        test_the_limits_are_the_documented_ones
+M23: KILLED | 1 failed, 115 passed in 9.26s 
+        test_the_limits_are_the_documented_ones
+M24: KILLED | 1 failed, 115 passed in 9.16s 
+        test_only_sensor_fields_with_an_entity_are_watched
+M25: KILLED | 1 failed, 115 passed in 9.22s 
+        test_a_value_set_by_hand_is_never_watched
+M26: KILLED | 1 failed, 115 passed in 9.07s 
+        TestFirstReportAfter::test_an_unavailable_sibling_is_not_a_return
+M27: KILLED | 1 failed, 115 passed in 9.46s 
+        TestLastSignOfLife::test_a_missing_entity_is_silent_whatever_its_device_does
+M28: KILLED | 1 failed, 115 passed in 9.12s 
+        TestFirstReportAfter::test_a_change_at_the_start_itself_is_not_after_it
+M29: KILLED | 4 failed, 112 passed in 9.09s 
+        TestAReplacedDevice::test_a_new_device_under_the_same_entity_ids_closes_the_outage
+        TestFirstReportAfter::test_the_fields_own_change_marks_its_return
+        TestFirstReportAfter::test_without_a_device_the_entity_marks_its_own_return
+        TestTheCheck::test_the_return_closes_the_outage_at_the_first_report
+M30: KILLED | 3 failed, 113 passed in 9.39s 
+        TestOutagesOf::test_a_group_without_an_outage_list_has_no_outages[mapping0]
+        TestOutagesOf::test_a_group_without_an_outage_list_has_no_outages[mapping1]
+        TestOutagesOf::test_a_group_without_an_outage_list_has_no_outages[mapping2]
+M31: KILLED | 1 failed, 115 passed in 8.92s 
+        TestOutagesOf::test_it_keeps_what_is_readable_and_skips_the_rest
+M32: KILLED | 2 failed, 114 passed in 9.06s 
+        TestOutageInTheStore::test_an_unreadable_record_is_dropped_not_raised[raw10]
+        TestOutageInTheStore::test_an_unreadable_record_is_dropped_not_raised[raw9]
+M33: KILLED | 1 failed, 115 passed in 8.72s 
+        TestOutageInTheStore::test_an_unreadable_record_is_dropped_not_raised[raw11]
+M34: KILLED | 4 failed, 112 passed in 8.89s 
+        TestOutageInTheStore::test_a_record_with_no_fields_and_no_device_still_reads[raw0]
+        TestOutageInTheStore::test_an_unreadable_record_is_dropped_not_raised[raw11]
+        TestOutageInTheStore::test_an_unreadable_record_is_dropped_not_raised[raw3]
+        TestOutageInTheStore::test_an_unreadable_record_is_dropped_not_raised[raw4]
+M35: KILLED | 5 failed, 111 passed in 8.84s 
+        TestOutageInTheStore::test_a_record_with_no_fields_and_no_device_still_reads[raw0]
+        TestOutageInTheStore::test_a_record_with_no_fields_and_no_device_still_reads[raw1]
+        TestOutageInTheStore::test_a_record_with_no_fields_and_no_device_still_reads[raw2]
+        TestOutageInTheStore::test_a_record_with_no_fields_and_no_device_still_reads[raw3]
+        TestOutageInTheStore::test_an_unreadable_record_is_dropped_not_raised[raw10]
+M36: KILLED | 2 failed, 114 passed in 9.03s 
+        TestOutageInTheStore::test_a_record_with_no_fields_and_no_device_still_reads[raw1]
+        TestOutageInTheStore::test_a_record_with_no_fields_and_no_device_still_reads[raw3]
+M37: KILLED | 1 failed, 115 passed in 8.98s 
+        TestAdvanceOutages::test_a_sensor_that_recovered_can_fall_silent_again
+M38: KILLED | 2 failed, 114 passed in 8.89s 
+        TestAdvanceOutages::test_a_sensor_that_recovered_can_fall_silent_again
+        TestAdvanceOutages::test_closed_outages_older_than_the_retention_are_dropped
+M39: KILLED | 1 failed, 115 passed in 8.65s 
+        TestAdvanceOutages::test_a_change_elsewhere_on_the_device_does_not_end_a_silent_field
+M40: KILLED | 3 failed, 113 passed in 8.93s 
+        TestOutageEventPayload::test_an_outage_ending
+        TestOutageEventPayload::test_an_outage_starting
+        TestTheOutageRecordFollowsTheConfiguration::test_only_open_outages_are_ended
+M41: KILLED | 1 failed, 115 passed in 9.01s 
+        TestStaleIssuePlaceholders::test_entities_that_fell_silent_together_are_listed_by_entity_id
+M42: KILLED | 1 failed, 115 passed in 8.90s 
+        TestTheCheck::test_an_open_outage_without_a_remembered_sign_stays_open
+M43: KILLED | 1 failed, 115 passed in 8.52s 
+        TestTheCheck::test_a_late_check_ends_the_old_outage_before_it_starts_the_new
+M44: KILLED | 1 failed, 115 passed in 8.79s 
+        TestTimer::test_one_broken_group_does_not_stop_the_setup
+M45: KILLED | 1 failed, 115 passed in 8.71s 
+        test_a_clean_stop_writes_the_refreshed_signs
+M46: KILLED | 1 failed, 115 passed in 8.54s 
+        test_unchanged_signs_queue_no_stop_write
+M47: KILLED | 1 failed, 115 passed in 8.35s 
+        test_a_deleted_config_is_not_written_back_for_the_signs
+M48: KILLED | 1 failed, 115 passed in 8.58s 
+        test_signs_that_are_not_a_dict_load_as_none
+M49: KILLED | 1 failed, 115 passed in 8.46s 
+        TestFirstReportAfter::test_the_fields_own_change_marks_its_return
+M50: KILLED | 1 failed, 115 passed in 8.35s 
+        TestFirstReportAfter::test_a_change_at_the_start_itself_is_not_after_it
+M51: KILLED | 1 failed, 115 passed in 8.32s 
+        test_only_the_integrations_own_sensors_vouch
+M52: KILLED | 2 failed, 114 passed in 8.55s 
+        test_only_the_integrations_own_sensors_vouch
+        test_the_mapped_sensors_own_integration_vouches_on_a_shared_device
+M53: KILLED | 1 failed, 115 passed in 8.53s 
+        test_only_the_integrations_own_sensors_vouch
+M54: KILLED | 2 failed, 114 passed in 8.31s 
+        TestTheOutageRecordFollowsTheConfiguration::test_a_sensor_still_silent_after_a_reset_is_reported_again
+        TestTheOutageRecordFollowsTheConfiguration::test_reset_all_weather_data_empties_the_record
+M55: KILLED | 1 failed, 115 passed in 8.29s 
+        TestTheCheck::test_one_broken_group_does_not_stop_the_others
+M56: KILLED | 1 failed, 115 passed in 8.25s 
+        TestTimer::test_the_timer_runs_the_tick_and_the_tick_waits_out_the_grace
+M57: KILLED | 1 failed, 115 passed in 8.33s 
+        TestTimer::test_a_second_setup_cancels_the_first_timer
+M58: KILLED | 2 failed, 114 passed in 8.38s 
+        TestTheOutageRecordFollowsTheConfiguration::test_closed_outages_alone_end_nothing
+        TestTheOutageRecordFollowsTheConfiguration::test_only_open_outages_are_ended
+M59: KILLED | 1 failed, 115 passed in 8.26s 
+        test_the_notice_goes_when_its_sensor_is_replaced
+M60: KILLED | 1 failed, 115 passed in 8.41s 
+        test_the_mapped_sensors_own_integration_vouches_on_a_shared_device

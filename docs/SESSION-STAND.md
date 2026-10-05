@@ -23,6 +23,79 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-04/05 (4) — Eifel-Joe#8: PR `JustChr#190` offen (gebaut, live getestet, gefaltet, rebased); JustChr#189 gemergt → stabil v2026.10.04; production v2026.10.05b1
+
+### Stand
+
+- **Upstream (Runden bis 2026-10-05 ≈ 06:10 UTC):** JustChr#189 gemergt 2026-10-04 21:49 UTC (Squash `ef8cceef`,
+  inhaltsgleich mit unserem Branch), Release-Commit `bbf2e151` = **v2026.10.04, stabil** (ersetzt v2026.09.17 in HACS).
+  **JustChr kommentierte #189 um 06:01 UTC:** Dank; eigene Prüfung (Suite auf dem PR-Kopf, fünf tragende Zeilen gebrochen,
+  Übernahme nach Neustart); Abschnitt in den Release-Notes; **Nit „nothing to do for now“:** `async_teardown_self_closing_handles`
+  ruft jeden Cancel-Handle ohne try/except; zu JustChr#188 nichts weiter nötig. Der Head-Branch von JustChr#186 wurde
+  2026-10-05 05:51 UTC gelöscht (nicht in dieser Sitzung).
+- **PR 1 = [JustChr#190](https://github.com/JustChr/HAsmartirrigation/pull/190)** offen, an die Sitzung gebunden; Branch
+  `fix/stale-weather-sensor` gepusht = vier Feature-Commits auf `bbf2e151` (`16ed6406` … `bd3b7ebd`; PR-Diff per Patch-ID
+  gleich dem gefalteten Stand). Neu belegt auf der neuen Basis: Baseline `bbf2e151` 7/3667/9/415, PR 7/3783/9/415, 422 Namen
+  identisch; jeder Commit für sich grün; 60/60 Mutationen, Killer gleich. Lokale Refs: `archive/stale-weather-sensor-tasks`
+  (`6c9ba82a`, 41 Task-Commits), `archive/stale-weather-sensor-folded-e9c79ec4` (`1ebf4c0f`).
+- **production = v2026.10.05b1** (`5a780270` = `bbf2e151` + Branding + PR 1 + Build), force-gepusht (Backup lokal
+  `backup/production-pre-v2026.10.05b1` = `d8c74317`); Pre-Release mit ZIP aus dem SHA (Download byte-gleich, Tag
+  remote/lokal = `5a780270`); Suite 7/3792/9/415 = 3667 + 9 + 116. Zwischendurch v2026.10.04b2 (`d8c74317`, auf HA-Test
+  installiert, gleicher PR-Code). **HA-Prod unberührt** (v2026.09.30).
+- **Live-Test HA-Test bestanden** (`issue8-work\livetest\L-pr1.md`): alle fünf Schritte des Ende-zu-Ende-Kriteriums, beide
+  Schreibweisen, der `config_entry_id`-Zweig live (HA 2026.9.3); HA-Test aufgeräumt.
+- **Reviews:** Abschluss-Review (Opus) „With fixes“ → Politur-Commit E; Review von E → Commit F; Review von F „OK“. Drei
+  Review-Aussagen waren falsch und sind berichtigt. Belege: `issue8-work\deviations.md`.
+- **P2 erledigt:** Kommentar auf Eifel-Joe#8; Folge-Issue **Eifel-Joe#82** (Deaktivieren/Entfernen lässt offene Hinweise
+  ohne End-Event stehen); #42 Punkt 9 + neuer Punkt 39m.
+- **Offen, wartet auf Freigabe:** Eifel-Joe#9 schließen (freigegebener Text galt „ohne Kommentar“ — durch JustChrs Kommentar
+  überholt, neu vorzulegen), #42 Punkt 10, Umgang mit JustChrs Nit.
+- **P1:** Spec Revision 3, Plan (Häkchen 0–15), Live-Beleg, Abweichungsprotokoll, Review-Texte, Skripte, Namenslisten →
+  `archive/design-history` (mit diesem Eintrag).
+- **Worktree `issue9-work\wt` entfernt** (#189 gemergt; Belege im Archiv).
+
+### Verworfen
+
+- Gegenprobe zum Neustart-Test über die Task-7-Mutation: Der Ausfall-Schreibvorgang plant ein Speichern, das
+  FINAL_WRITE samt Lebenszeichen schreibt; tragfähig ist „geplantes Speichern abgeschaltet“.
+- Live-Aufbau „C sendet denselben Wert jede Minute“: YAML-MQTT schreibt unveränderte Werte nicht → `force_update` +
+  Gerät D.
+- Browser-Anmeldung für die Testgruppen (Passwort wird nie eingegeben) → `api_post` aus der HA-MCP-Sandbox.
+- B3 (Kommentar zu `name=` in zwei Registry-Tests) nicht in PR 1 — reiner Test-Text, nach PR 2 verschoben.
+
+### Fallen
+
+- **Die Upstream-Runde veraltet in Minuten:** JustChr kommentierte #189 eine Viertelstunde nach meiner Runde; erst die
+  erneute Prüfung direkt vor dem Push hat den Kommentar gefangen (und einen freigegebenen Text als überholt entlarvt).
+- **Review-Begründungen vor dem Weitergeben nachprüfen**; ich hatte die M1-Begründung ungeprüft wiederholt.
+- **YAML-MQTT schreibt unveränderte Werte nicht** (`last_reported` steht); nur `force_update: true` schreibt jedes Mal
+  (dann rückt auch `last_changed` vor).
+- **Ein Prüfgerät belegt einen Zweig nur, wenn der Zweig dort etwas entscheidet** (Gerät C: eigenes Entry = Besitzer).
+- **`git status` „M“ nach frischem Bundle-Build** trotz byte-gleichem Inhalt: autocrlf, drei Bundles ohne `eol=lf`.
+- **Nach einem Fix-Commit den Rebuild neu aufsetzen** (Build-Commit oben); ein übernommener Branding-Commit braucht auf neuer
+  Basis eine neue Message.
+- **HA-MCP:** Bestätigungsschlüssel der Best-Practice-Anleitung wechselt stündlich; `ha_config_set_helper` will bei Updates
+  die `entry_id`; Sandbox (`ha_manage_custom_tool`): `api_post`/`ws_send` mit der Anmeldung des Servers,
+  `delete_saved_tool` ist synchron, `call_tool` kann sich nicht selbst aufrufen.
+- **`archive/design-history` ist in `pr139-work\archive-wt` ausgecheckt** — dort committen statt einen zweiten Worktree
+  anlegen (ein Branch geht nur in einen Worktree).
+
+### Nächste Schritte
+
+1. **Freigabe einholen:** Schließkommentar #9 neu (JustChrs Kommentar als Link + kurzer Satz + sinngemäß), #42 Punkt 10,
+   JustChrs Nit (eigenes Issue oder nur im #9-Kommentar).
+2. **JustChr#190 beobachten:** CI meldet die App; Antwort von JustChr → bei Einwand Kommentar in Eifel-Joe#8 (in seinen
+   Worten) und Fix im Worktree `issue8-work\wt`; bei Merge #8 schließen, #42 Punkt 9, production-Rebuild, Worktree weg,
+   Feldtest-Frage.
+3. **HA-Prod:** Update (stabil v2026.10.04 oder v2026.10.05b1 mit PR 1) nur auf Zuruf; v2026.10.05b1 startet den Feldtest,
+   den JustChr vor PR 2 sehen will; erster Beet-Lauf frühestens um den 10.10.
+4. **Aufräumen:** überholte Worktrees `prodrebuild-1003-work\wt`, `prodrebuild-1004b2-work\wt`, `issue8-work\base-bbf2`.
+
+### Empfohlene Skills
+
+- `superpowers:verification-before-completion`, `pr-workflow`; Memories `hasi-dead-weather-sensor`, `upstream-sweep-first`,
+  `hasi-todo-file`, `hasi-production-on-upstream`, `no-own-issue-refs-upstream`, `preserve-design-docs-archive-branch`.
+
 ## 2026-10-04 (3) — Upstream-Runde leer; Eifel-Joe#8: Spec Revision 2 + Plan PR 1 an JustChrs Antwort angepasst, probegelaufen, freigegeben
 
 ### Stand

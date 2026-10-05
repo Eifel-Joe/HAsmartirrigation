@@ -48,6 +48,16 @@ und PR 3 (Stundenpfad und Live-Schätzung) bekommen eigene Pläne.
   +1769/−5). **Weicht ein Snippet dieses Plans vom Patch ab, gilt der Patch** (er ist der getestete Stand); die
   Abweichung dann im Plan berichtigen.
 
+**Stand nach dem Bau (2026-10-04):** Tasks 0–14 gebaut, Branch `fix/stale-weather-sensor`, Worktree
+`D:\Entwicklung\HASI\issue8-work\wt`. **Maßgeblich ist der Branch, nicht die Snippets dieses Plans:** Die Reviews je Task
+und drei User-Entscheidungen (D1 Geschwister, D2 „outage record“ statt „ledger“, D3 eigene Rückkehr zuerst; Spec
+Revision 3) haben Code und Tests über den Plantext hinaus geändert, in Fix-Runden A–C, mit Task 12 und im
+Politur-Commit nach dem Abschluss-Review. Jede Abweichung steht mit Beleg im Abweichungsprotokoll
+`D:\Entwicklung\HASI\issue8-work\deviations.md` (im Archiv bei den Belegen), darunter die ungenauen RED-Vorhersagen
+von Task 9. Endstand: 116 Tests in vier Dateien; volle Suite namensgleich mit der Baseline; 60 Mutationen statt der 20
+aus Task 14, alle getötet (`probe_mutate5.py`). Der Name „ledger“ in den Snippets und in der Mutationstabelle von
+Task 14 heißt im Code „outage record“.
+
 ---
 
 ## Rahmen
@@ -96,7 +106,7 @@ und PR 3 (Stundenpfad und Live-Schätzung) bekommen eigene Pläne.
 
 **Files:** keine Codeänderung.
 
-- [ ] **Step 1: Worktree von `upstream/master` anlegen** (ohne Tracking auf upstream, Memory `hasi-pr-build-recipe`)
+- [x] **Step 1: Worktree von `upstream/master` anlegen** (ohne Tracking auf upstream, Memory `hasi-pr-build-recipe`)
 
 ```bash
 cd /d/Entwicklung/HASI/HAsmartirrigation
@@ -109,7 +119,7 @@ cd /d/Entwicklung/HASI/issue8-work/wt && git log --oneline -1
 Erwartet: eine Zeile mit dem aktuellen `master`-Stand. Ist es nicht `e9c79ec4`, die Anker dieses Plans neu suchen
 (z. B. `grep -n "radiation_calibration = attr.ib" custom_components/irrigation_plus/store.py`).
 
-- [ ] **Step 2: Baseline der vollen Suite auf diesem Commit messen** (Memory `rebaseline-when-the-base-moves`)
+- [x] **Step 2: Baseline der vollen Suite auf diesem Commit messen** (Memory `rebaseline-when-the-base-moves`)
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-work/wt
@@ -129,7 +139,7 @@ erst nach Laufende lesen.
 - Modify: `custom_components/irrigation_plus/const.py` (nach `RADIATION_CALIBRATION_RATIO_BOUNDS = (0.5, 2.0)`, `const.py:690`, vor `MAPPING_MAPPINGS`; und nach `EVENT_ZONE_PROBLEM`, `const.py:1080`)
 - Test: `tests/test_sensor_liveness.py` (neu)
 
-- [ ] **Step 1: Failing test schreiben**
+- [x] **Step 1: Failing test schreiben**
 
 ```python
 """Weather-sensor liveness: the pure rules, without Home Assistant."""
@@ -146,12 +156,12 @@ def test_closed_outages_are_kept_as_long_as_the_buffer_keeps_rows():
     )
 ```
 
-- [ ] **Step 2: Test laufen lassen, RED prüfen**
+- [x] **Step 2: Test laufen lassen, RED prüfen**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_sensor_liveness.py -p _local_socket_unblock -q`
 Expected: FAIL mit `AttributeError: module 'custom_components.irrigation_plus.const' has no attribute 'SENSOR_OUTAGE_RETENTION_DAYS'`
 
-- [ ] **Step 3: Konstanten einfügen** (nach `RADIATION_CALIBRATION_RATIO_BOUNDS = (0.5, 2.0)`)
+- [x] **Step 3: Konstanten einfügen** (nach `RADIATION_CALIBRATION_RATIO_BOUNDS = (0.5, 2.0)`)
 
 ```python
 # --- Weather-sensor liveness (#188) -------------------------------------------
@@ -184,11 +194,11 @@ und direkt nach `EVENT_ZONE_PROBLEM = "zone_problem"`:
 EVENT_WEATHER_STALE = "weather_stale"
 ```
 
-- [ ] **Step 4: Test laufen lassen, GREEN prüfen**
+- [x] **Step 4: Test laufen lassen, GREEN prüfen**
 
 Run: wie Step 2. Expected: `1 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/const.py tests/test_sensor_liveness.py
@@ -213,7 +223,7 @@ EOF
 - Create: `custom_components/irrigation_plus/sensor_liveness.py`
 - Test: `tests/test_sensor_liveness.py`
 
-- [ ] **Step 1: Failing tests anhängen** (Import oben ergänzen)
+- [x] **Step 1: Failing tests anhängen** (Import oben ergänzen)
 
 ```python
 from custom_components.irrigation_plus.sensor_liveness import sensor_fields_by_entity
@@ -249,12 +259,12 @@ def test_a_value_set_by_hand_is_never_watched():
     assert sensor_fields_by_entity(mappings) == {}
 ```
 
-- [ ] **Step 2: RED prüfen**
+- [x] **Step 2: RED prüfen**
 
 Run: `TZ=UTC … -m pytest tests/test_sensor_liveness.py -p _local_socket_unblock -q`
 Expected: FAIL (Sammelfehler) mit `ModuleNotFoundError: No module named 'custom_components.irrigation_plus.sensor_liveness'`
 
-- [ ] **Step 3: Modul anlegen**
+- [x] **Step 3: Modul anlegen**
 
 ```python
 """When a weather sensor stops reporting: liveness, the outage ledger, the notice.
@@ -305,9 +315,9 @@ def sensor_fields_by_entity(mappings_config: dict) -> dict[str, tuple[str, ...]]
     return {entity_id: tuple(fields) for entity_id, fields in found.items()}
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `3 passed`
+- [x] **Step 4: GREEN prüfen** — Expected: `3 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/sensor_liveness.py tests/test_sensor_liveness.py
@@ -330,7 +340,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/sensor_liveness.py`
 - Test: `tests/test_sensor_liveness.py`
 
-- [ ] **Step 1: Failing tests anhängen** (Importe oben ergänzen: `from datetime import datetime, timedelta`,
+- [x] **Step 1: Failing tests anhängen** (Importe oben ergänzen: `from datetime import datetime, timedelta`,
 `Seen, first_report_after, last_sign_of_life` aus `sensor_liveness`)
 
 ```python
@@ -391,9 +401,9 @@ class TestFirstReportAfter:
         assert first_report_after(own, [], start) is None
 ```
 
-- [ ] **Step 2: RED prüfen** — Expected: Sammelfehler `ImportError: cannot import name 'Seen'`
+- [x] **Step 2: RED prüfen** — Expected: Sammelfehler `ImportError: cannot import name 'Seen'`
 
-- [ ] **Step 3: Implementieren** (in `sensor_liveness.py`; Importe oben ergänzen:
+- [x] **Step 3: Implementieren** (in `sensor_liveness.py`; Importe oben ergänzen:
 `from dataclasses import dataclass` und `from datetime import datetime`)
 
 ```python
@@ -441,9 +451,9 @@ def first_report_after(
     return min(stamps) if stamps else None
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `12 passed`
+- [x] **Step 4: GREEN prüfen** — Expected: `12 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/sensor_liveness.py tests/test_sensor_liveness.py
@@ -468,7 +478,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/sensor_liveness.py`
 - Test: `tests/test_sensor_liveness.py`
 
-- [ ] **Step 1: Failing tests anhängen** (Importe: `import pytest`, `Outage`)
+- [x] **Step 1: Failing tests anhängen** (Importe: `import pytest`, `Outage`)
 
 ```python
 class TestOutageInTheStore:
@@ -505,9 +515,9 @@ class TestOutageInTheStore:
         assert Outage.from_store(raw) is None
 ```
 
-- [ ] **Step 2: RED prüfen** — Expected: `ImportError: cannot import name 'Outage'`
+- [x] **Step 2: RED prüfen** — Expected: `ImportError: cannot import name 'Outage'`
 
-- [ ] **Step 3: Implementieren** (Import oben ergänzen: `from .helpers import STAMP_FROM_STORE, coerce_stamp`)
+- [x] **Step 3: Implementieren** (Import oben ergänzen: `from .helpers import STAMP_FROM_STORE, coerce_stamp`)
 
 ```python
 @dataclass(frozen=True)
@@ -560,9 +570,9 @@ def outages_of(mapping: dict) -> list[Outage]:
     ]
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `20 passed`
+- [x] **Step 4: GREEN prüfen** — Expected: `20 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/sensor_liveness.py tests/test_sensor_liveness.py
@@ -585,7 +595,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/sensor_liveness.py`
 - Test: `tests/test_sensor_liveness.py`
 
-- [ ] **Step 1: Failing tests anhängen** (Importe: `Evidence, advance_outages`)
+- [x] **Step 1: Failing tests anhängen** (Importe: `Evidence, advance_outages`)
 
 ```python
 STALE = timedelta(seconds=const.SENSOR_STALE_AFTER_SECONDS)
@@ -665,9 +675,9 @@ class TestAdvanceOutages:
         assert outages == [kept, still_open]
 ```
 
-- [ ] **Step 2: RED prüfen** — Expected: `ImportError: cannot import name 'Evidence'`
+- [x] **Step 2: RED prüfen** — Expected: `ImportError: cannot import name 'Evidence'`
 
-- [ ] **Step 3: Implementieren** (Importe ergänzen: `from dataclasses import dataclass, replace`,
+- [x] **Step 3: Implementieren** (Importe ergänzen: `from dataclasses import dataclass, replace`,
 `from datetime import datetime, timedelta`)
 
 ```python
@@ -738,9 +748,9 @@ def advance_outages(
     return kept, opened, closed
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `28 passed`
+- [x] **Step 4: GREEN prüfen** — Expected: `28 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/sensor_liveness.py tests/test_sensor_liveness.py
@@ -763,7 +773,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/sensor_liveness.py`
 - Test: `tests/test_sensor_liveness.py`
 
-- [ ] **Step 1: Failing tests anhängen** (Importe: `outage_event_payload, stale_issue_placeholders`)
+- [x] **Step 1: Failing tests anhängen** (Importe: `outage_event_payload, stale_issue_placeholders`)
 
 ```python
 class TestStaleIssuePlaceholders:
@@ -805,9 +815,9 @@ class TestOutageEventPayload:
         assert payload["device_id"] is None
 ```
 
-- [ ] **Step 2: RED prüfen** — Expected: `ImportError: cannot import name 'outage_event_payload'`
+- [x] **Step 2: RED prüfen** — Expected: `ImportError: cannot import name 'outage_event_payload'`
 
-- [ ] **Step 3: Implementieren**
+- [x] **Step 3: Implementieren**
 
 ```python
 def stale_issue_placeholders(group_name: str, outages: list[Outage]) -> dict | None:
@@ -838,9 +848,9 @@ def outage_event_payload(mapping_id, group_name: str, outage: Outage) -> dict:
     }
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `32 passed`
+- [x] **Step 4: GREEN prüfen** — Expected: `32 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/sensor_liveness.py tests/test_sensor_liveness.py
@@ -863,7 +873,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/store.py` — Import-Block (`store.py:130-142`, alphabetisch zu `MAPPING_RADIATION_CALIBRATION`), `MappingEntry` (nach `radiation_calibration`, `store.py:372`), Laden (`store.py:1361-1378`), neuer Setter nach `set_mapping_last_entry_value` (`store.py:2101-2133`)
 - Test: `tests/test_sensor_liveness_store.py` (neu)
 
-- [ ] **Step 1: Failing tests schreiben**
+- [x] **Step 1: Failing tests schreiben**
 
 ```python
 """The sensor group's outage ledger and signs of life in the real store."""
@@ -972,13 +982,13 @@ async def test_a_panel_save_leaves_the_outages_alone(hass) -> None:
     assert store.get_mapping(a)[const.MAPPING_SENSOR_OUTAGES] == [OUTAGE]
 ```
 
-- [ ] **Step 2: RED prüfen**
+- [x] **Step 2: RED prüfen**
 
 Run: `TZ=UTC … -m pytest tests/test_sensor_liveness_store.py -p _local_socket_unblock -q`
 Expected: FAIL — `KeyError: 'sensor_outages'`, `AttributeError: 'SmartIrrigationStorage' object has no attribute
 'set_mapping_sensor_last_seen'` und `TypeError` aus `attr.evolve` (unbekanntes Feld `sensor_outages`), je nach Test
 
-- [ ] **Step 3: Implementieren**
+- [x] **Step 3: Implementieren**
 
 Import-Block in `store.py` (alphabetisch einsortieren):
 
@@ -1029,10 +1039,10 @@ Neuer Setter direkt nach `set_mapping_last_entry_value`:
         self.mappings[mapping_id] = attr.evolve(entry, sensor_last_seen=dict(seen))
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `6 passed`. Zusätzlich die vorhandenen Store-Tests:
+- [x] **Step 4: GREEN prüfen** — Expected: `6 passed`. Zusätzlich die vorhandenen Store-Tests:
 `TZ=UTC … -m pytest tests/test_store_buffers.py -p _local_socket_unblock -q` → wie in der Baseline.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/store.py tests/test_sensor_liveness_store.py
@@ -1056,7 +1066,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/sensor_liveness.py`
 - Test: `tests/test_sensor_liveness_coordinator.py` (neu)
 
-- [ ] **Step 1: Failing tests schreiben**
+- [x] **Step 1: Failing tests schreiben**
 
 ```python
 """Weather-sensor liveness in the coordinator: states, registry, ledger, notice, event."""
@@ -1142,12 +1152,12 @@ async def test_the_device_is_read_from_the_entity_registry(hass):
     assert _entities_of_device(hass, "sensor.not_registered") == (None, [])
 ```
 
-- [ ] **Step 2: RED prüfen**
+- [x] **Step 2: RED prüfen**
 
 Run: `TZ=UTC … -m pytest tests/test_sensor_liveness_coordinator.py -p _local_socket_unblock -q`
 Expected: Sammelfehler `ImportError: cannot import name '_entities_of_device'`
 
-- [ ] **Step 3: Implementieren** (Importe ergänzen: `from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN`,
+- [x] **Step 3: Implementieren** (Importe ergänzen: `from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN`,
 `from homeassistant.util import dt as dt_util`)
 
 ```python
@@ -1189,11 +1199,11 @@ def _entities_of_device(hass, entity_id: str) -> tuple[str | None, list[str]]:
     ]
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `5 passed`. **Falls** der Registry-Test an einem Mock statt der echten
+- [x] **Step 4: GREEN prüfen** — Expected: `5 passed`. **Falls** der Registry-Test an einem Mock statt der echten
 Registry scheitert (conftest-Ersatz greift): Befund festhalten, nicht umbauen; der Test bleibt der Beleg, dass die
 echte API so aufgerufen wird, und läuft in JustChrs CI (HA ≥ 2025.5) ohnehin echt.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/sensor_liveness.py tests/test_sensor_liveness_coordinator.py
@@ -1216,7 +1226,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/sensor_liveness.py` (Mixin), `custom_components/irrigation_plus/__init__.py` (Import + Basisklasse, `__init__.py:518-544`)
 - Test: `tests/test_sensor_liveness_coordinator.py`
 
-- [ ] **Step 1: Failing tests anhängen**
+- [x] **Step 1: Failing tests anhängen**
 
 ```python
 EVENT = f"{const.DOMAIN}_{const.EVENT_WEATHER_STALE}"
@@ -1694,10 +1704,10 @@ async def test_the_notice_clears_when_the_sensor_reports_again(hass, freezer):
     assert heard == [(ENTITY, True), (ENTITY, False)]
 ```
 
-- [ ] **Step 2: RED prüfen** — Expected: `AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_check_sensor_liveness'`,
+- [x] **Step 2: RED prüfen** — Expected: `AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_check_sensor_liveness'`,
 in beiden Dateien (`tests/test_sensor_liveness_coordinator.py`, `tests/test_sensor_liveness_repair.py`)
 
-- [ ] **Step 3: Implementieren**
+- [x] **Step 3: Implementieren**
 
 In `sensor_liveness.py` (Importe ergänzen: `from .helpers import STAMP_FROM_STORE, coerce_stamp, local_naive_now`):
 
@@ -1867,10 +1877,10 @@ und in den Basen von `SmartIrrigationCoordinator` direkt nach `ContinuousUpdateM
     SensorLivenessMixin,
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `17 passed` in `tests/test_sensor_liveness_coordinator.py`, `1 passed` in
+- [x] **Step 4: GREEN prüfen** — Expected: `17 passed` in `tests/test_sensor_liveness_coordinator.py`, `1 passed` in
 `tests/test_sensor_liveness_repair.py`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/sensor_liveness.py custom_components/irrigation_plus/__init__.py tests/test_sensor_liveness_coordinator.py tests/test_sensor_liveness_repair.py
@@ -1895,7 +1905,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/sensor_liveness.py` (Mixin), `custom_components/irrigation_plus/__init__.py` (`async_setup_timers` `__init__.py:763-789`, `async_unload` `__init__.py:2207-2249`)
 - Test: `tests/test_sensor_liveness_coordinator.py`
 
-- [ ] **Step 1: Failing tests anhängen**
+- [x] **Step 1: Failing tests anhängen**
 
 ```python
 class TestTimer:
@@ -2011,10 +2021,10 @@ async def test_the_notice_survives_a_restart_in_the_middle_of_an_outage(hass, fr
 `async_teardown_sensor_liveness` im `finally`: Der Test arbeitet mit dem echten `hass`, und ein stehengebliebener
 Intervall-Timer würde die Aufräumprüfung des Fixtures rot machen.
 
-- [ ] **Step 2: RED prüfen** — Expected: `AttributeError: … 'async_setup_sensor_liveness'` (auch im neuen Hinweis-Test)
+- [x] **Step 2: RED prüfen** — Expected: `AttributeError: … 'async_setup_sensor_liveness'` (auch im neuen Hinweis-Test)
 bzw. die AST-Assertion schlägt fehl
 
-- [ ] **Step 3: Implementieren**
+- [x] **Step 3: Implementieren**
 
 In `sensor_liveness.py` (Importe ergänzen: `from homeassistant.core import callback`,
 `from homeassistant.helpers.event import async_track_time_interval`), im Mixin:
@@ -2075,10 +2085,10 @@ In `__init__.py`, `async_unload`, nach `self.async_teardown_continuous_updates()
         self.async_teardown_sensor_liveness()
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `21 passed` in `tests/test_sensor_liveness_coordinator.py`, `2 passed` in
+- [x] **Step 4: GREEN prüfen** — Expected: `21 passed` in `tests/test_sensor_liveness_coordinator.py`, `2 passed` in
 `tests/test_sensor_liveness_repair.py`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/sensor_liveness.py custom_components/irrigation_plus/__init__.py tests/test_sensor_liveness_coordinator.py tests/test_sensor_liveness_repair.py
@@ -2101,7 +2111,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/__init__.py` (`async_update_mapping_config`, `__init__.py:1754-1817`), `custom_components/irrigation_plus/calculation.py` (`_async_clear_all_weatherdata`, `calculation.py:350-363`)
 - Test: `tests/test_sensor_liveness_coordinator.py`
 
-- [ ] **Step 1: Failing tests anhängen**
+- [x] **Step 1: Failing tests anhängen**
 
 ```python
 OPEN_RECORD = Outage(
@@ -2260,12 +2270,12 @@ async def test_the_notice_goes_when_its_sensor_group_is_deleted(hass, freezer):
     assert heard == [(ENTITY, True), (ENTITY, False)]
 ```
 
-- [ ] **Step 2: RED prüfen** — Expected: 3 FAIL (`KeyError: 'sensor_outages'` in den `call_args`, Hinweis noch offen);
+- [x] **Step 2: RED prüfen** — Expected: 3 FAIL (`KeyError: 'sensor_outages'` in den `call_args`, Hinweis noch offen);
 `test_a_group_without_an_open_outage_…` und `test_a_rename_keeps_…` PASS (schon vor der Änderung wahr; sie halten
 die Abgrenzung fest und werden rot, wenn die Prüfung auf offene Ausfälle verloren geht). Im Hinweis-Test FAIL
 `test_the_notice_goes_when_its_sensor_group_is_deleted` (Hinweis noch offen, kein End-Event).
 
-- [ ] **Step 3: Implementieren**
+- [x] **Step 3: Implementieren**
 
 `__init__.py`, Lösch-Zweig von `async_update_mapping_config`:
 
@@ -2325,12 +2335,12 @@ dem Zurücksetzen):
             self._retire_outages(mapping)
 ```
 
-- [ ] **Step 4: GREEN prüfen** — Expected: `26 passed` in `tests/test_sensor_liveness_coordinator.py`, `3 passed` in
+- [x] **Step 4: GREEN prüfen** — Expected: `26 passed` in `tests/test_sensor_liveness_coordinator.py`, `3 passed` in
 `tests/test_sensor_liveness_repair.py`; zusätzlich unverändert grün (die Tests mit Mock-`hass`, an denen der Probelauf
 den Fehler fand):
 `TZ=UTC … -m pytest tests/test_mapping_source_change.py tests/test_continuous_update.py tests/test_clear_all_weatherdata.py tests/test_clear_weatherdata_resets_deadband.py -p _local_socket_unblock -q`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/__init__.py custom_components/irrigation_plus/calculation.py tests/test_sensor_liveness_coordinator.py tests/test_sensor_liveness_repair.py
@@ -2356,7 +2366,7 @@ EOF
 - Modify: `custom_components/irrigation_plus/translations/{en,de,es,fr,it,nl,no,sk}.json` (Block `"issues": {`, jeweils um Zeile 455)
 - Test: `tests/test_sensor_liveness.py`
 
-- [ ] **Step 1: Failing test anhängen** (Importe: `import json`, `import pathlib`)
+- [x] **Step 1: Failing test anhängen** (Importe: `import json`, `import pathlib`)
 
 ```python
 TRANSLATIONS = (
@@ -2380,9 +2390,9 @@ def test_the_stale_notice_has_texts_with_their_placeholders(lang):
     assert "{since}" in notice["description"]
 ```
 
-- [ ] **Step 2: RED prüfen** — Expected: 8× FAIL mit `KeyError: 'weather_sensor_stale'`
+- [x] **Step 2: RED prüfen** — Expected: 8× FAIL mit `KeyError: 'weather_sensor_stale'`
 
-- [ ] **Step 3: In jede Datei als ersten Eintrag nach `"issues": {` einfügen** (mit Komma dahinter; die Datei bleibt
+- [x] **Step 3: In jede Datei als ersten Eintrag nach `"issues": {` einfügen** (mit Komma dahinter; die Datei bleibt
 gültiges JSON):
 
 `en.json`
@@ -2452,13 +2462,13 @@ gültiges JSON):
 Die Quellen-Namen sind die Panel-Beschriftungen aus
 `frontend/localize/languages/*.json` → `panels.mappings.cards.mapping.sources.static`.
 
-- [ ] **Step 4: GREEN prüfen**
+- [x] **Step 4: GREEN prüfen**
 
 Run: `TZ=UTC … -m pytest tests/test_sensor_liveness.py tests/test_i18n_completeness.py -p _local_socket_unblock -q`
 Expected: alles grün (die i18n-Tests prüfen fehlende/verwaiste Schlüssel, gleiche Platzhalter, keine
 unübersetzten Werte, keine URL, kein `fix_flow` neben `description`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/translations tests/test_sensor_liveness.py
@@ -2484,7 +2494,7 @@ EOF
 
 Keine Verhaltensänderung, daher kein neuer Test; geprüft wird per Lesen und durch die volle Suite in Task 14.
 
-- [ ] **Step 1: Abschnitt „When a sensor goes silent“** (JustChr: der Fehlalarm bei einer 6-h-Cloud-Abfrage gehört in
+- [x] **Step 1: Abschnitt „When a sensor goes silent“** (JustChr: der Fehlalarm bei einer 6-h-Cloud-Abfrage gehört in
 die Doku) — in `docs/configuration-sensor-groups.md` direkt vor der Zeile `## Deleting a sensor group` einfügen,
 gefolgt von einer Leerzeile:
 
@@ -2501,13 +2511,13 @@ A template sensor without a device whose value never changes looks silent too. I
 
 Die Absätze stehen je auf einer Zeile, wie im Rest der Datei.
 
-- [ ] **Step 2: Event-Zeile einfügen** (nach der `zone_problem`-Zeile)
+- [x] **Step 2: Event-Zeile einfügen** (nach der `zone_problem`-Zeile)
 
 ```markdown
 |`irrigation_plus_weather_stale`|When a weather sensor of a sensor group has not reported for three hours, and again when it reports again. Its HA device counts: while any entity of that device reports, a quiet value such as a rain gauge on a dry day is not stale. Carries `mapping_id`, `mapping`, `entity_id`, `device_id` (null without a device), `fields`, `since` (its last sign of life), `until` (null while it is silent) and `stale` (true when the outage starts, false when it ends; also false when a silent sensor stops being tracked because it was replaced in its sensor group, the group was deleted or the weather data was reset). A repair issue is shown for as long as the sensor stays silent.|
 ```
 
-- [ ] **Step 3: Docstring berichtigen** — in `_prune_mapping_buffer` die Sätze
+- [x] **Step 3: Docstring berichtigen** — in `_prune_mapping_buffer` die Sätze
 
 ```
         Keeps everything after the oldest enabled-zone watermark (so no zone
@@ -2529,7 +2539,7 @@ ersetzen durch
         not hold the buffer.
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/configuration-sensor-groups.md docs/usage-events.md custom_components/irrigation_plus/calculation.py
@@ -2555,7 +2565,7 @@ EOF
 
 **Files:** keine neuen.
 
-- [ ] **Step 1: Lint** (CLAUDE.md, verbatim)
+- [x] **Step 1: Lint** (CLAUDE.md, verbatim)
 
 ```bash
 uvx black custom_components/irrigation_plus/
@@ -2568,7 +2578,7 @@ Expected: `ruff` „All checks passed!“; hat `black` umformatiert, die Dateien
 `style: black` committen. Die Testdateien prüft die CI nicht; die Snippets dieses Plans sind schon black-formatiert
 (im Probelauf: „left unchanged“).
 
-- [ ] **Step 2: Volle Suite, Namensvergleich gegen die Baseline aus Task 0**
+- [x] **Step 2: Volle Suite, Namensvergleich gegen die Baseline aus Task 0**
 
 ```bash
 TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests -p _local_socket_unblock -q --no-header -rfE > ../suite-after.txt 2>&1
@@ -2581,7 +2591,7 @@ Expected: `identical`; `passed` um genau die neuen Tests höher (zählen:
 `TZ=UTC … -m pytest tests/test_sensor_liveness*.py -p _local_socket_unblock --collect-only -q | tail -1` → 75).
 Im Probelauf auf `e9c79ec4`: 7 failed / 3618 → **3693** passed / 9 skipped / 415 errors, 422 Namen identisch.
 
-- [ ] **Step 3: Mutationen auf die tragenden Wächter** — je Zeile die Änderung von Hand setzen, **alle vier**
+- [x] **Step 3: Mutationen auf die tragenden Wächter** — je Zeile die Änderung von Hand setzen, **alle vier**
 Testdateien laufen lassen, Ergebnis notieren, mit `git checkout -- <datei>` zurücknehmen. Jede Mutation muss mindestens
 einen Test rot machen, und der Lauf muss Tests gesammelt haben (Summenzeile „N failed, M passed“, kein Sammelfehler); ein
 Überlebender heißt zuerst: Test zu schwach (Memory `mutation-survivor-suspects-the-test`). Automatisiert:
@@ -2614,7 +2624,7 @@ Runner mit Zeitgrenze (eine Mutation kann einen Test hängen lassen): bei Bedarf
 `timeout 300 TZ=UTC … -m pytest <datei> -p _local_socket_unblock -q -x`; hängt er, unter Windows
 `taskkill /T /F /PID <pid>`.
 
-- [ ] **Step 4: Review** — `superpowers:requesting-code-review` über den Diff `upstream/master..HEAD` mit Spec und
+- [x] **Step 4: Review** — `superpowers:requesting-code-review` über den Diff `upstream/master..HEAD` mit Spec und
 diesem Plan; Rückmeldungen über `superpowers:receiving-code-review` prüfen.
 
 - [ ] **Step 5: Stand festhalten** — `docs/SESSION-STAND.md` ergänzen (Abschnitt mit Datum), Häkchen in diesem Plan
@@ -2634,7 +2644,7 @@ einen `mqtt:`-Schlüssel in der `configuration.yaml` (gelesen 2026-10-04); der T
 hinzufügen und wieder entfernen. **Alles hier betrifft nur HA-Test; HA-Prod bleibt unberührt.** Mittel vom User
 freigegeben am 2026-10-04 (Variante 1).
 
-- [ ] **Step 1: Basis prüfen**
+- [x] **Step 1: Basis prüfen**
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-work/wt
@@ -2645,7 +2655,7 @@ git rev-list --count HEAD..upstream/master
 Expected: `0`. Sonst: Upstream-Runde (Memory `upstream-sweep-first`), den noch nicht gepushten Branch auf
 `upstream/master` rebasen und Task 14 Steps 1–3 wiederholen.
 
-- [ ] **Step 2: production-Pre-Release** (Freigabe im Chat vorher; Rezept: CLAUDE.md *Produktiv-Rebuild/-Release* und
+- [x] **Step 2: production-Pre-Release** (Freigabe im Chat vorher; Rezept: CLAUDE.md *Produktiv-Rebuild/-Release* und
 Memory `hasi-production-on-upstream`, Schnellweg per Cherry-Pick)
 
 Delta = `upstream/master` + JustChr#189 (solange offen) + die Commits dieses Branches + Branding-Commit + Build-Commit.
@@ -2669,7 +2679,7 @@ Installation auf **HA-Test** per HACS (`update_information`, dann `download` mit
 `"Eifel-Joe/HAsmartirrigation"`), Neustart von HA-Test ankündigen und ausführen. Danach: Integration `loaded`,
 Version = Pre-Release, Log ohne Fehler von `irrigation_plus`.
 
-- [ ] **Step 3: Testaufbau auf HA-Test** (ankündigen; HA-Test ist Wegwerf)
+- [x] **Step 3: Testaufbau auf HA-Test** (ankündigen; HA-Test ist Wegwerf)
 
 Drei MQTT-Geräte in der `configuration.yaml` von HA-Test (`ha_config_set_yaml`, `yaml_path: mqtt`, `action: add`,
 Vorschau prüfen, dann mit Token anwenden; danach Dienst `mqtt.reload`):
@@ -2714,6 +2724,15 @@ Rollen: **A** schweigt und kehrt zurück (Erholung, Neustart). **B** schweigt, s
 durchgehend denselben Wert (MQTT schreibt bei jeder Nachricht, `last_reported` rückt vor), und seine Feuchte meldet nur
 einmal: ein ruhiges Feld an einem lebenden Gerät. Damit sind beide Schreibweisen aus Schritt 1 der Spec abgedeckt.
 
+> **Berichtigt beim Live-Test (2026-10-04, HA 2026.9.3):** Die Annahme „MQTT schreibt bei jeder Nachricht“ ist falsch.
+> Ein YAML-MQTT-Sensor schreibt einen unveränderten Wert nicht neu; `last_reported` stand nach der ersten Nachricht
+> still, obwohl der Sender jede Minute lief. Gebaut wurde deshalb: A, B und C-Temperatur mit `force_update: true`
+> (Schreibweise 1, schreibt bei jedem Update); ein Gerät **D**, dessen Temperatur abwechselnd 15.0/15.1 sendet und
+> dessen Feuchte einmal retained ruhig bleibt (Schreibweise 2, schreibt nur bei Änderung); Gruppe D. Dazu die
+> freigegebene Ergänzung: ein Verbrauchszähler (UI-Helfer) an Gerät C mit der ruhigen C-Feuchte als Quelle in Gruppe C,
+> damit der `config_entry_id`-Zweig entscheidet. Die Gruppen wurden über `api_post` der HA-MCP-Sandbox angelegt
+> (Browser-Anmeldung nicht möglich). Beleg: `issue8-work\livetest\L-pr1.md`.
+
 Sender als Automationen (`ha_config_set_automation`, HA-Test):
 - `HASI Livetest A`: Auslöser `time_pattern` mit `minutes: "/1"`, Aktion `mqtt.publish` auf
   `hasi_livetest/a/temperature`, Nutzlast `"18.5"`.
@@ -2740,7 +2759,7 @@ await hass.callApi("POST", "irrigation_plus/mappings", {name: "Livetest C", mapp
 Jede Antwort trägt die `id` der neuen Gruppe; die drei IDs notieren. Entity-IDs vorher per `ha_search` bestätigen. Keine
 Zone nutzt diese Gruppen.
 
-- [ ] **Step 4: Ablauf** (Zeiten in UTC notieren; Report-Zeiten nur per `ha_eval_template`, Memory
+- [x] **Step 4: Ablauf** (Zeiten in UTC notieren; Report-Zeiten nur per `ha_eval_template`, Memory
 `mcp-last-reported-is-wrong`)
 
 1. Nach mindestens 15 min Lauf (Karenz 10 min abgewartet) die Automationen **A und B ausschalten** (`automation.turn_off`).
@@ -2760,14 +2779,14 @@ Zone nutzt diese Gruppen.
 Jede Abweichung stoppt den Test: erst `superpowers:systematic-debugging`, dann ein Fix nach TDD, dann Task 14 Steps 1–3
 und dieser Task von vorn.
 
-- [ ] **Step 5: Aufräumen** (HA-Test)
+- [x] **Step 5: Aufräumen** (HA-Test)
 
 Gruppen „Livetest A“ und „Livetest C“ löschen (wie in Step 4.5); die vier Automationen löschen; den Schlüssel `mqtt` aus der
 `configuration.yaml` entfernen (`ha_config_set_yaml`, `action: remove`) und `mqtt.reload`; retained Nachricht
 leeren (`mqtt.publish` auf `hasi_livetest/c/humidity`, leere Nutzlast, `retain: true`). Danach `ha_search` nach
 `livetest` → keine Entität und keine Automation mehr.
 
-- [ ] **Step 6: Beleg** — `D:\Entwicklung\HASI\issue8-work\livetest\L-pr1.md`: Version, Zeiten, je Schritt die
+- [x] **Step 6: Beleg** — `D:\Entwicklung\HASI\issue8-work\livetest\L-pr1.md`: Version, Zeiten, je Schritt die
 beobachteten Hinweise, Log-Zeilen und Diagnose-Ausschnitte. Keine IP, kein Schlüssel.
 
 ---

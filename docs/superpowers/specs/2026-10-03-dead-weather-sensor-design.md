@@ -13,6 +13,13 @@ Antwort*). Mit dem User am 2026-10-04 entschieden: der Schnitt von PR 2 nur ohne
 pausieren (Entscheidungen 8 und 9). **Revision 2 und der Plan für PR 1 vom User freigegeben am 2026-10-04**, Live-Test
 mit Variante 1 (MQTT-YAML unter eigenem Topic-Präfix, siehe *Ende-zu-Ende-Kriterium*).
 
+**Revision 3 (2026-10-04, nach dem Bau von PR 1).** Der Text beschreibt PR 1 jetzt so, wie er gebaut ist. Geändert
+gegenüber Revision 2: drei User-Entscheidungen beim Bau (D1–D3, Tabelle *User, 2026-10-04, Bau*) und die Befunde der
+Reviews (*Präzisierungen aus dem Bau*, 7–12); berührt sind R1, R3, *Erkennung*, *Ausfall-Liste*, das Event, die
+Doku-Fassung und *Tests*. PR 2 und PR 3 sind unverändert. Revision 2 liegt unverändert in `archive/design-history`
+`02d69eb0`; das Abweichungsprotokoll mit allen Belegen (`deviations.md`) im Archiv unter
+`docs/superpowers/probes/2026-10-04-dead-weather-sensor-pr1/`.
+
 ## Der Defekt
 
 Liefert ein Sensor einer Sensorgruppe nichts mehr, rechnet die Integration mit seinem letzten Wert weiter,
@@ -97,11 +104,12 @@ Bau freigegeben („Go ahead and build it when you're ready.“), mit diesen Bed
 
 ## Anforderungen
 
-- **R1 Erkennung je Gerät.** Ein Sensorfeld lebt, solange irgendeine Entität seines HA-Geräts innerhalb der
-  Grenze gemeldet hat. Ohne Gerät zählt die eigene Entität. Steht die eigene Entität auf
+- **R1 Erkennung je Gerät.** Ein Sensorfeld lebt, solange irgendein Sensor seines HA-Geräts innerhalb der
+  Grenze gemeldet hat; es zählen nur `sensor`/`binary_sensor` der Integration, der das Gerät gehört, oder der
+  Integration der gemappten Entität (D1). Ohne Gerät zählt die eigene Entität. Steht die eigene Entität auf
   `unavailable`/`unknown`, gilt das Feld als stumm. `input_number` wird nie als ausgefallen gewertet.
 - **R2 Grenze fest 3 h.** Schweigen bis 3 h wird überbrückt wie heute.
-- **R3 Ausfälle werden mitgeschrieben** (Beginn = letztes Lebenszeichen, Ende = erste neue Meldung) und
+- **R3 Ausfälle werden mitgeschrieben** (Beginn = letztes Lebenszeichen, Ende = Rückkehr des Feldes, D3) und
   wirken rückwirkend auf jedes Fenster, das sie berühren, auch wenn das Gerät längst wieder meldet.
 - **R4 Einstellung je Sensorgruppe:** *pausieren* oder *letzten Wert behalten*. Bestehende Gruppen: behalten,
   Rechnung und Erklärung byte-identisch. Neue Gruppen: pausieren.
@@ -146,6 +154,14 @@ Bau freigegeben („Go ahead and build it when you're ready.“), mit diesen Bed
 | 8 | Wo schneidet PR 2? | Nur wo die Stundenrechnung aus ist: Die Masken sind ein Parameter, und in PR 2 übergibt ihn nur der Commit bei ausgeschalteter Stundenrechnung. Stundenbetrieb bleibt bis PR 3 wie heute | Aggregat für jede Installation: Mischzustand im Stundenbetrieb. Das Aggregat liefert dort den Niederschlag, die nachgespielte Bilanz gleicht sich damit ab (`calculation.py:999-1008`); geschnittene Regenrate gegen ungeschnittene Stundenzeilen → Abgleich scheitert, still Einmal-Buchung |
 | 9 | Standard neuer Gruppen | *Pausieren*; Bestand *behalten*. Ausweg im Hinweistext pausierender Gruppen und in der Doku: aktualisiert die Integration nur alle paar Stunden, auf *behalten* stellen | Alle behalten: das Verhalten aus Entscheidung 1 bekäme kaum jemand. Bekannter Preis: Eine Integration mit 6-h-Takt verliert bei *pausieren* in jedem Zyklus die halbe Zeit, bis der Nutzer umstellt |
 
+**User, 2026-10-04, Bau** (Revision 3; gefragt nach den Reviews von Plan-Task 8 und 9 und vor der Umbenennung):
+
+| # | Frage | Entscheidung | Verworfen, weil |
+|---|---|---|---|
+| D1 | Wer bürgt für ein Feld? | Sensoren desselben Geräts, nur `sensor`/`binary_sensor`, nur aus der Integration, der das Gerät gehört, oder aus der Integration der gemappten Entität | Alle Entitäten des Geräts (Revision 2): HA hängt Helfer wie `utility_meter` ans Gerät ihrer Quelle, und die schreiben im eigenen Takt (Tageszähler-Reset um Mitternacht → jede Nacht eine Fehl-Entwarnung); `update`-Entitäten laufen im eigenen Takt (ESPHome alle 5 min → eine Deep-Sleep-Station würde nie erkannt) |
+| D2 | Name der Ausfall-Liste im Code | „outage record“, JustChrs eigenes Wort aus `JustChr#188` | „ledger“: so heißt in der Integration schon die Wasserbilanz einer Zone |
+| D3 | Wann endet ein Ausfall? | Zuerst die eigene Rückkehr des Feldes, also die erste Änderung seiner Entität nach dem Beginn; nur ein Feld ohne eigene Änderung (Regenmesser bei 0) nimmt die früheste Änderung eines bürgenden Sensors | Früheste Änderung irgendeiner Geräte-Entität (Revision 2): Ist nur die eigene Entität ausgefallen, zieht eine Batterie-Änderung während des Ausfalls das Ende nach vorn, in der Probe sogar vor das Start-Event |
+
 ## Das Design
 
 ### Erkennung (PR 1)
@@ -153,8 +169,13 @@ Bau freigegeben („Go ahead and build it when you're ready.“), mit diesen Bed
 - Neues Modul `sensor_liveness.py`. Eine Prüfung alle 5 min (`async_track_time_interval`, beim Entladen
   abgemeldet), die erste 10 min nach dem Setup, damit Integrationen ihre Entitäten erst anlegen können.
 - Je Sensorgruppe, je Feld mit `source: sensor` und gesetzter Entität:
-  - **Gerät** über die Entity-Registry. Lebenszeichen = jüngstes `last_reported` über alle Entitäten dieses
-    Geräts, deren Zustand nicht `unavailable`/`unknown` ist; Batterie- oder Signal-Entitäten zählen mit.
+  - **Gerät** über die Entity-Registry. Lebenszeichen = jüngstes `last_reported` über die eigene Entität und die
+    bürgenden Sensoren dieses Geräts, deren Zustand nicht `unavailable`/`unknown` ist. Bürgen dürfen nur
+    `sensor`/`binary_sensor` aus der Integration, der das Gerät gehört (`config_entry_id` in neuerem HA,
+    `primary_config_entry` davor), oder aus der Integration der gemappten Entität, die dort zählt, wo ein Gerät
+    geteilt ist und eine andere Integration es besitzt (D1). Ein Helfer am Gerät (`utility_meter`, `integration`,
+    Template mit gewähltem Gerät) bürgt nicht für die Station; ein gemappter Helfer wird dagegen von der Station
+    gedeckt, weil ihr das Gerät gehört.
   - **Ohne Gerät:** das eigene `last_reported`.
   - **Eigene Entität `unavailable`/`unknown` oder fehlend:** stumm, egal was das Gerät tut. Lebenszeichen ist
     das letzte vorher gesehene.
@@ -162,12 +183,19 @@ Bau freigegeben („Go ahead and build it when you're ready.“), mit diesen Bed
 - Das Lebenszeichen je Entität wird bei jeder Prüfung mitgespeichert. Hat eine Entität seit dem HA-Start noch
   nicht gemeldet, gilt das gespeicherte. So beginnt ein Ausfall, der über einen Neustart reicht, vor dem
   Neustart. HAs eigene Ausfallzeit ist dagegen kein Sensorausfall: Meldet das Gerät innerhalb der Karenz nach
-  dem Start, entsteht kein Eintrag.
+  dem Start, entsteht kein Eintrag. Ein sauberes Herunterfahren schreibt geänderte Lebenszeichen mit
+  (Präzisierung 7). Die Prüfung plant nur dann ein Speichern, wenn sich die Ausfall-Liste ändert (ein Ausfall
+  beginnt, endet oder fällt nach 7 Tagen weg); die Lebenszeichen allein lösen keins aus.
 - **Uhr:** Alle Stempel im Rahmen des Puffers, also HAs Uhr, naiv (`local_naive_now`; die UTC-Zeiten der
-  Zustände werden umgerechnet). Damit erbt die Liste die bekannte Einschränkung des Puffers zur
-  Rückstell-Stunde, mehr nicht.
-- Verbleibendes Fehlalarm-Risiko: ein Template-Sensor ohne Gerät mit konstantem Wert, und jede Integration, die
-  seltener als alle 3 h aktualisiert (J5). Doku und Hinweistext nennen beides.
+  Zustände werden umgerechnet). Damit erbt die Liste die Grenzen des naiven Rahmens bei der Zeitumstellung: In
+  der Vorstell-Nacht öffnet ein Ausfall eine Stunde zu früh, in der Rückstell-Nacht eine Stunde zu spät, und
+  Stempel der doppelten Stunde sind mehrdeutig. Nach außen (Event) gehen die Stempel mit HAs UTC-Offset
+  (`dt_util.as_local`).
+- Verbleibendes Fehlalarm-Risiko: ein Sensor ohne Gerät, der nur bei einer Wertänderung schreibt und dessen Wert
+  3 h gleich bleibt (ein Template-Sensor, ein per YAML angelegter `utility_meter` auf einem Regenzähler an einem
+  trockenen Tag; ein per UI angelegter hängt am Gerät seiner Quelle, wenn sie eins hat, und ist dann gedeckt; wer
+  denselben Wert neu schreibt, rückt `last_reported` vor und wirkt nie stumm), und jede Integration, die seltener als
+  alle 3 h aktualisiert (J5). Doku und Hinweistext nennen beides.
 
 ### Ausfall-Liste (PR 1)
 
@@ -177,12 +205,18 @@ Bau freigegeben („Go ahead and build it when you're ready.“), mit diesen Bed
   - `sensor_outages`: Einträge `{entity_id, device_id oder null, fields, start, end oder null}`.
   - `sensor_last_seen`: `{entity_id: Stempel}`.
 - **Öffnen:** Lebenszeichen älter als 3 h, kein offener Eintrag für die Entität.
-- **Schließen:** Lebenszeichen nach `start`. `end` = erste neue Meldung, auf die Prüfperiode genau
-  (frühestes `last_changed` einer Geräte-Entität nach `start`, sonst das neue Lebenszeichen).
+- **Schließen:** Lebenszeichen nach `start`. `end` = Rückkehr des Feldes, auf die Prüfperiode genau (D3): das
+  `last_changed` der eigenen Entität, wenn sie sich nach `start` geändert hat (eine Rückkehr aus `unavailable` ist
+  eine Änderung); sonst, bei einem ruhigen Feld wie einem Regenmesser bei 0, das früheste `last_changed` eines
+  bürgenden Sensors nach `start`; sonst das neue Lebenszeichen.
+- **Nicht mehr gelesen:** Ein offener Eintrag einer Entität, die die Gruppe nicht mehr liest, endet bei der
+  nächsten Prüfung mit `end` = jetzt (Präzisierung 6, *Selbstheilung*).
 - **Kürzen:** Einträge, deren `end` älter als 7 Tage ist (`BUFFER_RETENTION`), fallen weg.
 - **Leeren:** Ein Quellwechsel leert die Liste der ganzen Gruppe, wie heute Puffer und `last_entry`
-  (`__init__.py:1768-1790`); ebenso „Wetterdaten zurücksetzen“ (`calculation.py:329-386`). Wird eine Gruppe
-  gelöscht, verschwindet ihr Hinweis.
+  (`__init__.py:1768-1790`); ebenso „Wetterdaten zurücksetzen“ (`calculation.py:329-386`). Jeder offene Eintrag
+  endet dabei mit seinem End-Event (Präzisierung 6). Die Lebenszeichen bleiben stehen (Präzisierung 8): Sie
+  beschreiben das Gerät, nicht die Messwerte; ein weiter stummer Sensor, den die Gruppe noch liest, öffnet bei der
+  nächsten Prüfung wieder, mit seinem echten Beginn. Wird eine Gruppe gelöscht, verschwindet ihr Hinweis.
 - **Schutz:** Das Panel schickt beim Speichern nur `{id, name, mappings}`, und das Schema des Views lässt andere
   Schlüssel nicht zu; ein Test hält fest, dass Speichern die Liste stehen lässt (siehe *Präzisierungen*).
 - Die Diagnose zeigt beide Felder über `async_get_mappings` ohne Zusatzarbeit.
@@ -306,8 +340,8 @@ Bau freigegeben („Go ahead and build it when you're ready.“), mit diesen Bed
     auf „Letzten Wert behalten“ — sonst fehlt bei jedem Update ein Teil der Zeit.“ Der Hinweis wählt die Variante
     nach der Einstellung und, bis PR 3, nach der Stundenrechnung (mit Stundenrechnung: Text von PR 1).
 - **Bus-Event `irrigation_plus_weather_stale`** (PR 1) bei Beginn und Ende jedes Eintrags. Inhalt: `mapping_id`,
-  `mapping` (Name), `entity_id`, `device_id` (oder null), `fields`, `since`, `until` (null beim Beginn),
-  `stale` (true/false). Derselbe Automations-Haken wie das vorhandene `irrigation_plus_zone_problem`. Jeder Start
+  `mapping` (Name), `entity_id`, `device_id` (oder null), `fields`, `since`, `until` (null beim Beginn; beide in HAs
+  Zeitzone mit Offset), `stale` (true/false). Derselbe Automations-Haken wie das vorhandene `irrigation_plus_zone_problem`. Jeder Start
   bekommt ein Ende, auch wenn die Gruppe den Sensor nicht mehr verfolgt (Präzisierung 6).
 - **Log** (PR 1): WARNING beim Öffnen, ohne Schnitt-Versprechen („… has not reported since …; its last value is
   still used“), INFO beim Schließen. Ab PR 2 nennt die WARNING den Schnitt, wo geschnitten wird (pausierende
@@ -324,13 +358,18 @@ Bau freigegeben („Go ahead and build it when you're ready.“), mit diesen Bed
 ### Dokumentation
 
 - **PR 1:** `docs/configuration-sensor-groups.md` bekommt vor *Deleting a sensor group* den Abschnitt „When a
-  sensor goes silent“. Freigabe-Fassung Deutsch:
+  sensor goes silent“. Fassung wie gebaut (Revision 3). Gegenüber der Freigabe-Fassung von Revision 2 sind der
+  erste und der letzte Absatz geändert: D1 (nur Sensoren der Integration des Geräts; Helfer am Gerät zählen nicht,
+  gemappte Helfer sind gedeckt) und das Abschluss-Review (Fehlalarm auch bei Sensoren ohne Gerät mit ruhigem Wert,
+  nicht nur bei Template-Sensoren). Deutsch:
 
   > **Wenn ein Sensor schweigt.** Irrigation Plus prüft alle fünf Minuten, ob die Sensoren einer Sensorgruppe noch
-  > melden. Maßgeblich ist das Home-Assistant-Gerät eines Sensors: Solange irgendeine Entität dieses Geräts meldet,
-  > gilt auch ein Wert als lebendig, der sich gerade nicht ändert, etwa ein Regenmesser an einem trockenen Tag. Ein
-  > Sensor ohne Gerät zählt für sich selbst. Steht ein Sensor auf `unavailable` oder `unknown`, gilt er als stumm,
-  > egal was sein Gerät tut. Werte aus einem `input_number`-Helfer gelten nie als stumm.
+  > melden. Maßgeblich ist das Home-Assistant-Gerät eines Sensors: Solange irgendein Sensor dieses Geräts meldet,
+  > gilt auch ein Wert als lebendig, der sich gerade nicht ändert, etwa ein Regenmesser an einem trockenen Tag. Es
+  > zählen nur Sensoren der Integration, zu der das Gerät gehört: Ein Helfer am Gerät, etwa ein Verbrauchszähler,
+  > hält das Gerät nicht am Leben; ein Helfer, den du selbst zuordnest, ist aber durch die Sensoren des Geräts
+  > gedeckt. Ein Sensor ohne Gerät zählt für sich selbst. Steht ein Sensor auf `unavailable` oder `unknown`, gilt er
+  > als stumm, egal was sein Gerät tut. Werte aus einem `input_number`-Helfer gelten nie als stumm.
   >
   > Hat ein Sensor drei Stunden lang nicht gemeldet, zeigt Irrigation Plus einen Reparaturhinweis für seine
   > Sensorgruppe und sendet das Event `irrigation_plus_weather_stale` (siehe Events). Meldet er wieder,
@@ -341,14 +380,19 @@ Bau freigegeben („Go ahead and build it when you're ready.“), mit diesen Bed
   > sechs Stunden abgefragt wird —, löst den Hinweis deshalb zwischen ihren Updates aus, obwohl nichts ausgefallen
   > ist.
   >
-  > Auch ein Template-Sensor ohne Gerät, dessen Wert sich nie ändert, sieht wie ein stummer Sensor aus. Soll ein
-  > Wert fest sein, nutze die Quelle „Fester Wert“.
+  > Auch ein Sensor ohne Gerät, der nur bei einer Änderung seines Werts meldet, etwa ein Template-Sensor oder ein per
+  > YAML angelegter Verbrauchszähler, der Regen zählt, sieht wie ein stummer Sensor aus, sobald sein Wert drei
+  > Stunden gleich geblieben ist, zum Beispiel an einem trockenen Tag. Ein in der Oberfläche angelegter
+  > Verbrauchszähler gehört zum Gerät seiner Quelle, wenn sie eins hat, und ist durch es gedeckt. Soll ein Wert fest
+  > sein, nutze die Quelle „Fester Wert“.
 
   Englisch:
 
   > **When a sensor goes silent.** Irrigation Plus checks every five minutes whether the sensors of a sensor group
-  > still report. What counts is a sensor's Home Assistant device: as long as any entity of that device reports, a
-  > value that merely stays the same, such as a rain gauge on a dry day, counts as alive. A sensor without a device
+  > still report. What counts is a sensor's Home Assistant device: as long as any sensor of that device reports, a
+  > value that merely stays the same, such as a rain gauge on a dry day, counts as alive. Only sensors of the
+  > device's own integration count: a helper attached to the device, such as a utility meter, does not keep the
+  > device alive, but a helper you map yourself is covered by the device's sensors. A sensor without a device
   > counts for itself. A sensor whose state is `unavailable` or `unknown` counts as silent whatever its device
   > does. Values from an `input_number` helper never count as silent.
   >
@@ -360,10 +404,13 @@ Bau freigegeben („Go ahead and build it when you're ready.“), mit diesen Bed
   > The three hours are fixed. An integration that updates less often, such as a cloud service polled every six
   > hours, therefore raises the notice between its updates even though nothing has failed.
   >
-  > A template sensor without a device whose value never changes looks silent too. If a value is meant to be
-  > fixed, use the "Static value" source instead.
+  > A sensor without a device that reports only when its value changes, such as a template sensor or a utility
+  > meter set up in YAML that counts rain, looks silent too once the value has stayed the same for three hours, on a
+  > dry day for instance. A utility meter set up in the UI belongs to its source's device, if the source has one,
+  > and is covered by it. If a value is meant to be fixed, use the "Static value" source instead.
 
-- **PR 1:** `docs/usage-events.md`: das Event mit seinen Feldern (Zeile nach `irrigation_plus_zone_problem`).
+- **PR 1:** `docs/usage-events.md`: das Event mit seinen Feldern (Zeile nach `irrigation_plus_zone_problem`),
+  einschließlich des Endes, wenn die Gruppe den Ausfall nicht mehr verfolgt (Präzisierung 6), und der Offsets.
 - **PR 1:** Docstring von `_prune_mapping_buffer` (`calculation.py:432-446`) berichtigt: Die Grenzzeile je Feld
   überlebt die Frist absichtlich als Delta-Basis; ob sie noch eine Messung ist, hält die Ausfall-Liste fest.
 - **PR 2:** derselbe Abschnitt um die Einstellung erweitert: was *pausieren* tut (nach 3 h nichts gebucht,
@@ -427,6 +474,38 @@ Beim Schreiben des Plans von PR 1 gegen den Code gefunden; sie gehen dem Text ob
    - Keine Ausnahme in diesen Fällen: fehlender Zustand, fehlender Registry-Eintrag und gelöschtes Gerät sind
      abgefangen; im Probelauf je ein Test.
 
+### Präzisierungen aus dem Bau (2026-10-04)
+
+Beim Bau von PR 1 aus Reviews und Proben gefunden; sie sind oben eingearbeitet und gehen Revision 2 vor. Belege im
+Abweichungsprotokoll (`deviations.md`).
+
+7. **Lebenszeichen beim Herunterfahren.** Präzisierung 3 trug nur halb: HA schreibt beim Herunterfahren nur ein
+   *anstehendes* Speichern, und der Setter plante keins. Ein sauberer Neustart verlor deshalb bis zu einem
+   Abfrage-Intervall Lebenszeichen, und ein Ausfall begann danach zu früh. Jetzt merkt sich der Store eine Änderung
+   der Lebenszeichen, und sein Stopp-Listener plant dann ein Speichern, wie schon für den Puffer. Das Auffrischen
+   der Lebenszeichen löst weiterhin kein Speichern aus.
+8. **Reset und Quellwechsel lassen die Lebenszeichen stehen** (siehe *Leeren*). Sonst galt ein weiter stummer
+   Sensor danach als „nie gesehen“ (Präzisierung 4): Der Hinweis verschwand für 3 h und kam mit falschem Beginn
+   zurück.
+9. **Eine kaputte Gruppe hält die anderen nicht auf.** Setup und Prüfung fangen Fehler je Gruppe ab und loggen sie.
+10. **Leser werfen nie.** Ein unlesbarer Eintrag der Ausfall-Liste wird beim Lesen verworfen, ein
+    `sensor_last_seen`, das kein Dictionary ist, beim Laden ersetzt; sonst würfe die Prüfung alle 5 min.
+11. **Bekannte Grenzen von PR 1, hingenommen:**
+    - Zeitumstellung (siehe *Uhr*).
+    - Eine Integration, die beim Start ihren letzten Wert wiederherstellt oder neu zustellt (etwa ein retained
+      MQTT-Topic oder ein Z2M-Republish), zählt als Meldung: Ein offener Ausfall endet beim Neustart und wird erst
+      3 h später wieder gemeldet. Präzisierung 5 sah das für den Beginn vor; es gilt auch für das Ende. JustChrs
+      Neustart-Test deckt den Fall ab, dass die Entität nach dem Start `unavailable` ist.
+    - Umbenennen, neues Icon oder neuer Bereich der stummen Entität schreiben ihren Zustand neu und beenden den
+      Ausfall (Fehl-Entwarnung).
+    - Werte wie `n/a` gelten als gültige Meldung der eigenen Entität; das ist lockerer als der Lesepfad (PR 2).
+    - Wird die Integration entfernt oder deaktiviert, bleiben offene Hinweise bis zum HA-Neustart stehen, ohne
+      End-Event; der Entlade-Pfad beendet keine Ausfälle. Für diesen einen Weg gilt Präzisierung 6 („keine Liste und
+      kein Hinweis überleben die Konfiguration“) also nicht → eigenes Issue.
+12. **Der `config_entry_id`-Zweig** (neueres HA) läuft in keiner CI: Die Haupt-CI bekommt mit Python 3.13 höchstens
+    HA 2026.2.x, und dort hat `DeviceEntry` nur `primary_config_entry`. Er läuft nur im Live-Test
+    (*Ende-zu-Ende-Kriterium*, Punkt 1); der PR-Text behauptet keine CI-Abdeckung dafür.
+
 ## Schwester-Pfade geprüft
 
 - **Poll-Schreiber mit eingefrorenem Zahlenwert:** abgedeckt (pausierende Gruppen); seine Zeilen liegen in der Sperre
@@ -471,20 +550,25 @@ Beim Schreiben des Plans von PR 1 gegen den Code gefunden; sie gehen dem Text ob
 
 Jeweils RED vor GREEN.
 
-**PR 1**
-- **Erkennung:** Geräte-Maximum; eigene Entität `unavailable`; Entität ohne Gerät; `input_number`;
-  Start-Karenz; Lebenszeichen über einen Neustart; Stempel im Rahmen des Puffers.
-- **Liste:** Öffnen nach 3 h, nicht vorher; Schließen bei der ersten Meldung mit richtigem Ende;
-  7-Tage-Kürzung; Leeren bei Quellwechsel und Reset; Speichern im Panel lässt die Liste stehen;
-  Store-Rundlauf (beide Felder überleben Speichern und Laden, ein Store ohne sie lädt).
+**PR 1** (gebaut: 116 Tests in vier Dateien; alle 60 Mutationen auf die Wächter getötet)
+- **Erkennung:** Geräte-Maximum über die bürgenden Sensoren (D1: Helfer, `update`-Entitäten und fremde
+  Integrationen bürgen nicht, ein gemappter Helfer ist gedeckt, auf einem geteilten Gerät bürgt zusätzlich die
+  Integration der gemappten Entität); eigene Entität `unavailable`; Entität ohne Gerät;
+  `input_number`; Start-Karenz; Lebenszeichen über einen Neustart, auch über HAs Abschaltfolge ohne Speichern von
+  Hand (Präzisierung 7); Stempel im Rahmen des Puffers.
+- **Liste:** Öffnen nach 3 h, nicht vorher; Schließen mit richtigem Ende, eigene Rückkehr vor Geräte-Änderung (D3);
+  7-Tage-Kürzung; Leeren bei Quellwechsel und Reset, Lebenszeichen bleiben (Präzisierung 8); Speichern im Panel
+  lässt die Liste stehen; Store-Rundlauf (beide Felder überleben Speichern und Laden, ein Store ohne sie lädt).
 - **Melden:** Event-Inhalt bei Beginn und Ende; Hinweistext in 8 Sprachen mit seinen Platzhaltern;
   i18n-Vollständigkeit.
 - **JustChrs drei Hinweis-Tests** (J4), als eigene Testdatei, gegen **echten Store und echte Issue-Registry**
   (lokal echt; der Registry-Test aus Plan-Task 8 lief im Probelauf echt):
   1. der Hinweis verschwindet, wenn der Sensor wieder meldet;
-  2. er übersteht einen Neustart mitten im Ausfall: Liste gespeichert, neuer Store lädt sie, ein neuer
-     Koordinator zeigt den Hinweis beim Setup sofort wieder, mit unverändertem Beginn;
-  3. er fällt weg, wenn die Gruppe gelöscht wird, samt End-Event.
+  2. er übersteht einen Neustart mitten im Ausfall: HAs Abschaltfolge (STOP, FINAL_WRITE) schreibt die Liste, ein
+     neuer Store lädt sie, ein neuer Koordinator zeigt den Hinweis beim Setup sofort wieder, mit unverändertem
+     Beginn (Revision 3: vorher speicherte der Test von Hand und sah den Schreibweg des Herunterfahrens nicht);
+  3. er fällt weg, wenn die Gruppe gelöscht wird, samt End-Event;
+  4. (zusätzlich) er fällt weg, wenn der Sensor in der Gruppe ersetzt wird, samt End-Event (Präzisierung 6).
 - **Keine Verhaltensänderung:** Der Diff berührt keinen Rechenpfad; die volle Suite ist namensgleich mit der
   Baseline.
 - Mutationen auf die tragenden Wächter (Geräte-Maximum, eigene `unavailable`-Entität, `input_number`, 3-h-Grenze,
@@ -519,7 +603,8 @@ liefe; eigener Broker für HA-Test, weil das HA-Test die Z2M-Geräte nähme).
 
 1. Ein Gerät meldet 3,5 h lang **unveränderte** Werte → es entsteht kein Ausfall. Für beide Schreibweisen,
    soweit das Mittel sie hergibt: ein Gerät, das bei jedem Update schreibt (`last_reported` rückt vor), und eines,
-   das nur bei Änderung schreibt und dessen Felder bis auf eines ruhig bleiben.
+   das nur bei Änderung schreibt und dessen Felder bis auf eines ruhig bleiben. Das zweite ist zugleich der einzige
+   Lauf des `config_entry_id`-Zweigs auf neuerem HA (Präzisierung 12).
 2. Zwei Geräte schweigen → der Hinweis erscheint rund 3 h nach der letzten Meldung, das Start-Event kommt an,
    und eine Berechnung aller Zonen in dieser Zeit läuft ohne Fehler (PR 1 ändert keine Rechnung; dass sie
    unverändert ist, belegen Diff und Suite).
