@@ -1,0 +1,135 @@
+diff --git a/custom_components/irrigation_plus/entity.py b/custom_components/irrigation_plus/entity.py
+index 57101da1..d291fc9e 100644
+--- a/custom_components/irrigation_plus/entity.py
++++ b/custom_components/irrigation_plus/entity.py
+@@ -39,9 +39,9 @@ def hub_link_for(registry, hub_device_id: str, cid: str) -> dict:
+     """How a zone or distributor device names the hub as its parent.
+ 
+     Home Assistant 2026.8 added ``via_device_id`` (the parent's registry id)
+-    and deprecated ``via_device`` (the parent's identifier), which goes in
+-    2027.8. Before 2026.8 ``via_device_id`` does not exist: there,
+-    ``async_get_or_create`` has a fixed keyword-only signature, and the
++    to the device info and deprecated ``via_device`` (the parent's
++    identifier), which goes in 2027.8. Before 2026.8 ``async_get_or_create``
++    takes no ``via_device_id``: its keyword-only signature is fixed, and the
+     ``TypeError`` would stop every zone entity from being added. So ask the
+     registry which one it takes rather than branching on a version string; the
+     question goes to the registry's class, as in ``find_device``. Once the
+@@ -50,7 +50,11 @@ def hub_link_for(registry, hub_device_id: str, cid: str) -> dict:
+     method = getattr(type(registry), "async_get_or_create", None)
+     try:
+         takes_id = "via_device_id" in inspect.signature(method).parameters
+-    except (TypeError, ValueError):
++    except Exception:  # noqa: BLE001 - unreadable means the identifier form
++        # Home Assistant has needed Python 3.14 since 2026.3, and since 2026.6
++        # its registry module no longer postpones annotations, so reading the
++        # signature evaluates them: a name imported only for type checking
++        # would raise NameError here and stop the setup.
+         takes_id = False
+     if takes_id:
+         return {"via_device_id": hub_device_id}
+@@ -62,8 +66,8 @@ def hub_link(hass: HomeAssistant) -> dict:
+ 
+     ``async_setup_entry`` records it once the hub is registered (see
+     ``hub_link_for``). Without a record, as for an entity built outside a
+-    set-up entry, the identifier form stands; every Home Assistant up to 2027.8
+-    takes it.
++    set-up entry, the identifier form stands; Home Assistant takes it until
++    2027.8 (from 2026.9 on with a deprecation warning).
+     """
+     try:
+         link = hass.data[const.DOMAIN].get("hub_link")
+diff --git a/tests/test_device_registry_compat.py b/tests/test_device_registry_compat.py
+index 395f2588..cf894d0f 100644
+--- a/tests/test_device_registry_compat.py
++++ b/tests/test_device_registry_compat.py
+@@ -4,12 +4,12 @@ Home Assistant 2026.8 added ``via_device_id`` and
+ ``async_get_device_by_identifier``; ``via_device`` and ``async_get_device`` are
+ deprecated and go in 2027.8. Before 2026.8 neither replacement exists, and the
+ declared floor is 2025.5. The integration asks the registry which shape it has,
+-so both shapes are pinned here with stand-ins, whichever Home Assistant the
+-suite runs against.
++so each shape is pinned here with stand-ins, whichever Home Assistant the suite
++runs against.
+ """
+ 
+ from types import SimpleNamespace
+-from unittest.mock import AsyncMock, Mock, patch
++from unittest.mock import AsyncMock, MagicMock, Mock, patch
+ 
+ from homeassistant.core import HomeAssistant
+ from homeassistant.helpers import device_registry as dr
+@@ -33,7 +33,11 @@ _ZONE = (const.DOMAIN, "cid_zone_1")
+ 
+ 
+ class _RegistryFrom2026_8:
+-    """The device registry's shape from Home Assistant 2026.8 on."""
++    """The device registry's shape from Home Assistant 2026.9 on.
++
++    ``via_device`` only reaches it through ``**kwargs``. The per-entry lookup is
++    there since 2026.8; ``_RegistryOf2026_8_0`` has 2026.8.0's own signature.
++    """
+ 
+     def __init__(self, device=None):
+         self.device = device
+@@ -73,6 +77,15 @@ class _RegistryBefore2026_8:
+         self.calls.append(("remove", device_id))
+ 
+ 
++class _RegistryOf2026_8_0:
++    """2026.8.0 itself: both keys named, and no ``**kwargs`` yet."""
++
++    def async_get_or_create(
++        self, *, config_entry_id, via_device=None, via_device_id=None
++    ):
++        raise AssertionError("only the signature is read")
++
++
+ class TestTheHubLinkFollowsTheRegistry:
+     """Which key names the hub as parent depends on what the registry takes."""
+ 
+@@ -109,6 +122,44 @@ class TestTheHubLinkFollowsTheRegistry:
+         assert info["via_device"] == (const.DOMAIN, const.DOMAIN)
+         assert "via_device_id" not in info
+ 
++    def test_a_registry_naming_both_keys_gets_the_hubs_registry_id(self):
++        assert hub_link_for(_RegistryOf2026_8_0(), _HUB, "cid") == {
++            "via_device_id": _HUB
++        }
++
++    def test_a_signature_that_cannot_be_read_leaves_the_identifier_form(self):
++        class _Unreadable:
++            """Reading it fails, as on Python 3.14 for an unbound annotation."""
++
++            @property
++            def __signature__(self):
++                raise NameError("an annotation names what is not bound")
++
++            def __call__(self, **kwargs):
++                raise AssertionError("only the signature is read")
++
++        class _Registry:
++            async_get_or_create = _Unreadable()
++
++        assert hub_link_for(_Registry(), _HUB, "cid") == {
++            "via_device": (const.DOMAIN, "cid")
++        }
++
++    def test_anything_but_a_recorded_link_leaves_the_identifier_form(self):
++        for hass in (
++            SimpleNamespace(data={const.DOMAIN: {"hub_link": {}}}),
++            SimpleNamespace(data={const.DOMAIN: {"hub_link": "via_device_id"}}),
++            SimpleNamespace(),
++        ):
++            assert hub_link(hass) == {"via_device": (const.DOMAIN, const.DOMAIN)}
++        assert set(hub_link(MagicMock())) == {"via_device"}
++
++    def test_the_recorded_link_is_handed_out_as_a_copy(self):
++        record = {"via_device_id": _HUB}
++        hass = SimpleNamespace(data={const.DOMAIN: {"hub_link": record}})
++        assert hub_link(hass) == record
++        assert hub_link(hass) is not record
++
+ 
+ class TestADeviceIsFoundPerConfigEntryWhereOffered:
+     """``find_device`` uses the per-entry lookup where the registry has it."""

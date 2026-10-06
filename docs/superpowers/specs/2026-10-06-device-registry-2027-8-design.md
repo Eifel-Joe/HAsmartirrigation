@@ -91,7 +91,8 @@ Ja, und die bestehenden Lösch-Tests bauen die Registry als `Mock()` (`test_dist
 - **Die Entry-ID wird tolerant gelesen** (`getattr(getattr(self, "entry", None), "entry_id", None)`): Die Test-Hosts der
   bestehenden Verteiler-Lösch-Tests tragen kein `entry` (`_DistHost` aus `tests/test_distributor.py:45`;
   `_upsert_coord()` baut den Coordinator per `__new__`, `tests/test_distributor_integration.py:153`). Der alte Weg
-  braucht die ID nicht; im Betrieb ist sie immer gesetzt. `async_remove_entity` hat bisher keinen Test.
+  braucht die ID nicht; im Betrieb ist sie immer gesetzt. `async_remove_entity` hatte bis dahin keinen Test (seit
+  Task 4/4b: Treffer, Fehlschlag, alte Bauart ohne `entry`).
 
 ### Verhalten je Version
 
@@ -102,7 +103,11 @@ Ja, und die bestehenden Lösch-Tests bauen die Registry als `Mock()` (`test_dist
 ### Rückbau
 
 Hebt JustChr die Untergrenze auf 2026.8 oder höher, liefert `hub_link_for` immer `via_device_id` und `find_device`
-immer den neuen Aufruf; die Weichen fallen ersatzlos weg. Der Kommentar an beiden Stellen sagt das.
+immer den neuen Aufruf; die Weichen fallen ersatzlos weg. Der Kommentar an beiden Stellen sagt das. Dazu (Nachtrag
+aus der Umsetzung): die zwei toleranten Lesestellen der Entry-ID (Zone `__init__.py`, Verteiler `distributor.py`)
+werden strikt `self.entry.entry_id`, und die drei bestehenden Lösch-Tests mit `Mock()`-Registry, die
+`async_get_device` namentlich binden (`tests/test_distributor_entities.py`, `tests/test_distributor_integration.py`),
+ziehen mit um; die Kompatibilitäts-Tests der alten Bauart fallen weg.
 
 ### Betroffene Stellen
 
@@ -203,6 +208,33 @@ HA-Prod bleibt auf v2026.10.05b1 (Feldtest Eifel-Joe#8); ein Update nur auf Zuru
   dort — ohne Geheimnis, und im Live-Test der Beleg, welcher Weg aktiv ist.
 - **Umfang der Tests:** zwölf Tests in fünf Tasks, 16 Mutationen (Plan
   `docs/superpowers/plans/2026-10-06-device-registry-2027-8.md`, Probelauf dort).
+
+## Nachtrag aus der Umsetzung (2026-10-06, nicht Teil der Freigabe)
+
+Aus den Quality-Reviews kamen Nachträge dazu, je ein eigener Commit (Begründung und Belege im Plan unter Task 1b–5b).
+Task 1b (Review von Task 1):
+
+- **Die Erkennung darf das Setup nie stoppen.** HA braucht seit 2026.3 Python 3.14, und seit 2026.6 verzichtet
+  `device_registry.py` auf `from __future__ import annotations`; damit wertet `inspect.signature` die Annotationen aus,
+  und ein Name, den die Registry nur unter `TYPE_CHECKING` importiert, würfe `NameError`. `hub_link_for` fängt deshalb
+  jeden Fehler beim Lesen der Signatur und bleibt dann bei der Kennungs-Form. Heute latent (alle Namen der Signatur sind
+  in 2026.6.0–2026.9.4 zur Laufzeit gebunden).
+- **Drei Bauarten statt zwei:** 2026.8.0 selbst nennt beide Schlüssel und hat noch kein `**kwargs`; ein eigener Test
+  pinnt, dass die Regel auf den neuen Namen schaut (nicht auf `**kwargs`, nicht auf das Fehlen des alten).
+- **`hub_link` gepinnt:** alles außer einem abgelegten Verweis (leer, kein Dict, `hass` ohne `data`, `MagicMock`) ergibt
+  die Kennungs-Form; der Verweis wird als Kopie herausgegeben.
+- **Docstrings:** neu in 2026.8 ist der Parameter bzw. Device-Info-Schlüssel `via_device_id` (`DeviceEntry.via_device_id`
+  gibt es lange vorher); ab 2026.9 meldet HA das alte `via_device`.
+- **Task 2b:** ein Fehlschlag von `find_device` ergibt `None` und fragt nie den alten Lookup (mit Entry-ID und mit
+  `None`); Docstring: ab 2026.8 findet eine Entry-ID `None` nichts, ein `Mock` nimmt auch mit `spec` den alten Weg.
+- **Task 3b:** belegt, dass der Verweis vor dem Laden der Plattformen steht und ein alter Verweis (Reload)
+  überschrieben wird; dazu das Lesen der Id-Form über `zone_device_info`.
+- **Task 4b / 5b (Schwester-Pfade):** beide Löschpfade gepinnt für Fehlschlag (kein Rückfall auf den alten Lookup, das
+  Löschen läuft weiter) und für die alte Bauart ohne `entry`; ein gleichlautender Kommentar an beiden Stellen, warum
+  die Entry-ID tolerant gelesen wird; der Verteiler-Kommentar verwies auf ein nie vorhandenes `async_remove_zone`.
+- **Umfang jetzt:** zweiundzwanzig Tests, 36 Mutationen (M17–M36 aus den Nachträgen), Probe-Endstand
+  `issue11-work\probe-2026-10-06-5b.patch`. Lokal enden die drei Setup-Tests zusätzlich mit dem teardown-ERROR
+  „Lingering timer“.
 
 ## Lieferung
 

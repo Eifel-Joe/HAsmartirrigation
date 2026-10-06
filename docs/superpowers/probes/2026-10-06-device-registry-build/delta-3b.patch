@@ -1,0 +1,56 @@
+diff --git a/tests/test_device_registry_compat.py b/tests/test_device_registry_compat.py
+index 3664c7c7..fe14bc5d 100644
+--- a/tests/test_device_registry_compat.py
++++ b/tests/test_device_registry_compat.py
+@@ -193,9 +193,12 @@ class TestADeviceIsFoundPerConfigEntryWhereOffered:
+         ]
+ 
+ 
+-async def _set_up(hass: HomeAssistant, entry) -> bool:
++async def _set_up(hass: HomeAssistant, entry, forward=None) -> bool:
+     """Run async_setup_entry with store, session, panel and platforms stubbed.
+ 
++    ``forward`` stands in for setting up the platforms, so a test can look at
++    what setup has recorded by then.
++
+     The stubbed session also keeps the run off aiodns, which needs a selector
+     event loop on Windows; nothing here talks to the network.
+     """
+@@ -222,7 +225,9 @@ async def _set_up(hass: HomeAssistant, entry) -> bool:
+         patch("custom_components.irrigation_plus.async_register_websockets"),
+         patch("custom_components.irrigation_plus.async_register_services"),
+         patch.object(
+-            hass.config_entries, "async_forward_entry_setups", new=AsyncMock()
++            hass.config_entries,
++            "async_forward_entry_setups",
++            new=forward or AsyncMock(),
+         ),
+     ):
+         return await async_setup_entry(hass, entry)
+@@ -259,6 +264,26 @@ class TestSetupRecordsTheLink:
+         )
+         assert zone.via_device_id == hub.id
+ 
++    async def test_the_link_is_recorded_afresh_before_the_platforms_load(
++        self, hass: HomeAssistant, mock_config_entry, monkeypatch
++    ) -> None:
++        registry = _RegistryFrom2026_8()
++        monkeypatch.setattr(
++            "custom_components.irrigation_plus.dr.async_get", lambda _hass: registry
++        )
++        # hass.data[DOMAIN] outlives a reload, so an old link can still be there.
++        hass.data.setdefault(const.DOMAIN, {})["hub_link"] = {"via_device_id": "old"}
++        seen = []
++
++        async def forward(entry, platforms):
++            seen.append(dict(hass.data[const.DOMAIN]["hub_link"]))
++
++        assert await _set_up(hass, mock_config_entry, forward) is True
++        assert seen == [{"via_device_id": _HUB}]
++        info = zone_device_info(hass, 1, "Lawn")
++        assert info["via_device_id"] == _HUB
++        assert "via_device" not in info
++
+ 
+ async def test_a_deleted_zones_device_is_found_per_entry_and_removed(monkeypatch):
+     """Deleting a zone looks its device up through ``find_device``."""

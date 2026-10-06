@@ -1,0 +1,39 @@
+diff --git a/custom_components/irrigation_plus/entity.py b/custom_components/irrigation_plus/entity.py
+index d291fc9e..25892a99 100644
+--- a/custom_components/irrigation_plus/entity.py
++++ b/custom_components/irrigation_plus/entity.py
+@@ -115,9 +115,11 @@ def find_device(registry, identifier: tuple[str, str], config_entry_id: str | No
+     Home Assistant 2026.9 deprecated ``async_get_device``, which goes in 2027.8,
+     because identifiers are no longer unique across config entries; its
+     replacement ``async_get_device_by_identifier`` exists from 2026.8 and looks
+-    up per config entry. Use it where the registry's class has it; the question
+-    goes to the class because a test double answers for any attribute on its
+-    instance. Once the declared floor is 2026.8 or later, call it outright.
++    up per config entry, and there an entry id of ``None`` finds nothing. Use it
++    where the registry's class has it; the question goes to the class because a
++    test double answers for any attribute on its instance, so a ``Mock``, even
++    one with a ``spec``, takes the old way. Once the declared floor is 2026.8 or
++    later, call it outright.
+     """
+     if callable(getattr(type(registry), "async_get_device_by_identifier", None)):
+         return registry.async_get_device_by_identifier(identifier, config_entry_id)
+diff --git a/tests/test_device_registry_compat.py b/tests/test_device_registry_compat.py
+index cf894d0f..3664c7c7 100644
+--- a/tests/test_device_registry_compat.py
++++ b/tests/test_device_registry_compat.py
+@@ -183,6 +183,15 @@ class TestADeviceIsFoundPerConfigEntryWhereOffered:
+         registry.async_get_device.assert_called_once_with(identifiers={_ZONE})
+         registry.async_get_device_by_identifier.assert_not_called()
+ 
++    def test_a_miss_is_none_and_never_asked_the_old_way(self):
++        registry = _RegistryFrom2026_8(None)
++        assert find_device(registry, _ZONE, "entry-1") is None
++        assert find_device(registry, _ZONE, None) is None
++        assert registry.calls == [
++            ("by_identifier", _ZONE, "entry-1"),
++            ("by_identifier", _ZONE, None),
++        ]
++
+ 
+ async def _set_up(hass: HomeAssistant, entry) -> bool:
+     """Run async_setup_entry with store, session, panel and platforms stubbed.

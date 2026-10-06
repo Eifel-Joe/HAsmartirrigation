@@ -1,0 +1,80 @@
+diff --git a/custom_components/irrigation_plus/__init__.py b/custom_components/irrigation_plus/__init__.py
+index cb360a3b..4b4a3adc 100644
+--- a/custom_components/irrigation_plus/__init__.py
++++ b/custom_components/irrigation_plus/__init__.py
+@@ -2221,6 +2221,9 @@ class SmartIrrigationCoordinator(
+                 if entity_registry.async_get(entity.entity_id):
+                     entity_registry.async_remove(entity.entity_id)
+         # Drop the zone's device as well (it would linger empty otherwise).
++        # The entry id is read tolerantly: the lookup before 2026.8 does not
++        # need it, and a coordinator built without __init__ has none. A running
++        # integration always has one (see entity.find_device).
+         device_registry = dr.async_get(self.hass)
+         device = find_device(
+             device_registry,
+diff --git a/tests/test_device_registry_compat.py b/tests/test_device_registry_compat.py
+index fe14bc5d..41e4f42c 100644
+--- a/tests/test_device_registry_compat.py
++++ b/tests/test_device_registry_compat.py
+@@ -285,9 +285,12 @@ class TestSetupRecordsTheLink:
+         assert "via_device" not in info
+ 
+ 
+-async def test_a_deleted_zones_device_is_found_per_entry_and_removed(monkeypatch):
+-    """Deleting a zone looks its device up through ``find_device``."""
+-    registry = _RegistryFrom2026_8(SimpleNamespace(id="dev"))
++async def _delete_zone_1(monkeypatch, registry, **attrs):
++    """Delete zone 1 on a coordinator built without ``__init__``.
++
++    Only the device half of ``async_remove_entity`` does anything here: no
++    entities are tracked, so the entity registry stand-in removes none.
++    """
+     monkeypatch.setattr(
+         "custom_components.irrigation_plus.dr.async_get", lambda hass: registry
+     )
+@@ -297,14 +300,44 @@ async def test_a_deleted_zones_device_is_found_per_entry_and_removed(monkeypatch
+     c = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
+     c.hass = SimpleNamespace(data={const.DOMAIN: {}})
+     c.id = "cid"
+-    c.entry = SimpleNamespace(entry_id="entry-1")
++    for name, value in attrs.items():
++        setattr(c, name, value)
+     await c.async_remove_entity("1")
++
++
++async def test_a_deleted_zones_device_is_found_per_entry_and_removed(monkeypatch):
++    """Deleting a zone finds its device per config entry and removes it."""
++    registry = _RegistryFrom2026_8(SimpleNamespace(id="dev"))
++    await _delete_zone_1(
++        monkeypatch, registry, entry=SimpleNamespace(entry_id="entry-1")
++    )
+     assert registry.calls == [
+         ("by_identifier", (const.DOMAIN, "cid_zone_1"), "entry-1"),
+         ("remove", "dev"),
+     ]
+ 
+ 
++async def test_a_zone_without_a_device_removes_nothing(monkeypatch):
++    """A miss removes nothing and is not asked again the old way."""
++    registry = _RegistryFrom2026_8(None)
++    await _delete_zone_1(
++        monkeypatch, registry, entry=SimpleNamespace(entry_id="entry-1")
++    )
++    assert registry.calls == [
++        ("by_identifier", (const.DOMAIN, "cid_zone_1"), "entry-1"),
++    ]
++
++
++async def test_before_2026_8_a_zone_is_deleted_without_an_entry(monkeypatch):
++    """The old lookup needs no entry, so a coordinator without one deletes."""
++    registry = _RegistryBefore2026_8(SimpleNamespace(id="dev"))
++    await _delete_zone_1(monkeypatch, registry)
++    assert registry.calls == [
++        ("get_device", {(const.DOMAIN, "cid_zone_1")}),
++        ("remove", "dev"),
++    ]
++
++
+ async def test_a_deleted_distributors_device_is_found_per_entry_and_removed(
+     monkeypatch,
+ ):

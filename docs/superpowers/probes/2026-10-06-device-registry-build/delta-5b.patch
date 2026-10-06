@@ -1,0 +1,127 @@
+diff --git a/custom_components/irrigation_plus/__init__.py b/custom_components/irrigation_plus/__init__.py
+index 4b4a3adc..570f8fe4 100644
+--- a/custom_components/irrigation_plus/__init__.py
++++ b/custom_components/irrigation_plus/__init__.py
+@@ -2222,8 +2222,10 @@ class SmartIrrigationCoordinator(
+                     entity_registry.async_remove(entity.entity_id)
+         # Drop the zone's device as well (it would linger empty otherwise).
+         # The entry id is read tolerantly: the lookup before 2026.8 does not
+-        # need it, and a coordinator built without __init__ has none. A running
+-        # integration always has one (see entity.find_device).
++        # need it, and a coordinator built without __init__ has none. That is
++        # safe only because a running integration always has one; without it,
++        # the lookup from 2026.8 would find nothing and the device would linger
++        # (see entity.find_device).
+         device_registry = dr.async_get(self.hass)
+         device = find_device(
+             device_registry,
+diff --git a/custom_components/irrigation_plus/distributor.py b/custom_components/irrigation_plus/distributor.py
+index 187e9f2f..bbd05638 100644
+--- a/custom_components/irrigation_plus/distributor.py
++++ b/custom_components/irrigation_plus/distributor.py
+@@ -2119,10 +2119,15 @@ class DistributorMixin:
+                 # platforms drop this distributor's ENTITIES, but nothing removed
+                 # the per-distributor DEVICE — an empty device lingered in the
+                 # registry across create/delete cycles. Mirror the zone-delete
+-                # cleanup (__init__.py async_remove_zone, ~L1415): look the device
++                # cleanup (async_remove_entity in __init__.py): look the device
+                 # up by its distributor identifier (self.id == coordinator_id) and
+                 # remove it. siehe test_distributor_entities.py::
+                 # test_upsert_delete_removes_device.
++                # The entry id is read tolerantly: the lookup before 2026.8 does
++                # not need it, and a coordinator built without __init__ has none.
++                # That is safe only because a running integration always has
++                # one; without it, the lookup from 2026.8 would find nothing and
++                # the device would linger (see entity.find_device).
+                 registry = dr.async_get(self.hass)
+                 device = find_device(
+                     registry,
+diff --git a/tests/test_device_registry_compat.py b/tests/test_device_registry_compat.py
+index 41e4f42c..81a20197 100644
+--- a/tests/test_device_registry_compat.py
++++ b/tests/test_device_registry_compat.py
+@@ -302,6 +302,8 @@ async def _delete_zone_1(monkeypatch, registry, **attrs):
+     c.id = "cid"
+     for name, value in attrs.items():
+         setattr(c, name, value)
++    # A test that passes no entry relies on the coordinator having none.
++    assert "entry" in attrs or not hasattr(c, "entry")
+     await c.async_remove_entity("1")
+ 
+ 
+@@ -338,11 +340,11 @@ async def test_before_2026_8_a_zone_is_deleted_without_an_entry(monkeypatch):
+     ]
+ 
+ 
+-async def test_a_deleted_distributors_device_is_found_per_entry_and_removed(
+-    monkeypatch,
+-):
+-    """Deleting a distributor looks its device up through ``find_device``."""
+-    registry = _RegistryFrom2026_8(SimpleNamespace(id="dev123"))
++async def _delete_distributor_3(monkeypatch, registry, **attrs):
++    """Delete distributor 3 on a host built without the coordinator's ``__init__``.
++
++    The dispatcher is silenced; the registry and the inlet watch take part.
++    """
+     monkeypatch.setattr(
+         "custom_components.irrigation_plus.distributor.dr.async_get",
+         lambda hass: registry,
+@@ -353,11 +355,56 @@ async def test_a_deleted_distributors_device_is_found_per_entry_and_removed(
+     )
+     c = _host()
+     c.id = "cid"
+-    c.entry = SimpleNamespace(entry_id="entry-1")
++    for name, value in attrs.items():
++        setattr(c, name, value)
++    # A test that passes no entry relies on the host having none.
++    assert "entry" in attrs or not hasattr(c, "entry")
+     c.store.get_distributor = Mock(return_value={"id": 3})
+     c.store.async_delete_distributor = AsyncMock(return_value=True)
+-    await c.async_upsert_distributor({"id": 3, "remove": True})
++    return await c.async_upsert_distributor({"id": 3, "remove": True})
++
++
++async def test_a_deleted_distributors_device_is_found_per_entry_and_removed(
++    monkeypatch,
++):
++    """Deleting a distributor finds its device per config entry and removes it."""
++    registry = _RegistryFrom2026_8(SimpleNamespace(id="dev123"))
++    unsubscribe = Mock()
++    await _delete_distributor_3(
++        monkeypatch,
++        registry,
++        entry=SimpleNamespace(entry_id="entry-1"),
++        _dist_inlet_watchers={3: unsubscribe},
++    )
+     assert registry.calls == [
+         ("by_identifier", (const.DOMAIN, "cid_distributor_3"), "entry-1"),
+         ("remove", "dev123"),
+     ]
++    unsubscribe.assert_called_once_with()
++
++
++async def test_a_distributor_without_a_device_removes_nothing(monkeypatch):
++    """A miss removes nothing, is not asked the old way, and the delete goes on."""
++    registry = _RegistryFrom2026_8(None)
++    unsubscribe = Mock()
++    result = await _delete_distributor_3(
++        monkeypatch,
++        registry,
++        entry=SimpleNamespace(entry_id="entry-1"),
++        _dist_inlet_watchers={3: unsubscribe},
++    )
++    assert registry.calls == [
++        ("by_identifier", (const.DOMAIN, "cid_distributor_3"), "entry-1"),
++    ]
++    unsubscribe.assert_called_once_with()
++    assert result is True
++
++
++async def test_before_2026_8_a_distributor_is_deleted_without_an_entry(monkeypatch):
++    """The old lookup needs no entry, so a host without one deletes."""
++    registry = _RegistryBefore2026_8(SimpleNamespace(id="dev"))
++    await _delete_distributor_3(monkeypatch, registry)
++    assert registry.calls == [
++        ("get_device", {(const.DOMAIN, "cid_distributor_3")}),
++        ("remove", "dev"),
++    ]
