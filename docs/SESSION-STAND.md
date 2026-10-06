@@ -23,6 +23,69 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-06 (2) — Eifel-Joe#11: Tasks 0–6 gebaut und grün (zehn Commits, davon fünf Review-Nachträge); Task 7/8 warten auf Freigabe
+
+### Stand
+
+- **Upstream-Runden 08:00 und 12:10 UTC** (alle Autoren, Issues/PRs, Issue- und Review-Kommentare, Releases,
+  `scan_upstream_refs.py`): leer. master `7001c754`, Latest weiter v2026.10.04 (ohne #190), JustChr#191 offen ohne
+  Review/Kommentar, CI grün. production `31cd812b` 0 behind / 11 ahead → kein Außen-Schritt.
+- **Branch `fix/device-registry-2027-8`** (lokal, ungepusht, ohne Tracking) im Worktree `issue11-work\wt`, Kopf
+  `08e5c576`, zehn Commits: Tasks 1–5 wörtlich nach Plan, dazu **1b–5b aus den Per-Task-Quality-Reviews** (nicht Teil
+  der Freigabe; je eigener Commit, Begründung und Belege im Plan unter Task 1b–5b, Spec-Abschnitt „Nachtrag aus der
+  Umsetzung“):
+  - **1b behebt einen echten latenten Fehler:** HA braucht seit 2026.3 Python 3.14, und seit 2026.6 hat
+    `device_registry.py` kein `from __future__ import annotations` mehr → `inspect.signature` wertet Annotationen aus;
+    ein nur unter `TYPE_CHECKING` importierter Name würfe `NameError` aus `hub_link_for` und bräche das Setup ab. Heute
+    latent (AST-Prüfung 2026.6.0–2026.9.4). Fix `except Exception` + Test. Dazu Pins (Bauart 2026.8.0, Wächter/Kopie in
+    `hub_link`) und genauere Docstrings.
+  - 2b: Fehlschlag von `find_device` (kein Rückfall auf den alten Lookup); 3b: Verweis steht vor den Plattformen und
+    wird beim Reload überschrieben; 4b/5b: beide Löschpfade (Fehlschlag, alte Bauart ohne `entry`), der falsche Verweis
+    `async_remove_zone` im Verteiler-Kommentar berichtigt, gleicher Toleranz-Kommentar an beiden Pfaden.
+- **Task 6 grün auf `08e5c576`:** Suite `7 failed, 3805 passed, 9 skipped, 418 errors` gegen Baseline `7/3783/9/415`
+  (+22 Tests, +3 teardown „Lingering timer“ der drei Setup-Tests; Namen 422 → 425 genau diese drei, nichts weg);
+  black/ruff sauber; **36/36 Mutationen auf dem Branch** (`issue11-work\mutate-final.txt`); Verweis-Greps leer;
+  `via_device`/`async_get_device(` nur noch in `entity.py`; kein Frontend; 0 CR. Branch byte-gleich mit dem
+  Probe-Endstand `a9a8e834` (`issue11-work\probe-wt`, detached).
+- **Gesamt-Review (Opus): kein Defekt am Code.** I1 (Live-Nachweis sah die Fehlerbilder auf 2026.9 nicht) → in Plan
+  Task 7 als Prüfpunkte eingearbeitet; M2/M6 in die Spec. Offen (User-Entscheidung): R1 Commits auf fünf falten, M3
+  redundante Tests streichen, M1 Rückfall bei unlesbarer Signatur über die zweite Weiche, M4 Double umbenennen,
+  M5/M7 Textschliff.
+- **Archiv lokal:** `archive/design-history` `de9f8ae7` (Plan, Spec, Build-Belege unter
+  `docs/superpowers/probes/2026-10-06-device-registry-build/`), ungepusht; dieser Stand folgt im nächsten Archiv-Commit.
+
+### Fallen
+
+- **Spec-Check über Diff-Zeilen ist falsch:** Git ordnet eine eingefügte Leerzeile am Dateiende anders zu als in der
+  Mitte → „order differs“ ohne Unterschied. Richtig: Probe-Dateien + Nachtrags-Blöcke mit demselben Werkzeug anwenden,
+  byte-genau vergleichen (`issue11-work\spec_check.py`), Gegenprobe mit falschem Probe-Commit muss rot werden.
+- **Nachträge aus Reviews als eigene Plan-Tasks „Nb“** (Blöcke im Plan, `apply_plan_task.py` kennt `1b`), erst im
+  `probe-wt` auf dem Endstand proben (Anker, black/ruff, Mutationen), dann umsetzen lassen; Zahlen späterer Tasks
+  nachziehen. Wortlaut-Korrekturen am obersten Commit per Amend (checkout der Dateien vom Eltern-Commit, Blöcke neu).
+- **Kein pytest parallel** (Suite im Worktree ↔ Re-Probe im `probe-wt`), und `mutate.py` nicht laufen lassen, solange
+  ein Reviewer im Worktree liest (Dateien werden kurz mutiert).
+- Bash-Tool zieht `\\n` zusammen → `mutate.py` nur per Edit-Tool ändern (Memory `bash-tool-backslash-collapse`).
+- Sonnet-Implementer melden jedes Mal den „Opus“-Trailer als Auffälligkeit — der Plan schreibt ihn wörtlich vor.
+
+### Nächste Schritte
+
+1. Entscheidungen zum Gesamt-Review (R1/M1/M3/M4/M5/M7); bei Änderungen als Task 6b mit Probe und neuem
+   Mutations-/Suitelauf.
+2. **Task 7 nur mit Freigabe:** Upstream-Runde; production-Rebuild (`7001c754` + Branding + `fix/seasonal-outlook` +
+   dieser Branch), Pre-Release, HA-Test per HACS + Neustart (ankündigen), Live-Test nach Plan Task 7 inkl. Prüfpunkte
+   I1/M6 und Reload.
+3. **Task 8 nur mit Freigabe:** PR-Text DE → EN (Inhalte aus R2 des Gesamt-Reviews: Versionstabelle, Klassenfrage,
+   gleiche Hub-ID, Python 3.14, ehrliches Testing, Rückbau-Liste), Push, `gh pr create`, P2 (#11, Label, `#42` Punkt
+   12), Archiv-Push.
+4. Aufräumen erst nach dem PR: `issue11-work\probe-wt` (Referenz des Spec-Checks); `session-1005-9-work`.
+5. Feldtest Eifel-Joe#8 nach dem ersten Beet-Lauf (~10.10.).
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:finishing-a-development-branch`, `pr-workflow`, `superpowers:verification-before-completion`;
+  Memories `hasi-production-on-upstream`, `hasi-pr-build-recipe`, `upstream-sweep-first`, `no-own-issue-refs-upstream`,
+  `verify-ha-system`, `ha-no-auto-restart`.
+
 ## 2026-10-06 — Eifel-Joe#11: Spec + Plan freigegeben und probegelaufen, `async_get_device` kommt mit in den PR
 
 ### Stand

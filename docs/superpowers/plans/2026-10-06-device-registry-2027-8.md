@@ -1628,7 +1628,7 @@ EOF
 
 ### Task 6: Gesamtprüfung
 
-- [ ] **Schritt 1: Volle Suite** — `bash /d/Entwicklung/HASI/issue11-work/run_suite.sh wt final`.
+- [x] **Schritt 1: Volle Suite** — `bash /d/Entwicklung/HASI/issue11-work/run_suite.sh wt final`.
   Expected: `7 failed, 3805 passed, 9 skipped, 418 errors` gegen die Baseline `7 / 3783 / 9 / 415`: +22 passed =
   die zweiundzwanzig neuen Tests (1b–5b: berechnet aus dem Probelauf `3795` + 4 + 1 + 1 + 2 + 2; nach Task 5 in
   `wt` gemessen: `3803`), +3 errors = die teardown-ERRORs der drei Setup-Tests.
@@ -1637,14 +1637,14 @@ EOF
   `ERROR tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_on_the_installed_registry_a_zone_device_hangs_off_the_hub`,
   `ERROR tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_the_link_is_recorded_afresh_before_the_platforms_load`.
   Jeder andere neue oder fehlende Name ist ein echter Befund: STOP.
-- [ ] **Schritt 2: Lint** — `uvx black --check custom_components/irrigation_plus/` und `uvx ruff check
+- [x] **Schritt 2: Lint** — `uvx black --check custom_components/irrigation_plus/` und `uvx ruff check
   custom_components/irrigation_plus/` sauber; `uvx black --check tests/test_device_registry_compat.py` sauber.
-- [ ] **Schritt 3: Mutationen** — `/d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe
+- [x] **Schritt 3: Mutationen** — `/d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe
   D:/Entwicklung/HASI/issue11-work/mutate.py D:/Entwicklung/HASI/issue11-work/wt
   D:/Entwicklung/HASI/issue11-work/mutate-final.txt`. Expected: alle 36 `KILLED` (1b: M17–M23, 2b: M24–M26, 3b:
   M27/M28, 4b: M29–M32, 5b: M33–M36 neu, im Probelauf `mutate-probe-5b.txt` gemessen), keine `SURVIVED`, `HANG`
   oder `ANCHOR`.
-- [ ] **Schritt 4: Keine eigenen Verweise** (Diff und Commit-Messages):
+- [x] **Schritt 4: Keine eigenen Verweise** (Diff und Commit-Messages):
 
 ```bash
 git diff 7001c754..HEAD -- custom_components/ tests/ docs/ | grep "^+" | grep -nE "Eifel-Joe|JustChr#|spec D[0-9]|spec §|Task [0-9]|M[0-9][a-z]?:|PR [A-T]\b"
@@ -1652,11 +1652,17 @@ git log 7001c754..HEAD --format='%H%n%B' | grep -nE "Eifel-Joe#|JustChr#"
 ```
 Expected: beide ohne Ausgabe.
 
-- [ ] **Schritt 5: Schwester-Pfade** — `git grep -n -E "via_device|async_get_device\(" -- custom_components/irrigation_plus/`:
+- [x] **Schritt 5: Schwester-Pfade** — `git grep -n -E "via_device|async_get_device\(" -- custom_components/irrigation_plus/`:
   Treffer nur noch in `entity.py` (Rückfall in `hub_link_for`, `hub_link`, `find_device` und deren Docstrings).
-- [ ] **Schritt 6: Kein Frontend** — `git diff --stat 7001c754..HEAD -- custom_components/irrigation_plus/frontend` leer.
+- [x] **Schritt 6: Kein Frontend** — `git diff --stat 7001c754..HEAD -- custom_components/irrigation_plus/frontend` leer.
 
 ---
+
+**Ergebnis (2026-10-06, Branch-Kopf `08e5c576`):** Suite `7 failed, 3805 passed, 9 skipped, 418 errors`, Namen
+422 → 425 mit genau den drei teardown-Namen, nichts weg; black/ruff sauber (auch die Testdatei); **36/36 KILLED**
+auf dem Branch (`mutate-final.txt`); Verweis-Greps (Diff, Messages, Baum) leer; `via_device`/`async_get_device(`
+nur noch in `entity.py`; kein Frontend-Diff; 0 CR-Bytes in Blobs und Messages. Der Branch ist byte-gleich mit dem
+geprobten Endstand `a9a8e834`. Gesamt-Review (Opus): kein Defekt am Code; Befunde unten in Task 7 und in der Spec.
 
 ### Task 7: Pre-Release und Live-Test auf HA-Test (Ende-zu-Ende-Kriterium der Spec)
 
@@ -1684,6 +1690,23 @@ offenen eigenen PRs; Versionen synchron; ZIP aus dem SHA).
   Eltern-Verweis wie in Schritt 1; eine neue Wegwerf-Zone und ein neuer Wegwerf-Verteiler hängen am Hub (Template),
   nach dem Löschen ist ihr Gerät weg, ohne Warnung. Die Diagnostics zeigen unter `data.hub_link` die Form
   `via_device_id`.
+- [ ] **Prüfpunkte aus dem Gesamt-Review (I1, M6) — gelten für Schritt 1 und 4:** Das Template oben listet über
+  `integration_entities` nur Entities, die HA tatsächlich hinzugefügt hat (bei diesem Eintragstitel fällt es auf
+  `entity_sources` zurück). Ein wegen `DeviceInfoError` verworfenes Entity und ein nach fehlgeschlagener Suche
+  liegengebliebenes Gerät wären dort unsichtbar. Deshalb zusätzlich:
+  - **Geräte direkt aus der Registry** (MCP `ha_get_device`/`ha_search` nach der Integration, nicht über Entities):
+    Menge und Anzahl der Geräte-IDs vorher und nachher, je mit `via_device_id`.
+  - **Löschen über die Geräte-ID belegen:** vor dem Löschen `device_id('<entity der Wegwerf-Zone>')` notieren,
+    danach muss das Gerät in der Registry fehlen (`device_attr('<id>', 'name')` ist `None` bzw. `ha_get_device`
+    findet es nicht); dasselbe für den Wegwerf-Verteiler.
+  - **Anlegen belegen:** `device_attr(<neues Gerät>, 'via_device_id')` == Hub-ID, geprüft vor dem Löschen.
+  - **Derselbe Hub (M6):** `data.hub_link.via_device_id` (Diagnostics) == `device_id(<eine Hub-Entity>)` (binary_sensor,
+    button oder datetime der Integration) == `via_device_id` aller Zonen- und Verteiler-Geräte, vorher wie nachher.
+  - **Logs:** außer den zwei Abkündigungen auch „Not adding entity with invalid device info“ und „Error adding
+    entity“ zu `irrigation_plus`; Zahl der Entities der Integration im Zustand `unavailable` vorher/nachher.
+  - `report_usage` meldet je Aufrufstelle nur einmal pro Prozess: Fehlende Warnungen zählen nur für Pfade, die nach
+    dem Neustart wirklich gelaufen sind (Entity-Setup beim Start, Anlegen und Löschen danach).
+  - Nicht live abgedeckt: HA 2026.8.x (nur Quellen) und der `NameError`-Zweig (nur Stand-in).
 - [ ] **Schritt 5 (aus dem Review von Task 3): Reload.** Die Integration neu laden (Optionen speichern oder
   „Neu laden“), danach noch eine Wegwerf-Zone anlegen und löschen: am Hub, ohne Warnung, `data.hub_link` unverändert
   die Id-Form. Der Reload ist der einzige Weg, auf dem ein alter Verweis in `hass.data` stehen bleibt.

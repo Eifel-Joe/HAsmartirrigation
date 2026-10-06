@@ -99,6 +99,11 @@ Ja, und die bestehenden Lösch-Tests bauen die Registry als `Mock()` (`test_dist
 - **HA unter 2026.8** (Untergrenze 2025.5, JustChrs CI 2025.5.0 und 2026.2.3): dieselben Aufrufe wie heute.
 - **HA ab 2026.8** (HA-Prod 2026.9.4, HA-Test 2026.9.3): die neuen Aufrufe; beide Warnungen verschwinden. Bestehende
   Zonen- und Verteiler-Geräte behalten denselben Hub als Elternteil — gleiche ID, HA schreibt nichts um.
+  Vorbedingung (Gesamt-Review): Das Setup übergibt `coordinator.id` (= `entry.unique_id`, der Instanzname), der alte
+  Code und der Rückfall nutzen `coordinator_id(hass)`, das eine leere ID auf `irrigation_plus` abbildet. Bei leerem
+  Instanznamen hingen die Zonen bisher am Gerät `(DOMAIN, "irrigation_plus")` und hängen künftig am Hub aus dem
+  Setup — eine vorbestehende Zweiteilung upstream, die dieser Fix nicht verschlimmert; der Live-Test prüft die
+  Gleichheit der Hub-ID ausdrücklich.
 
 ### Rückbau
 
@@ -107,7 +112,10 @@ immer den neuen Aufruf; die Weichen fallen ersatzlos weg. Der Kommentar an beide
 aus der Umsetzung): die zwei toleranten Lesestellen der Entry-ID (Zone `__init__.py`, Verteiler `distributor.py`)
 werden strikt `self.entry.entry_id`, und die drei bestehenden Lösch-Tests mit `Mock()`-Registry, die
 `async_get_device` namentlich binden (`tests/test_distributor_entities.py`, `tests/test_distributor_integration.py`),
-ziehen mit um; die Kompatibilitäts-Tests der alten Bauart fallen weg.
+ziehen mit um; die Kompatibilitäts-Tests der alten Bauart fallen weg. Ebenso (Gesamt-Review): der Rückfall in
+`hub_link` ohne Eintrag (dann ohne Eltern-Verweis) samt seiner zwei bestehenden Pins (`tests/test_sensor.py`
+`test_device_info`, `tests/test_distributor_entities.py` `test_distributor_device_info_identifiers_and_via_device`),
+`import inspect`, das Double `_RegistryOf2026_8_0` und der Test zur unlesbaren Signatur.
 
 ### Betroffene Stellen
 

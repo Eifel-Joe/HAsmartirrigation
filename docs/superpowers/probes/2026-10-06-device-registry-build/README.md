@@ -17,6 +17,8 @@ volle Suite mit Namensvergleich, Quality-Review (Sonnet), bei Befunden Nachtrag 
 | `mutate-probe-1b.txt` … `-5b.txt` | Mutationsläufe auf dem jeweiligen Probe-Endstand (zuletzt 36/36 KILLED) |
 | `suite-summaries.txt` | volle Suite nach jedem Task: Baseline `7 / 3783 / 9 / 415`, Endstand `7 / 3805 / 9 / 418` (+22 Tests, +3 teardown-ERRORs „Lingering timer“ der Setup-Tests; Namen sonst identisch) |
 | `prompts/` | Auftrags-Kontext für die Implementer (`common.md`) und die Reviewer (`review-common.md`) |
+| `mutate-final.txt` | Task 6: die 36 Mutationen auf dem Branch selbst (`08e5c576`), 36/36 KILLED |
 
-Zwischenstand beim Anlegen (lokal, ungepusht): Branch-Kopf `08e5c576` (zehn Commits). Endprüfung (Task 6), finale
-Mutationen auf dem Branch und Gesamt-Review folgen; Ergebnisse im Sitzungsstand.
+Endstand (lokal, ungepusht): Branch-Kopf `08e5c576` (zehn Commits), Task 6 grün (Suite `7 / 3805 / 9 / 418`, Namen
+nur um die drei teardown-ERRORs erweitert, black/ruff sauber, 36/36, Greps leer). Gesamt-Review (Opus): kein Defekt;
+Befunde und offene Entscheidungen im Sitzungsstand 2026-10-06 (2).
