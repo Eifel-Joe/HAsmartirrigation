@@ -23,6 +23,32 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-06 (4) — Eifel-Joe#11: PR `JustChr#192` offen; P2 nachgezogen, Nebenbefund Eifel-Joe#86, Archiv gepusht
+
+### Stand
+
+- **Upstream-Runden 12:46, 12:51, 13:10, 13:15 UTC:** leer (außer dem eigenen #192); master `7001c754`.
+- **PR [JustChr#192](https://github.com/JustChr/HAsmartirrigation/pull/192)** (2026-10-06): Branch
+  `fix/device-registry-2027-8` (gepusht, Tracking origin), Kopf `3176400b`, fünf Commits; Titel/Text wie freigegeben
+  (DE → EN), zurückgelesen gleich (0 CR). An die Sitzung gebunden (App überwacht die CI; Auto-Fix aus).
+- **P2:** Kommentar auf Eifel-Joe#11 `6017083620` (zurückgelesen gleich), Label `upstream:gemeldet`; `#42` Punkt 12 und
+  neuer Punkt 39q (EN + DE), zurückgelesen byte-gleich (Vorher-Stand `issue11-work\texts\i42-before.md`).
+- **Neues Issue [Eifel-Joe#86](https://github.com/Eifel-Joe/HAsmartirrigation/issues/86):** nach einem Reload bleiben
+  die Entities bestehender Verteiler bis zum Neustart unavailable (`async_unload` leert `distributor_sensors`,
+  `distributor_binary_sensors`, `distributor_buttons` nicht) · `typ:fehler`, `schwere:niedrig`, `groesse:S`.
+- Alle Texte (PR, Kommentar, Issue, Release) vom User freigegeben; keine eigenen Verweise in Texten an JustChr.
+
+### Nächste Schritte
+
+1. Upstream-Runde (Zeilen: JustChr#191 und JustChr#192 — Einwand → Kommentar im Fork-Issue + Fix nach TDD als neuer
+   Commit, kein Rebase; Merge → Issue zu, `#42`, production-Rebuild).
+2. Feldtest Eifel-Joe#8 nach dem ersten Beet-Lauf (~10.10.), dann Spec + Plan für PR 2.
+3. Aufräumen (nur nach Ansehen): `issue11-work\probe-wt` (detached, Referenz des Spec-Checks — nach dem Merge),
+   `prodrebuild-1006-work\base-wt` (detached), `issue10-work` nach dem Merge von #191, `session-1005-9-work`.
+   Lokale Branches zum Löschen durch den User (Auto-Modus sperrt `git branch -D`): `backup/device-registry-unfolded`,
+   `backup/production-pre-v2026.10.06b1`, `rebuild/v2026.10.06b1`, dazu die vier vom 05.10.
+4. Eifel-Joe#86 einplanen (klein; Spiegel des Zonen-Fixes in `async_unload`).
+
 ## 2026-10-06 (3) — Eifel-Joe#11: auf fünf Commits gefaltet, Pre-Release v2026.10.06b1, Live-Test HA-Test bestanden; Task 8 wartet auf Text-Freigabe
 
 ### Stand
