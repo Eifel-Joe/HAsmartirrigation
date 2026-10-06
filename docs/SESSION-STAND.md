@@ -23,6 +23,48 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-06 (5) — JustChr#191 und JustChr#192 gemergt; Eifel-Joe#10/#11 zu, Eifel-Joe#87 neu, Upstream-Issue JustChr#193 (Klimadaten); aufgeräumt
+
+### Stand
+
+- **Gemergt:** [JustChr#191](https://github.com/JustChr/HAsmartirrigation/pull/191) als `7f556344` (17:29 UTC) und
+  [JustChr#192](https://github.com/JustChr/HAsmartirrigation/pull/192) als `33d0fec9` (19:04 UTC); beide inhaltlich gleich
+  unseren Branches (geänderte Zeilen verglichen: 486 bzw. 523, identisch). Upstream-Pre-Release **v2026.10.05**
+  (`6a40e083`, 19:07 UTC) enthält JustChr#190/#191/#192. JustChrs Merge-Kommentare: #191 Screenshot „yes please“,
+  echte Klimadaten erst als Issue; #192 Untergrenze 2025.5 bleibt, Bericht von echtem HA 2026.8.0 willkommen.
+  Upstream-Runden 19:35, 19:57, 20:01 UTC: sonst nur das Löschen unserer PR-Branches (`head_ref_deleted`).
+- **P2** (alle Texte vom User freigegeben, zurückgelesen byte-gleich, 0 CR):
+  Eifel-Joe#10 Kommentar `6024351688` + geschlossen; Eifel-Joe#11 Kommentar `6024352978` + geschlossen (Labels bleiben);
+  neues [Eifel-Joe#87](https://github.com/Eifel-Joe/HAsmartirrigation/issues/87) (Screenshot in
+  `docs/configuration-weather-location.md` ersetzen; `typ:politur`, `schwere:niedrig`, `groesse:S`,
+  `upstream:freigegeben`); `#42` zweimal editiert: Punkte 11/12 durchgestrichen, neuer Punkt 43c, unter „Watched, not
+  scheduled“ / „Beobachtet, nicht eingeplant“ die Zeile JustChr#193. P2-Scan danach: offen nur #8 (gewollt) und #87.
+- **Upstream-Issue [JustChr#193](https://github.com/JustChr/HAsmartirrigation/issues/193)** (unseres): echte Klimadaten für
+  den Saison-Ausblick, drei Quellen zur Wahl (Open-Meteo-Archiv / Langzeitstatistik der Sensorgruppen-Sensoren /
+  gestaffelt), Präferenz als Vermerk: 1 als Einstellung. Text DE → EN freigegeben; in der EN-Fassung „Zuordnung“ →
+  „sensor group“ (UI-Begriff). **User-Entscheidung: dafür KEIN Fork-Issue** — JustChr wollte das Issue bei sich; `#42`
+  führt es unter „Beobachtet“ (wie damals JustChr#160).
+- **production nicht neu gebaut (User: „noch nicht“):** `fa31c31a` (v2026.10.06b1) enthält beide PRs vollständig — alle
+  Dateien gleich, die zwei Bundles unterscheiden sich nur im Versionsstring. HA-Prod `v2026.10.05b1` (ohne #191/#192,
+  Feldtest #8), HA-Test `v2026.10.06b1` (beide per `update.*`-Attribut geprüft).
+- **Aufgeräumt** (vorher je belegt, auf Zuruf des Users): Worktrees `issue10-work\wt`, `issue11-work\wt`,
+  `issue11-work\probe-wt` (`84f9c5c9`, Probe-Endstand) entfernt; lokale Branches `fix/seasonal-outlook` (`34633730`),
+  `fix/device-registry-2027-8` (`3176400b`), `backup/device-registry-unfolded` (`16b443e4`, die zehn ungefalteten
+  Commits) gelöscht — die in Einträgen (2)–(4) genannten SHAs davon sind damit lokal nicht mehr auflösbar; auf origin
+  beide PR-Branches gelöscht. `issue10-work` und `session-1005-9-work` nach `_erledigt\` verschoben (Live-Protokolle
+  vorher byte-gleich im Archiv bestätigt). Texte und Skripte dieser Runde: `merge-followup-work\texts\`.
+
+### Nächste Schritte
+
+1. Upstream-Runde: JustChrs Antwort auf JustChr#193 (Form der Klimadaten) — vor dem Bauen Spec + Plan (P1).
+2. Eifel-Joe#87: Screenshot auf HA-Test (Browser-Anmeldung durch den User), Doku-PR an JustChr; dabei Blick auf eine
+   Static-/Passthrough-Zone, um den die Release-Notes v2026.10.05 bitten.
+3. Feldtest Eifel-Joe#8 nach dem ersten Beet-Lauf (~10.10.), dann Spec + Plan für PR 2.
+4. production-Neubau auf upstream v2026.10.05 und HA-Prod-Update: nur auf Zuruf.
+5. Aufräum-Kandidaten (nur nach Ansehen): `issue11-work` (Rest ohne Worktrees), `issue9-work`, `prodrebuild-1003-work`,
+   `prodrebuild-1004b2-work`, `prodrebuild-1005-work`, `prodrebuild-1006-work`, `issue11-work-review-init.tmp`.
+6. Eifel-Joe#86 einplanen (klein).
+
 ## 2026-10-06 (4) — Eifel-Joe#11: PR `JustChr#192` offen; P2 nachgezogen, Nebenbefund Eifel-Joe#86, Archiv gepusht
 
 ### Stand
@@ -45,8 +87,12 @@
 2. Feldtest Eifel-Joe#8 nach dem ersten Beet-Lauf (~10.10.), dann Spec + Plan für PR 2.
 3. Aufräumen (nur nach Ansehen): `issue11-work\probe-wt` (detached, Referenz des Spec-Checks — nach dem Merge),
    `prodrebuild-1006-work\base-wt` (detached), `issue10-work` nach dem Merge von #191, `session-1005-9-work`.
-   Lokale Branches zum Löschen durch den User (Auto-Modus sperrt `git branch -D`): `backup/device-registry-unfolded`,
-   `backup/production-pre-v2026.10.06b1`, `rebuild/v2026.10.06b1`, dazu die vier vom 05.10.
+   **Gelöscht 2026-10-06 auf Zuruf des Users** (vorher je belegt): `rebuild/v2026.10.06b1` `fa31c31a` (= origin/production),
+   `backup/production-pre-v2026.10.06b1` `31cd812b` (Baum = Tag v2026.10.05b2), `backup/pre-msgfix` `5105294e` (Baum =
+   `1277bac6` im lokalen Branch `fix/chain-carries-zone-snapshots`; auf origin ist dieser Branch gelöscht),
+   `rebuild/v2026.10.04b2` `e031b6a6` (Inhalt ⊂ veröffentlichtes b2 `d8c74317`), `production-backup-v2026.09.17`
+   `bf2b38b7` / `-v2026.09.18b1` `d8eeb21b` (= Remote-Tags). Bleibt bis zum Merge von #192:
+   `backup/device-registry-unfolded` (`16b443e4`, die zehn ungefalteten Commits).
 4. Eifel-Joe#86 einplanen (klein; Spiegel des Zonen-Fixes in `async_unload`).
 
 ## 2026-10-06 (3) — Eifel-Joe#11: auf fünf Commits gefaltet, Pre-Release v2026.10.06b1, Live-Test HA-Test bestanden; Task 8 wartet auf Text-Freigabe
