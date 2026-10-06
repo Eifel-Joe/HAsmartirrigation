@@ -1664,13 +1664,134 @@ auf dem Branch (`mutate-final.txt`); Verweis-Greps (Diff, Messages, Baum) leer; 
 nur noch in `entity.py`; kein Frontend-Diff; 0 CR-Bytes in Blobs und Messages. Der Branch ist byte-gleich mit dem
 geprobten Endstand `a9a8e834`. Gesamt-Review (Opus): kein Defekt am Code; Befunde unten in Task 7 und in der Spec.
 
+### Task 6b: Textschliff aus dem Gesamt-Review (User-Entscheidung 2026-10-06)
+
+**Herkunft:** Gesamt-Review des Branches (Opus, 2026-10-06), Punkte M2/M5/M7. Der User hat „Textschliff“ gewählt (nicht:
+redundante Tests streichen, Rückfall über die zweite Weiche, Double umbenennen) und das Falten auf fünf Commits; dieser
+Commit geht beim Falten in den ersten auf. Nur Docstrings und Kommentare.
+
+- `hub_link`: der Rückbau-Satz (ab Untergrenze 2026.8 fällt auch der Rückfall weg).
+- `hub_link_for`: „no longer postpones annotations“ ist PEP-563-Sprache (unter 3.14 bleiben Annotationen verzögert, PEP
+  649) — gemeint ist der fehlende `from __future__ import annotations`; der `TypeError` trifft Zonen- und
+  Verteiler-Entities.
+- Modul-Docstrings von `entity.py` und der Testdatei: was die Helfer tun; was 2026.8 genau brachte (Device-Info-Schlüssel
+  bzw. Registry-Methode).
+
+**Files:** Modify `custom_components/irrigation_plus/entity.py`; Test `tests/test_device_registry_compat.py`.
+
+- [ ] **Schritt 1: Testdatei (nur Docstring)**
+
+**Ersetze in `tests/test_device_registry_compat.py`:**
+```python
+Home Assistant 2026.8 added ``via_device_id`` and
+``async_get_device_by_identifier``; ``via_device`` and ``async_get_device`` are
+deprecated and go in 2027.8. Before 2026.8 neither replacement exists, and the
+declared floor is 2025.5. The integration asks the registry which shape it has,
+so each shape is pinned here with stand-ins, whichever Home Assistant the suite
+runs against.
+"""
+```
+**durch:**
+```python
+Home Assistant 2026.8 added ``via_device_id`` to the device info and
+``async_get_device_by_identifier`` to the registry; ``via_device`` and
+``async_get_device`` are deprecated and go in 2027.8. Before 2026.8 neither
+replacement exists, and the declared floor is 2025.5. The integration asks the
+registry which shape it has, so each shape is pinned here with stand-ins,
+whichever Home Assistant the suite runs against.
+"""
+```
+
+- [ ] **Schritt 2: `entity.py` (nur Docstrings und Kommentar)**
+
+**Ersetze in `custom_components/irrigation_plus/entity.py`:**
+```python
+single hub device (see ``hub_link``). Returns plain dicts (HA accepts these for
+``device_info``) to avoid importing DeviceInfo from the test-mocked
+device_registry module.
+"""
+```
+**durch:**
+```python
+single hub device (see ``hub_link``). The device-info helpers return plain dicts
+(HA accepts these for ``device_info``) to avoid importing DeviceInfo from the
+test-mocked device_registry module; ``hub_link_for`` and ``find_device`` ask the
+registry itself what it offers.
+"""
+```
+
+**Ersetze in `custom_components/irrigation_plus/entity.py`:**
+```python
+    takes no ``via_device_id``: its keyword-only signature is fixed, and the
+    ``TypeError`` would stop every zone entity from being added. So ask the
+    registry which one it takes rather than branching on a version string; the
+    question goes to the registry's class, as in ``find_device``. Once the
+    declared floor is 2026.8 or later, return the id form outright.
+    """
+```
+**durch:**
+```python
+    takes no ``via_device_id``: its keyword-only signature is fixed, and the
+    ``TypeError`` would stop every zone and distributor entity from being
+    added. So ask the registry which one it takes rather than branching on a
+    version string; the question goes to the registry's class, as in
+    ``find_device``. Once the declared floor is 2026.8 or later, return the id
+    form outright.
+    """
+```
+
+**Ersetze in `custom_components/irrigation_plus/entity.py`:**
+```python
+        # Home Assistant has needed Python 3.14 since 2026.3, and since 2026.6
+        # its registry module no longer postpones annotations, so reading the
+        # signature evaluates them: a name imported only for type checking
+        # would raise NameError here and stop the setup.
+```
+**durch:**
+```python
+        # Home Assistant has needed Python 3.14 since 2026.3, and since 2026.6
+        # its registry module has no "from __future__ import annotations", so
+        # reading the signature evaluates the annotations: a name imported only
+        # for type checking would raise NameError here and stop the setup.
+```
+
+**Ersetze in `custom_components/irrigation_plus/entity.py`:**
+```python
+    set-up entry, the identifier form stands; Home Assistant takes it until
+    2027.8 (from 2026.9 on with a deprecation warning).
+    """
+```
+**durch:**
+```python
+    set-up entry, the identifier form stands; Home Assistant takes it until
+    2027.8 (from 2026.9 on with a deprecation warning). Once the declared floor
+    is 2026.8 or later, that fallback goes as well: no record, no parent link.
+    """
+```
+
+- [ ] **Schritt 3: Prüfen** — `/d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_device_registry_compat.py -p _local_socket_unblock -q`
+  → `22 passed, 3 errors` (unverändert); Lint wie Task 1, Schritt 5; `git status --short` nur die zwei Dateien.
+
+- [ ] **Schritt 4: Commit** (geht beim Falten in den ersten Commit auf)
+
+```bash
+git add custom_components/irrigation_plus/entity.py tests/test_device_registry_compat.py
+git commit -F - <<'EOF'
+docs(devices): say exactly what each Home Assistant version changed
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+EOF
+```
+
+---
+
 ### Task 7: Pre-Release und Live-Test auf HA-Test (Ende-zu-Ende-Kriterium der Spec)
 
 Braucht die Freigabe des Users für Push, Release und den Neustart von HA-Test (vorher ankündigen). Ablauf des Rebuilds
 nach Memory `hasi-production-on-upstream` und Projekt-`CLAUDE.md` (production = `upstream/master` + Branding + alle
 offenen eigenen PRs; Versionen synchron; ZIP aus dem SHA).
 
-- [ ] **Schritt 1: RED auf dem installierten Pre-Release (v2026.10.05b2)**, Ergebnis in
+- [x] **Schritt 1: RED auf dem installierten Pre-Release (v2026.10.05b2)**, Ergebnis in
   `D:\Entwicklung\HASI\issue11-work\livetest\L-device-registry.md`:
   - System-Log: `ha_get_logs(source="system", search="via_device")` zeigt die Warnung von `irrigation_plus`.
   - Eltern-Verweise aller Geräte der Integration per `ha_eval_template`:
@@ -1682,15 +1803,15 @@ offenen eigenen PRs; Versionen synchron; ZIP aus dem SHA).
   - Eine Wegwerf-Zone anlegen und wieder löschen (Panel → Zonen, oder POST `/api/irrigation_plus/zones` über
     `ha_manage_custom_tool`, Löschen mit `remove: true`): das System-Log zeigt die `async_get_device`-Warnung von
     `irrigation_plus`.
-- [ ] **Schritt 2: production-Rebuild** mit `fix/seasonal-outlook` (offener PR zum saisonalen Ausblick) und diesem
+- [x] **Schritt 2: production-Rebuild** mit `fix/seasonal-outlook` (offener PR zum saisonalen Ausblick) und diesem
   Branch obendrauf, Pre-Release mit der Kalender-Version des Bautags, ZIP aus dem SHA, Download geprüft.
-- [ ] **Schritt 3: HA-Test** per HACS aktualisieren (`update_information`, dann `download` mit `version`), Neustart
+- [x] **Schritt 3: HA-Test** per HACS aktualisieren (`update_information`, dann `download` mit `version`), Neustart
   ankündigen und ausführen.
-- [ ] **Schritt 4: GREEN:** keine der beiden Warnungen von `irrigation_plus` im System-Log; jedes Gerät hat denselben
+- [x] **Schritt 4: GREEN:** keine der beiden Warnungen von `irrigation_plus` im System-Log; jedes Gerät hat denselben
   Eltern-Verweis wie in Schritt 1; eine neue Wegwerf-Zone und ein neuer Wegwerf-Verteiler hängen am Hub (Template),
   nach dem Löschen ist ihr Gerät weg, ohne Warnung. Die Diagnostics zeigen unter `data.hub_link` die Form
   `via_device_id`.
-- [ ] **Prüfpunkte aus dem Gesamt-Review (I1, M6) — gelten für Schritt 1 und 4:** Das Template oben listet über
+- [x] **Prüfpunkte aus dem Gesamt-Review (I1, M6) — gelten für Schritt 1 und 4:** Das Template oben listet über
   `integration_entities` nur Entities, die HA tatsächlich hinzugefügt hat (bei diesem Eintragstitel fällt es auf
   `entity_sources` zurück). Ein wegen `DeviceInfoError` verworfenes Entity und ein nach fehlgeschlagener Suche
   liegengebliebenes Gerät wären dort unsichtbar. Deshalb zusätzlich:
@@ -1707,11 +1828,17 @@ offenen eigenen PRs; Versionen synchron; ZIP aus dem SHA).
   - `report_usage` meldet je Aufrufstelle nur einmal pro Prozess: Fehlende Warnungen zählen nur für Pfade, die nach
     dem Neustart wirklich gelaufen sind (Entity-Setup beim Start, Anlegen und Löschen danach).
   - Nicht live abgedeckt: HA 2026.8.x (nur Quellen) und der `NameError`-Zweig (nur Stand-in).
-- [ ] **Schritt 5 (aus dem Review von Task 3): Reload.** Die Integration neu laden (Optionen speichern oder
+- [x] **Schritt 5 (aus dem Review von Task 3): Reload.** Die Integration neu laden (Optionen speichern oder
   „Neu laden“), danach noch eine Wegwerf-Zone anlegen und löschen: am Hub, ohne Warnung, `data.hub_link` unverändert
   die Id-Form. Der Reload ist der einzige Weg, auf dem ein alter Verweis in `hass.data` stehen bleibt.
 
 ---
+
+**Ergebnis (2026-10-06):** Pre-Release v2026.10.06b1 (production `fa31c31a`), HA-Test 2026.9.4. RED und GREEN wie
+geplant, alle Prüfpunkte aus dem Gesamt-Review erfüllt (Registry direkt, Geräte-IDs beim Löschen, Hub-ID == Diagnostics,
+keine verworfenen Entities, Logs), Reload ohne Folgen für den Fix. Befund am Rande (vorbestehend upstream): Nach einem
+Reload bleiben die Entities bestehender Verteiler `unavailable`, weil `async_unload` die `distributor_*`-Tracker nicht
+leert. Protokoll: `D:\Entwicklung\HASI\issue11-work\livetest\L-device-registry.md`.
 
 ### Task 8: PR und Nachlauf
 

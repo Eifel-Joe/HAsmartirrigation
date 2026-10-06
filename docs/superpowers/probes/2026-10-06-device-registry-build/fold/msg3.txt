@@ -1,0 +1,10 @@
+fix(devices): setup records how zone and distributor devices name the hub
+
+The hub's registration already returns its device entry; setup now keeps its id
+and records hub_link_for's answer in hass.data before the platforms are set up,
+afresh on every setup, since hass.data outlives a reload. On Home Assistant
+2026.8 and later the zone and distributor devices therefore name the hub by
+registry id, and the via_device deprecation goes away; below 2026.8 the
+identifier form stays as before.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

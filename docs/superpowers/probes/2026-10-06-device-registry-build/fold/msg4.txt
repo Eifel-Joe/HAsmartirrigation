@@ -1,0 +1,10 @@
+fix(zones): find a deleted zone's device per config entry
+
+async_remove_entity looked the zone's device up with async_get_device, which
+Home Assistant 2026.9 deprecated and removes in 2027.8. It now goes through
+find_device with the coordinator's config entry, so 2026.8 and later use
+async_get_device_by_identifier and earlier versions keep the old lookup. The
+entry id is read tolerantly: the old lookup does not need it, a coordinator
+built without __init__ has none, and a running integration always has one.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

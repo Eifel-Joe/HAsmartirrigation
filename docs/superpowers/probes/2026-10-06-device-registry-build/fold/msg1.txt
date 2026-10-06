@@ -1,0 +1,17 @@
+fix(devices): name the hub by registry id where Home Assistant takes it
+
+Home Assistant 2026.8 added via_device_id to the device info and deprecated
+via_device, which goes in 2027.8; before 2026.8 async_get_or_create takes no
+via_device_id, and the declared floor is 2025.5. hub_link_for asks the
+registry's class whether async_get_or_create takes via_device_id, and answers
+with the hub's registry id or, as before, with its identifier. A signature
+that cannot be read leaves the identifier form: since 2026.6 Home Assistant's
+registry module has no "from __future__ import annotations", so on Python 3.14
+reading it evaluates the annotations, and a name imported only for type
+checking would raise NameError and stop the setup.
+
+The zone and distributor device infos carry the link that setup records
+(hub_link); without a record the identifier form stays, so nothing changes
+until setup records one.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

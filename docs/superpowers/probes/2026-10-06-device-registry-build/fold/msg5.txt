@@ -1,0 +1,9 @@
+fix(distributor): find a deleted distributor's device per config entry
+
+Deleting a distributor looked its device up with async_get_device, which Home
+Assistant 2026.9 deprecated and removes in 2027.8. It now goes through
+find_device with the coordinator's config entry, read tolerantly as on the zone
+side, and both delete paths say why that is safe. The comment above the branch
+named a function that does not exist; it now points at async_remove_entity.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

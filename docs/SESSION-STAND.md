@@ -23,6 +23,45 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-06 (3) — Eifel-Joe#11: auf fünf Commits gefaltet, Pre-Release v2026.10.06b1, Live-Test HA-Test bestanden; Task 8 wartet auf Text-Freigabe
+
+### Stand
+
+- **User-Entscheidungen 2026-10-06 (zum Gesamt-Review):** auf fünf Commits falten; nur Textschliff (Task 6b); Task 7
+  freigegeben, danach Commit-Messages und Release-Text freigegeben („Beides freigegeben, leg los“).
+- **Branch `fix/device-registry-2027-8`** (lokal, ungepusht): fünf Commits `e6407c35` `55982415` `355eb915` `dd5cf8e0`
+  `3176400b` (per `issue11-work\fold\fold.py`: Baum je Gruppe = letzter Original-Commit + 6b-Blöcke; Endbaum `0ec81792` ==
+  Probe-Endstand `84f9c5c9`). Jeder Commit einzeln grün (9/13/16/19/22 Tests, black/ruff), Suite auf `3176400b`
+  `7/3805/9/418` (+3 teardown-Namen, nichts weg). Alte Historie lokal `backup/device-registry-unfolded` (`16b443e4`).
+- **production** `fa31c31a` gepusht (Lease auf `31cd812b`, lokal `backup/production-pre-v2026.10.06b1`): `7001c754` +
+  Branding + upstream PR 191 + die fünf Commits + Build; 0 behind / 16 ahead; Suite gegen production `7/3806/9/427` →
+  `7/3828/9/430` (+22, +3 teardown); Bundles nur Versionsstring; Fork-CI grün.
+- **Pre-Release [v2026.10.06b1](https://github.com/Eifel-Joe/HAsmartirrigation/releases/tag/v2026.10.06b1)**: Text wie
+  freigegeben (zurückgelesen gleich), ZIP aus dem SHA (205 Einträge), Download sha256-gleich, HTTP 200.
+- **Live-Test HA-Test (Core 2026.9.4) bestanden**, Protokoll `issue11-work\livetest\L-device-registry.md`: RED auf b2
+  (beide Warnungen, Wegwerf-Zone/-Verteiler) → GREEN auf b1 (keine Warnung, gleiche Eltern-IDs, Diagnostics
+  `hub_link` = Hub-ID, kein Entity verworfen, Wegwerf-Objekte am Hub und beim Löschen samt Gerät weg), Reload ok.
+  HA-Test zweimal neu gestartet (angekündigt), Endzustand = Ausgangszustand. HA-Prod unberührt (b1, Feldtest #8).
+- **Befund am Rande (vorbestehend upstream):** Nach einem Reload bleiben die Entities bestehender Verteiler
+  `unavailable`, bis HA neu startet — `async_unload` leert nur die Zonen-Tracker (Kommentar issue #36), nicht
+  `distributor_sensors`/`distributor_buttons`/Binärsensoren. Kein Issue upstream/Fork gefunden. Vorschlag: Fork-Issue.
+
+### Fallen
+
+- Sandbox `ha_manage_custom_tool`: kein `asyncio.sleep`; der Zonen-View hat kein GET (→ Websocket `irrigation_plus/zones`);
+  ein Skript, das nach dem POST scheitert, hat trotzdem angelegt — danach erst lesen, nicht wiederholen.
+- `ha_get_integration` liefert in den Optionen den Wetter-API-Schlüssel mit → nie in Protokolle/Texte übernehmen.
+- Nach `ha_restart` antwortet `/api/` evtl. noch vom alten Prozess (401 nach 8 s) → Neustart an `sw_version` des
+  Hub-Geräts und frischem System-Log belegen.
+- `diagnostics_fields` + `diagnostics_data_path` zusammen schließen sich aus (Pfad findet `data` nicht mehr).
+
+### Nächste Schritte
+
+1. Task 8 nach Freigabe: PR-Text DE → EN, Push des Branches, `gh pr create`, P2 (#11 Kommentar + `upstream:gemeldet`,
+   `#42` Punkt 12), Archiv-Push (`archive/design-history` lokal 2 Commits voraus + dieser Stand).
+2. Fork-Issue für den Reload-Befund (Text zur Freigabe).
+3. Aufräumen nach dem PR: `issue11-work\probe-wt`, `prodrebuild-1006-work\base-wt`, `backup/*`-Branches (User).
+
 ## 2026-10-06 (2) — Eifel-Joe#11: Tasks 0–6 gebaut und grün (zehn Commits, davon fünf Review-Nachträge); Task 7/8 warten auf Freigabe
 
 ### Stand

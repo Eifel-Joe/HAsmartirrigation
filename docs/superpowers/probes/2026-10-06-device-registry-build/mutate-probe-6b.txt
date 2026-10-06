@@ -1,0 +1,108 @@
+M01 switch always off: KILLED | =================== 4 failed, 18 passed, 3 errors in 3.24s ====================
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_on_a_2026_8_registry_it_is_the_registered_hubs_id
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_the_link_is_recorded_afresh_before_the_platforms_load
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_a_registry_naming_both_keys_gets_the_hubs_registry_id
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_a_registry_taking_via_device_id_gets_the_hubs_registry_id
+M02 switch always on: KILLED | =================== 4 failed, 18 passed, 3 errors in 3.12s ====================
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_on_the_installed_registry_a_zone_device_hangs_off_the_hub
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_a_registry_before_it_gets_the_hubs_identifier
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_a_signature_that_cannot_be_read_leaves_the_identifier_form
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_a_test_double_gets_the_identifier_form
+M03 link names the coordinator, not the hub device: KILLED | =================== 4 failed, 18 passed, 3 errors in 3.04s ====================
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_on_a_2026_8_registry_it_is_the_registered_hubs_id
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_the_link_is_recorded_afresh_before_the_platforms_load
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_a_registry_naming_both_keys_gets_the_hubs_registry_id
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_a_registry_taking_via_device_id_gets_the_hubs_registry_id
+M04 recorded link ignored: KILLED | =================== 3 failed, 19 passed, 3 errors in 3.09s ====================
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_the_link_is_recorded_afresh_before_the_platforms_load
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_the_recorded_link_is_handed_out_as_a_copy
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_zone_and_distributor_devices_carry_the_recorded_link
+M05 zone device keeps the fixed via_device: KILLED | =================== 2 failed, 20 passed, 3 errors in 3.09s ====================
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_the_link_is_recorded_afresh_before_the_platforms_load
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_zone_and_distributor_devices_carry_the_recorded_link
+M06 distributor device keeps the fixed via_device: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.23s ====================
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_zone_and_distributor_devices_carry_the_recorded_link
+M07 setup records no link: KILLED | =================== 3 failed, 19 passed, 3 errors in 3.17s ====================
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_on_a_2026_8_registry_it_is_the_registered_hubs_id
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_on_the_installed_registry_a_zone_device_hangs_off_the_hub
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_the_link_is_recorded_afresh_before_the_platforms_load
+M08 setup links to the coordinator id, not the hub device: KILLED | =================== 2 failed, 20 passed, 3 errors in 3.18s ====================
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_on_a_2026_8_registry_it_is_the_registered_hubs_id
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_the_link_is_recorded_afresh_before_the_platforms_load
+M09 find_device asks the instance: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.13s ====================
+    tests/test_device_registry_compat.py::TestADeviceIsFoundPerConfigEntryWhereOffered::test_a_test_double_is_asked_the_old_way
+M10 find_device always per entry: KILLED | =================== 5 failed, 17 passed, 3 errors in 3.19s ====================
+    tests/test_device_registry_compat.py::TestADeviceIsFoundPerConfigEntryWhereOffered::test_a_registry_before_it_is_asked_the_old_way
+    tests/test_device_registry_compat.py::TestADeviceIsFoundPerConfigEntryWhereOffered::test_a_test_double_is_asked_the_old_way
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_on_the_installed_registry_a_zone_device_hangs_off_the_hub
+    tests/test_device_registry_compat.py::test_before_2026_8_a_distributor_is_deleted_without_an_entry
+    tests/test_device_registry_compat.py::test_before_2026_8_a_zone_is_deleted_without_an_entry
+M11 find_device never per entry: KILLED | =================== 6 failed, 16 passed, 3 errors in 3.19s ====================
+    tests/test_device_registry_compat.py::TestADeviceIsFoundPerConfigEntryWhereOffered::test_a_miss_is_none_and_never_asked_the_old_way
+    tests/test_device_registry_compat.py::TestADeviceIsFoundPerConfigEntryWhereOffered::test_the_per_entry_lookup_is_asked_with_the_entry
+    tests/test_device_registry_compat.py::test_a_deleted_distributors_device_is_found_per_entry_and_removed
+    tests/test_device_registry_compat.py::test_a_deleted_zones_device_is_found_per_entry_and_removed
+    tests/test_device_registry_compat.py::test_a_distributor_without_a_device_removes_nothing
+    tests/test_device_registry_compat.py::test_a_zone_without_a_device_removes_nothing
+M12 find_device drops the entry: KILLED | =================== 6 failed, 16 passed, 3 errors in 3.30s ====================
+    tests/test_device_registry_compat.py::TestADeviceIsFoundPerConfigEntryWhereOffered::test_a_miss_is_none_and_never_asked_the_old_way
+    tests/test_device_registry_compat.py::TestADeviceIsFoundPerConfigEntryWhereOffered::test_the_per_entry_lookup_is_asked_with_the_entry
+    tests/test_device_registry_compat.py::test_a_deleted_distributors_device_is_found_per_entry_and_removed
+    tests/test_device_registry_compat.py::test_a_deleted_zones_device_is_found_per_entry_and_removed
+    tests/test_device_registry_compat.py::test_a_distributor_without_a_device_removes_nothing
+    tests/test_device_registry_compat.py::test_a_zone_without_a_device_removes_nothing
+M13 zone delete keeps the old lookup: KILLED | =================== 2 failed, 20 passed, 3 errors in 3.22s ====================
+    tests/test_device_registry_compat.py::test_a_deleted_zones_device_is_found_per_entry_and_removed
+    tests/test_device_registry_compat.py::test_a_zone_without_a_device_removes_nothing
+M14 zone delete drops the entry: KILLED | =================== 2 failed, 20 passed, 3 errors in 3.56s ====================
+    tests/test_device_registry_compat.py::test_a_deleted_zones_device_is_found_per_entry_and_removed
+    tests/test_device_registry_compat.py::test_a_zone_without_a_device_removes_nothing
+M15 distributor delete keeps the old lookup: KILLED | =================== 2 failed, 20 passed, 3 errors in 3.06s ====================
+    tests/test_device_registry_compat.py::test_a_deleted_distributors_device_is_found_per_entry_and_removed
+    tests/test_device_registry_compat.py::test_a_distributor_without_a_device_removes_nothing
+M16 distributor delete drops the entry: KILLED | =================== 2 failed, 20 passed, 3 errors in 3.24s ====================
+    tests/test_device_registry_compat.py::test_a_deleted_distributors_device_is_found_per_entry_and_removed
+    tests/test_device_registry_compat.py::test_a_distributor_without_a_device_removes_nothing
+M17 an unreadable signature escapes: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.39s ====================
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_a_signature_that_cannot_be_read_leaves_the_identifier_form
+M18 any **kwargs means the id form: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.30s ====================
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_a_registry_naming_both_keys_gets_the_hubs_registry_id
+M19 a missing via_device means the id form: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.18s ====================
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_a_registry_naming_both_keys_gets_the_hubs_registry_id
+M20 the record guard drops the dict check: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.04s ====================
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_anything_but_a_recorded_link_leaves_the_identifier_form
+M21 an empty record counts as a link: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.12s ====================
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_anything_but_a_recorded_link_leaves_the_identifier_form
+M22 hub_link hands out the record itself: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.04s ====================
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_the_recorded_link_is_handed_out_as_a_copy
+M23 hub_link tolerates only a missing domain: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.07s ====================
+    tests/test_device_registry_compat.py::TestTheHubLinkFollowsTheRegistry::test_anything_but_a_recorded_link_leaves_the_identifier_form
+M24 a miss falls back to the deprecated lookup: KILLED | =================== 3 failed, 19 passed, 3 errors in 3.06s ====================
+    tests/test_device_registry_compat.py::TestADeviceIsFoundPerConfigEntryWhereOffered::test_a_miss_is_none_and_never_asked_the_old_way
+    tests/test_device_registry_compat.py::test_a_distributor_without_a_device_removes_nothing
+    tests/test_device_registry_compat.py::test_a_zone_without_a_device_removes_nothing
+M25 no entry id means the old lookup: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.02s ====================
+    tests/test_device_registry_compat.py::TestADeviceIsFoundPerConfigEntryWhereOffered::test_a_miss_is_none_and_never_asked_the_old_way
+M26 a miss is reported as False: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.07s ====================
+    tests/test_device_registry_compat.py::TestADeviceIsFoundPerConfigEntryWhereOffered::test_a_miss_is_none_and_never_asked_the_old_way
+M27 the link is recorded after the platforms: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.13s ====================
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_the_link_is_recorded_afresh_before_the_platforms_load
+M28 setup keeps a stale link: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.38s ====================
+    tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_the_link_is_recorded_afresh_before_the_platforms_load
+M29 zone delete reads the entry strictly: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.07s ====================
+    tests/test_device_registry_compat.py::test_before_2026_8_a_zone_is_deleted_without_an_entry
+M30 zone delete without the guard: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.28s ====================
+    tests/test_device_registry_compat.py::test_a_zone_without_a_device_removes_nothing
+M31 zone delete calls the per-entry lookup directly: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.07s ====================
+    tests/test_device_registry_compat.py::test_before_2026_8_a_zone_is_deleted_without_an_entry
+M32 zone delete falls back on a miss: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.12s ====================
+    tests/test_device_registry_compat.py::test_a_zone_without_a_device_removes_nothing
+M33 distributor delete reads the entry strictly: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.47s ====================
+    tests/test_device_registry_compat.py::test_before_2026_8_a_distributor_is_deleted_without_an_entry
+M34 distributor delete without the guard: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.23s ====================
+    tests/test_device_registry_compat.py::test_a_distributor_without_a_device_removes_nothing
+M35 distributor delete calls the per-entry lookup directly: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.05s ====================
+    tests/test_device_registry_compat.py::test_before_2026_8_a_distributor_is_deleted_without_an_entry
+M36 distributor delete falls back on a miss: KILLED | =================== 1 failed, 21 passed, 3 errors in 3.15s ====================
+    tests/test_device_registry_compat.py::test_a_distributor_without_a_device_removes_nothing
+TOTAL 36, not killed 0

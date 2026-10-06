@@ -1,0 +1,10 @@
+fix(devices): look a device up per config entry where Home Assistant offers it
+
+Home Assistant 2026.9 deprecated device_registry.async_get_device, which goes in
+2027.8, because identifiers are no longer unique across config entries; its
+replacement async_get_device_by_identifier exists from 2026.8. find_device uses
+it where the registry's class has it and keeps the old lookup below 2026.8. A
+miss returns None and never falls back to the deprecated lookup; from 2026.8 an
+entry id of None finds nothing. The two delete paths move onto it next.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

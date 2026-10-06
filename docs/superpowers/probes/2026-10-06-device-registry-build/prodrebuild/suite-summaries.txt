@@ -1,0 +1,2 @@
+base: = 7 failed, 3806 passed, 9 skipped, 11 warnings, 427 errors in 363.42s (0:06:03) =
+rebuild: = 7 failed, 3828 passed, 9 skipped, 11 warnings, 430 errors in 354.10s (0:05:54) =

@@ -1,0 +1,78 @@
+diff --git a/custom_components/irrigation_plus/entity.py b/custom_components/irrigation_plus/entity.py
+index 25892a99..f85dc2aa 100644
+--- a/custom_components/irrigation_plus/entity.py
++++ b/custom_components/irrigation_plus/entity.py
+@@ -1,9 +1,10 @@
+ """Shared device-registry helpers.
+ 
+ Every entity groups under a per-zone device, and the per-zone devices hang off a
+-single hub device (see ``hub_link``). Returns plain dicts (HA accepts these for
+-``device_info``) to avoid importing DeviceInfo from the test-mocked
+-device_registry module.
++single hub device (see ``hub_link``). The device-info helpers return plain dicts
++(HA accepts these for ``device_info``) to avoid importing DeviceInfo from the
++test-mocked device_registry module; ``hub_link_for`` and ``find_device`` ask the
++registry itself what it offers.
+ """
+ 
+ import inspect
+@@ -42,19 +43,20 @@ def hub_link_for(registry, hub_device_id: str, cid: str) -> dict:
+     to the device info and deprecated ``via_device`` (the parent's
+     identifier), which goes in 2027.8. Before 2026.8 ``async_get_or_create``
+     takes no ``via_device_id``: its keyword-only signature is fixed, and the
+-    ``TypeError`` would stop every zone entity from being added. So ask the
+-    registry which one it takes rather than branching on a version string; the
+-    question goes to the registry's class, as in ``find_device``. Once the
+-    declared floor is 2026.8 or later, return the id form outright.
++    ``TypeError`` would stop every zone and distributor entity from being
++    added. So ask the registry which one it takes rather than branching on a
++    version string; the question goes to the registry's class, as in
++    ``find_device``. Once the declared floor is 2026.8 or later, return the id
++    form outright.
+     """
+     method = getattr(type(registry), "async_get_or_create", None)
+     try:
+         takes_id = "via_device_id" in inspect.signature(method).parameters
+     except Exception:  # noqa: BLE001 - unreadable means the identifier form
+         # Home Assistant has needed Python 3.14 since 2026.3, and since 2026.6
+-        # its registry module no longer postpones annotations, so reading the
+-        # signature evaluates them: a name imported only for type checking
+-        # would raise NameError here and stop the setup.
++        # its registry module has no "from __future__ import annotations", so
++        # reading the signature evaluates the annotations: a name imported only
++        # for type checking would raise NameError here and stop the setup.
+         takes_id = False
+     if takes_id:
+         return {"via_device_id": hub_device_id}
+@@ -67,7 +69,8 @@ def hub_link(hass: HomeAssistant) -> dict:
+     ``async_setup_entry`` records it once the hub is registered (see
+     ``hub_link_for``). Without a record, as for an entity built outside a
+     set-up entry, the identifier form stands; Home Assistant takes it until
+-    2027.8 (from 2026.9 on with a deprecation warning).
++    2027.8 (from 2026.9 on with a deprecation warning). Once the declared floor
++    is 2026.8 or later, that fallback goes as well: no record, no parent link.
+     """
+     try:
+         link = hass.data[const.DOMAIN].get("hub_link")
+diff --git a/tests/test_device_registry_compat.py b/tests/test_device_registry_compat.py
+index 81a20197..345e35a4 100644
+--- a/tests/test_device_registry_compat.py
++++ b/tests/test_device_registry_compat.py
+@@ -1,11 +1,11 @@
+ """Device-registry calls across Home Assistant's 2026.8 change.
+ 
+-Home Assistant 2026.8 added ``via_device_id`` and
+-``async_get_device_by_identifier``; ``via_device`` and ``async_get_device`` are
+-deprecated and go in 2027.8. Before 2026.8 neither replacement exists, and the
+-declared floor is 2025.5. The integration asks the registry which shape it has,
+-so each shape is pinned here with stand-ins, whichever Home Assistant the suite
+-runs against.
++Home Assistant 2026.8 added ``via_device_id`` to the device info and
++``async_get_device_by_identifier`` to the registry; ``via_device`` and
++``async_get_device`` are deprecated and go in 2027.8. Before 2026.8 neither
++replacement exists, and the declared floor is 2025.5. The integration asks the
++registry which shape it has, so each shape is pinned here with stand-ins,
++whichever Home Assistant the suite runs against.
+ """
+ 
+ from types import SimpleNamespace
