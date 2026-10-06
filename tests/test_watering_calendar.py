@@ -1,14 +1,20 @@
 """Tests for the Irrigation Plus 12-month watering calendar feature."""
 
+import json
+import math
+import pathlib
+import re
 from datetime import date
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+import yaml
 
 from custom_components.irrigation_plus import SmartIrrigationCoordinator
 from custom_components.irrigation_plus.const import (
     MODULE_NAME,
     ZONE_ID,
+    ZONE_KC,
     ZONE_MAPPING,
     ZONE_MODULE,
     ZONE_MULTIPLIER,
@@ -168,6 +174,7 @@ class TestWateringCalendar:
         test_zone = {
             ZONE_SIZE: 100.0,  # 100 m²
             ZONE_MULTIPLIER: 1.0,
+            ZONE_MODULE: 1,  # PyETO: the module rain is booked for
         }
 
         et_mm = 60.0  # 60mm ET for the month
@@ -187,7 +194,11 @@ class TestWateringCalendar:
         self, coordinator
     ):
         """Test that no irrigation is calculated when precipitation exceeds ET."""
-        test_zone = {ZONE_SIZE: 100.0, ZONE_MULTIPLIER: 1.0}
+        test_zone = {
+            ZONE_SIZE: 100.0,
+            ZONE_MULTIPLIER: 1.0,
+            ZONE_MODULE: 1,  # PyETO: the module rain is booked for
+        }
 
         et_mm = 30.0  # 30mm ET
         month_data = {"precipitation": 50.0}  # 50mm precipitation (exceeds ET)
@@ -374,3 +385,335 @@ class TestWateringCalendar:
         july = coordinator._calculate_monthly_et_pyeto(month_data, modinst, 7)
 
         assert july > january
+
+
+_ROOT = pathlib.Path(__file__).parent.parent / "custom_components" / "irrigation_plus"
+
+# A month as the PyETO helper takes it. The helper reads every key, the mocked
+# equation ignores the values, so one month serves for any month number.
+_MONTH_WEATHER = {
+    "avg_temp": 25.0,
+    "min_temp": 15.0,
+    "max_temp": 35.0,
+    "precipitation": 50.0,
+    "humidity": 65.0,
+    "wind_speed": 3.0,
+    "pressure": 1013.25,
+    "dewpoint": 18.0,
+}
+
+
+def _module_instance(name, **attrs):
+    """A calculation-module instance as the calendar sees it: a name and its call."""
+    module = Mock()
+    module.name = name
+    for key, value in attrs.items():
+        setattr(module, key, value)
+    return module
+
+
+class TestAMonthIsPricedByTheCalculationsRules:
+    """The calendar prices a month the way the calculation prices its days.
+
+    Only PyETO books rain, Kc scales the ET term and not the rain, and a
+    module's daily figure is scaled by the days of the month.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_pyeto_month_carries_no_rain(self, coordinator, mock_pyeto_module):
+        """The equation returns -ET0 with no rain in it; the month is ET0 x days.
+
+        Adding the month's rain to it showed rain as ET, and subtracting it again
+        later left the volume blind to rain.
+        """
+        mock_pyeto_module.calculate_et_for_day = Mock(return_value=-2.0)
+
+        july = coordinator._calculate_monthly_et_pyeto(
+            _MONTH_WEATHER, mock_pyeto_module, 7
+        )
+        february = coordinator._calculate_monthly_et_pyeto(
+            _MONTH_WEATHER, mock_pyeto_module, 2
+        )
+
+        assert july == pytest.approx(62.0)  # 2.0 mm x 31 days
+        assert february == pytest.approx(58.0)  # 2024, the reference year: 29 days
+
+    @pytest.mark.asyncio
+    async def test_a_pyeto_zone_has_the_rain_subtracted_once(
+        self, coordinator, mock_pyeto_module
+    ):
+        """Through the whole calendar: ET without rain, the volume net of it once."""
+        mock_pyeto_module.calculate_et_for_day = Mock(return_value=-2.0)
+
+        with patch.object(
+            coordinator,
+            "getModuleInstanceByID",
+            new=AsyncMock(return_value=mock_pyeto_module),
+        ):
+            calendar_data = await coordinator.async_generate_watering_calendar(
+                zone_id=1
+            )
+
+        july = calendar_data[1]["monthly_estimates"][6]
+        rain = july["average_precipitation_mm"]
+        # The scene: some rain, but less than the month's ET, so subtracting it
+        # once, twice or not at all gives three different volumes.
+        assert 0.0 < rain < 62.0
+        assert july["estimated_et_mm"] == pytest.approx(62.0)
+        # The fixture zone: 100 m2, multiplier 1, no Kc (reads as 1.0).
+        assert july["estimated_watering_volume_liters"] == pytest.approx(
+            round(max(0.0, 62.0 - rain) * 100.0, 1)
+        )
+
+    @pytest.mark.asyncio
+    async def test_kc_scales_the_et_term_and_not_the_rain(self, coordinator):
+        """As in the calculation: et_delta = delta x kc, precipitation unscaled."""
+        zone = {ZONE_SIZE: 10.0, ZONE_MULTIPLIER: 1.0, ZONE_MODULE: 1, ZONE_KC: 0.5}
+
+        volume = coordinator._calculate_monthly_watering_volume(
+            zone, 62.0, {"precipitation": 20.0}
+        )
+
+        assert volume == pytest.approx((62.0 * 0.5 - 20.0) * 10.0)  # 110 L
+
+    @pytest.mark.asyncio
+    async def test_a_zone_whose_kc_is_none_reads_as_the_default(self, coordinator):
+        """A stored ``kc: None`` falls back to 1.0, as in the calculation.
+
+        Only None does: a Kc of 0 is a valid setting and means no ET demand.
+        """
+        zone = {ZONE_SIZE: 10.0, ZONE_MULTIPLIER: 1.0, ZONE_MODULE: 1, ZONE_KC: None}
+        zero = {**zone, ZONE_KC: 0.0}
+
+        volume = coordinator._calculate_monthly_watering_volume(
+            zone, 62.0, {"precipitation": 20.0}
+        )
+        no_demand = coordinator._calculate_monthly_watering_volume(
+            zero, 62.0, {"precipitation": 20.0}
+        )
+
+        assert volume == pytest.approx((62.0 - 20.0) * 10.0)
+        assert no_demand == 0.0
+
+    @pytest.mark.asyncio
+    async def test_a_module_without_rain_gets_none_subtracted(
+        self, coordinator, mock_store
+    ):
+        """Static and Passthrough book no rain in the calculation, so here neither.
+
+        Kc still scales their figure, as it scales every module's in the calculation.
+        """
+        mock_store.get_module.return_value = {"id": 1, MODULE_NAME: "Static"}
+        zone = {ZONE_SIZE: 10.0, ZONE_MULTIPLIER: 1.0, ZONE_MODULE: 1, ZONE_KC: 0.8}
+
+        volume = coordinator._calculate_monthly_watering_volume(
+            zone, 93.0, {"precipitation": 60.0}
+        )
+
+        assert volume == pytest.approx(93.0 * 0.8 * 10.0)  # 744 L
+
+    @pytest.mark.asyncio
+    async def test_a_static_demand_becomes_a_monthly_volume(
+        self, coordinator, mock_store
+    ):
+        """The static delta is a daily bucket change, negative for demand.
+
+        Read as a month's ET it was a negative number, and max(0, ...) turned
+        every demand into 0 L.
+        """
+        mock_store.get_module.return_value = {"id": 1, MODULE_NAME: "Static"}
+        static = _module_instance("Static", calculate=Mock(return_value=-3.0))
+
+        with patch.object(
+            coordinator, "getModuleInstanceByID", new=AsyncMock(return_value=static)
+        ):
+            calendar_data = await coordinator.async_generate_watering_calendar(
+                zone_id=1
+            )
+
+        july = calendar_data[1]["monthly_estimates"][6]
+        february = calendar_data[1]["monthly_estimates"][1]
+        assert july["estimated_et_mm"] == pytest.approx(93.0)  # 3.0 mm x 31 days
+        assert february["estimated_et_mm"] == pytest.approx(87.0)  # 2024: 29 days
+        # 100 m2, multiplier 1, Kc 1.0, and no rain subtracted for Static.
+        assert july["estimated_watering_volume_liters"] == pytest.approx(9300.0)
+
+    @pytest.mark.asyncio
+    async def test_a_static_surplus_needs_nothing(self, coordinator, mock_store):
+        """A positive static delta adds water every day: no demand, no volume."""
+        mock_store.get_module.return_value = {"id": 1, MODULE_NAME: "Static"}
+        static = _module_instance("Static", calculate=Mock(return_value=2.0))
+
+        with patch.object(
+            coordinator, "getModuleInstanceByID", new=AsyncMock(return_value=static)
+        ):
+            calendar_data = await coordinator.async_generate_watering_calendar(
+                zone_id=1
+            )
+
+        july = calendar_data[1]["monthly_estimates"][6]
+        assert july["estimated_et_mm"] == 0.0
+        assert july["estimated_watering_volume_liters"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_a_passthrough_month_has_its_own_number_of_days(
+        self, coordinator, mock_store
+    ):
+        """February 2024 has 29 days, July 31, and Passthrough books no rain."""
+        mock_store.get_module.return_value = {"id": 1, MODULE_NAME: "Passthrough"}
+        passthrough = _module_instance("Passthrough")
+
+        with patch.object(
+            coordinator,
+            "getModuleInstanceByID",
+            new=AsyncMock(return_value=passthrough),
+        ):
+            calendar_data = await coordinator.async_generate_watering_calendar(
+                zone_id=1
+            )
+
+        climate = coordinator._generate_monthly_climate_data()
+        feb_daily = climate[1]["average_daily_et"]
+        july_daily = climate[6]["average_daily_et"]
+        february = calendar_data[1]["monthly_estimates"][1]
+        july = calendar_data[1]["monthly_estimates"][6]
+        assert february["estimated_et_mm"] == pytest.approx(round(feb_daily * 29, 2))
+        assert july["estimated_et_mm"] == pytest.approx(round(july_daily * 31, 2))
+        # 100 m2, multiplier 1, Kc 1.0, and no rain: February's rain is above its
+        # ET here, so subtracting it would leave 0 L.
+        assert february["estimated_watering_volume_liters"] == pytest.approx(
+            round(feb_daily * 29 * 100.0, 1)
+        )
+
+
+class TestTheClimateCurvesDoWhatTheirCommentsSay:
+    """The synthetic climate is an illustration, but each curve keeps its word."""
+
+    @pytest.mark.asyncio
+    async def test_a_northern_winter_is_wetter_windier_and_more_humid(
+        self, coordinator
+    ):
+        """Temperate north: humidity, wind and rain peak in January, ET in July."""
+        coordinator._latitude = 50.0
+
+        rows = coordinator._generate_monthly_climate_data()
+        january, july = rows[0], rows[6]
+
+        assert january["humidity"] == pytest.approx(80.0)
+        assert july["humidity"] == pytest.approx(50.0)
+        assert january["wind_speed"] == pytest.approx(4.0)
+        assert july["wind_speed"] == pytest.approx(2.0)
+        assert january["precipitation"] == pytest.approx(120.0)
+        assert july["precipitation"] == pytest.approx(60.0)
+        assert july["average_daily_et"] > january["average_daily_et"]
+        assert july["avg_temp"] > january["avg_temp"]
+
+    @pytest.mark.asyncio
+    async def test_the_southern_hemisphere_mirrors_every_temperate_curve(
+        self, coordinator
+    ):
+        """At 50° S July is winter for every curve, not just the heat."""
+        coordinator._latitude = -50.0
+
+        rows = coordinator._generate_monthly_climate_data()
+        january, july = rows[0], rows[6]
+
+        assert july["humidity"] == pytest.approx(80.0)
+        assert january["humidity"] == pytest.approx(50.0)
+        assert july["wind_speed"] == pytest.approx(4.0)
+        assert july["precipitation"] == pytest.approx(120.0)
+        assert january["average_daily_et"] > july["average_daily_et"]
+        assert january["avg_temp"] > july["avg_temp"]
+
+    @pytest.mark.asyncio
+    async def test_tropical_rain_keeps_its_curve(self, coordinator):
+        """Its comment names no season, so this curve stays as it was (a pin).
+
+        The same in both hemispheres: it is not one of the curves that mirror.
+        """
+        expected = [
+            round(60.0 * (1.0 + 0.3 * math.sin((m - 1) * math.pi / 6)), 6)
+            for m in range(1, 13)
+        ]
+
+        for latitude in (10.0, -10.0):
+            coordinator._latitude = latitude
+            rows = coordinator._generate_monthly_climate_data()
+
+            assert [round(r["precipitation"], 6) for r in rows] == expected, latitude
+
+
+class TestTheOutlookSaysWhatItIs:
+    """Every place that shows or describes the outlook calls it an illustration."""
+
+    @pytest.mark.asyncio
+    async def test_each_month_notes_its_climate_comes_from_latitude(
+        self, coordinator, mock_pyeto_module
+    ):
+        """Every month's note calls its climate an illustration from latitude."""
+        with patch.object(
+            coordinator,
+            "getModuleInstanceByID",
+            new=AsyncMock(return_value=mock_pyeto_module),
+        ):
+            calendar_data = await coordinator.async_generate_watering_calendar(
+                zone_id=1
+            )
+
+        notes = [m["calculation_notes"] for m in calendar_data[1]["monthly_estimates"]]
+        assert len(notes) == 12
+        assert all("Illustrative" in n and "latitude" in n for n in notes), notes
+
+    def test_the_service_description_says_where_the_climate_comes_from(self):
+        """Not 'representative climate data': a climate derived from latitude alone.
+
+        English and services.yaml say what the climate is; in every language the
+        old claim is gone (its stem, matched across languages). NOT-TO-DO: do not
+        pin the other seven languages word for word; key parity and the
+        untranslated-string check in test_i18n_completeness keep them present
+        and translated.
+        """
+        en = json.loads(
+            (_ROOT / "translations" / "en.json").read_text(encoding="utf-8")
+        )
+        declared = yaml.safe_load((_ROOT / "services.yaml").read_text(encoding="utf-8"))
+
+        old_claim = re.compile(
+            r"repr[aäeé]sentati|rappresentati|reprezentat", re.IGNORECASE
+        )
+        for text in (
+            en["services"]["generate_watering_calendar"]["description"],
+            declared["generate_watering_calendar"]["description"],
+        ):
+            assert "illustrative" in text and "latitude" in text, text
+            assert not old_claim.search(text), text
+
+        for catalogue in sorted((_ROOT / "translations").glob("*.json")):
+            service = json.loads(catalogue.read_text(encoding="utf-8"))["services"]
+            description = service["generate_watering_calendar"]["description"]
+            assert not old_claim.search(description), (catalogue.name, description)
+
+    def test_the_seasonal_card_shows_the_illustration_note(self):
+        """The note stands above the table, not in the empty state.
+
+        A tripwire on the panel's source, kept here because CI runs pytest only.
+        """
+        view = (
+            _ROOT / "frontend" / "src" / "views" / "weather" / "view-weather-data.ts"
+        ).read_text(encoding="utf-8")
+        en = json.loads(
+            (_ROOT / "frontend" / "localize" / "languages" / "en.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        seasonal = view[view.index("private _renderSeasonal") :]
+        seasonal = seasonal[: seasonal.index("private _renderForecast")]
+        no_data = seasonal.index("panels.zones.calendar.no_data")
+        with_data = seasonal[seasonal.index(": html`", no_data) :]
+        key = '"panels.setup.weather_data.seasonal_note"'
+        note = en["panels"]["setup"]["weather_data"]["seasonal_note"]
+        assert seasonal.count(key) == 1
+        assert key in with_data
+        assert with_data.index(key) < with_data.index("seasonal-table")
+        assert "Illustrative" in note and "latitude" in note, note

@@ -4,9 +4,10 @@ Extracted from __init__.py (Phase C3). Methods live on a mixin the
 SmartIrrigationCoordinator inherits, so their bodies are unchanged — they still
 use ``self`` to reach coordinator state (store, hass, module loading, latitude/
 elevation). Named watering_calendar (not calendar) to avoid shadowing the stdlib
-``calendar`` module, which _calculate_monthly_et_pyeto imports locally.
+``calendar`` module, which this module imports.
 """
 
+import calendar
 import logging
 import math
 from datetime import date, datetime
@@ -14,6 +15,7 @@ from datetime import date, datetime
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
+from .calculation import zone_module_models_weather
 from .const import SmartIrrigationError
 from .helpers import altitudeToPressure, convert_between
 
@@ -120,7 +122,7 @@ class WateringCalendarMixin:
                 f"Cannot load calculation module for zone {zone.get(const.ZONE_ID)}"
             )
 
-        # Generate representative monthly climate data based on location
+        # The illustrative climate: a fixed seasonal curve per latitude band
         monthly_data = self._generate_monthly_climate_data()
 
         monthly_estimates = []
@@ -128,6 +130,7 @@ class WateringCalendarMixin:
         for month in range(1, 13):
             month_name = datetime(2024, month, 1).strftime("%B")
             month_data = monthly_data[month - 1]
+            days_in_month = calendar.monthrange(2024, month)[1]
 
             try:
                 # Calculate ET and watering needs for this month using the zone's module
@@ -136,11 +139,13 @@ class WateringCalendarMixin:
                         month_data, modinst, month
                     )
                 elif modinst.name == "Static":
-                    et_estimate = modinst.calculate()
+                    # A daily bucket change with the calculation's sign: negative
+                    # is demand, and a surplus needs nothing.
+                    et_estimate = max(0.0, -modinst.calculate()) * days_in_month
                 else:
                     # For other modules like Passthrough, use a simple estimation
                     et_estimate = (
-                        month_data.get("average_daily_et", 3.0) * 30
+                        month_data.get("average_daily_et", 3.0) * days_in_month
                     )  # mm/month
 
                 # Calculate watering volume based on zone parameters
@@ -158,7 +163,7 @@ class WateringCalendarMixin:
                         "average_precipitation_mm": month_data.get(
                             "precipitation", 50.0
                         ),
-                        "calculation_notes": f"Based on typical {month_name} climate patterns",
+                        "calculation_notes": f"Illustrative {month_name} climate derived from latitude only",
                     }
                 )
 
@@ -182,7 +187,9 @@ class WateringCalendarMixin:
         return monthly_estimates
 
     def _generate_monthly_climate_data(self):
-        """Generate representative monthly climate data based on latitude.
+        """Generate an illustrative monthly climate: a fixed curve per latitude band.
+
+        The pressure alone comes from the elevation and is the same in every month.
 
         Returns:
             list: List of 12 monthly climate data dictionaries.
@@ -204,21 +211,24 @@ class WateringCalendarMixin:
 
         monthly_data = []
 
-        for month in range(1, 13):
-            # Calculate seasonal temperature variation
-            temp_factor = math.cos((month - 7) * math.pi / 6)  # Peak in July (month 7)
-            if self._latitude and self._latitude < 0:  # Southern hemisphere
-                temp_factor = -temp_factor
+        # Every curve below that peaks in the local summer or the local winter
+        # follows this sign, so the southern hemisphere mirrors all of them, not
+        # just the temperature. The tropical and subtropical rain names no season
+        # and is the same in both hemispheres.
+        hemisphere = -1.0 if self._latitude and self._latitude < 0 else 1.0
 
-            avg_temp = base_temp + (temp_variation * temp_factor)
+        for month in range(1, 13):
+            # +1 at the height of the local summer, -1 in the depth of its winter
+            # (July and January in the north).
+            summer = hemisphere * math.cos((month - 7) * math.pi / 6)
+
+            avg_temp = base_temp + (temp_variation * summer)
             min_temp = avg_temp - 5.0
             max_temp = avg_temp + 5.0
 
             # Simple precipitation model (more in winter for temperate, varies by location)
             if latitude > 35.0:  # Temperate zones
-                precip_factor = 1.5 - 0.5 * math.cos(
-                    (month - 1) * math.pi / 6
-                )  # More in winter
+                precip_factor = 1.5 - 0.5 * summer  # More in winter
             else:  # Tropical/subtropical
                 precip_factor = 1.0 + 0.3 * math.sin(
                     (month - 1) * math.pi / 6
@@ -227,10 +237,10 @@ class WateringCalendarMixin:
             precipitation = 60.0 * precip_factor  # Base 60mm/month
 
             # Humidity varies seasonally (higher in winter for temperate zones)
-            humidity = 65.0 + 15.0 * math.cos((month - 7) * math.pi / 6)
+            humidity = 65.0 - 15.0 * summer
 
             # Wind speed (slightly higher in winter)
-            wind_speed = 3.0 + 1.0 * math.cos((month - 7) * math.pi / 6)
+            wind_speed = 3.0 - 1.0 * summer
 
             # Pressure (standard sea level, adjusted for elevation)
             pressure = altitudeToPressure(self._elevation or 0)
@@ -249,8 +259,7 @@ class WateringCalendarMixin:
                     "wind_speed": wind_speed,
                     "pressure": pressure,
                     "dewpoint": dewpoint,
-                    "average_daily_et": 2.0
-                    + 2.0 * math.cos((month - 7) * math.pi / 6),  # Higher ET in summer
+                    "average_daily_et": 2.0 + 2.0 * summer,  # Higher ET in summer
                 }
             )
 
@@ -287,23 +296,25 @@ class WateringCalendarMixin:
             weather_data, day=date(2024, month, 15)
         )
 
-        # Get days in month
-        import calendar
+        days_in_month = calendar.monthrange(2024, month)[1]  # 2024: reference year
 
-        days_in_month = calendar.monthrange(2024, month)[
-            1
-        ]  # Use 2024 as reference year
-
-        # Convert daily ET delta to monthly total (remove precipitation since we want just ET)
-        daily_et = abs(daily_et_delta) + month_data["precipitation"] / days_in_month
-        return daily_et * days_in_month
+        # The delta is -ET0 with no precipitation in it (calculate_et_for_day
+        # returns ``-eto``), so the month's ET is its size times the days. Rain is
+        # subtracted once, in the volume, and only for a module the calculation
+        # books it for.
+        return abs(daily_et_delta) * days_in_month
 
     def _calculate_monthly_watering_volume(self, zone, et_mm, month_data):
         """Calculate monthly watering volume in liters for a zone.
 
+        The month's totals, netted once: the zone's Kc scales the ET term and not
+        the rain, as in the calculation, and rain counts only for a module the
+        calculation books it for (``zone_module_models_weather`` answers that).
+        The bucket's cap and drainage are not modelled.
+
         Args:
             zone: Zone configuration dictionary.
-            et_mm: Monthly evapotranspiration in mm.
+            et_mm: Monthly evapotranspiration in mm, before the zone's Kc.
             month_data: Monthly climate data.
 
         Returns:
@@ -312,7 +323,15 @@ class WateringCalendarMixin:
         """
         zone_size_m2 = zone.get(const.ZONE_SIZE, 1.0)  # Default 1 m²
         multiplier = zone.get(const.ZONE_MULTIPLIER, 1.0)
-        precipitation_mm = month_data.get("precipitation", 0.0)
+        kc = zone.get(const.ZONE_KC, const.CONF_DEFAULT_KC)
+        if kc is None:
+            kc = const.CONF_DEFAULT_KC
+        if zone_module_models_weather(self.store, zone):
+            precipitation_mm = month_data.get("precipitation", 0.0)
+        else:
+            # Static and Passthrough hand back a number the install supplied; the
+            # calculation books no rain for them, so neither does the calendar.
+            precipitation_mm = 0.0
 
         # Convert from imperial if needed
         ha_config_is_metric = self.hass.config.units is METRIC_SYSTEM
@@ -321,8 +340,8 @@ class WateringCalendarMixin:
                 const.UNIT_SQ_FT, const.UNIT_M2, zone_size_m2
             )
 
-        # Calculate net water need (ET minus precipitation)
-        net_water_need_mm = max(0, et_mm - precipitation_mm)
+        # Net water need: the Kc-scaled ET minus the rain the calculation books
+        net_water_need_mm = max(0, et_mm * kc - precipitation_mm)
 
         # Apply zone multiplier
         adjusted_water_need_mm = net_water_need_mm * multiplier
