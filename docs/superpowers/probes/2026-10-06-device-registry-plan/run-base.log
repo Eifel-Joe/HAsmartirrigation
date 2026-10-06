@@ -1,0 +1,6 @@
+HEAD 7001c754
+ests/test_window_amplitude.py::TestReadingItBack::test_a_group_that_has_never_committed_offers_nothing
+ERROR tests/test_window_amplitude.py::TestReadingItBack::test_a_malformed_entry_is_skipped_rather_than_raising
+= 7 failed, 3783 passed, 9 skipped, 11 warnings, 415 errors in 363.97s (0:06:03) =
+
+BASE: 422 names

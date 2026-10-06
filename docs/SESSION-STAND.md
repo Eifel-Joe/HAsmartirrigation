@@ -23,6 +23,62 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-06 — Eifel-Joe#11: Spec + Plan freigegeben und probegelaufen, `async_get_device` kommt mit in den PR
+
+### Stand
+
+- **Upstream-Runden 05:42, 07:27, 07:57 UTC** (alle Autoren): keine Kommentare, Reviews oder Releases; master `7001c754`.
+  Auf JustChr#190 nur zwei Ereignisse vom Konto Eifel-Joe (siehe Fallen). JustChr#191 unverändert offen, CI grün.
+- **Eifel-Joe#11 — User-Entscheidungen 2026-10-06:** E1 Variante 1 (Weiche, die die Registry selbst fragt; JustChrs
+  Untergrenze 2025.5.0 bleibt), E2 `async_get_device` kommt in denselben PR (Schwester, gleiche Frist 2027.8.0), E3 direkt
+  als PR an JustChr. Spec `docs/superpowers/specs/2026-10-06-device-registry-2027-8-design.md` (mit „Präzisierungen aus
+  der Planung“), Plan `docs/superpowers/plans/2026-10-06-device-registry-2027-8.md` — beide freigegeben, im Hauptbaum
+  untracked, im Archiv. Kommentar auf Eifel-Joe#11 `6011532651` (zurückgelesen gleich, 0 CR); Labels unverändert.
+- **Belegt aus HAs Quellen** (Kopien `issue11-work\ha-src\`): `via_device_id` und `async_get_device_by_identifier` gibt
+  es ab 2026.8.0; `via_device` und `async_get_device` werden ab 2026.9.0 gemeldet (Frist 2027.8.0). JustChrs CI läuft mit
+  HA 2026.2.3 (Python 3.13) und 2025.5.0 (Floor) — beide ohne die neuen Aufrufe. HA-Test 2026.9.3 und HA-Prod 2026.9.4
+  loggen die `via_device`-Warnung.
+- **Probelauf** im Wegwerf-Worktree `issue11-work\probe-wt` (detached, fünf Probe-Commits, Kopf `290892af`): jeder
+  Plan-Block wörtlich angewandt (`apply_plan_task.py`), RED/GREEN je Task wie im Plan; Baseline `7 / 3783 / 9 / 415`
+  (422 Namen, `names-base.txt`), Probe `7 / 3795 / 9 / 417` (+2 = teardown-ERRORs der Setup-Tests); 16/16 Mutationen
+  (`mutate-probe.txt`); getesteter Stand `issue11-work\probe-2026-10-06.patch`.
+- **Archiv:** `e86ff337` (Sitzungsstand 05.10.), `bda83840` (Spec), danach Plan + ergänzte Spec + Probe-Belege + dieser
+  Stand (Commit-SHA im Chat und in der Folgesitzung per `git log origin/archive/design-history -1`).
+- **Vier lokale Branches** (`backup/pre-msgfix`, `rebuild/v2026.10.04b2`, `production-backup-v2026.09.17`,
+  `production-backup-v2026.09.18b1`): User sagte löschen, der Auto-Modus sperrte `git branch -D`; Befehl an den User
+  gegeben. unbestätigt, ob ausgeführt.
+- **Auf origin gelöscht** (Konto Eifel-Joe, nicht aus dieser Sitzung): `fix/stale-weather-sensor` (05:53 UTC),
+  `fix/weather-buffer-one-frame`, `fix/zone-save-sends-what-changed`. Lokal vorhanden, Inhalte gemergt.
+
+### Fallen
+
+- **`JustChr#N` in einer Fork-Commit-Message legt auf seinem PR einen Rückverweis an** — auch auf
+  `archive/design-history` (`e86ff337` → JustChr#190, `c5e3432e` → #191, seit 21.09. weitere). Fork-Commits schreiben
+  „upstream PR N“. Issue-Kommentare mit `JustChr#N` (Regel P2) legen dort ebenfalls Querverweise an — dem User gemeldet,
+  P2 unverändert. Memory `no-own-issue-refs-upstream` ergänzt.
+- **Der Auto-Modus sperrte `git branch -D` und gleich danach ein `cat` einer Memory** („Irreversible Local
+  Destruction“). Nicht umgehen; den Befehl dem User geben.
+- **`test_init.py`-Setup-Tests scheitern lokal an aiodns (Windows)** — die neuen Setup-Tests stubben
+  `async_get_clientsession`.
+- **MSYS:** `MSYS_NO_PATHCONV=1 git show <rev>:<pfad>` liest Dateien einer Revision direkt (statt des gh-api-Umwegs).
+
+### Nächste Schritte
+
+1. `/clear`, frische Sitzung: Upstream-Runde, dann Plan Tasks 0–6 (subagent-driven, TDD) im Worktree `issue11-work\wt`;
+   Werkzeuge `issue11-work\apply_plan_task.py`, `run_suite.sh`, `mutate.py`; Baseline `names-base.txt` gilt für
+   `7001c754` (bewegt sich upstream: neu messen).
+2. Task 7 (Pre-Release + Live-Test HA-Test) und Task 8 (PR DE→EN, P2 auf #11, `#42` Punkt 12, Archiv) — jeder
+   Außen-Schritt mit Freigabe.
+3. JustChr#191 bleibt Zeile der Runde; Feldtest #8 nach dem ersten Beet-Lauf (~10.10.) ansehen, dann Spec/Plan PR 2.
+4. Aufräumen nach der Umsetzung: `issue11-work\probe-wt`; `session-1005-9-work` (Rest: `branch_cover.py`, Scan- und
+   #42-Kopie).
+
+### Empfohlene Skills
+
+- `superpowers:subagent-driven-development`, `superpowers:test-driven-development`,
+  `superpowers:verification-before-completion`, `pr-workflow`, `code-doku`; Memories `upstream-sweep-first`,
+  `hasi-pr-build-recipe`, `hasi-production-on-upstream`, `no-own-issue-refs-upstream`, `hasi-local-test-env-rebuild`.
+
 ## 2026-10-05 (9) — Upstream-Runde leer; Feldtest #8 ruhig; Aufräumen; Vorschlag nächster Punkt Eifel-Joe#11
 
 ### Stand

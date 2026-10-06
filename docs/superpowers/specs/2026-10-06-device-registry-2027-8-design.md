@@ -7,7 +7,8 @@
   `__init__.py` Blob `28eeded7`, `distributor.py` Blob `68aa2d4a`. Zeilenangaben beziehen sich auf diesen Stand.
 - **HA-Quellen:** `homeassistant/helpers/device_registry.py` der Tags 2025.5.0, 2025.12.0, 2026.2.3, 2026.6.0, 2026.7.0,
   2026.8.0, 2026.9.0, 2026.9.4 und `entity_platform.py` von 2025.5.0 und 2026.9.4, gelesen über die GitHub-API
-  (Kopien: `D:\Entwicklung\HASI\session-1005-9-work\ha-<tag>-<datei>.py`).
+  (`gh api "repos/home-assistant/core/contents/homeassistant/helpers/<datei>.py?ref=<tag>" --jq .content | base64 -d`;
+  lokale Kopien: `D:\Entwicklung\HASI\issue11-work\ha-src\ha-<tag>-<datei>.py`).
 
 ## Der Defekt
 
@@ -186,6 +187,22 @@ Beleg der Eltern-Verweise per Template (vorher und nachher), Log per `ha_get_log
 ```
 
 HA-Prod bleibt auf v2026.10.05b1 (Feldtest Eifel-Joe#8); ein Update nur auf Zuruf.
+
+## Präzisierungen aus der Planung (2026-10-06)
+
+- **Zweiter Setup-Test mit einer Registry neuer Bauart:** Auf altem HA (lokal, JustChrs CI) liefert `hub_link_for` die
+  Kennungs-Form, gleich welche ID das Setup übergibt. Reichte das Setup die Coordinator-ID statt der Hub-ID weiter,
+  bliebe das dort unbemerkt und verwürfe ab 2026.8 jedes Zonen-Entity. Der Test ersetzt `dr.async_get` durch eine
+  Fake-Registry, deren `async_get_or_create` `via_device_id` kennt, und erwartet `{"via_device_id": <Hub-ID>}`.
+- **Die Setup-Tests ersetzen auch `async_get_clientsession`:** Lokal scheitert das Setup sonst an „aiodns needs a
+  SelectorEventLoop on Windows“; so stehen `test_init.py::…::test_async_setup_entry_success` und
+  `…_with_weather_service` in der Baseline auf `7001c754`.
+- **Lokale teardown-ERRORs:** Die zwei Setup-Tests enden lokal mit „Lingering timer“ (300-s-Takt der
+  Sensor-Lebendprüfung), wie andere Coordinator-Tests der Baseline; RED und GREEN zählen in der Testphase.
+- **Diagnostics:** `async_get_config_entry_diagnostics` kopiert `hass.data[DOMAIN]`, also erscheint `hub_link` künftig
+  dort — ohne Geheimnis, und im Live-Test der Beleg, welcher Weg aktiv ist.
+- **Umfang der Tests:** zwölf Tests in fünf Tasks, 16 Mutationen (Plan
+  `docs/superpowers/plans/2026-10-06-device-registry-2027-8.md`, Probelauf dort).
 
 ## Lieferung
 

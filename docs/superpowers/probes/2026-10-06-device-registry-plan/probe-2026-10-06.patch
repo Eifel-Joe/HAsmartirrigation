@@ -1,0 +1,429 @@
+diff --git a/custom_components/irrigation_plus/__init__.py b/custom_components/irrigation_plus/__init__.py
+index 28eeded7..cb360a3b 100644
+--- a/custom_components/irrigation_plus/__init__.py
++++ b/custom_components/irrigation_plus/__init__.py
+@@ -45,6 +45,7 @@ from .calculation import CalculationMixin
+ from .config_resolver import resolve_weather_config
+ from .continuous_update import ContinuousUpdateMixin
+ from .distributor import DistributorMixin
++from .entity import find_device, hub_link_for
+ from .helpers import (
+     altitudeToPressure,
+     check_time,
+@@ -206,7 +207,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+     coordinator = SmartIrrigationCoordinator(hass, session, entry, store)
+ 
+     device_registry = dr.async_get(hass)
+-    device_registry.async_get_or_create(
++    hub = device_registry.async_get_or_create(
+         config_entry_id=entry.entry_id,
+         identifiers={(const.DOMAIN, coordinator.id)},
+         name=const.NAME,
+@@ -214,6 +215,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+         sw_version=const.VERSION,
+         manufacturer=const.MANUFACTURER,
+     )
++    # How the zone and distributor devices name the hub as their parent:
++    # decided once, from what this Home Assistant's registry takes, before any
++    # platform adds an entity (see entity.hub_link_for).
++    hass.data[const.DOMAIN]["hub_link"] = hub_link_for(
++        device_registry, hub.id, coordinator.id
++    )
+ 
+     hass.data[const.DOMAIN]["coordinator"] = coordinator
+     hass.data[const.DOMAIN]["zones"] = {}
+@@ -2215,8 +2222,10 @@ class SmartIrrigationCoordinator(
+                     entity_registry.async_remove(entity.entity_id)
+         # Drop the zone's device as well (it would linger empty otherwise).
+         device_registry = dr.async_get(self.hass)
+-        device = device_registry.async_get_device(
+-            identifiers={(const.DOMAIN, f"{self.id}_zone_{zone_id}")}
++        device = find_device(
++            device_registry,
++            (const.DOMAIN, f"{self.id}_zone_{zone_id}"),
++            getattr(getattr(self, "entry", None), "entry_id", None),
+         )
+         if device:
+             device_registry.async_remove_device(device.id)
+diff --git a/custom_components/irrigation_plus/distributor.py b/custom_components/irrigation_plus/distributor.py
+index 68aa2d4a..187e9f2f 100644
+--- a/custom_components/irrigation_plus/distributor.py
++++ b/custom_components/irrigation_plus/distributor.py
+@@ -26,6 +26,7 @@ from homeassistant.helpers.event import async_track_state_change_event
+ from . import const
+ from .actuate import async_actuate
+ from .duration_math import hardware_window
++from .entity import find_device
+ from .flow_metering import FlowMeter, flow_learn_resolve
+ from .localize import localize
+ 
+@@ -2123,8 +2124,10 @@ class DistributorMixin:
+                 # remove it. siehe test_distributor_entities.py::
+                 # test_upsert_delete_removes_device.
+                 registry = dr.async_get(self.hass)
+-                device = registry.async_get_device(
+-                    identifiers={(const.DOMAIN, f"{self.id}_distributor_{int(did)}")}
++                device = find_device(
++                    registry,
++                    (const.DOMAIN, f"{self.id}_distributor_{int(did)}"),
++                    getattr(getattr(self, "entry", None), "entry_id", None),
+                 )
+                 if device:
+                     registry.async_remove_device(device.id)
+diff --git a/custom_components/irrigation_plus/entity.py b/custom_components/irrigation_plus/entity.py
+index 1925bba0..57101da1 100644
+--- a/custom_components/irrigation_plus/entity.py
++++ b/custom_components/irrigation_plus/entity.py
+@@ -1,11 +1,13 @@
+ """Shared device-registry helpers.
+ 
+ Every entity groups under a per-zone device, and the per-zone devices hang off a
+-single hub device (via_device). Returns plain dicts (HA accepts these for
++single hub device (see ``hub_link``). Returns plain dicts (HA accepts these for
+ ``device_info``) to avoid importing DeviceInfo from the test-mocked
+ device_registry module.
+ """
+ 
++import inspect
++
+ from homeassistant.core import HomeAssistant
+ 
+ from . import const
+@@ -33,8 +35,47 @@ def hub_device_info(hass: HomeAssistant) -> dict:
+     }
+ 
+ 
++def hub_link_for(registry, hub_device_id: str, cid: str) -> dict:
++    """How a zone or distributor device names the hub as its parent.
++
++    Home Assistant 2026.8 added ``via_device_id`` (the parent's registry id)
++    and deprecated ``via_device`` (the parent's identifier), which goes in
++    2027.8. Before 2026.8 ``via_device_id`` does not exist: there,
++    ``async_get_or_create`` has a fixed keyword-only signature, and the
++    ``TypeError`` would stop every zone entity from being added. So ask the
++    registry which one it takes rather than branching on a version string; the
++    question goes to the registry's class, as in ``find_device``. Once the
++    declared floor is 2026.8 or later, return the id form outright.
++    """
++    method = getattr(type(registry), "async_get_or_create", None)
++    try:
++        takes_id = "via_device_id" in inspect.signature(method).parameters
++    except (TypeError, ValueError):
++        takes_id = False
++    if takes_id:
++        return {"via_device_id": hub_device_id}
++    return {"via_device": (const.DOMAIN, cid)}
++
++
++def hub_link(hass: HomeAssistant) -> dict:
++    """The parent link for zone and distributor devices, as setup recorded it.
++
++    ``async_setup_entry`` records it once the hub is registered (see
++    ``hub_link_for``). Without a record, as for an entity built outside a
++    set-up entry, the identifier form stands; every Home Assistant up to 2027.8
++    takes it.
++    """
++    try:
++        link = hass.data[const.DOMAIN].get("hub_link")
++    except (KeyError, AttributeError, RuntimeError):
++        link = None
++    if isinstance(link, dict) and link:
++        return dict(link)
++    return {"via_device": (const.DOMAIN, coordinator_id(hass))}
++
++
+ def zone_device_info(hass: HomeAssistant, zone_id, zone_name: str) -> dict:
+-    """A per-zone device, parented to the hub via ``via_device``.
++    """A per-zone device, parented to the hub (see ``hub_link``).
+ 
+     The device is named after the zone alone (e.g. "Front lawn"); with
+     ``has_entity_name`` the entities compose as "<zone> <descriptor>". The hub
+@@ -46,19 +87,34 @@ def zone_device_info(hass: HomeAssistant, zone_id, zone_name: str) -> dict:
+         "name": zone_name,
+         "model": "Irrigation zone",
+         "manufacturer": const.MANUFACTURER,
+-        "via_device": (const.DOMAIN, cid),
++        **hub_link(hass),
+     }
+ 
+ 
+ def distributor_device_info(
+     hass: HomeAssistant, distributor_id, distributor_name: str
+ ) -> dict:
+-    """A per-distributor device, parented to the hub via ``via_device``."""
++    """A per-distributor device, parented to the hub (see ``hub_link``)."""
+     cid = coordinator_id(hass)
+     return {
+         "identifiers": {(const.DOMAIN, f"{cid}_distributor_{distributor_id}")},
+         "name": distributor_name,
+         "model": "Gardena water distributor",
+         "manufacturer": const.MANUFACTURER,
+-        "via_device": (const.DOMAIN, cid),
++        **hub_link(hass),
+     }
++
++
++def find_device(registry, identifier: tuple[str, str], config_entry_id: str | None):
++    """The device registered under ``identifier``, or ``None``.
++
++    Home Assistant 2026.9 deprecated ``async_get_device``, which goes in 2027.8,
++    because identifiers are no longer unique across config entries; its
++    replacement ``async_get_device_by_identifier`` exists from 2026.8 and looks
++    up per config entry. Use it where the registry's class has it; the question
++    goes to the class because a test double answers for any attribute on its
++    instance. Once the declared floor is 2026.8 or later, call it outright.
++    """
++    if callable(getattr(type(registry), "async_get_device_by_identifier", None)):
++        return registry.async_get_device_by_identifier(identifier, config_entry_id)
++    return registry.async_get_device(identifiers={identifier})
+diff --git a/tests/test_device_registry_compat.py b/tests/test_device_registry_compat.py
+new file mode 100644
+index 00000000..395f2588
+--- /dev/null
++++ b/tests/test_device_registry_compat.py
+@@ -0,0 +1,245 @@
++"""Device-registry calls across Home Assistant's 2026.8 change.
++
++Home Assistant 2026.8 added ``via_device_id`` and
++``async_get_device_by_identifier``; ``via_device`` and ``async_get_device`` are
++deprecated and go in 2027.8. Before 2026.8 neither replacement exists, and the
++declared floor is 2025.5. The integration asks the registry which shape it has,
++so both shapes are pinned here with stand-ins, whichever Home Assistant the
++suite runs against.
++"""
++
++from types import SimpleNamespace
++from unittest.mock import AsyncMock, Mock, patch
++
++from homeassistant.core import HomeAssistant
++from homeassistant.helpers import device_registry as dr
++
++from custom_components.irrigation_plus import (
++    SmartIrrigationCoordinator,
++    async_setup_entry,
++    const,
++)
++from custom_components.irrigation_plus.entity import (
++    distributor_device_info,
++    find_device,
++    hub_link,
++    hub_link_for,
++    zone_device_info,
++)
++from tests.test_distributor import _host
++
++_HUB = "hub-device-id"
++_ZONE = (const.DOMAIN, "cid_zone_1")
++
++
++class _RegistryFrom2026_8:
++    """The device registry's shape from Home Assistant 2026.8 on."""
++
++    def __init__(self, device=None):
++        self.device = device
++        self.calls = []
++
++    def async_get_or_create(self, *, config_entry_id, via_device_id=None, **kwargs):
++        self.calls.append(("get_or_create", config_entry_id))
++        return SimpleNamespace(id=_HUB)
++
++    def async_get_device_by_identifier(self, identifier, config_entry_id):
++        self.calls.append(("by_identifier", identifier, config_entry_id))
++        return self.device
++
++    def async_get_device(self, identifiers=None, connections=None):
++        self.calls.append(("get_device", identifiers))
++        return self.device
++
++    def async_remove_device(self, device_id):
++        self.calls.append(("remove", device_id))
++
++
++class _RegistryBefore2026_8:
++    """The device registry's shape from the declared floor (2025.5) to 2026.7."""
++
++    def __init__(self, device=None):
++        self.device = device
++        self.calls = []
++
++    def async_get_or_create(self, *, config_entry_id, via_device=None):
++        raise AssertionError("only the signature is read")
++
++    def async_get_device(self, identifiers=None, connections=None):
++        self.calls.append(("get_device", identifiers))
++        return self.device
++
++    def async_remove_device(self, device_id):
++        self.calls.append(("remove", device_id))
++
++
++class TestTheHubLinkFollowsTheRegistry:
++    """Which key names the hub as parent depends on what the registry takes."""
++
++    def test_a_registry_taking_via_device_id_gets_the_hubs_registry_id(self):
++        assert hub_link_for(_RegistryFrom2026_8(), _HUB, "cid") == {
++            "via_device_id": _HUB
++        }
++
++    def test_a_registry_before_it_gets_the_hubs_identifier(self):
++        assert hub_link_for(_RegistryBefore2026_8(), _HUB, "cid") == {
++            "via_device": (const.DOMAIN, "cid")
++        }
++
++    def test_a_test_double_gets_the_identifier_form(self):
++        assert hub_link_for(Mock(), _HUB, "cid") == {
++            "via_device": (const.DOMAIN, "cid")
++        }
++
++    def test_zone_and_distributor_devices_carry_the_recorded_link(self):
++        hass = SimpleNamespace(
++            data={const.DOMAIN: {"hub_link": {"via_device_id": _HUB}}}
++        )
++        for info in (
++            zone_device_info(hass, 1, "Lawn"),
++            distributor_device_info(hass, 0, "Gardena1"),
++        ):
++            assert info["via_device_id"] == _HUB
++            assert "via_device" not in info
++
++    def test_without_a_record_the_identifier_form_stands(self):
++        hass = SimpleNamespace(data={})
++        assert hub_link(hass) == {"via_device": (const.DOMAIN, const.DOMAIN)}
++        info = zone_device_info(hass, 1, "Lawn")
++        assert info["via_device"] == (const.DOMAIN, const.DOMAIN)
++        assert "via_device_id" not in info
++
++
++class TestADeviceIsFoundPerConfigEntryWhereOffered:
++    """``find_device`` uses the per-entry lookup where the registry has it."""
++
++    def test_the_per_entry_lookup_is_asked_with_the_entry(self):
++        device = SimpleNamespace(id="dev")
++        registry = _RegistryFrom2026_8(device)
++        assert find_device(registry, _ZONE, "entry-1") is device
++        assert registry.calls == [("by_identifier", _ZONE, "entry-1")]
++
++    def test_a_registry_before_it_is_asked_the_old_way(self):
++        device = SimpleNamespace(id="dev")
++        registry = _RegistryBefore2026_8(device)
++        assert find_device(registry, _ZONE, "entry-1") is device
++        assert registry.calls == [("get_device", {_ZONE})]
++
++    def test_a_test_double_is_asked_the_old_way(self):
++        registry = Mock()
++        registry.async_get_device.return_value = "dev"
++        assert find_device(registry, _ZONE, "entry-1") == "dev"
++        registry.async_get_device.assert_called_once_with(identifiers={_ZONE})
++        registry.async_get_device_by_identifier.assert_not_called()
++
++
++async def _set_up(hass: HomeAssistant, entry) -> bool:
++    """Run async_setup_entry with store, session, panel and platforms stubbed.
++
++    The stubbed session also keeps the run off aiodns, which needs a selector
++    event loop on Windows; nothing here talks to the network.
++    """
++    entry.add_to_hass(hass)
++    store = AsyncMock()
++    store.async_get_config.return_value = {
++        const.CONF_USE_WEATHER_SERVICE: False,
++        const.CONF_WEATHER_SERVICE: None,
++    }
++    store.get_config = Mock(
++        return_value={
++            const.CONF_AUTO_UPDATE_ENABLED: False,
++            const.CONF_AUTO_CALC_ENABLED: False,
++            const.CONF_USE_WEATHER_SERVICE: False,
++        }
++    )
++    with (
++        patch(
++            "custom_components.irrigation_plus.async_get_registry",
++            return_value=store,
++        ),
++        patch("custom_components.irrigation_plus.async_get_clientsession"),
++        patch("custom_components.irrigation_plus.async_register_panel"),
++        patch("custom_components.irrigation_plus.async_register_websockets"),
++        patch("custom_components.irrigation_plus.async_register_services"),
++        patch.object(
++            hass.config_entries, "async_forward_entry_setups", new=AsyncMock()
++        ),
++    ):
++        return await async_setup_entry(hass, entry)
++
++
++class TestSetupRecordsTheLink:
++    """``async_setup_entry`` records the link once the hub is registered."""
++
++    async def test_on_a_2026_8_registry_it_is_the_registered_hubs_id(
++        self, hass: HomeAssistant, mock_config_entry, monkeypatch
++    ) -> None:
++        registry = _RegistryFrom2026_8()
++        monkeypatch.setattr(
++            "custom_components.irrigation_plus.dr.async_get", lambda hass: registry
++        )
++        assert await _set_up(hass, mock_config_entry) is True
++        assert hass.data[const.DOMAIN]["hub_link"] == {"via_device_id": _HUB}
++
++    async def test_on_the_installed_registry_a_zone_device_hangs_off_the_hub(
++        self, hass: HomeAssistant, mock_config_entry
++    ) -> None:
++        assert await _set_up(hass, mock_config_entry) is True
++        registry = dr.async_get(hass)
++        coordinator = hass.data[const.DOMAIN]["coordinator"]
++        hub = find_device(
++            registry, (const.DOMAIN, coordinator.id), mock_config_entry.entry_id
++        )
++        assert hass.data[const.DOMAIN]["hub_link"] == hub_link_for(
++            registry, hub.id, coordinator.id
++        )
++        zone = registry.async_get_or_create(
++            config_entry_id=mock_config_entry.entry_id,
++            **zone_device_info(hass, 1, "Lawn"),
++        )
++        assert zone.via_device_id == hub.id
++
++
++async def test_a_deleted_zones_device_is_found_per_entry_and_removed(monkeypatch):
++    """Deleting a zone looks its device up through ``find_device``."""
++    registry = _RegistryFrom2026_8(SimpleNamespace(id="dev"))
++    monkeypatch.setattr(
++        "custom_components.irrigation_plus.dr.async_get", lambda hass: registry
++    )
++    monkeypatch.setattr(
++        "custom_components.irrigation_plus.er.async_get", lambda hass: Mock()
++    )
++    c = SmartIrrigationCoordinator.__new__(SmartIrrigationCoordinator)
++    c.hass = SimpleNamespace(data={const.DOMAIN: {}})
++    c.id = "cid"
++    c.entry = SimpleNamespace(entry_id="entry-1")
++    await c.async_remove_entity("1")
++    assert registry.calls == [
++        ("by_identifier", (const.DOMAIN, "cid_zone_1"), "entry-1"),
++        ("remove", "dev"),
++    ]
++
++
++async def test_a_deleted_distributors_device_is_found_per_entry_and_removed(
++    monkeypatch,
++):
++    """Deleting a distributor looks its device up through ``find_device``."""
++    registry = _RegistryFrom2026_8(SimpleNamespace(id="dev123"))
++    monkeypatch.setattr(
++        "custom_components.irrigation_plus.distributor.dr.async_get",
++        lambda hass: registry,
++    )
++    monkeypatch.setattr(
++        "custom_components.irrigation_plus.distributor.async_dispatcher_send",
++        lambda *a, **k: None,
++    )
++    c = _host()
++    c.id = "cid"
++    c.entry = SimpleNamespace(entry_id="entry-1")
++    c.store.get_distributor = Mock(return_value={"id": 3})
++    c.store.async_delete_distributor = AsyncMock(return_value=True)
++    await c.async_upsert_distributor({"id": 3, "remove": True})
++    assert registry.calls == [
++        ("by_identifier", (const.DOMAIN, "cid_distributor_3"), "entry-1"),
++        ("remove", "dev123"),
++    ]

@@ -1,0 +1,10 @@
+HEAD 290892af
+ests/test_window_amplitude.py::TestReadingItBack::test_a_group_that_has_never_committed_offers_nothing
+ERROR tests/test_window_amplitude.py::TestReadingItBack::test_a_malformed_entry_is_skipped_rather_than_raising
+= 7 failed, 3795 passed, 9 skipped, 11 warnings, 417 errors in 367.00s (0:06:06) =
+
+NAMES DIFFER (422 -> 424)
+--- added:
+ERROR tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_on_a_2026_8_registry_it_is_the_registered_hubs_id
+ERROR tests/test_device_registry_compat.py::TestSetupRecordsTheLink::test_on_the_installed_registry_a_zone_device_hangs_off_the_hub
+--- gone:
