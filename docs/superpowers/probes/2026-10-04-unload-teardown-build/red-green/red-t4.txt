@@ -1,0 +1,43 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.0, pytest-8.3.3, pluggy-1.6.0
+rootdir: D:\Entwicklung\HASI\issue9-work\wt
+configfile: pyproject.toml
+plugins: anyio-4.14.1, aiohttp-1.0.5, asyncio-0.24.0, cov-6.0.0, pytest_freezer-0.4.8, github-actions-annotate-failures-0.2.0, homeassistant-custom-component-0.13.195, picked-0.5.0, socket-0.7.0, sugar-1.0.0, timeout-2.3.1, unordered-0.6.1, xdist-3.6.1, requests-mock-1.12.1, respx-0.21.1, syrupy-4.7.2
+asyncio: mode=Mode.AUTO, default_loop_scope=function
+collected 6 items
+
+tests\test_self_closing_teardown.py FFFFFF                               [100%]
+
+================================== FAILURES ===================================
+__ TestEndingTheMasterCycleNow.test_a_master_we_switched_on_is_switched_off ___
+tests\test_self_closing_teardown.py:360: in test_a_master_we_switched_on_is_switched_off
+    await c.async_master_end_cycle_now()
+E   AttributeError: '_MasterHost' object has no attribute 'async_master_end_cycle_now'. Did you mean: 'async_master_begin_cycle'?
+_________ TestEndingTheMasterCycleNow.test_a_stay_on_pump_is_left_on __________
+tests\test_self_closing_teardown.py:375: in test_a_stay_on_pump_is_left_on
+    await c.async_master_end_cycle_now()
+E   AttributeError: '_MasterHost' object has no attribute 'async_master_end_cycle_now'. Did you mean: 'async_master_begin_cycle'?
+_ TestEndingTheMasterCycleNow.test_a_master_we_did_not_switch_on_is_left_alone _
+tests\test_self_closing_teardown.py:385: in test_a_master_we_did_not_switch_on_is_left_alone
+    await c.async_master_end_cycle_now()
+E   AttributeError: '_MasterHost' object has no attribute 'async_master_end_cycle_now'. Did you mean: 'async_master_begin_cycle'?
+_ TestEndingTheMasterCycleNow.test_a_hold_still_taken_leaves_the_cycle_to_its_owner _
+tests\test_self_closing_teardown.py:396: in test_a_hold_still_taken_leaves_the_cycle_to_its_owner
+    await c.async_master_end_cycle_now()
+E   AttributeError: '_MasterHost' object has no attribute 'async_master_end_cycle_now'. Did you mean: 'async_master_begin_cycle'?
+______ TestEndingTheMasterCycleNow.test_without_a_master_nothing_happens ______
+tests\test_self_closing_teardown.py:406: in test_without_a_master_nothing_happens
+    await c.async_master_end_cycle_now()
+E   AttributeError: '_MasterHost' object has no attribute 'async_master_end_cycle_now'. Did you mean: 'async_master_begin_cycle'?
+_ TestEndingTheMasterCycleNow.test_a_switch_that_raises_does_not_block_the_unload _
+tests\test_self_closing_teardown.py:416: in test_a_switch_that_raises_does_not_block_the_unload
+    await c.async_master_end_cycle_now()  # must not raise
+E   AttributeError: '_MasterHost' object has no attribute 'async_master_end_cycle_now'. Did you mean: 'async_master_begin_cycle'?
+=========================== short test summary info ===========================
+FAILED tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_master_we_switched_on_is_switched_off
+FAILED tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_stay_on_pump_is_left_on
+FAILED tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_master_we_did_not_switch_on_is_left_alone
+FAILED tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_hold_still_taken_leaves_the_cycle_to_its_owner
+FAILED tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_without_a_master_nothing_happens
+FAILED tests/test_self_closing_teardown.py::TestEndingTheMasterCycleNow::test_a_switch_that_raises_does_not_block_the_unload
+============================== 6 failed in 2.22s ==============================

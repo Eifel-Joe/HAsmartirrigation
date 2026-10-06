@@ -1,0 +1,612 @@
+============================= test session starts =============================
+
+platform win32 -- Python 3.12.0, pytest-8.3.3, pluggy-1.6.0
+
+rootdir: D:\Entwicklung\HASI\issue9-work\wt
+
+configfile: pyproject.toml
+
+plugins: anyio-4.14.1, aiohttp-1.0.5, asyncio-0.24.0, cov-6.0.0, pytest_freezer-0.4.8, github-actions-annotate-failures-0.2.0, homeassistant-custom-component-0.13.195, picked-0.5.0, socket-0.7.0, sugar-1.0.0, timeout-2.3.1, unordered-0.6.1, xdist-3.6.1, requests-mock-1.12.1, respx-0.21.1, syrupy-4.7.2
+
+asyncio: mode=Mode.AUTO, default_loop_scope=function
+
+collected 2 items
+
+
+
+tests\test_self_closing_teardown.py FEF                                  [100%]
+
+
+
+=================================== ERRORS ====================================
+
+_ ERROR at teardown of TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator _
+
+..\..\HAsmartirrigation\.venv\Lib\site-packages\pytest_homeassistant_custom_component\plugins.py:397: in verify_cleanup
+
+    pytest.fail(f"Lingering timer after job {job!r}")
+
+E   Failed: Lingering timer after job <Job track time interval 15.0 <function SelfClosingMixin._sc_start_flow_sampling.<locals>._tick at 0x000001EB9A600360> HassJobType.Callback <bound method _TrackTimeInterval._interval_listener of _TrackTimeInterval(hass=<HomeAssistant STOPPED>, seconds=15.0, job_name='track time interval 15.0 <function SelfClosingMixin._sc_start_flow_sampling.<locals>._tick at 0x000001EB9A600360>', action=<function SelfClosingMixin._sc_start_flow_sampling.<locals>._tick at 0x000001EB9A600360>, cancel_on_shutdown=None, _track_job=<Job track time interval 15.0 <function SelfClosingMixin._sc_start_flow_sampling.<locals>._tick at 0x000001EB9A600360> HassJobType.Callback <bound method _TrackTimeInterval._interval_listener of ...>>, _run_job=<Job track time interval 15.0 HassJobType.Coroutinefunction <function SelfClosingMixin._sc_start_flow_sampling.<locals>._tick at 0x000001EB9A600360>>, _timer_handle=<TimerHandle when=1791049280.0 _TrackTimeInterval._interval_listener(<Job track time interval 15.0 <function SelfClosingMixin._sc_start_flow_sampling.<locals>._tick at 0x000001EB9A600360> HassJobType.Callback <bound method _TrackTimeInterval._interval_listener of ...>>) created at D:\Entwicklung\HASI\HAsmartirrigation\.venv\Lib\site-packages\homeassistant\helpers\event.py:1650>)>>
+
+---------------------------- Captured stderr call -----------------------------
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:222> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698212.297 seconds
+
+
+INFO:custom_components.irrigation_plus.run_watch:Zone 2: service run started watering (planned 600s)
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:238> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 6.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+------------------------------ Captured log call ------------------------------
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:222> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698212.297 seconds
+
+INFO     custom_components.irrigation_plus.run_watch:run_watch.py:846 Zone 2: service run started watering (planned 600s)
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:238> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 6.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+================================== FAILURES ===================================
+
+____ TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator _____
+
+tests\test_self_closing_teardown.py:245: in test_the_run_is_booked_once_by_the_new_coordinator
+
+    old._sc_sample_flow.assert_not_called()
+
+C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py:905: in assert_not_called
+
+    raise AssertionError(msg)
+
+E   AssertionError: Expected 'mock' to not have been called. Called 24 times.
+
+E   Calls: [call(2, 315.0),
+
+E    call(2, 330.0),
+
+E    call(2, 345.0),
+
+E    call(2, 360.0),
+
+E    call(2, 375.0),
+
+E    call(2, 390.0),
+
+E    call(2, 405.0),
+
+E    call(2, 420.0),
+
+E    call(2, 435.0),
+
+E    call(2, 450.0),
+
+E    call(2, 465.0),
+
+E    call(2, 480.0),
+
+E    call(2, 495.0),
+
+E    call(2, 510.0),
+
+E    call(2, 525.0),
+
+E    call(2, 540.0),
+
+E    call(2, 555.0),
+
+E    call(2, 570.0),
+
+E    call(2, 585.0),
+
+E    call(2, 600.0),
+
+E    call(2, 621.0),
+
+E    call(2, 636.0),
+
+E    call(2, 651.0),
+
+E    call(2, 666.0)].
+
+---------------------------- Captured stderr call -----------------------------
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:222> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698212.297 seconds
+
+
+INFO:custom_components.irrigation_plus.run_watch:Zone 2: service run started watering (planned 600s)
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:238> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 6.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+
+------------------------------ Captured log call ------------------------------
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:222> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698212.297 seconds
+
+INFO     custom_components.irrigation_plus.run_watch:run_watch.py:846 Zone 2: service run started watering (planned 600s)
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:224> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:235> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:238> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 6.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAReloadMidRun.test_the_run_is_booked_once_by_the_new_coordinator() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:239> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 15.000 seconds
+
+_ TestAReloadMidRun.test_a_run_ending_during_the_reload_waits_for_the_successor _
+
+tests\test_self_closing_teardown.py:260: in test_a_run_ending_during_the_reload_waits_for_the_successor
+
+    assert await old._sc_find_run(2) is not None
+
+E   assert None is not None
+
+---------------------------- Captured stderr call -----------------------------
+
+WARNING:asyncio:Executing <Task pending name='Task-7' coro=<TestAReloadMidRun.test_a_run_ending_during_the_reload_waits_for_the_successor() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:255> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698211.829 seconds
+
+
+INFO:custom_components.irrigation_plus.run_watch:Zone 2: service run started watering (planned 600s)
+
+
+WARNING:asyncio:Executing <Task pending name='Task-7' coro=<TestAReloadMidRun.test_a_run_ending_during_the_reload_waits_for_the_successor() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:256> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 300.000 seconds
+
+
+WARNING:asyncio:Executing <Task pending name='Task-7' coro=<TestAReloadMidRun.test_a_run_ending_during_the_reload_waits_for_the_successor() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:258> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 400.000 seconds
+
+
+------------------------------ Captured log call ------------------------------
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-7' coro=<TestAReloadMidRun.test_a_run_ending_during_the_reload_waits_for_the_successor() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:255> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698211.829 seconds
+
+INFO     custom_components.irrigation_plus.run_watch:run_watch.py:846 Zone 2: service run started watering (planned 600s)
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-7' coro=<TestAReloadMidRun.test_a_run_ending_during_the_reload_waits_for_the_successor() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:256> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 300.000 seconds
+
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-7' coro=<TestAReloadMidRun.test_a_run_ending_during_the_reload_waits_for_the_successor() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:258> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 400.000 seconds
+
+=========================== short test summary info ===========================
+
+FAILED tests/test_self_closing_teardown.py::TestAReloadMidRun::test_the_run_is_booked_once_by_the_new_coordinator
+
+FAILED tests/test_self_closing_teardown.py::TestAReloadMidRun::test_a_run_ending_during_the_reload_waits_for_the_successor
+
+ERROR tests/test_self_closing_teardown.py::TestAReloadMidRun::test_the_run_is_booked_once_by_the_new_coordinator
+
+========================= 2 failed, 1 error in 2.32s ==========================
+

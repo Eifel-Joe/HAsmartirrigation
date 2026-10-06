@@ -1,0 +1,83 @@
+============================= test session starts =============================
+collected 9 items
+
+tests\test_self_closing_teardown.py FFFFFFFFF                            [100%]
+
+================================== FAILURES ===================================
+____ TestAbortingTheServiceRuns.test_a_service_run_is_stopped_and_settled _____
+tests\test_self_closing_teardown.py:596: in test_a_service_run_is_stopped_and_settled
+    stopped = await c.async_abort_self_closing_runs(DISABLED)
+E   AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_abort_self_closing_runs'. Did you mean: 'async_resume_self_closing_runs'?
+---------------------------- Captured stderr call -----------------------------
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAbortingTheServiceRuns.test_a_service_run_is_stopped_and_settled() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:595> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698212.672 seconds
+INFO:custom_components.irrigation_plus.run_watch:Zone 2: service run started watering (planned 600s)
+WARNING:asyncio:Executing <Task pending name='Task-2' coro=<TestAbortingTheServiceRuns.test_a_service_run_is_stopped_and_settled() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:595> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 300.000 seconds
+------------------------------ Captured log call ------------------------------
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAbortingTheServiceRuns.test_a_service_run_is_stopped_and_settled() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:595> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698212.672 seconds
+INFO     custom_components.irrigation_plus.run_watch:run_watch.py:846 Zone 2: service run started watering (planned 600s)
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-2' coro=<TestAbortingTheServiceRuns.test_a_service_run_is_stopped_and_settled() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:595> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 300.000 seconds
+__ TestAbortingTheServiceRuns.test_a_record_without_a_mode_is_a_service_run ___
+tests\test_self_closing_teardown.py:623: in test_a_record_without_a_mode_is_a_service_run
+    assert await c.async_abort_self_closing_runs(DISABLED) is True
+E   AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_abort_self_closing_runs'. Did you mean: 'async_resume_self_closing_runs'?
+_ TestAbortingTheServiceRuns.test_opensprinkler_and_batch_runs_are_left_to_their_own_abort _
+tests\test_self_closing_teardown.py:639: in test_opensprinkler_and_batch_runs_are_left_to_their_own_abort
+    assert await c.async_abort_self_closing_runs(DISABLED) is False
+E   AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_abort_self_closing_runs'. Did you mean: 'async_resume_self_closing_runs'?
+_ TestAbortingTheServiceRuns.test_the_chain_is_released_before_the_first_stop _
+tests\test_self_closing_teardown.py:662: in test_the_chain_is_released_before_the_first_stop
+    await c.async_abort_self_closing_runs(DISABLED)
+E   AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_abort_self_closing_runs'. Did you mean: 'async_resume_self_closing_runs'?
+---------------------------- Captured stderr call -----------------------------
+INFO:custom_components.irrigation_plus.run_chain:Service: dispatching zone 2, 1 more chained behind it
+INFO:custom_components.irrigation_plus.run_watch:Zone 2: service run started watering (planned 600s)
+------------------------------ Captured log call ------------------------------
+INFO     custom_components.irrigation_plus.run_chain:run_chain.py:323 Service: dispatching zone 2, 1 more chained behind it
+INFO     custom_components.irrigation_plus.run_watch:run_watch.py:846 Zone 2: service run started watering (planned 600s)
+___ TestAbortingTheServiceRuns.test_without_settling_only_the_stop_goes_out ___
+tests\test_self_closing_teardown.py:674: in test_without_settling_only_the_stop_goes_out
+    stopped = await c.async_abort_self_closing_runs(REMOVED, settle=False)
+E   AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_abort_self_closing_runs'. Did you mean: 'async_resume_self_closing_runs'?
+---------------------------- Captured stderr call -----------------------------
+WARNING:asyncio:Executing <Task pending name='Task-18' coro=<TestAbortingTheServiceRuns.test_without_settling_only_the_stop_goes_out() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:673> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698211.844 seconds
+INFO:custom_components.irrigation_plus.run_watch:Zone 2: service run started watering (planned 600s)
+WARNING:asyncio:Executing <Task pending name='Task-18' coro=<TestAbortingTheServiceRuns.test_without_settling_only_the_stop_goes_out() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:673> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 300.000 seconds
+------------------------------ Captured log call ------------------------------
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-18' coro=<TestAbortingTheServiceRuns.test_without_settling_only_the_stop_goes_out() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:673> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698211.844 seconds
+INFO     custom_components.irrigation_plus.run_watch:run_watch.py:846 Zone 2: service run started watering (planned 600s)
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-18' coro=<TestAbortingTheServiceRuns.test_without_settling_only_the_stop_goes_out() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:673> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 300.000 seconds
+_ TestAbortingTheServiceRuns.test_a_zone_without_a_stop_service_is_still_settled _
+tests\test_self_closing_teardown.py:692: in test_a_zone_without_a_stop_service_is_still_settled
+    assert await c.async_abort_self_closing_runs(DISABLED) is True
+E   AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_abort_self_closing_runs'. Did you mean: 'async_resume_self_closing_runs'?
+---------------------------- Captured stderr call -----------------------------
+WARNING:asyncio:Executing <Task pending name='Task-22' coro=<TestAbortingTheServiceRuns.test_a_zone_without_a_stop_service_is_still_settled() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:691> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698212.688 seconds
+INFO:custom_components.irrigation_plus.run_watch:Zone 2: service run started watering (planned 600s)
+WARNING:asyncio:Executing <Task pending name='Task-22' coro=<TestAbortingTheServiceRuns.test_a_zone_without_a_stop_service_is_still_settled() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:691> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 300.000 seconds
+------------------------------ Captured log call ------------------------------
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-22' coro=<TestAbortingTheServiceRuns.test_a_zone_without_a_stop_service_is_still_settled() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:691> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 1790698212.688 seconds
+INFO     custom_components.irrigation_plus.run_watch:run_watch.py:846 Zone 2: service run started watering (planned 600s)
+WARNING  asyncio:base_events.py:1946 Executing <Task pending name='Task-22' coro=<TestAbortingTheServiceRuns.test_a_zone_without_a_stop_service_is_still_settled() running at D:\Entwicklung\HASI\issue9-work\wt\tests\test_self_closing_teardown.py:691> cb=[_run_until_complete_cb() at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:180] created at C:\Users\Nutzer\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:685> took 300.000 seconds
+__ TestAbortingTheServiceRuns.test_a_stop_that_raises_does_not_stop_the_rest __
+tests\test_self_closing_teardown.py:707: in test_a_stop_that_raises_does_not_stop_the_rest
+    assert await c.async_abort_self_closing_runs(DISABLED) is True
+E   AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_abort_self_closing_runs'. Did you mean: 'async_resume_self_closing_runs'?
+_ TestAbortingTheServiceRuns.test_an_unreadable_store_stops_nothing_and_does_not_raise _
+tests\test_self_closing_teardown.py:719: in test_an_unreadable_store_stops_nothing_and_does_not_raise
+    assert await c.async_abort_self_closing_runs(DISABLED) is False
+E   AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_abort_self_closing_runs'. Did you mean: 'async_resume_self_closing_runs'?
+_______ TestAbortingTheServiceRuns.test_nothing_in_flight_stops_nothing _______
+tests\test_self_closing_teardown.py:726: in test_nothing_in_flight_stops_nothing
+    assert await c.async_abort_self_closing_runs(DISABLED) is False
+E   AttributeError: 'SmartIrrigationCoordinator' object has no attribute 'async_abort_self_closing_runs'. Did you mean: 'async_resume_self_closing_runs'?
+=========================== short test summary info ===========================
+FAILED tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_service_run_is_stopped_and_settled
+FAILED tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_record_without_a_mode_is_a_service_run
+FAILED tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_opensprinkler_and_batch_runs_are_left_to_their_own_abort
+FAILED tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_the_chain_is_released_before_the_first_stop
+FAILED tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_without_settling_only_the_stop_goes_out
+FAILED tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_zone_without_a_stop_service_is_still_settled
+FAILED tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_a_stop_that_raises_does_not_stop_the_rest
+FAILED tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_an_unreadable_store_stops_nothing_and_does_not_raise
+FAILED tests/test_self_closing_teardown.py::TestAbortingTheServiceRuns::test_nothing_in_flight_stops_nothing
+============================== 9 failed in 3.40s ==============================

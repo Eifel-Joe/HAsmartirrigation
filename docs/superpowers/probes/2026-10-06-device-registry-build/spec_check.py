@@ -28,12 +28,12 @@ APPLY = r"D:\Entwicklung\HASI\issue11-work\apply_plan_task.py"
 FILES_1B = ["custom_components/irrigation_plus/entity.py", "custom_components/irrigation_plus/__init__.py",
             "custom_components/irrigation_plus/distributor.py", "tests/test_device_registry_compat.py"]
 BASE = "7001c754"
-ORDER = ["1", "1b", "2", "2b", "3", "3b", "4", "4b", "5", "5b"]
+ORDER = ["1", "1b", "2", "2b", "3", "3b", "4", "4b", "5", "5b", "6b"]
 # Review follow-ups, applied by the tool on top of the probe commit of a task.
-EXTRAS = ["1b", "2b", "3b", "4b", "5b"]
+EXTRAS = ["1b", "2b", "3b", "4b", "5b", "6b"]
 PROBE = {"1": "a34becea", "1b": "a34becea", "2": "5a90d023", "2b": "5a90d023",
-         "3": "403fc2b2", "3b": "403fc2b2", "4": "2bd0f689", "4b": "2bd0f689", "5": "290892af", "5b": "290892af"}
-PROBE_END = "a9a8e834"
+         "3": "403fc2b2", "3b": "403fc2b2", "4": "2bd0f689", "4b": "2bd0f689", "5": "290892af", "5b": "290892af", "6b": "290892af"}
+PROBE_END = "84f9c5c9"
 PROMPTS = Path(r"D:\Entwicklung\HASI\issue11-work\prompts")
 OWN_REF = re.compile(r"Eifel-Joe|JustChr#|spec D[0-9]|spec §|Task [0-9]|M[0-9][a-z]?:|PR [A-T]\b")
 

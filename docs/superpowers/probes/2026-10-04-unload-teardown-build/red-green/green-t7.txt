@@ -1,0 +1,6 @@
+============================= test session starts =============================
+collected 9 items
+
+tests\test_self_closing_teardown.py .........                            [100%]
+
+============================== 9 passed in 1.50s ==============================

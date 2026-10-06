@@ -1,0 +1,11 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.0, pytest-8.3.3, pluggy-1.6.0
+rootdir: D:\Entwicklung\HASI\issue9-work\wt
+configfile: pyproject.toml
+plugins: anyio-4.14.1, aiohttp-1.0.5, asyncio-0.24.0, cov-6.0.0, pytest_freezer-0.4.8, github-actions-annotate-failures-0.2.0, homeassistant-custom-component-0.13.195, picked-0.5.0, socket-0.7.0, sugar-1.0.0, timeout-2.3.1, unordered-0.6.1, xdist-3.6.1, requests-mock-1.12.1, respx-0.21.1, syrupy-4.7.2
+asyncio: mode=Mode.AUTO, default_loop_scope=function
+collected 3 items
+
+tests\test_self_closing_teardown.py ...                                  [100%]
+
+============================== 3 passed in 0.91s ==============================
