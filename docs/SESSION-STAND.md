@@ -23,6 +23,71 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-07 — Eifel-Joe#61: Spec + Plan freigegeben und probegelaufen; Imperial-Defekt im Live-Pfad bestätigt; Upstream-Runden leer
+
+### Stand
+
+- **Upstream-Runden** 21:36 und 22:37 UTC (Fenster ab 21:08, alle Autoren): leer. JustChr#194 offen (CI 4/4 grün, kein
+  Review/Kommentar), JustChr#193 ohne Antwort, `upstream/master` `6a40e083`, neuestes Release weiter Pre-Release
+  v2026.10.05.
+- **Feldtest Eifel-Joe#8** (HA-Prod, 21:36 UTC, nur gelesen): `sensor_outages` leer, alle 8 Sensoren frisch, Eimer
+  +7,34 / +6,05 / +3,41 mm → kein Lauf, Auftrag 3 nicht fällig.
+- **Eifel-Joe#61 — Blocker „429“ ist weg:** HA-Test rechnete um 21:00 UTC (PyETO-Zonen Delta −1,546 mm aus 5 Punkten,
+  Sensorgruppe 0 = nur Wetterdienst, Systemlog ohne `irrigation_plus`-Fehler). Code auf HA-Test = `upstream/master`
+  (production `fa31c31a` unterscheidet sich in `.py` nur in `const.py`).
+- **Spec + Plan freigegeben** (User, Chat): `docs/superpowers/specs/2026-10-07-forecast-weighting-live-verification-design.md`,
+  `docs/superpowers/plans/2026-10-07-forecast-weighting-live-verification.md`. Entscheidungen E1 echte Vorhersage am
+  HA-Test-Standort, E2 Regen-Wächter an mit Schwelle 100 (Gegenprobe O2), E3 imperial per lokalem Test; (ii)
+  „Gutschrift-0-Lauf“ nur gelegentlich. Code-Fakten (Sonnet-Agent, Fundstellen): `issue61-work\code-facts.md`.
+- **Plan probegelaufen** (`issue61-work\plan-probe\RESULT.md`): Task 0 echt ausgeführt (`issue61-work\src-6a40e083\`,
+  `livetest\`, `_local_socket_unblock.py`); `o1.py` RED → `7 passed`, 3/3 Mutationen getötet.
+  **Imperial-Probe: Verdacht bestätigt** — der Live-Pfad addiert die mm-Gutschrift auf das Zoll-Defizit
+  (`irrigation.py:2501`, `live_estimate.py:1742-1744` → `_live_run_duration`): Panel 0 s statt 112 s, Lauf lässt die
+  Zone fallen; metrische Kontrolle grün. Gutschrift ist überall mm (`calculation.py:1039-1137`, Pirate `si`). Noch kein
+  Issue — Plan Task 11 (Text zur Freigabe).
+- **HA-Test unverändert** (in dieser Sitzung nur gelesen). Sicherheitsbefund im Chat erst zu scharf, dann korrigiert:
+  Zonen 0/1 sind `classic` und schalten nur `input_boolean.test_ventil2/3`; ihre `run_service`-Skripte
+  (`zigbee2mqtt/Wasser vorne|Beet/set` über den Broker von HA-Prod = echte Ventile) liest nur der selbstschließende Pfad.
+  Würde eine der beiden auf `service` gestellt, schaltete HA-Test echte Ventile. Dauerhaftes Umverdrahten: User-Sache,
+  nicht entschieden.
+- **Archiv:** Spec, Plan, `code-facts.md`, Probelauf-Beleg und diese Datei → `archive/design-history` (Push freigegeben).
+
+### Verworfen
+
+- Open-Meteo, manuelle Koordinaten, Wächter aus, HA-Test auf US-Einheiten — Begründungen in der Spec §3.
+- Verteiler-Zonen Test1–6 als Testzonen: Live-Estimate schließt Verteiler-Mitglieder aus (`irrigation.py:889-896`).
+
+### Fallen
+
+- Das Pirate-Rohdokument steht im DEBUG-Log als **Python-repr** (nicht JSON) und enthält die Koordinaten von HA-Test →
+  nie archivieren, nur extrahierte Stundenreihen (Plan Task 4).
+- Eine Zone rechnet nur, wenn seit `last_consumed_at` neue Wetterzeilen da sind (`calculation.py:603-610`) — zwischen
+  zwei Rechnungen derselben Testzone ein Update (10 min) abwarten, sonst stilles „no weather data to consume“.
+- Kein Log nennt den `run_start` der Gewichtung; der Anker ist nur über die Gutschrift (mm) gegen das Dokument beweisbar.
+- Dienst `calculate_zone` und die `before_run`-Vorabrechnung eines Plans mit Zonenliste gehen denselben Zonenzweig
+  (`async_update_zone_config`), der ohne Pufferzeilen wirft (`__init__.py:2094-2100`).
+- `ha_get_integration(entry_id=…)` gibt den Pirate-Schlüssel in `options` aus (heute wieder) → nie in Dateien/Texte.
+- Der Regen-Wächter loggt `observed` beim Dispatch nicht; er steht in `irrigation_outlook.last_skip_evaluation`.
+
+### Nächste Schritte
+
+1. Upstream-Runde ab 22:37 UTC, alle Autoren (JustChr#194: Merge → Eifel-Joe#87 zu + `#42`, ET-Fix gewünscht → neues
+   Fork-Issue mit Label, dann Spec/Plan; JustChr#193: Form → Spec + Plan nach P1; neues Release → production/HA-Prod
+   nur auf Zuruf). Vor JEDEM Außen-Schritt wiederholen.
+2. **Eifel-Joe#61 umsetzen** nach dem Plan, ab Task 1 (Task 0 erledigt), inline in der Hauptsitzung
+   (`superpowers:executing-plans`); Tasks 1–2 lokal (Code = Plan-Blöcke, Ergebnis aus dem Probelauf bekannt), ab Task 3
+   HA-Test. Vorher die Regenverteilung prüfen (Stand 06.10.: 07.10. 3,4 · 08.10. 15,9 · 09.10. 3,6 · 10.10. 7,5 ·
+   11.10. 0,6 · 12.10. 0 mm).
+3. Feldtest Eifel-Joe#8 nach dem ersten Beet-Lauf (~10.10.), dann Spec + Plan für PR 2.
+4. Nach dem Merge von JustChr#194: `issue87-work\edge-profile` löschen, Worktree `issue87-work\wt` + Branch
+   `docs/refresh-weather-location-screenshot` (lokal + origin) weg, `issue87-work` → `_erledigt`.
+5. Aufräumen sonst wie 2026-10-06 (6) Punkt 5; `issue61-work` erst nach Task 11.
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:executing-plans`, `superpowers:verification-before-completion`; bei einem Durchfaller
+  `superpowers:systematic-debugging`; Task 11 nach Regel P2 (Fork-Issue, kein Upstream-Text ohne Entscheidung).
+
 ## 2026-10-06 (6) — Eifel-Joe#87: Doku-PR `JustChr#194` offen, CI grün; Upstream-Runden leer; Feldtest #8 ruhig; Vorschlag nächster Punkt Eifel-Joe#61
 
 ### Stand
@@ -45,15 +110,19 @@
 - **Feldtest Eifel-Joe#8** (HA-Prod `v2026.10.05b1`): `sensor_outages` leer, alle 8 EcoWitt-Sensoren um 21:06 UTC
   frisch; Eimer Kirschlorbeer +7,34 / Kirschbaum +6,05 / Beet +3,41 mm → noch kein Lauf, Auftrag 3 noch nicht fällig.
 - production `fa31c31a` unverändert (3 behind, nur auf Zuruf); HA-Test `v2026.10.06b1`.
-- **Archiv:** `docs/superpowers/probes/2026-10-06-docs-screenshot/` (Skripte, Belege, Texte) + diese Datei, im
-  Archiv-Worktree `pr139-work\archive-wt` lokal committet; Push nur mit Freigabe.
-- **Aufräum-Kandidaten angesehen, nichts gelöscht.** Blob-Abgleich gegen die GANZE Historie von
-  `origin/archive/design-history` (`issue87-work\archived_check.py`, Ergebnis `archived_check.out`). Nicht archiviert:
-  `issue9-work` 901 Dateien (765 `tmp`, 71 Prompts, 27 Texte inkl. der deutschen Entwürfe `texts/pr-de.md` +
-  `issues-de.md`, RED/GREEN-/Mutationsläufe, `rebuild-evidence/notes-v2026.10.04b1.md`), `issue11-work` 29 (Prompts,
-  Readbacks, `probe-…-1b..4b.patch`), `prodrebuild-1003-work` 13 (Texte + `zip/notes-remote.md`), `prodrebuild-1006-work`
-  1 (`release-readback.json`); 1004b2/1005 nur ZIPs + Suites (reproduzierbar); `issue11-work-review-init.tmp` = Kopie
-  eines `__init__.py`.
+- **Archiv gepusht** (Freigabe im Chat): `8344eeb4` = `docs/superpowers/probes/2026-10-06-docs-screenshot/` (Skripte,
+  Belege, Texte) + diese Datei im Stand vor dem Aufräumen; `092fe97b` = Sicherungssatz aus den Aufräum-Kandidaten
+  (siehe nächster Punkt). Remote `archive/design-history` = `092fe97b`. Die Archivkopie dieser Datei kennt das Aufräumen
+  noch nicht → mit dem nächsten Archiv-Commit nachziehen.
+- **Aufgeräumt (User-Variante 1: „Rest sichern, löschen“).** Vorher Blob-Abgleich gegen die GANZE Historie von
+  `origin/archive/design-history` (`issue87-work\archived_check.py`, vorher/nachher `archived_check.out` /
+  `archived_check.after.out`). Ins Archiv (`092fe97b`): deutsche Entwürfe zu Eifel-Joe#9 (`texts-de/pr-de.md`,
+  `issues-de.md`), RED/GREEN- und Mutationsläufe, `check_plan_blocks.py` + `probe_mutate.py` (vom Plan genannt) →
+  `probes/2026-10-04-unload-teardown-build/`; finales `spec_check.py` + `release-readback.json` →
+  `probes/2026-10-06-device-registry-build/`; `notes-remote.md` → `probes/2026-10-03-production-rebuild/`. Danach gelöscht:
+  `issue11-work`, `issue9-work`, `prodrebuild-1003-work`, `prodrebuild-1004b2-work`, `prodrebuild-1005-work`,
+  `prodrebuild-1006-work`, `issue11-work-review-init.tmp`. Bewusst nicht gesichert: `tmp`, Subagenten-Prompts, Suites,
+  Namenslisten, ZIPs, HA-Quellkopien, Texte und Readbacks, die auf GitHub stehen.
 
 ### Verworfen
 
@@ -81,7 +150,8 @@
    ist nicht geprüft.
 4. Nach dem Merge von JustChr#194: `issue87-work\edge-profile` löschen; Worktree `issue87-work\wt` und Branch
    `docs/refresh-weather-location-screenshot` (lokal + origin) entfernen; `issue87-work` → `_erledigt`.
-5. Aufräumen nach Entscheidung des Users (Vorschlag im Chat 2026-10-06); `issue8-work` erst nach PR 3 von Eifel-Joe#8.
+5. Aufräumen: erledigt bis auf `issue8-work` (erst nach PR 3 von Eifel-Joe#8), `issue87-work` (nach dem Merge von
+   JustChr#194) und `merge-followup-work` (nicht angesehen; seine Texte liegen laut Eintrag (5) im Archiv).
 6. production-Neubau auf upstream v2026.10.05 und HA-Prod-Update: nur auf Zuruf.
 
 ### Empfohlene Skills
