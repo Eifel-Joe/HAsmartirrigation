@@ -23,6 +23,107 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-05 (9) — Upstream-Runde leer; Feldtest #8 ruhig; Aufräumen; Vorschlag nächster Punkt Eifel-Joe#11
+
+### Stand
+
+- **Upstream-Runde 17:16 UTC** (seit 15:55 UTC, alle Autoren: Issues/PRs, Issue- und Review-Kommentare, Releases,
+  `scan_upstream_refs.py`): leer. master `7001c754`, letztes Release weiter v2026.10.04 (ohne #190). JustChr#191 ohne
+  Review/Kommentar, CI 5/5 grün, MERGEABLE/CLEAN, Kopf `34633730`; JustChr#188 unverändert (03.10.). production
+  `31cd812b` 0 behind / 11 ahead, CI grün → kein Rebuild, kein Außen-Schritt.
+- **Feldtest Eifel-Joe#8 (HA-Prod, nur gelesen, 17:17–17:20 UTC):** HACS installiert v2026.10.05b1; Reparaturhinweise
+  0 aktiv, unter den 34 ignorierten keiner von `irrigation_plus`; Diagnostics `data.store.mappings` (eine Gruppe,
+  „Greimerath“): `sensor_outages` leer, `sensor_last_seen` alle 8 Sensoren 19:17:01 Ortszeit. Beendete Ausfälle bleiben
+  7 Tage in der Liste (`SENSOR_OUTAGE_RETENTION_DAYS`, `sensor_liveness.py:202`) → seit 06:57 UTC kein Ausfall. Log nur
+  `via_device`.
+- **Aufgeräumt (nach Ansehen):** Worktrees + Ordner `prodrebuild-1005b2-work` (Suite-/Build-Ausgaben, ZIP = Release-Asset
+  b2, Download-Kopie) und `prodrebuild-1005b2r-work` (zwei Commit-Message-Entwürfe, stehen in den Commits). 18 lokale
+  Branches gelöscht, jeder Tipp exakt auf einem Tag bei origin bzw. `origin/production`, einer als Vorfahr eines Tags
+  (Prüfskript `D:\Entwicklung\HASI\session-1005-9-work\branch_cover.py`). Wiederherstellung per SHA:
+  `backup/fix-backstop-grace-premerge` `9da4c0b2` (in Tag v2026.09.18b2), `backup/production-pre-7001c754` `b1307c8b`,
+  `backup/production-pre-prA-beta` `40163afc`, `backup/production-pre-v2026.09.19` `6b5c914d`,
+  `backup/production-pre-v2026.09.20` `cad2db78`, `backup/production-pre-v2026.09.30` `7ba872af`,
+  `backup/production-pre-v2026.10.04b1` `d804bbf3`, `backup/production-pre-v2026.10.04b2` `4ebd458c`,
+  `backup/production-pre-v2026.10.05b1` `d8c74317`, `backup/production-pre-v2026.10.05b2` `5a780270`,
+  `rebuild/v2026.09.18b2` `6b5c914d`, `rebuild/v2026.09.19` `cad2db78`, `rebuild/v2026.09.20` `40163afc`,
+  `rebuild/v2026.10.03` `d804bbf3`, `rebuild/v2026.10.04b2-f` `d8c74317`, `rebuild/v2026.10.05b1` `5a780270`,
+  `rebuild/v2026.10.05b2` `b1307c8b`, `rebuild/v2026.10.05b2-on-7001c754` `31cd812b`.
+- **Vier Branches: User sagt löschen (06.10.), der Auto-Modus hat `git branch -D` aber als „Irreversible Local
+  Destruction“ gesperrt → stehen noch, der User löscht selbst:** `backup/pre-msgfix` `5105294e` (Baum = `1277bac6` auf
+  `origin/fix/chain-carries-zone-snapshots`, verloren gingen nur die alten Messages); `rebuild/v2026.10.04b2` `e031b6a6`
+  (nie veröffentlichter erster b2-Bau; die veröffentlichte `d8c74317` hat denselben Elternstand `13cfcb11` plus einen
+  Test und zwei Doku-Zeilen); `production-backup-v2026.09.17` `bf2b38b7` / `-v2026.09.18b1` `d8eeb21b` (= Tags).
+  Ordner `prodrebuild-1003-work`, `-1004b2-work`, `-1005-work` (ohne Worktree) nicht angefasst.
+- **Upstream-Runde 2026-10-06 05:42 UTC** (seit 17:16 UTC, vor dem Archiv-Push): leer, master `7001c754`, kein Release.
+- **User 06.10.: Eifel-Joe#11 freigegeben** (brainstorming → Spec), Archiv-Push freigegeben.
+- **Vorschlag nächster Punkt (nur Vorschlag, nicht begonnen):** Eifel-Joe#11 (`via_device`, #42 Punkt 12, mittel,
+  prod-scharf, `groesse:M`). Nachgeprüft: master `7001c754` trägt es in `entity.py:49`/`:63`, `entity.py` seit
+  `c9e84d72` unberührt; upstream kein Issue/PR (Suchen `via_device`, `via_device_id`, `2027.8`, `deprecated device`),
+  einziger offener PR ist JustChr#191; kein eigener Branch. Versions-Boden `hacs.json` 2025.5.0.
+
+### Fallen
+
+- **Ignorierte Reparaturhinweise sieht nur `ha_get_overview(include_dismissed_repairs=true)`**; `ha_get_system_health`
+  mit `include=repairs` zählt sie nur. Ein vom User weggeklickter `weather_sensor_stale_*` fiele sonst durch.
+
+### Nächste Schritte
+
+1. Upstream-Runde seit 17:16 UTC; JustChr#191 bleibt Zeile der Runde (Einwand → Kommentar in #10 + Fix nach TDD;
+   Merge → #10 zu, #42 Punkt 11, production-Rebuild, `issue10-work` weg). JustChr-Release mit #190 → Rebuild prüfen.
+2. Feldtest #8 nach dem ersten Beet-Lauf (~10.10.) ansehen, dann Spec + Plan für PR 2 (Freigabe vor dem Bau).
+3. Eifel-Joe#11 (freigegeben) nach task-loop: brainstorming → Spec (zuerst Versions-Boden und Ersatz-API belegen) → Plan.
+4. Die vier gesperrten Branches löscht der User selbst (oben).
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:brainstorming` (für #11); Memories `upstream-sweep-first`, `hasi-dead-weather-sensor`,
+  `check-before-duplicating-work`.
+
+## 2026-10-05 (8) — JustChr#190 gemergt (`7001c754`), production nachgezogen; Nebenbefunde Eifel-Joe#84/#85 angelegt
+
+### Stand
+
+- **Upstream-Runden 15:38, 15:44, 15:55 UTC.** JustChr#190 um 15:48 UTC als Squash `7001c754` gemergt (Baum = unser
+  `bd3b7ebd`), **noch in keinem Release** (letztes: v2026.10.04). JustChrs Kommentar `5997966126`: Modul Zeile für Zeile
+  gelesen, Probe-Merge 3790 passed, zwei eigene Mutationen gefangen, Codecov = Fork-Upload, „Parts 2 and 3 of #188 can
+  follow whenever you are ready“ (keine Frage an uns). JustChr#188 offen. JustChr#191 MERGEABLE/CLEAN, Probe-Merge auf
+  `7001c754` konfliktfrei (8 gemeinsame Übersetzungsdateien, verschiedene Schlüssel).
+- **P2 für #190 (freigegeben, zurückgelesen gleich):** Kommentar auf Eifel-Joe#8 (`5998141264`), `#42` Punkt 9. #8 bleibt
+  offen, Label `upstream:freigegeben` bleibt.
+- **production `31cd812b`** = `7001c754` + Branding + 9 Commits #10 + b2-Build-Commit (Messages auf die neue Basis
+  berichtigt); **Baum byte-gleich mit b2** (`2a23a71e`) → kein neues Release, Tag v2026.10.05b2 bleibt auf `b1307c8b`.
+  Backup `backup/production-pre-7001c754` = `b1307c8b`; `--force-with-lease=production:b1307c8b` gepusht; GitHub 0 behind /
+  11 ahead; hassfest/HACS/Pages grün. HA-Test b2, HA-Prod b1 (Feldtest), beide unverändert richtig.
+- **Worktree `issue8-work\wt` entfernt** (sauber, Kopf = origin); Branch `fix/stale-weather-sensor` bleibt. Spec + Plan
+  von #8 inhaltsgleich im Archiv (Plan lokal nur mit CRLF).
+- **Nebenbefunde von #10 — User: nur C und D.** Angelegt (Text freigegeben, zurückgelesen gleich):
+  [Eifel-Joe#84](https://github.com/Eifel-Joe/HAsmartirrigation/issues/84) Niederschlag „Keine / nicht verwendet“ bucht
+  Dienst-Regen mit Zähler-Regel (`groesse:S`; vor Code JustChrs Wort, was `none` heißt);
+  [Eifel-Joe#85](https://github.com/Eifel-Joe/HAsmartirrigation/issues/85) PyETO teilt in der Polarnacht durch null
+  (`groesse:M`; Hängenbleiben nur abgeleitet). Beide `schwere:niedrig`, `typ:fehler`. D ohne Verweis auf B (Korrektur
+  freigegeben). `#42` Punkte 39o/39p + Verweis in Punkt 11. **A (Kalender-Dienst) und B (Karte zeigt 0,0) vorerst nicht.**
+- **Archiv `aa672398` gepusht:** `docs/superpowers/probes/2026-10-05-side-findings/` — 3 Proben + Ausgaben,
+  `probe_lib.py`, `extract_blobs.sh` (in frischem Ordner: 10 Quellkopien und 3 Ausgaben byte-gleich reproduziert), README,
+  `not-filed/` mit den Entwürfen A und B.
+- **Memories:** neu `cr-check-needs-byte-count`; aktualisiert `hasi-seasonal-outlook`, `hasi-dead-weather-sensor`,
+  `hasi-production-on-upstream`; Index auf 17,07 KiB gekürzt (Hook-Grenze 17,1; Sicherungen `issue10-work\memidx\`).
+
+### Fallen
+
+- **`grep -c $'\r'` taugt nicht als CR-Prüfung** (Git-Bash-grep 3.0: direkt immer 0, auch bei CRLF; in `$(…)` jede Zeile).
+  Folge: der Body von JustChr#190 trägt CRLF (auf GitHub unsichtbar, jetzt gemergt). Nur per Python-Bytezählung oder `file`.
+- **`git rev-parse --short` nimmt nur eine Revision** — mit zweien bricht eine `&&`-Kette vor dem Push ab (Zustand danach
+  geprüft, dann einzeln gepusht).
+
+### Nächste Schritte
+
+1. Upstream-Runde. JustChr#191 ist eine Zeile der Runde (Einwand → Kommentar in #10 + Fix nach TDD; Merge → #10 zu, #42,
+   production-Rebuild, Worktree `issue10-work\wt` weg). Ein JustChr-Release mit #190 → production/Fork-Release prüfen.
+2. Feldtest #8 auf HA-Prod beobachten (erster Beet-Lauf ~10.10.); danach Spec/Plan für PR 2 (Teile 2+3 freigegeben).
+3. Nach Schwere weiter (`Eifel-Joe#42`); #84 braucht vor Code JustChrs Antwort, was `none` heißt.
+4. Aufräumen: `prodrebuild-1005b2-work`, `prodrebuild-1005b2r-work` (Branches `rebuild/*`), `backup/*`; `issue8-work`
+   erst nach PR 3 ansehen (Material für PR 2/3); `issue10-work` nach dem Merge von #191.
+
 ## 2026-10-05 (7) — Eifel-Joe#10: PR `JustChr#191` offen; Pre-Release v2026.10.05b2 auf HA-Test live bestanden
 
 ### Stand
@@ -40,15 +141,18 @@
 - **HA-Test auf v2026.10.05b2, Live-Test bestanden** (`issue10-work\livetest\L-calendar.md`): 84 Zonen-Monate folgen
   `max(0, ET × Kc − Regen) × Mult × Fläche`, Regen Jan 120 / Jul 60, Hinweis sichtbar. **HA-Prod unverändert (b1).**
 - **[JustChr#191](https://github.com/JustChr/HAsmartirrigation/pull/191) eröffnet** (Text DE→EN freigegeben,
-  zurückgelesen gleich), an die Sitzung gebunden; CI startete noch nicht beim Anlegen.
+  zurückgelesen gleich), an die Sitzung gebunden; **CI grün** (build, lint, test 3.13, test-ha-floor, validate;
+  3688 passed = 3674 + 14, kein Codecov-Fehler).
+- **P2 + P1 erledigt (freigegeben):** Kommentar auf Eifel-Joe#10 (`5997205173`, zurückgelesen gleich) + Label
+  `upstream:gemeldet`; `Eifel-Joe#42` Punkt 11 ergänzt (Body zurückgelesen gleich); Archiv `c5e3432e` gepusht (Plan mit
+  Häkchen, Bau-Notizen, Werkzeuge, Mutanten, Namenslisten, Prompts, Live-Beleg, Sitzungsstand).
 - **Feldtest #8:** 12:41 UTC weiter ruhig (keine Hinweise, `sensor_outages` leer).
 
 ### Nächste Schritte
 
 1. Upstream-Runde; JustChr#190 und JustChr#191 sind Zeilen der Runde (Einwand → Kommentar im Issue + Fix nach TDD;
    Merge → Kommentar, #42, production-Rebuild, Worktree weg). #191: CI ansehen.
-2. Nach Freigabe (Texte liegen in `issue10-work\texts\`): Kommentar `c10-pr.md` auf Eifel-Joe#10 + Label
-   `upstream:gemeldet`; #42 Punkt 11 (`i42-after2.md`); Archiv (Plan mit Häkchen, Bau- und Live-Belege, dieser Stand).
+2. ~~P2 + Archiv~~ erledigt (siehe Stand).
 3. Nebenbefunde als Issues anbieten: Kalender-Events fehlen in `usage-events.md`; fehlgeschlagener Monat zeigt 0,0 neben
    `error`; Regen-Regel je Modul (PyETO ohne Niederschlagssensor); PyETO-ZeroDivisionError in der Polarnacht.
 4. Feldtest #8 beobachten (erster Beet-Lauf ~10.10.). Aufräumen nach den Merges (`issue8-work`, `issue10-work`,
