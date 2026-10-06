@@ -23,6 +23,72 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-06 (6) — Eifel-Joe#87: Doku-PR `JustChr#194` offen, CI grün; Upstream-Runden leer; Feldtest #8 ruhig; Vorschlag nächster Punkt Eifel-Joe#61
+
+### Stand
+
+- **Upstream-Runden** 20:12 und 21:08 UTC (Fenster ab 19:55, alle Autoren): nur unser `JustChr#193` (angelegt 20:01,
+  ohne Kommentar/Label) → Auftrag „Form der Klimadaten“ wartet. `upstream/master` unverändert `6a40e083`; neuestes
+  Release weiter Pre-Release v2026.10.05 (Notes ganz gelesen); bei JustChr kein fremder offener PR.
+- **Eifel-Joe#87 → [JustChr#194](https://github.com/JustChr/HAsmartirrigation/pull/194)**, nur
+  `docs/assets/images/configuration-weather-location-1.png` (2288 × 2130 px, 221 934 Byte, ohne Metadaten): Branch
+  `docs/refresh-weather-location-screenshot` auf `6a40e083`, ein Commit `74025d20`, Worktree `issue87-work\wt`. Text
+  DE → EN freigegeben, zurückgelesen gleich (nur das `--jq`-LF), 0 CR; CI 4/4 grün, `CLEAN`. Kriterien K1–K5 vor der
+  Aufnahme benannt, alle erfüllt: `issue87-work\texts\notes.md`.
+- **Befund, im PR gemeldet, Fix angeboten (Form entscheidet JustChr):** die Saison-Karte nimmt die ET der ersten aktiven
+  Zone (kleinste ID); auf HA-Test ist das die Static-Zone Kirschlorbeer ohne Satz → ET 0.0 mm in allen Monaten. Für die
+  Aufnahme Zonen 0/1 auf HA-Test kurz `disabled` (Recorder: 21:02:12–21:02:56 UTC), danach wieder `automatic`, erste
+  Kalenderzone wieder id 0. PR und #87-Kommentar nennen „a few minutes“ bzw. „etwa vier Minuten“ — geschätzt; der User
+  lehnte das Nachkorrigieren ab (trägt kein Ergebnis).
+- **P2:** Kommentar `6025496371` auf #87; `#42` Punkt 43c (EN + DE) → „PR offen“; beide zurückgelesen gleich; Label
+  bleibt `upstream:freigegeben` (Präzedenz Eifel-Joe#8).
+- **Feldtest Eifel-Joe#8** (HA-Prod `v2026.10.05b1`): `sensor_outages` leer, alle 8 EcoWitt-Sensoren um 21:06 UTC
+  frisch; Eimer Kirschlorbeer +7,34 / Kirschbaum +6,05 / Beet +3,41 mm → noch kein Lauf, Auftrag 3 noch nicht fällig.
+- production `fa31c31a` unverändert (3 behind, nur auf Zuruf); HA-Test `v2026.10.06b1`.
+- **Archiv:** `docs/superpowers/probes/2026-10-06-docs-screenshot/` (Skripte, Belege, Texte) + diese Datei, im
+  Archiv-Worktree `pr139-work\archive-wt` lokal committet; Push nur mit Freigabe.
+- **Aufräum-Kandidaten angesehen, nichts gelöscht.** Blob-Abgleich gegen die GANZE Historie von
+  `origin/archive/design-history` (`issue87-work\archived_check.py`, Ergebnis `archived_check.out`). Nicht archiviert:
+  `issue9-work` 901 Dateien (765 `tmp`, 71 Prompts, 27 Texte inkl. der deutschen Entwürfe `texts/pr-de.md` +
+  `issues-de.md`, RED/GREEN-/Mutationsläufe, `rebuild-evidence/notes-v2026.10.04b1.md`), `issue11-work` 29 (Prompts,
+  Readbacks, `probe-…-1b..4b.patch`), `prodrebuild-1003-work` 13 (Texte + `zip/notes-remote.md`), `prodrebuild-1006-work`
+  1 (`release-readback.json`); 1004b2/1005 nur ZIPs + Suites (reproduzierbar); `issue11-work-review-init.tmp` = Kopie
+  eines `__init__.py`.
+
+### Verworfen
+
+- Aufnahme über den Browser-Bereich: liefert Bilder nur an Claude, nicht als Datei → Playwright + Edge-Profil (User-Wahl).
+- Das Doku-Bild mit der Static-Zone vorn (ET 0.0 mm): irreführend → Static-Zonen kurz deaktiviert (User-Wahl 1).
+
+### Fallen
+
+- Die Saison-Karte zeigt die Werte der ersten aktiven Zone — auf HA-Test eine Static-Zone.
+- `ha_get_history` rechnet das Zonen-Attribut `last_updated` als UTC um (+2 h) — kein Integrationsfehler
+  (Memory `mcp-last-reported-is-wrong`).
+- Playwright-Ausgabe unter Windows: cp1252 → `PYTHONIOENCODING=utf-8`, in eine Datei schreiben.
+- `issue87-work\edge-profile` enthält die HA-Test-Anmeldung (nicht archivieren, nach dem Merge löschen).
+- Archiv-Abgleich nur gegen den Tipp (`ls-tree`) übersieht überschriebene Revisionen → `rev-list --objects`.
+  Shell-Schleifen mit `git hash-object` je Datei sind unter MSYS sehr langsam → Python mit eigener SHA1.
+
+### Nächste Schritte
+
+1. Upstream-Runde ab 21:08 UTC: JustChrs Antwort auf JustChr#194 (Merge → #87 schließen, `#42`; will er den ET-Fix →
+   neues Fork-Issue mit Label, dann Spec/Plan) und auf JustChr#193 (Form → Spec + Plan nach P1, Freigabe vor dem Bau).
+2. Feldtest Eifel-Joe#8 nach dem ersten Beet-Lauf (~10.10.), dann Spec + Plan für PR 2.
+3. Nächster Punkt nach Schwere: **Eifel-Joe#61** (🟠, Verifikation der Vorhersage-Gewichtung, fünf Beobachtungen laut
+   Body + Kommentar vom 03.10.) — Entscheidung des Users ausstehend. unbestätigt: Blocker 1 („PirateWeather 429 auf
+   HA-Test“) könnte weg sein — am 06.10. lieferte HA-Test eine 6-Tage-Vorhersage; ob `calculate_zone` dort rechnet,
+   ist nicht geprüft.
+4. Nach dem Merge von JustChr#194: `issue87-work\edge-profile` löschen; Worktree `issue87-work\wt` und Branch
+   `docs/refresh-weather-location-screenshot` (lokal + origin) entfernen; `issue87-work` → `_erledigt`.
+5. Aufräumen nach Entscheidung des Users (Vorschlag im Chat 2026-10-06); `issue8-work` erst nach PR 3 von Eifel-Joe#8.
+6. production-Neubau auf upstream v2026.10.05 und HA-Prod-Update: nur auf Zuruf.
+
+### Empfohlene Skills
+
+- `task-loop`; für Eifel-Joe#61 `superpowers:brainstorming` → `superpowers:writing-plans` (Live-Verifikationsplan);
+  `pr-workflow` bei Upstream-Schritten.
+
 ## 2026-10-06 (5) — JustChr#191 und JustChr#192 gemergt; Eifel-Joe#10/#11 zu, Eifel-Joe#87 neu, Upstream-Issue JustChr#193 (Klimadaten); aufgeräumt
 
 ### Stand
