@@ -23,6 +23,63 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-11 — Eifel-Joe#61 live belegt und geschlossen; Eifel-Joe#88 (imperial) + Eifel-Joe#89 (Abrufrate) neu; Upstream-Runden leer
+
+### Stand
+
+- **Upstream-Runden** 07:00, 10:58, 11:10 UTC (Fenster ab 2026-10-06 22:39, alle Autoren): leer. Seit 06.10. 21:08 UTC
+  keine Aktivität; JustChr#194 offen (clean, 0 Reviews), JustChr#193 ohne Antwort, `upstream/master` `6a40e083`,
+  neuestes Release Pre-Release v2026.10.05.
+- **Feldtest Eifel-Joe#8** (HA-Prod, 07:05 UTC, nur gelesen): `sensor_outages` leer, 8 Sensoren frisch, Eimer
+  Kirschlorbeer +17,60 / Kirschbaum +17,35 / Beet +14,10 mm (`last_calculated` 10.10. 23:00) → kein Lauf, nicht fällig.
+- **Eifel-Joe#61 abgeschlossen:** B1–B5 und (i) auf HA-Test bestanden, Rückbau verglichen, HA-Test neu gestartet
+  (angekündigt). Protokoll mit allen Rohzitaten: `issue61-work\livetest\protocol.md`. Spec Revision 2 (§10, E4–E6)
+  und Plan Revision 2/2a/2b vom User freigegeben. Kommentar `6109833415` auf #61, #61 geschlossen (completed);
+  **Eifel-Joe#88** (imperial, `typ:fehler`, `schwere:mittel`), **Eifel-Joe#89** (Abrufrate, `typ:fehler`,
+  `schwere:mittel`); `#42` Punkt 14a zu, 25f/25g neu — alles zurückgelesen identisch.
+- **HA-Test:** neuer Pirate-Schlüssel (vom User im Panel, 11.10. ~07:10 UTC; der alte antwortete seit 09.10. 09:16 UTC
+  mit 429). **Aktualisierungsintervall 60 min** (User-Entscheidung, bleibt bis Eifel-Joe#89 behoben). Sonst wie vor
+  dem Test (Vergleich: nur `autoupdateinterval` und Laufzeitzähler `days_since_last_irrigation`).
+- **Imperial (E3) bestätigt** per lokalem Probetest (`.FF`, Panel `0 == 112`, Lauf „zone dropped“) → Eifel-Joe#88.
+
+### Verworfen
+
+- Heimatstandort HA-Test für E1: 11.–17.10. kein Regen vorhergesagt → Ersatzort Brest per manuellen Koordinaten
+  (Spec §10.2; Rangliste Open-Meteo-GFS, bestätigt am Pirate-Dokument, Reserve 8,10).
+- Baustein X (Plan Rev. 2): sprengt das 10-MB-Limit der MCP-Sandbox → Baustein X′ (seitenweise, Rev. 2a).
+
+### Fallen
+
+- **`set_bucket` rückt `last_consumed_at` vor** → danach erst eine neue Wetterzeile abwarten, sonst rechnet die Zone
+  still nicht. Reihenfolge: `set_bucket` → Wetterzeile → Zeitplan-Zeit setzen → rechnen (Plan Rev. 2b).
+- **MCP `ha_call_service` mit mehreren Entitäten:** als Liste in `data`, nicht als Komma-String (`services.py:168`,
+  HTTP 500).
+- **Pirate-Rohdokument im Log in 16-KiB-Stücke zerlegt** (Folgezeilen ohne Zeitstempel); gefilterte Suche sieht nur
+  das erste Stück. Sandbox-Speicher 10 MB → seitenweise lesen (Baustein X′ im Plan).
+- **Zeitplan speichern löst einen Abruf-Schub aus** (30 echte Abrufe), Zyklus ~19 je 10 min (Eifel-Joe#89).
+- **Outlook-`zone_estimates` sind zwischengespeichert** (Erneuerung im Zyklus); der Dispatch rechnet frisch mit
+  `run_start=utcnow()` → Lesen und Dispatch nur nach einem Zyklus vergleichbar.
+- `irrigation_plus/coordinates` (WS) liefert HA-Tests echte Koordinaten als `ha_*` mit → in der Sandbox filtern.
+- HA vergibt einer neuen Zone die Entitäts-ID einer früher gelöschten mit gleicher Zonen-ID
+  (`sensor.irrigation_plus_lt_wegwerf_zone` = Zone 9) → per Attribut `id` prüfen.
+
+### Nächste Schritte
+
+1. Upstream-Runde ab 2026-10-11 11:10 UTC, alle Autoren (JustChr#194: Merge → Eifel-Joe#87 zu + `#42`, dann
+   `issue87-work` aufräumen; JustChr#193: Form → Spec + Plan nach P1; neues Release → production/HA-Prod nur auf
+   Zuruf). Vor JEDEM Außen-Schritt wiederholen.
+2. Feldtest Eifel-Joe#8 nach dem ersten Beet-Lauf, dann Spec + Plan für PR 2.
+3. Eifel-Joe#89: kurze DEBUG-Messung des OWM-Clients auf **HA-Prod nur mit Freigabe**, dann neu einstufen; danach
+   entscheiden, ob und wie es upstream geht (berührt Eifel-Joe#20 `_is_fresh`).
+4. Eifel-Joe#88: entscheiden, ob es upstream gemeldet wird (JustChr hat die imperiale Prüfung selbst als offen
+   benannt) — Text erst DE, dann EN, Freigabe.
+5. Aufräumen: `issue61-work` nach `_erledigt` (nach dem Archiv-Push), `issue87-work` nach dem Merge von JustChr#194.
+
+### Empfohlene Skills
+
+- `task-loop`; für Eifel-Joe#89/#88 vor jedem Bau `superpowers:brainstorming` (Spec) und Regel P1/P2; Upstream-Texte
+  nach `pr-workflow` (Text-Freigabe).
+
 ## 2026-10-07 — Eifel-Joe#61: Spec + Plan freigegeben und probegelaufen; Imperial-Defekt im Live-Pfad bestätigt; Upstream-Runden leer
 
 ### Stand
@@ -50,7 +107,9 @@
   (`zigbee2mqtt/Wasser vorne|Beet/set` über den Broker von HA-Prod = echte Ventile) liest nur der selbstschließende Pfad.
   Würde eine der beiden auf `service` gestellt, schaltete HA-Test echte Ventile. Dauerhaftes Umverdrahten: User-Sache,
   nicht entschieden.
-- **Archiv:** Spec, Plan, `code-facts.md`, Probelauf-Beleg und diese Datei → `archive/design-history` (Push freigegeben).
+- **Archiv gepusht** (Freigabe im Chat): `ec898135` auf `archive/design-history` = Spec, Plan,
+  `probes/2026-10-07-forecast-weighting-live/` (`code-facts.md`, `plan-probe-RESULT.md`) und diese Datei (damit auch das
+  Aufräumen vom 06.10.). Archiv-Worktree ist weiter `pr139-work\archive-wt` (sauber, = Remote).
 
 ### Verworfen
 

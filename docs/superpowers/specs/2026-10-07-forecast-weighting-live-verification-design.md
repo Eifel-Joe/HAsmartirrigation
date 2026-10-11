@@ -1,6 +1,9 @@
 # Live-Verifikation der Vorhersage-Gewichtung (Eifel-Joe#61) — Design
 
 Stand: 2026-10-07, Entscheidungen E1–E3 und Abschnitte 1–3 im Chat vom User freigegeben.
+**Revision 2 (2026-10-11):** Nachtrag §10 (E4–E6) — Ersatzort per manuellen Koordinaten, Rohdokument aus
+Log-Stücken, Intervall-Drosselung; Abschnitte 1–3 des Nachtrags im Chat vom User freigegeben. Revision 1 liegt in
+`archive/design-history` (`ec898135`).
 Art: **Verifikation, keine Codeänderung.** Code-Fakten mit Fundstellen: `D:\Entwicklung\HASI\issue61-work\code-facts.md`
 (gelesen auf `upstream/master` `6a40e083`; Zitate unten verweisen auf dessen Abschnitte Q1–Q10).
 
@@ -179,7 +182,8 @@ Wetter-API-Schlüssel (steht in `ha_get_integration`-Optionen) gelangt in keine 
 ## 9. Ende-zu-Ende-Kriterium
 
 1. B1–B5 und (i) bestanden, je mit Beleg im Protokoll;
-2. Rückbau-Vergleich der Konfiguration ohne Abweichung;
+2. Rückbau-Vergleich der Konfiguration ohne Abweichung; **Rev. 2:** außer `autoupdateinterval` = `"60"` (E6), und
+   Koordinaten-Vergleich ohne Abweichung (§10.4);
 3. Imperial-Probetest gelaufen, Ergebnis festgestellt.
 
 Danach P2: Ergebnis-Kommentar auf Eifel-Joe#61 (EN + DE, Freigabe vorher), #61 schließen, `Eifel-Joe#42` nachziehen,
@@ -188,3 +192,87 @@ Imperial-Befund ggf. als neues Fork-Issue mit Label im selben Zug; Spec, Plan un
 
 **Abbruch:** fällt ein Kriterium durch → kein zweiter Versuch mit umgebautem Aufbau, sondern
 `superpowers:systematic-debugging` und Rücksprache. Ein Durchfaller kann ein echter Defekt sein.
+
+## 10. Nachtrag Revision 2 (2026-10-11)
+
+### 10.1 Anlass (gemessen 2026-10-11, Protokoll `issue61-work\livetest\protocol.md`)
+
+- **Blocker 429:** HA-Test bekam von Pirate Weather seit 2026-10-09 09:16 UTC nur noch HTTP 429 (5466 + 550 Fehler).
+  User-Entscheidung: neuer Schlüssel (vom User im Panel eingetragen); seit 09:10:43 Ortszeit keine 429 mehr.
+- **E1 trägt nicht:** am HA-Test-Standort Stundenwerte 11.10. 07:00 bis 12.10. 13:00 UTC alle 0, Tagessummen
+  12.–17.10. alle 0 mm. User-Entscheidung: Ausweichweg E1 (2), manuelle Koordinaten (E4).
+- **Rohdokument zerlegt:** jede Abruf-Zeile wird nach 16384 Byte abgeschnitten (16379 Zeichen + Farbcode); die
+  Fortsetzung steht in 5 direkt folgenden Zeilen ohne Zeitstempel. Eine gefilterte Suche sieht nur 31 von 168
+  Stundenwerten (E5).
+- **Abrufrate:** ein Zyklus 09:20:42.554–43.326 Ortszeit = 1 `get_data` + 18 `get_forecast_data` echte Abrufe
+  (parallel, ohne Sperre im Client) + 20 Cache-Treffer. User-Entscheidung: Intervall 10 → 60 min bis zum Test, und
+  nach dem Test bleibt 60 (E6). Seit 2026-10-11 10:45:01 Ortszeit belegt („Scheduled auto update time interval for
+  each 1:00:00“).
+
+### 10.2 E4 — Ersatzort per manuellen Koordinaten
+
+- **Suche** (User-Wahl Variante 1 von 3; verworfen: (2) Suche direkt mit Pirate über den Mess-Schlüssel — kostet
+  dessen Kontingent, Zustand des Schlüssels unbekannt; (3) Ort vom User — nicht nachvollziehbar gewählt): lokales
+  Skript `issue61-work\scout.py` fragt Open-Meteo mit dem GFS-Modell (`hourly=precipitation`, Zeitbasis UTC, ohne
+  Schlüssel) für eine feste Liste von Orten in derselben UTC-Verschiebung wie HA-Test ab (DE, NL, BE, FR, DK, NO, SE,
+  CH, AT, PL, CZ, IT, ES). Gleiche Verschiebung hält Pirates Tagesblöcke deckungsgleich mit HA-Tests Uhr.
+- **Kriterium** (R = Regen in mm laut Reihe, Fenster halboffen, Startpunkte in 15-Minuten-Schritten, Regen innerhalb
+  einer Stunde gleichverteilt): für jeden Startpunkt t in [jetzt, jetzt + 8 h] gilt
+  R(t, t + 24 h) ≥ 2 mm **und** |R(t, t + 24 h) − R(t + 24 h, t + 48 h)| ≥ 0,5 mm; außerdem existiert T1 in
+  [jetzt + 1 h, jetzt + 20 h] mit |R(T1, T1 + 24 h) − R(jetzt, jetzt + 24 h)| ≥ 0,5 mm. Rangfolge nach der Reserve
+  (kleinster Abstand zur jeweiligen Schwelle über alle t).
+- **Setzen:** WS `irrigation_plus/coordinates_save` mit Breite, Länge und der Gitterhöhe aus der Open-Meteo-Antwort.
+  Der Eintrag lädt neu (`websockets.py:1070-1101`: die Koordinaten sind beim Setup in die Wetter-Clients gebacken).
+  Folgen: sofortiger Abruf-Schub; Verteiler-Entitäten bis zum nächsten Neustart `unavailable` (vorbestehend, für
+  #61 ohne Belang).
+- **Bestätigen:** das erste vollständige Pirate-Dokument am Ort (E5) muss mit `o1.py scan` dasselbe Kriterium
+  erfüllen. Sonst **einmal** Wechsel auf Rang 2 (User-Wahl); trägt auch dieser nicht → Stopp, Rücksprache.
+  Das ist Aufbau, kein Prüfkriterium.
+- **Reihenfolge:** Koordinaten vor Zonen, Zeitplan und Log-Pegeln; kein Neuladen innerhalb einer Phase; zurück erst
+  nach dem Löschen von P61.
+- **Datenschutz:** Der Testort ist ein öffentlicher Ort und darf mit Namen und auf 2 Stellen gerundeten Koordinaten
+  ins Protokoll. HA-Tests eigene Koordinaten nie: WS `irrigation_plus/coordinates` liefert sie als `ha_latitude`,
+  `ha_longitude`, `ha_elevation` mit (`websockets.py:1062-1064`) — die Sandbox filtert sie, bevor etwas zurückkommt.
+
+### 10.3 E5 — Rohdokument aus Log-Stücken
+
+- **Zusammensetzen** in der Sandbox: `error_log` ungefiltert lesen (Fenster 2000 Zeilen, bei Bedarf `offset`),
+  chronologisch ordnen; ab jeder Zeile `PirateWeatherClient get_(forecast_data|data) called API` alle folgenden
+  Zeilen ohne Zeitstempel ohne Trenner anhängen, Farbcodes je Stück entfernt.
+- **Vollständig** (ersetzt Probe 0 (a)) heißt: 168 Stundenwerte in lückenlosen 3600-s-Schritten, nach dem
+  Stundenblock folgt `'daily':`, `precipIntensity`-Zähler = 177 (1 currently + 168 hourly + 8 daily). Sonst Probe 0
+  gescheitert → Stopp, Rücksprache. Probe 0 (b): die URL im Dokument trägt `***`, kein Schlüsselmuster.
+- **Ablage** unverändert: nur die Zahlenreihe nach `doc-HHMMSS.series.json`; die Sandbox gibt nie Rohtext zurück.
+- **Maßgebliches Dokument:** Die Gutschrift liest nur `_cached_doc` und fragt nie selbst ab
+  (`PirateWeatherClient.py:210-215`); jeder echte Abruf überschreibt es (`:249` `get_forecast_data`, `:357`
+  `get_data`), unmittelbar vor seiner Log-Zeile. Maßgeblich ist daher der letzte echte Abruf mit Log-Stempel vor der
+  Gutschrift-Zeile, gleich welche Methode. Zusätzlich müssen **alle Dokumente dieses Schubs dieselbe Stundenreihe**
+  haben (verglichen werden nur die Paare `(time, precipIntensity)`; `currently` darf abweichen). Weichen sie ab →
+  Stopp, Rücksprache — kein nachträgliches Auswählen des passenden Dokuments.
+- **Zeitpunkt:** Extraktion unmittelbar nach jeder Auswertung, im selben Zyklus.
+
+### 10.4 E6 — Intervall, Eimer-Marge, Rückbau
+
+- **Intervall:** Task 5 setzt 10 min (alle vier Felder `autoupdateenabled`, `…schedule`, `…interval`, `…delay`
+  zusammen; nur dann plant `__init__.py:1243-1244` neu), Beleg INFO „… for each 0:10:00“. Der Rückbau setzt 60 min,
+  Beleg „… for each 1:00:00“. Eine 429 während der Phasen ist ein Umgebungsabbruch, kein Durchfaller → Stopp,
+  Rücksprache.
+- **Eimer-Marge 8 → 15 mm:** Sensorgruppe 0 bezieht alle Felder vom Wetterdienst; gemessener Regen am Ersatzort hebt
+  den Eimer bei der Rechnung an. D = −(⌈max(O1(T1), O1(E))⌉ + 15) mm (Läufe etwa 5–8 min bei 180 mm/h). Fällt eine
+  Zone trotzdem weg (wahrer Eimer + Gutschrift ≥ 0), ist die Phase nicht auswertbar → Stopp, Rücksprache, kein
+  Nachsetzen.
+- **Testzonen nach dem Koordinatenwechsel anlegen:** ihr `last_consumed_at` beginnt am neuen Ort; keine Mischung von
+  Wetterzeilen beider Orte in ihren Rechnungen.
+- **Rückbau-Reihenfolge:** P61 löschen → Zonen 61-A/-B und Helfer löschen → Konfiguration zurück (Intervall 60) →
+  `coordinates_save` mit `manual_coordinates_enabled: false` (Neuladen) → Log-Pegel WARNING.
+- **Vergleich:** gegen `config-before.json` mit genau einer erwarteten Abweichung `autoupdateinterval` = `"60"`;
+  `coords-before.json` / `coords-after.json` (nur die `manual_*`-Felder, in der Sandbox gefiltert) ohne Abweichung.
+- **Danach:** HA-Test-Neustart, angekündigt, damit die Verteiler-Entitäten zurückkommen.
+
+### 10.5 Ausdrücklich nicht dabei (Ergänzung zu §7)
+
+- Die Abrufrate selbst (19 echte Abrufe je Zyklus, keine Sperre, Fehler ungecacht, drei Versuche ohne Pause): eigenes
+  Fork-Issue, Text zur Freigabe nach diesem Nachtrag. Offen bleibt, ob HA-Prod (OWM) ebenfalls mehrfach je Zyklus
+  abruft — nicht gemessen.
+- Die Gutschrift am Ersatzort prüft Anker und Durchreichung wie am Heimatort; Sonnenstand und PyETO am Ersatzort sind
+  für B1–B5 ohne Belang (Eimer werden gesetzt, geprüft wird die Differenz wahr → effektiv).

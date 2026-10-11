@@ -1,0 +1,35 @@
+D:\Entwicklung\HASI\HAsmartirrigation\.venv\Lib\site-packages\pytest_asyncio\plugin.py:208: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+.FF                                                                      [100%]
+================================== FAILURES ===================================
+________ test_imperial_panel_credits_the_forecast_in_the_deficits_unit ________
+
+    def test_imperial_panel_credits_the_forecast_in_the_deficits_unit():
+        z = zone(-0.5)
+        expected = zone_run_duration(z, -0.5 + CREDIT_MM / const.INCH_TO_MM_FACTOR, False)
+        assert expected > 0
+>       assert LiveEstimateMixin._live_run_duration(z, -0.5, False, CREDIT_MM) == expected
+E       AssertionError: assert 0 == 112
+E        +  where 0 = <function LiveEstimateMixin._live_run_duration at 0x0000029E680F40E0>({'bucket': -0.5, 'bucket_threshold': 0, 'duration': 100, 'id': 1, ...}, -0.5, False, 5.08)
+E        +    where <function LiveEstimateMixin._live_run_duration at 0x0000029E680F40E0> = LiveEstimateMixin._live_run_duration
+
+imperial_probe_test.py:57: AssertionError
+_________ test_imperial_run_credits_the_forecast_in_the_deficits_unit _________
+
+    def test_imperial_run_credits_the_forecast_in_the_deficits_unit():
+        z = zone(-0.5)
+        expected = zone_run_duration(z, -0.5 + CREDIT_MM / const.INCH_TO_MM_FACTOR, False)
+        d = IrrigationRunnerMixin._zone_run_decision(
+            runner(), z, {"1": {"live_deficit": -0.5}}, False, credit=CREDIT_MM
+        )
+>       assert d is not None, "zone dropped: the mm credit covered the inch deficit"
+E       AssertionError: zone dropped: the mm credit covered the inch deficit
+E       assert None is not None
+
+imperial_probe_test.py:66: AssertionError
+=========================== short test summary info ===========================
+FAILED imperial_probe_test.py::test_imperial_panel_credits_the_forecast_in_the_deficits_unit
+FAILED imperial_probe_test.py::test_imperial_run_credits_the_forecast_in_the_deficits_unit
+2 failed, 1 passed in 2.05s

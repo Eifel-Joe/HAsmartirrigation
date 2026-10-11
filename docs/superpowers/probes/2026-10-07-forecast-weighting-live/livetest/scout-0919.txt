@@ -1,0 +1,28 @@
+now=2026-10-11T09:19:00+00:00 rows=96 first=1791676800 last=1792018800
+ok=True reserve=2.68 r_now=5.74 worst=11.10 17:19Z t1=12.10 04:04Z Brest 48.39 -4.49 elev=47.0
+ok=True reserve=2.17 r_now=7.13 worst=11.10 17:19Z t1=12.10 05:19Z Rostock 54.09 12.10 elev=17.0
+ok=True reserve=0.42 r_now=2.80 worst=11.10 17:19Z t1=11.10 22:04Z Goeteborg 57.71 11.97 elev=4.0
+ok=False reserve=-0.42 r_now=2.86 worst=11.10 12:19Z t1=12.10 05:19Z Nantes 47.22 -1.55 elev=24.0
+ok=False reserve=-0.80 r_now=4.44 worst=11.10 17:04Z t1=11.10 22:04Z Amsterdam 52.37 4.90 elev=11.0
+ok=False reserve=-1.20 r_now=0.80 worst=11.10 09:19Z t1=11.10 21:04Z Mailand 45.46 9.19 elev=138.0
+ok=False reserve=-1.30 r_now=0.70 worst=11.10 09:19Z t1=12.10 03:04Z Bergen 60.39 5.32 elev=17.0
+ok=False reserve=-1.70 r_now=0.30 worst=11.10 09:19Z t1=11.10 17:04Z Gdansk 54.35 18.65 elev=15.0
+ok=False reserve=-1.80 r_now=0.30 worst=11.10 14:04Z t1=11.10 23:04Z Kopenhagen 55.68 12.57 elev=17.0
+ok=False reserve=-1.83 r_now=2.91 worst=11.10 17:19Z t1=11.10 18:04Z Groningen 53.22 6.57 elev=7.0
+ok=False reserve=-1.87 r_now=0.13 worst=11.10 09:19Z t1=11.10 10:19Z Bordeaux 44.84 -0.58 elev=22.0
+ok=False reserve=-2.00 r_now=3.40 worst=11.10 17:04Z t1=11.10 17:04Z Stavanger 58.97 5.73 elev=1.0
+ok=False reserve=-2.00 r_now=0.00 worst=11.10 09:19Z t1=11.10 10:19Z Esbjerg 55.48 8.45 elev=8.0
+ok=False reserve=-2.00 r_now=3.68 worst=11.10 14:04Z t1=11.10 14:04Z Kiel 54.32 10.13 elev=24.0
+ok=False reserve=-2.00 r_now=4.11 worst=11.10 16:04Z t1=11.10 16:04Z Hamburg 53.55 9.99 elev=13.0
+ok=False reserve=-2.00 r_now=2.94 worst=11.10 16:04Z t1=11.10 16:04Z Bremen 53.08 8.80 elev=16.0
+ok=False reserve=-2.00 r_now=1.01 worst=11.10 15:04Z t1=11.10 15:04Z Koeln 50.94 6.96 elev=62.0
+ok=False reserve=-2.00 r_now=0.07 worst=11.10 10:04Z t1=12.10 04:04Z Bruessel 50.85 4.35 elev=27.0
+ok=False reserve=-2.00 r_now=0.00 worst=11.10 09:19Z t1=11.10 10:19Z Prag 50.08 14.44 elev=251.0
+ok=False reserve=-2.00 r_now=0.00 worst=11.10 09:19Z t1=11.10 10:19Z Muenchen 48.14 11.58 elev=524.0
+ok=False reserve=-2.00 r_now=0.00 worst=11.10 09:19Z t1=11.10 10:19Z Freiburg 47.99 7.85 elev=280.0
+ok=False reserve=-2.00 r_now=0.00 worst=11.10 09:19Z t1=11.10 10:19Z Zuerich 47.38 8.54 elev=412.0
+ok=False reserve=-2.00 r_now=0.00 worst=11.10 09:19Z t1=11.10 10:19Z Innsbruck 47.27 11.39 elev=590.0
+ok=False reserve=-2.00 r_now=0.00 worst=11.10 09:19Z t1=11.10 10:19Z Lyon 45.76 4.84 elev=161.0
+ok=False reserve=-2.00 r_now=1.70 worst=11.10 16:04Z t1=11.10 16:04Z Genua 44.41 8.93 elev=27.0
+ok=False reserve=-2.00 r_now=0.07 worst=11.10 10:04Z t1=11.10 10:19Z Bilbao 43.26 -2.93 elev=32.0
+ok=False reserve=-2.00 r_now=0.00 worst=11.10 09:19Z t1=11.10 10:19Z Santiago de Compostela 42.88 -8.54 elev=263.0
