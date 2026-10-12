@@ -226,28 +226,33 @@ class SmartIrrigationAllModuleView(HomeAssistantView):
     name = "api:" + const.DOMAIN + ":allmodules"
 
 
+# What the panel may send for a sensor group: its name, its fields and what it does
+# with a silent sensor. The server-computed fields are accepted and stripped below,
+# so older frontends do not fail validation.
+MAPPING_VIEW_SCHEMA = vol.Schema(
+    {
+        vol.Optional(const.MAPPING_ID): vol.Coerce(int),
+        vol.Optional(const.MAPPING_NAME): cv.string,
+        vol.Optional(const.MAPPING_MAPPINGS): vol.Coerce(dict),
+        vol.Optional(const.MAPPING_ON_SILENT_SENSOR): vol.In(
+            const.ON_SILENT_SENSOR_OPTIONS
+        ),
+        vol.Optional(const.ATTR_REMOVE): cv.boolean,
+        vol.Optional(const.MAPPING_DATA): object,
+        vol.Optional(const.MAPPING_DATA_LAST_UPDATED): object,
+        vol.Optional(const.MAPPING_DATA_LAST_ENTRY): object,
+        vol.Optional(const.MAPPING_DATA_LAST_CALCULATION): object,
+    }
+)
+
+
 class SmartIrrigationMappingView(HomeAssistantView):
     """View to handle Irrigation Plus mapping configuration via HTTP API."""
 
     url = "/api/" + const.DOMAIN + "/mappings"
     name = "api:" + const.DOMAIN + ":mapping"
 
-    @RequestDataValidator(
-        vol.Schema(
-            {
-                vol.Optional(const.MAPPING_ID): vol.Coerce(int),
-                vol.Optional(const.MAPPING_NAME): cv.string,
-                vol.Optional(const.MAPPING_MAPPINGS): vol.Coerce(dict),
-                vol.Optional(const.ATTR_REMOVE): cv.boolean,
-                # Accept but ignore server-computed fields so older frontends
-                # don't fail schema validation; they are stripped below.
-                vol.Optional(const.MAPPING_DATA): object,
-                vol.Optional(const.MAPPING_DATA_LAST_UPDATED): object,
-                vol.Optional(const.MAPPING_DATA_LAST_ENTRY): object,
-                vol.Optional(const.MAPPING_DATA_LAST_CALCULATION): object,
-            }
-        )
-    )
+    @RequestDataValidator(MAPPING_VIEW_SCHEMA)
     async def post(self, request, data):
         """Handle config update request."""
         _LOGGER.debug("[websocket]: request: %s %s", request, data)

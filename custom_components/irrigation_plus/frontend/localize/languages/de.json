@@ -236,6 +236,12 @@
             "windspeed": "Windgeschwindigkeit",
             "current precipitation": "Aktueller Niederschlag"
           },
+          "on-silent-sensor": {
+            "title": "Wenn ein Sensor verstummt",
+            "help": "Pausieren: Nach 3 Stunden ohne Meldung werden die Werte des Sensors nicht mehr verwendet, und für diese Zeit wird keine Verdunstung gebucht. Gilt nur ohne stündliche Berechnung.",
+            "keep": "Letzten Wert behalten",
+            "pause": "Pausieren"
+          },
           "pressure_types": {
             "absolute": "absolut",
             "relative": "relativ"

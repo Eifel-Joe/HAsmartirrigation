@@ -465,6 +465,12 @@
             "temperature": "Temperature",
             "windspeed": "Wind speed"
           },
+          "on-silent-sensor": {
+            "title": "When a sensor goes silent",
+            "help": "Pause: after 3 hours without a report, the sensor's values are no longer used and no evapotranspiration is booked for that time. Applies only without the hourly calculation.",
+            "keep": "Keep the last value",
+            "pause": "Pause"
+          },
           "pressure_types": {
             "absolute": "absolute",
             "relative": "relative"

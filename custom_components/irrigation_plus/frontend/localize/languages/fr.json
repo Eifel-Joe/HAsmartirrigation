@@ -236,6 +236,12 @@
             "windspeed": "Vitesse du vent",
             "current precipitation": "Précipitations actuelles"
           },
+          "on-silent-sensor": {
+            "title": "Quand un capteur se tait",
+            "help": "Mettre en pause : après 3 heures sans mesure, les valeurs du capteur ne sont plus utilisées et aucune évapotranspiration n’est comptée pour cette durée. Ne s’applique que sans le calcul horaire.",
+            "keep": "Garder la dernière valeur",
+            "pause": "Mettre en pause"
+          },
           "sensor-aggregate-of-sensor-values-to-calculate": "des valeurs des capteurs pour calculer la durée",
           "sensor-aggregate-use-the": "Utiliser les",
           "sensor-entity": "Entité capteur",

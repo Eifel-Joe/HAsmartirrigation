@@ -236,6 +236,12 @@
             "windspeed": "Velocidad del viento",
             "current precipitation": "Precipitación actual"
           },
+          "on-silent-sensor": {
+            "title": "Cuando un sensor deja de informar",
+            "help": "Pausar: tras 3 horas sin informar, los valores del sensor dejan de usarse y no se contabiliza evapotranspiración para ese tiempo. Solo se aplica sin el cálculo por horas.",
+            "keep": "Mantener el último valor",
+            "pause": "Pausar"
+          },
           "sensor-aggregate-of-sensor-values-to-calculate": "de los valores de los sensores para calcular la duración",
           "sensor-aggregate-use-the": "Usar la",
           "sensor-entity": "Entidad de sensor",

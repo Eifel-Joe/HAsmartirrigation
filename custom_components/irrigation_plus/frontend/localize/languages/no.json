@@ -236,6 +236,12 @@
             "windspeed": "Vindhastighet",
             "current precipitation": "Nåværende nedbør"
           },
+          "on-silent-sensor": {
+            "title": "Når en sensor blir stille",
+            "help": "Sett på pause: etter 3 timer uten rapport brukes ikke sensorens verdier lenger, og det bokføres ingen fordampning for den tiden. Gjelder bare uten timesberegningen.",
+            "keep": "Behold siste verdi",
+            "pause": "Sett på pause"
+          },
           "sensor-aggregate-of-sensor-values-to-calculate": "av sensordata for å beregne varighet",
           "sensor-aggregate-use-the": "Bruk",
           "sensor-entity": "Sensorenhet",

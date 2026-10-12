@@ -1,6 +1,7 @@
 """The sensor group's setting for a silent sensor: keep its last value or pause it."""
 
 import pytest
+import voluptuous as vol
 
 from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus.store import STORAGE_KEY, SmartIrrigationStorage
@@ -99,3 +100,12 @@ async def test_a_save_without_the_setting_leaves_it_alone(hass) -> None:
     )
 
     assert store.get_mapping(group)[KEY] == "keep"
+
+
+def test_the_mapping_view_takes_the_setting_and_only_its_two_values():
+    from custom_components.irrigation_plus.websockets import MAPPING_VIEW_SCHEMA
+
+    assert MAPPING_VIEW_SCHEMA({KEY: "pause"}) == {KEY: "pause"}
+    assert MAPPING_VIEW_SCHEMA({KEY: "keep"}) == {KEY: "keep"}
+    with pytest.raises(vol.Invalid):
+        MAPPING_VIEW_SCHEMA({KEY: "sometimes"})

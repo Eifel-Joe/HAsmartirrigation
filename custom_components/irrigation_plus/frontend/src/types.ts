@@ -423,6 +423,7 @@ export class SmartIrrigationMapping {
   name: string;
   mappings: object;
   data?: any[];
+  on_silent_sensor?: string;
 
   constructor(i: number, n: string, m: object) {
     this.id = i;
