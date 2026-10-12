@@ -510,10 +510,17 @@ class SensorLivenessMixin:
                 outage.end,
             )
             self._fire_weather_stale(mapping_id, name, outage)
+        cuts = self._group_cuts(mapping) if opened else False
         for outage in opened:
             _LOGGER.warning(
-                "Sensor group %s: %s (%s) has not reported since %s; its last "
-                "value is still used",
+                (
+                    "Sensor group %s: %s (%s) has not reported since %s; its values "
+                    "are no longer used and no evapotranspiration is booked while it "
+                    "is silent"
+                    if cuts
+                    else "Sensor group %s: %s (%s) has not reported since %s; its last "
+                    "value is still used"
+                ),
                 name,
                 outage.entity_id,
                 ", ".join(outage.fields),
@@ -554,8 +561,43 @@ class SensorLivenessMixin:
             issue_id,
             is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
-            translation_key=const.ISSUE_WEATHER_SENSOR_STALE,
+            translation_key=self._stale_issue_key(mapping_id),
             translation_placeholders=placeholders,
+        )
+
+    def _group_cuts(self, mapping: dict) -> bool:
+        """Whether this group's daily calculation leaves a silent sensor's time out.
+
+        A pausing group, and only without the hourly calculation (see
+        calculation._blocked_spans_for_zone); every other group still uses the
+        last value.
+        """
+        # Imported here: calculation imports this module.
+        from .calculation import hourly_calculation_enabled
+
+        return group_pauses(mapping) and not hourly_calculation_enabled(self.store)
+
+    def _stale_issue_key(self, mapping_id) -> str:
+        """The notice's text: the paused one where the group's values are cut."""
+        mapping = self.store.get_mapping(mapping_id) or {}
+        if self._group_cuts(mapping):
+            return const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        return const.ISSUE_WEATHER_SENSOR_STALE
+
+    def async_resync_stale_issue(self, mapping: dict | None) -> None:
+        """Bring a group's open notice in line with its setting and the calculation form.
+
+        Called when either changes; otherwise the notice is touched only when an
+        outage opens or closes. A group without an open outage has no notice.
+        """
+        if not mapping:
+            return
+        outages = outages_of(mapping)
+        if not any(o.end is None for o in outages):
+            return
+        mapping_id = mapping[const.MAPPING_ID]
+        self._sync_stale_issue(
+            mapping_id, mapping.get(const.MAPPING_NAME) or str(mapping_id), outages
         )
 
     def _retire_outages(self, mapping: dict | None) -> None:
