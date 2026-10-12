@@ -967,3 +967,98 @@ class TestTheOutageRecordFollowsTheConfiguration:
         await coord.async_update_mapping_config(0, {const.ATTR_REMOVE: True})
 
         coord.hass.bus.async_fire.assert_not_called()
+
+
+def _pausing(group):
+    group[const.MAPPING_ON_SILENT_SENSOR] = const.ON_SILENT_SENSOR_PAUSE
+    return group
+
+
+def _hourly(on):
+    return SimpleNamespace(**{const.CONF_HOURLY_CALCULATION: on})
+
+
+class TestThePausedNotice:
+    async def _silent(self, monkeypatch, group, *, hourly=None):
+        last = T0 - STALE - timedelta(seconds=1)
+        coord, store, issues = _coord(
+            monkeypatch,
+            [group],
+            {"sensor.temp": _state("sensor.temp", "21.5", last)},
+            {"dev1": ["sensor.temp"]},
+        )
+        if hourly is not None:
+            store.config = _hourly(hourly)
+        await coord.async_check_sensor_liveness(now=T0)
+        return issues.open["weather_sensor_stale_1"]["translation_key"]
+
+    async def test_a_pausing_group_says_its_values_are_no_longer_used(
+        self, monkeypatch, caplog
+    ):
+        group = _pausing(_group(fields={"Temperature": "sensor.temp"}))
+        key = await self._silent(monkeypatch, group)
+        assert key == const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        assert "no longer used" in caplog.text
+        assert "still used" not in caplog.text
+
+    async def test_under_the_hourly_calculation_its_values_are_still_used(
+        self, monkeypatch, caplog
+    ):
+        group = _pausing(_group(fields={"Temperature": "sensor.temp"}))
+        key = await self._silent(monkeypatch, group, hourly=True)
+        assert key == const.ISSUE_WEATHER_SENSOR_STALE
+        assert "still used" in caplog.text
+
+    async def test_changing_the_setting_rewrites_the_open_notice(self, monkeypatch):
+        coord, _, issues = _mock_store_coord(
+            monkeypatch, _pausing(_sensor_group_zero("sensor.old"))
+        )
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_mapping_config(
+                0, {const.MAPPING_ON_SILENT_SENSOR: const.ON_SILENT_SENSOR_PAUSE}
+            )
+        assert issues.open["weather_sensor_stale_0"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        )
+
+    async def test_a_rename_leaves_the_notice_alone(self, monkeypatch):
+        coord, _, issues = _mock_store_coord(
+            monkeypatch, _pausing(_sensor_group_zero("sensor.old"))
+        )
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_mapping_config(0, {const.MAPPING_NAME: "renamed"})
+        assert issues.open["weather_sensor_stale_0"] == {}
+
+    async def test_switching_the_hourly_calculation_rewrites_open_notices(
+        self, monkeypatch
+    ):
+        group = _pausing(_sensor_group_zero("sensor.old"))
+        coord, store, issues = _mock_store_coord(monkeypatch, group)
+        store.async_update_config = AsyncMock()
+        store.async_get_mappings = AsyncMock(return_value=[group])
+
+        store.config = _hourly(True)
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_config({const.CONF_HOURLY_CALCULATION: True})
+        assert issues.open["weather_sensor_stale_0"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE
+        )
+
+        store.config = _hourly(False)
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_config({const.CONF_HOURLY_CALCULATION: False})
+        assert issues.open["weather_sensor_stale_0"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        )
+
+    async def test_a_group_without_an_open_outage_is_not_asked_about(self, monkeypatch):
+        group = _pausing(_sensor_group_zero("sensor.old"))
+        group[const.MAPPING_SENSOR_OUTAGES] = [CLOSED_RECORD]
+        coord, _, _ = _mock_store_coord(monkeypatch, group)
+        monkeypatch.setattr(
+            sensor_liveness,
+            "_issue_registry",
+            Mock(side_effect=AssertionError("issue registry asked")),
+        )
+        coord.async_resync_stale_issue(group)
+        coord.async_resync_stale_issue(None)
