@@ -30,6 +30,7 @@ continuous updates existed.
 
 import bisect
 import datetime
+import itertools
 import logging
 import statistics
 from typing import NamedTuple
@@ -326,6 +327,7 @@ def aggregate_window(
     now=None,
     last_entry=None,
     time_weighted=False,
+    blocked=None,
 ):
     """Aggregate one zone's window of mapping readings.
 
@@ -341,6 +343,11 @@ def aggregate_window(
             rows. Only correct for the sparse buffers the event-driven path
             produces; defaults to False so poll-only installs keep the plain
             mean they have always had.
+        blocked: ``{field: ((from, to), ...)}``, each field's blocked time
+            inside the window (sensor_liveness.blocked_spans). Only a pausing
+            sensor group's daily commit passes it. A blocked field is reduced
+            over its valid time and left out when it has none; a field without
+            spans is reduced exactly as without the argument.
 
     Returns:
         The aggregated weather dict (including ``MAPPING_DATA_MULTIPLIER``), or
@@ -405,6 +412,7 @@ def aggregate_window(
         window_start,
         window_end,
         time_weighted=time_weighted,
+        blocked=blocked,
     )
     return resultdata
 
@@ -505,11 +513,31 @@ def _aggregate(
     window_start,
     window_end,
     time_weighted=False,
+    blocked=None,
 ):
     """Apply each sensor's aggregate to its ``(timestamp, value)`` samples."""
     for key, raw in by_sensor.items():
         if key == const.RETRIEVED_AT:
             continue
+        spans = blocked.get(key) if blocked else None
+        if spans and window_start is not None and window_end is not None:
+            aggregate = effective_aggregate(key, mappings_config)
+            if aggregate != const.MAPPING_CONF_AGGREGATE_DELTA:
+                # A pausing group's blocked field, reduced over its valid time
+                # only. A rain gauge is never cut -- its reading after the
+                # return is a measurement, delivered late -- and every field
+                # without spans takes the path below, untouched.
+                _aggregate_blocked(
+                    key,
+                    raw,
+                    spans,
+                    aggregate,
+                    resultdata,
+                    window_start,
+                    window_end,
+                    time_weighted=time_weighted,
+                )
+                continue
         times = [t for t, _ in raw]
         d = [float(v) for _, v in raw]
 
@@ -573,6 +601,131 @@ def _aggregate(
                     dt_hours = 1.0
                 riemann += ((d[i] + d[i + 1]) / 2) * dt_hours
             resultdata[key] = riemann
+
+
+def _aggregate_blocked(
+    key, raw, spans, aggregate, resultdata, start, end, *, time_weighted
+):
+    """Reduce one field of a pausing group over its valid time: the window minus ``spans``.
+
+    The rules of ``_aggregate``, restricted to where the field was measured. A
+    row stamped inside a span is dropped: it is the frozen value a poll keeps
+    stamping fresh. The boundary reading stays as a value but counts as a
+    sample only where the window does not start blocked. A value is held to the
+    next reading but never into a span, and after one the value from before it
+    holds again: a sensor that returns with the value it had writes no row
+    (deadband, ``state_reported``). Without valid time, or without a value to
+    hold, the field is left out.
+    """
+    segments = _valid_segments(spans, start, end)
+    if not segments:
+        return
+    stamped = sorted(
+        ((t, float(v)) for t, v in raw if t is not None), key=lambda sample: sample[0]
+    )
+    if not stamped:
+        # Only the unstamped carry-forward (last_entry): it holds for the valid time.
+        unstamped = [float(v) for t, v in raw if t is None]
+        if unstamped:
+            _single_value(key, unstamped[-1], resultdata)
+        return
+    kept = [(t, v) for t, v in stamped if t <= start or not _blocked_at(t, spans)]
+    if not kept:
+        return
+    if len(kept) < 2:
+        _single_value(key, kept[0][1], resultdata)
+        return
+    values = [v for t, v in kept if not _blocked_at(t, spans)]
+    held = [_held(kept, a) for a, _ in segments]
+    if key == const.MAPPING_TEMPERATURE:
+        resultdata[const.MAPPING_MAX_TEMP] = max(values + held)
+        resultdata[const.MAPPING_MIN_TEMP] = min(values + held)
+    if aggregate == const.MAPPING_CONF_AGGREGATE_AVERAGE:
+        if time_weighted:
+            resultdata[key] = _segment_weighted_mean(kept, segments)
+        else:
+            resultdata[key] = statistics.mean(values) if values else held[0]
+    elif aggregate == const.MAPPING_CONF_AGGREGATE_RIEMANNSUM:
+        resultdata[key] = _riemann_over(kept, segments)
+    elif not values:
+        resultdata[key] = held[0]
+    elif aggregate == const.MAPPING_CONF_AGGREGATE_FIRST:
+        resultdata[key] = values[0]
+    elif aggregate == const.MAPPING_CONF_AGGREGATE_LAST:
+        resultdata[key] = values[-1]
+    elif aggregate == const.MAPPING_CONF_AGGREGATE_MAXIMUM:
+        resultdata[key] = max(values)
+    elif aggregate == const.MAPPING_CONF_AGGREGATE_MINIMUM:
+        resultdata[key] = min(values)
+    elif aggregate == const.MAPPING_CONF_AGGREGATE_MEDIAN:
+        resultdata[key] = statistics.median(values)
+    elif aggregate == const.MAPPING_CONF_AGGREGATE_SUM:
+        resultdata[key] = sum(values)
+
+
+def _valid_segments(spans, start, end):
+    """``[start, end)`` minus the sorted, merged ``spans``: where a field was measured."""
+    segments = []
+    cursor = start
+    for lo, hi in spans:
+        if lo > cursor:
+            segments.append((cursor, min(lo, end)))
+        cursor = max(cursor, hi)
+    if cursor < end:
+        segments.append((cursor, end))
+    return [(a, b) for a, b in segments if b > a]
+
+
+def _blocked_at(stamp, spans):
+    """Whether ``stamp`` lies in a span; half-open, so the reading of a return counts."""
+    return any(lo <= stamp < hi for lo, hi in spans)
+
+
+def _held(kept, at):
+    """The value held at ``at``: the last kept reading at or before it, else the first."""
+    value = kept[0][1]
+    for stamp, reading in kept:
+        if stamp > at:
+            break
+        value = reading
+    return value
+
+
+def _segment_weighted_mean(kept, segments):
+    """The time-weighted mean over the valid segments, each opened with its held value."""
+    total = 0.0
+    width = 0.0
+    for a, b in segments:
+        inner = [(t, v) for t, v in kept if a < t < b]
+        times = [a] + [t for t, _ in inner]
+        values = [_held(kept, a)] + [v for _, v in inner]
+        seconds = (b - a).total_seconds()
+        total += _time_weighted_mean(times, values, a, b) * seconds
+        width += seconds
+    return total / width
+
+
+def _riemann_over(kept, segments):
+    """Trapezoids between consecutive kept readings, each counted for its valid part.
+
+    A pair across a span stands for the hours on both sides of it; only the
+    measured ones book rain, so nothing is interpolated through the silence.
+    """
+    total = 0.0
+    for (t0, v0), (t1, v1) in itertools.pairwise(kept):
+        valid = sum(
+            max(0.0, (min(b, t1) - max(a, t0)).total_seconds()) for a, b in segments
+        )
+        total += (v0 + v1) / 2 * valid / 3600
+    return total
+
+
+def _single_value(key, value, resultdata):
+    """One value for the whole valid time, as ``_aggregate``'s single-sample branch."""
+    if key == const.MAPPING_TEMPERATURE:
+        resultdata[const.MAPPING_MAX_TEMP] = value
+        resultdata[const.MAPPING_MIN_TEMP] = value
+    resultdata[key] = value
 
 
 class WaterStep(NamedTuple):
