@@ -236,6 +236,12 @@
             "windspeed": "Rýchlosť vetra",
             "current precipitation": "Aktuálne zrážky"
           },
+          "on-silent-sensor": {
+            "title": "Keď senzor prestane hlásiť",
+            "help": "Pozastaviť: po 3 hodinách bez hlásenia sa hodnoty senzora prestanú používať a za tento čas sa nezapočíta žiadna evapotranspirácia. Platí len bez hodinového výpočtu.",
+            "keep": "Ponechať poslednú hodnotu",
+            "pause": "Pozastaviť"
+          },
           "pressure_types": {
             "absolute": "absolútne",
             "relative": "relatítne"

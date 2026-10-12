@@ -276,6 +276,12 @@
             "temperature": "Temperatura",
             "windspeed": "Velocità del vento"
           },
+          "on-silent-sensor": {
+            "title": "Quando un sensore smette di inviare dati",
+            "help": "Metti in pausa: dopo 3 ore senza dati, i valori del sensore non vengono più usati e per quel tempo non si conteggia evapotraspirazione. Vale solo senza il calcolo orario.",
+            "keep": "Mantieni l’ultimo valore",
+            "pause": "Metti in pausa"
+          },
           "pressure_types": {
             "absolute": "assoluta",
             "relative": "relativa"

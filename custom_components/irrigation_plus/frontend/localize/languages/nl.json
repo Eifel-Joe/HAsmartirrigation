@@ -236,6 +236,12 @@
             "windspeed": "Wind snelheid",
             "current precipitation": "Huidige neerslag"
           },
+          "on-silent-sensor": {
+            "title": "Als een sensor stil valt",
+            "help": "Pauzeren: na 3 uur zonder melding worden de waarden van de sensor niet meer gebruikt en wordt voor die tijd geen verdamping geboekt. Geldt alleen zonder de berekening per uur.",
+            "keep": "Laatste waarde behouden",
+            "pause": "Pauzeren"
+          },
           "pressure_types": {
             "absolute": "absoluut",
             "relative": "relatief"

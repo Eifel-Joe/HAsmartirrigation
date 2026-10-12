@@ -129,4 +129,25 @@ describe("a sensor group edit is saved", () => {
     vi.advanceTimersByTime(500);
     expect(saved(callApi)).toEqual([group(2, "Bed north")]);
   });
+
+  it("saves the setting for a silent sensor with the group", () => {
+    const { el, callApi } = make([
+      { ...group(1, "Garden"), on_silent_sensor: "pause" },
+    ]);
+    el.handleEditMapping(0, {
+      ...group(1, "Garden"),
+      on_silent_sensor: "keep",
+    });
+    vi.advanceTimersByTime(500);
+    expect(saved(callApi)).toEqual([
+      { ...group(1, "Garden"), on_silent_sensor: "keep" },
+    ]);
+  });
+
+  it("sends no setting for a copy that does not carry one", () => {
+    const { el, callApi } = make([group(1, "Garden")]);
+    el.handleEditMapping(0, group(1, "Garden south"));
+    vi.advanceTimersByTime(500);
+    expect(Object.keys(saved(callApi)[0])).toEqual(["id", "name", "mappings"]);
+  });
 });
