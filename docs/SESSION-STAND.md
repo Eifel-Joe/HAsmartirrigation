@@ -23,14 +23,14 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
-## 2026-10-12 — Feldtest Eifel-Joe#8 bestanden (#8 + `#42` nachgezogen); PR 2: Spec freigegeben; Upstream-Runden leer
+## 2026-10-12 — Feldtest Eifel-Joe#8 bestanden (#8 + `#42` nachgezogen); PR 2: Spec + Plan freigegeben, probegelaufen; Upstream-Runden leer
 
 ### Stand
 
-- **Upstream-Runden** 08:58 und 09:04 UTC (Fenster ab 2026-10-11 14:55, alle Autoren): leer. JustChr#193/#195/#196
-  ohne Kommentar, JustChr#194 offen (0 Reviews, `mergeable_state=clean`), `upstream/master` `6a40e083`, neuestes
-  Release weiter Pre-Release v2026.10.05. JustChr heute 05:48–05:54 UTC nur in einem anderen Repo aktiv. Scan-Skript:
-  Labels von #8/#20/#87/#88/#89 passen.
+- **Upstream-Runden** 08:58, 09:04 und 16:30 UTC (Fenster ab 2026-10-11 14:55, alle Autoren): leer.
+  JustChr#193/#195/#196 ohne Kommentar, JustChr#194 offen (0 Reviews, `mergeable_state=clean`), `upstream/master`
+  `6a40e083`, neuestes Release weiter Pre-Release v2026.10.05. JustChr heute 05:48–05:54 UTC nur in einem anderen Repo
+  aktiv. Scan-Skript: Labels von #8/#20/#87/#88/#89 passen.
 - **Feldtest Eifel-Joe#8 bestanden** (HA-Prod nur gelesen, 08:58 UTC): `sensor_outages: []`, 8 Sensoren zuletzt
   08:58:08 UTC, installiert `v2026.10.05b1`, `sensor.uptime` 2026-10-11 08:48:16 UTC. Beendete Ausfälle bleiben nur
   7 Tage nach `end` in der Liste (`const.py:703`, `sensor_liveness.py:209-211`, auch im Tag `v2026.10.05b1`) → die
@@ -41,19 +41,50 @@
 - **PR 2 Spec freigegeben:** `docs/superpowers/specs/2026-10-11-dead-weather-sensor-pr2-design.md` (Detail-Spec zu
   Rev. 3). User-Entscheidungen F1 = 1 (Passthrough verbraucht wie PyETO, 0 ET, kein ERROR), F2 = 1 (Wert von vor der
   Sperre gilt ab ihrem Ende wieder), F3 = 1 (Teiltag als bekannte Grenze), F4 = 1 (ganzes Mittel × Anteil), Ansatz 1
-  (Sperren als `blocked=` neben dem Aggregat), Abschnitte 1–6 einzeln, dann die schriftliche Fassung.
+  (Sperren als `blocked=` neben dem Aggregat), Abschnitte 1–6 einzeln, dann die schriftliche Fassung. Archiv
+  `5dafd2b9` (mit Faktensammlung als Probe und dem #89-Messprotokoll).
+- **PR 2 Plan freigegeben** (mit den vier Wortlauten Panel/Hinweis/Erklärung/Doku; Ausführung **subagent-driven**):
+  `docs/superpowers/plans/2026-10-12-dead-weather-sensor-pr2.md`, Tasks 0–12 (0–9 Bau, 10 Gates, 11 Pre-Release +
+  Live-Test HA-Test, 12 PR + Nachlauf). **Probelauf** (Sonnet-Agent, Zahlen von mir an den Dateien nachgeprüft): alle
+  Snippets ohne inhaltliche Korrektur, jede RED/GREEN-Erwartung traf; Suite 7/3903/9/458 gegen Baseline 7/3819/9/430
+  auf `6a40e083` (+84 = berechnet), FAILED-Namen gleich, +28 ERROR nur Teardown „Lingering timer“ aus
+  `test_silent_sensor_commit.py`; 22/22 Mutationen getötet; vitest +2. Berichtigt im Plan: Task-2-RED, Task-8-Testzeile
+  (prettier) und Bundle-Zahl **2**, Task-9-Kriterium, Task-10-Vergleich und ruff. Patch + Protokolle:
+  `issue8-pr2-work\probe\` (archiviert, siehe unten).
+
+### Verworfen
+
+- Masken über einen zweiten Rückgabewert oder Zusatzschlüssel im Aggregat (Ansatz 2/3): Rückgabeform von 2 + 36
+  Aufrufern bzw. Metadaten im Messwert-Dict; nach F2 braucht niemand eine Rückmeldung des Aggregats.
+- `_sync_stale_issue` mit neuem Parameter: ein bestehender Test umhüllt die Methode mit fester Argumentliste → die
+  Variante liest der Store-Zugriff in der Methode.
 
 ### Fallen
 
 - `sensor_outages` leer heißt nicht „nie ein Ausfall“: geschlossene Einträge fallen nach 7 Tagen weg.
 - `owm_count_sandbox.py` im Archiv zeigt `events.sort()`, das Protokoll sagt `sorted()` auf Strings — welche Fassung
   lief, ist unbestätigt.
+- Neue Gruppen pausieren jetzt standardmäßig: Tests mit echtem Store, die Gruppen anlegen, bekommen `pause`; nur mit
+  Ausfällen und ohne Stundenrechnung ändert das etwas. Der Fake-Store in `tests/test_run_in_flight.py` braucht
+  `get_mapping` (Task 4).
+- ruff 0.17.0 meldet 20 `UP017` in Dateien, die PR 2 nicht anfasst → vor dem Push die ruff-Version der CI prüfen.
+- Vor „Bucket was“ fehlt in der Erklärung seit jeher ein Leerzeichen; die neuen Sätze erben das. Nicht in PR 2
+  beheben (änderte jede Erklärung).
 
 ### Nächste Schritte
 
-1. Plan PR 2 per `superpowers:writing-plans` (Ablage `docs/superpowers/plans/`), probelaufen, Freigabe, Archiv (P1).
-2. Upstream-Runde ab 2026-10-12 09:04 UTC vor jedem Außen-Schritt.
-3. Aufräumen: `session-1011b-work` (Messprotokoll + Skript archiviert), `issue87-work` nach Merge von JustChr#194.
+1. **Frische Sitzung:** PR 2 nach dem Plan bauen, `superpowers:subagent-driven-development`, Worktree
+   `D:\Entwicklung\HASI\issue8-pr2-work\wt`, Branch `feat/pause-silent-weather-sensor`; Auftragsdatei je Task, Spec-Check,
+   Quality-Review je Task (Memory `workflow-agent-hygiene`). Vor Task 0 Upstream-Runde ab 2026-10-12 16:30 UTC; hat sich
+   `upstream/master` bewegt, Anker neu suchen und Baseline neu messen.
+2. Task 11 (Pre-Release, HA-Test) und Task 12 (PR, P2) nur mit Freigabe im Chat; Texte deutsch zuerst.
+3. Aufräumen: `session-1011b-work` (Messprotokoll + Skript archiviert, Rest Texte/Readbacks), `issue87-work` nach Merge
+   von JustChr#194, `issue8-pr2-work\src` (Lese-Kopie von `6a40e083`) nach dem Bau.
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:subagent-driven-development`, `superpowers:test-driven-development`,
+  `superpowers:requesting-code-review`, `superpowers:verification-before-completion`; für den PR `pr-workflow`.
 
 ## 2026-10-11 (2) — Feldtest #8 gilt ab 12.10. als bestanden; Eifel-Joe#88 → JustChr#195; Eifel-Joe#89 auf HA-Prod gemessen → JustChr#196; PR 2 vorbereitet; Upstream-Runden leer
 

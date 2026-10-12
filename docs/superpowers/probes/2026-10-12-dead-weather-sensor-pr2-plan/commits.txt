@@ -1,0 +1,9 @@
+dfd5c9a8 docs: what a sensor group does with a silent sensor
+acb8409c feat(panel): choose per sensor group what happens to a silent sensor
+146d306e feat(liveness): the notice says whether a silent sensor's values are used
+c5f36693 feat(calculation): the explanation names a silent sensor's time
+1fc1412b feat(calculation): a pausing group books only the measured share
+6035e583 feat(calculation): a pausing sensor group's commit cuts its silent time
+55339274 feat(aggregate): reduce a blocked field over its valid time only
+21cd6cdd feat(store): a sensor group says what to do with a silent sensor
+3426f5f0 feat(liveness): blocked time per field and the share left to book
