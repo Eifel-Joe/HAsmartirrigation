@@ -33,6 +33,7 @@ from .et_estimate import (
 from .forecast_window import expected_rain
 from .helpers import (
     STAMP_FROM_CLIENT,
+    STAMP_FROM_STORE,
     coerce_stamp,
     convert_between,
     loadModules,
@@ -40,9 +41,11 @@ from .helpers import (
 )
 from .helpers import as_datetime as _as_datetime
 from .localize import localize
+from .sensor_liveness import blocked_spans, group_pauses, outages_of
 from .weather_aggregate import (
     aggregate_window,
     build_substeps,
+    effective_aggregate,
     merge_latest_per_field,
     select_window,
     weather_day,
@@ -390,8 +393,45 @@ class CalculationMixin:
             async_dispatcher_send(self.hass, const.DOMAIN + "_config_updated", zone_id)
         async_dispatcher_send(self.hass, const.DOMAIN + "_update_frontend")
 
-    async def _aggregate_for_zone(self, zone, *, now):
+    def _blocked_spans_for_zone(self, zone, *, now):
+        """The time this zone's window may not book from its sensor group, or None.
+
+        Only a group that pauses a silent sensor is cut, and only in the daily
+        form: with the hourly calculation the replayed balance checks itself
+        against this aggregate's precipitation, so cutting one and not the
+        other would fail that check; that form cuts together with the live
+        estimate. None leaves the commit as it always was, and so does a window
+        no outage reaches, or a zone that has never consumed (its first commit
+        anchors it). A cumulative rain gauge is never blocked: what it reads
+        after the return is a measurement, only delivered late.
+        """
+        mapping_id = zone.get(const.ZONE_MAPPING)
+        if mapping_id is None:
+            return None
+        mapping = self.store.get_mapping(mapping_id)
+        if not mapping or not group_pauses(mapping):
+            return None
+        if hourly_calculation_enabled(self.store):
+            return None
+        watermark = coerce_stamp(zone.get(const.ZONE_LAST_CONSUMED), STAMP_FROM_STORE)
+        now = coerce_stamp(now, STAMP_FROM_STORE)
+        if watermark is None or now is None or watermark >= now:
+            return None
+        config = mapping.get(const.MAPPING_MAPPINGS) or {}
+        blocked = {
+            field: spans
+            for field, spans in blocked_spans(
+                outages_of(mapping), watermark, now
+            ).items()
+            if effective_aggregate(field, config) != const.MAPPING_CONF_AGGREGATE_DELTA
+        }
+        return blocked or None
+
+    async def _aggregate_for_zone(self, zone, *, now, blocked=None):
         """Aggregate this zone's window of its mapping's shared buffer.
+
+        ``blocked`` is a pausing group's blocked time (_blocked_spans_for_zone),
+        passed to the aggregate as is.
 
         Returns ``(weatherdata, n_points)`` where ``n_points`` is the number of
         new readings in the zone's window, or ``(None, 0)`` when there is nothing
@@ -430,6 +470,7 @@ class CalculationMixin:
                 )
                 is True
             ),
+            blocked=blocked,
         )
         return weatherdata, len(window)
 
@@ -603,7 +644,12 @@ class CalculationMixin:
             )
             return
 
-        weatherdata, n_points = await self._aggregate_for_zone(zone, now=now)
+        # A pausing sensor group books nothing for a silent sensor's time; None
+        # for every other zone, whose commit stays exactly as it was.
+        blocked = self._blocked_spans_for_zone(zone, now=now)
+        weatherdata, n_points = await self._aggregate_for_zone(
+            zone, now=now, blocked=blocked
+        )
         if weatherdata is None:
             _LOGGER.debug(
                 "async_calculate_zone: no weather data to consume for zone %s",
@@ -622,8 +668,8 @@ class CalculationMixin:
             )
             return
 
-        await self._record_window_amplitude(zone, weatherdata, now=now)
-        await self._record_window_radiation(zone, weatherdata, now=now)
+        await self._record_window_amplitude(zone, weatherdata, now=now, blocked=blocked)
+        await self._record_window_radiation(zone, weatherdata, now=now, blocked=blocked)
 
         calc_data[const.ZONE_LAST_CALCULATED] = now
         calc_data[const.ZONE_LAST_UPDATED] = now
@@ -641,7 +687,7 @@ class CalculationMixin:
         )
         async_dispatcher_send(self.hass, const.DOMAIN + "_update_frontend")
 
-    async def _record_window_amplitude(self, zone, weatherdata, *, now):
+    async def _record_window_amplitude(self, zone, weatherdata, *, now, blocked=None):
         """Record this window's temperature spread against its sensor group.
 
         The live estimate's self-contained tier scales its projection by the mean
@@ -658,9 +704,13 @@ class CalculationMixin:
         Skipped for a window materially shorter than a day: its spread is not a
         day's amplitude, and recording it would drag the mean down exactly when
         the projection leans on it hardest.
+        Skipped, too, when the temperature was blocked in the window: its spread
+        then covers part of the day only.
         """
         mapping_id = zone.get(const.ZONE_MAPPING)
         if mapping_id is None:
+            return
+        if blocked and const.MAPPING_TEMPERATURE in blocked:
             return
         multiplier = weatherdata.get(const.MAPPING_DATA_MULTIPLIER) or 0.0
         if multiplier < const.TEMPERATURE_AMPLITUDE_MIN_MULTIPLIER:
@@ -691,14 +741,17 @@ class CalculationMixin:
             },
         )
 
-    async def _record_window_radiation(self, zone, weatherdata, *, now):
+    async def _record_window_radiation(self, zone, weatherdata, *, now, blocked=None):
         """Record this window's measured radiation against what was forecast for it.
 
         Taken here because only at commit do the measured mean and the forecast's
         own figure cover the same hours. Keyed by end date and replaced, for the
-        reason :meth:`_record_window_amplitude` gives.
+        reason :meth:`_record_window_amplitude` gives. Not when the sun was blocked
+        in the window: its mean then covers part of the day only.
         """
         mapping_id = zone.get(const.ZONE_MAPPING)
+        if blocked and const.MAPPING_SOLRAD in blocked:
+            return
         mean = weatherdata.get(const.MAPPING_SOLRAD)
         start = _as_datetime(zone.get(const.ZONE_LAST_CONSUMED))
         if mapping_id is None or mean is None or start is None or start >= now:
