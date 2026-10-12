@@ -95,7 +95,9 @@
         "drainage-integrated": "overskuddet over feltkapasiteten dreneres kontinuerlig over vinduet (Brooks–Corey), så raten faller etter hvert som det dreneres",
         "no-drainage": "Gjeldende drenering er 0 fordi",
         "forecast-weighting-applied": "Værvarselvekting reduserte underskuddet for forventet regn",
-        "crop-coefficient-applied": "Skalert med plantekoeffisienten"
+        "crop-coefficient-applied": "Skalert med plantekoeffisienten",
+        "sensor-outage": "Ingen verdier fra {fields} fra {start} til {end} (sensoren er stille).",
+        "sensor-outage-share": "Fordampning bokført for {share} % av perioden."
       }
     }
   },

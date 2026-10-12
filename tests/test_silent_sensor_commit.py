@@ -467,3 +467,55 @@ class TestAGroupThatIsNotCutCalculatesAsBefore:
             await _group(store, outages=[_outage(2, 10)]),
         )
         assert paused == plain
+
+
+class TestTheExplanation:
+    async def _explain(self, c, store, module="PyETO", **group):
+        module_id, _ = await _module(c, store, module, returns=-2.0)
+        zone = await _zone(store, await _group(store, **group), module_id=module_id)
+        await c.async_calculate_zone(zone, now=NOW)
+        return store.get_zone(zone)[const.ZONE_EXPLANATION]
+
+    async def test_it_names_the_silent_time_and_the_share_booked(self, coord):
+        c, store = coord
+        text = await self._explain(
+            c,
+            store,
+            mappings={T: _sensor("sensor.t"), DEW: _sensor("sensor.dew")},
+            outages=[_outage(2, 10, fields=(T, DEW))],
+        )
+        assert (
+            "No values from Dewpoint, Temperature from 2026-07-01 05:00 to "
+            "2026-07-01 10:00 (sensor silent)." in text
+        )
+        assert "Evapotranspiration booked for 79 % of the period." in text
+        assert text.index("(sensor silent)") < text.index("Bucket was")
+
+    async def test_each_span_gets_its_own_sentence(self, coord):
+        c, store = coord
+        text = await self._explain(c, store, outages=[_outage(0, 5), _outage(10, 16)])
+        assert text.count("(sensor silent)") == 2
+        assert "2026-07-01 13:00 to 2026-07-01 16:00" in text
+
+    async def test_a_field_the_module_does_without_gets_no_share_sentence(self, coord):
+        c, store = coord
+        text = await self._explain(
+            c,
+            store,
+            mappings={T: _sensor("sensor.t"), SUN: _sensor("sensor.sun")},
+            readings=_hours(**{T: 20.0, SUN: 10.0}),
+            outages=[_outage(2, 10, fields=(SUN,))],
+        )
+        assert "No values from Solar radiation" in text
+        assert "% of the period" not in text
+
+    async def test_a_static_zone_names_the_time_but_no_share(self, coord):
+        c, store = coord
+        text = await self._explain(c, store, module="Static", outages=[_outage(2, 10)])
+        assert "(sensor silent)" in text
+        assert "% of the period" not in text
+
+    async def test_a_group_that_keeps_gets_no_sentence(self, coord):
+        c, store = coord
+        text = await self._explain(c, store, setting="keep", outages=[_outage(2, 10)])
+        assert "(sensor silent)" not in text

@@ -1530,6 +1530,8 @@ class CalculationMixin:
                 )
                 + f" (Kc {kc:.2f} &times; {et_term:.2f})."
             )
+        if blocked:
+            explanation += await self._silent_sensor_explanation(blocked, share)
         explanation += (
             await localize(
                 "module.calculation.explanation.bucket-was", self.hass.config.language
@@ -1878,3 +1880,38 @@ class CalculationMixin:
         data[const.ZONE_DURATION] = duration
         data[const.ZONE_EXPLANATION] = explanation
         return data
+
+    async def _silent_sensor_explanation(self, blocked, share) -> str:
+        """The sentences that say what a pausing group did not book, and how much it did.
+
+        One per blocked span, the fields silent over the same span named
+        together; the share only where the module's own fields were cut. Times
+        are on HA's clock, the frame of the buffer stamps.
+        """
+        language = self.hass.config.language
+        sentence = await localize(
+            "module.calculation.explanation.sensor-outage", language
+        )
+        fields_by_span: dict = {}
+        for field, spans in blocked.items():
+            for span in spans:
+                fields_by_span.setdefault(span, []).append(field)
+        text = ""
+        for (start, end), fields in sorted(fields_by_span.items()):
+            names = [
+                await localize(
+                    f"panels.mappings.cards.mapping.items.{field.lower()}", language
+                )
+                for field in sorted(fields)
+            ]
+            text += " " + (
+                sentence.replace("{fields}", ", ".join(names))
+                .replace("{start}", start.strftime("%Y-%m-%d %H:%M"))
+                .replace("{end}", end.strftime("%Y-%m-%d %H:%M"))
+            )
+        if share is not None and share < 1:
+            booked = await localize(
+                "module.calculation.explanation.sensor-outage-share", language
+            )
+            text += " " + booked.replace("{share}", f"{share * 100:.0f}")
+        return text
