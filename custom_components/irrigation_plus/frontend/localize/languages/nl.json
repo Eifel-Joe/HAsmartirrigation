@@ -95,7 +95,9 @@
         "drainage-integrated": "het overschot boven veldcapaciteit draineert continu over het venster (Brooks–Corey), dus de snelheid neemt af naarmate het afvloeit",
         "no-drainage": "Huidige drainage is 0 omdat",
         "forecast-weighting-applied": "Voorspellingsweging verlaagde het tekort voor de verwachte regen",
-        "crop-coefficient-applied": "Geschaald met de gewascoëfficiënt"
+        "crop-coefficient-applied": "Geschaald met de gewascoëfficiënt",
+        "sensor-outage": "Geen waarden van {fields} van {start} tot {end} (sensor stil).",
+        "sensor-outage-share": "Verdamping geboekt voor {share} % van de periode."
       }
     }
   },

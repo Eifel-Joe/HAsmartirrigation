@@ -95,7 +95,9 @@
         "drainage-integrated": "l'excédent au-dessus de la capacité au champ se draine en continu sur l'intervalle (Brooks–Corey), le débit diminue donc à mesure qu'il s'écoule",
         "no-drainage": "Le drainage actuel est 0 parce que",
         "forecast-weighting-applied": "La pondération par prévision a réduit le déficit pour la pluie attendue",
-        "crop-coefficient-applied": "Mis à l'échelle par le coefficient cultural"
+        "crop-coefficient-applied": "Mis à l'échelle par le coefficient cultural",
+        "sensor-outage": "Aucune valeur de {fields} du {start} au {end} (capteur muet).",
+        "sensor-outage-share": "Évapotranspiration comptée pour {share} % de la période."
       }
     }
   },

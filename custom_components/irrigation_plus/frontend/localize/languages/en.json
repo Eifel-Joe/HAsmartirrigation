@@ -95,7 +95,9 @@
         "runoff-is": "Water above the maximum bucket that was lost to runoff:",
         "runoff-variable": "runoff",
         "forecast-weighting-applied": "Forecast weighting reduced the deficit for the expected rain",
-        "crop-coefficient-applied": "Scaled by the crop coefficient"
+        "crop-coefficient-applied": "Scaled by the crop coefficient",
+        "sensor-outage": "No values from {fields} from {start} to {end} (sensor silent).",
+        "sensor-outage-share": "Evapotranspiration booked for {share} % of the period."
       }
     }
   },
