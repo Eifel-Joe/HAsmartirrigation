@@ -594,6 +594,11 @@ class LiveEstimateMixin:
         commit runs this same call over the whole window when it closes, so the
         two agree by construction rather than by two hand-maintained argument
         lists happening to match -- which is how they drifted before.
+
+        One difference is deliberate: a pausing sensor group's commit leaves a
+        silent sensor's time out (calculation._blocked_spans_for_zone), and this
+        estimate does not, so a run during an outage can be sized on more ET than
+        the commit books afterwards.
         """
         mapping_id = zone.get(const.ZONE_MAPPING)
         if mapping_id is None:
@@ -617,6 +622,7 @@ class LiveEstimateMixin:
             # Must match _aggregate_for_zone exactly: a different aggregation
             # here would show up as the "Live bucket" sensor disagreeing with
             # the bucket the nightly calc produces.
+            # (Apart from a pausing group's blocked time; see the docstring.)
             time_weighted=(
                 getattr(
                     getattr(self.store, "config", None),
