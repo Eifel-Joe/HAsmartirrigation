@@ -238,3 +238,232 @@ class TestTheRecordsSkipABlockedWindow:
             zone, data, now=NOW, blocked={T: ((W, W + H),)}
         )
         assert len(store.get_mapping(mid)[const.MAPPING_RADIATION_CALIBRATION]) == 1
+
+
+ET = const.MAPPING_EVAPOTRANSPIRATION
+DEW = const.MAPPING_DEWPOINT
+SUN = const.MAPPING_SOLRAD
+
+
+async def _module(c, store, name, *, returns, forecast_days=0):
+    """A module of this name whose instance is a stub returning ``returns``; from
+    here on the coordinator runs its real calculate_module."""
+    module = await store.async_create_module(
+        {const.MODULE_NAME: name, "description": "", "config": {}}
+    )
+    instance = Mock()
+    instance.calculate = Mock(return_value=returns)
+    instance.forecast_days = forecast_days
+    c.getModuleInstanceByID = AsyncMock(return_value=instance)
+    if "calculate_module" in vars(c):
+        del c.calculate_module
+    return module[const.MODULE_ID], instance
+
+
+def _hours(**fields):
+    """24 hourly rows carrying ``fields`` (a value or a callable of the hour)."""
+    return [
+        {
+            const.RETRIEVED_AT: W + h * H,
+            **{k: (v(h) if callable(v) else v) for k, v in fields.items()},
+        }
+        for h in range(24)
+    ]
+
+
+class TestTheBooking:
+    async def test_the_module_is_handed_the_spans(self, coord):
+        c, store = coord
+        zone = await _zone(store, await _group(store, outages=[_outage(2, 10)]))
+
+        await c.async_calculate_zone(zone, now=NOW)
+
+        assert c.calculate_module.call_args.kwargs["blocked"] == {
+            T: ((W + 5 * H, W + 10 * H),)
+        }
+
+    def test_pyeto_needs_dewpoint_temperature_wind_and_pressure(self):
+        from custom_components.irrigation_plus.calculation import (
+            _REQUIRED_SENSOR_FIELDS,
+        )
+
+        assert _REQUIRED_SENSOR_FIELDS["PyETO"] == (
+            DEW,
+            T,
+            const.MAPPING_WINDSPEED,
+            const.MAPPING_PRESSURE,
+        )
+        assert _REQUIRED_SENSOR_FIELDS["Passthrough"] == (ET,)
+
+    async def test_pyeto_books_the_share_in_which_its_fields_were_measured(self, coord):
+        c, store = coord
+        module_id, instance = await _module(c, store, "PyETO", returns=-4.0)
+        mid = await _group(store, outages=[_outage(2, 10)])
+        zone = await _zone(store, mid, module_id=module_id)
+
+        await c.async_calculate_zone(zone, now=NOW)
+
+        instance.calculate.assert_called_once()
+        assert store.get_zone(zone)[const.ZONE_DELTA] == pytest.approx(-4.0 * 19 / 24)
+
+    async def test_with_forecast_days_the_whole_mean_is_scaled(self, coord):
+        """The module returns the mean of the weather day and its forecast days; the
+        blocked time books none of it, the forecast part included."""
+        c, store = coord
+        module_id, _ = await _module(c, store, "PyETO", returns=-4.0, forecast_days=2)
+        mid = await _group(store, outages=[_outage(2, 10)])
+        zone = await _zone(store, mid, module_id=module_id)
+
+        await c.async_calculate_zone(zone, now=NOW)
+
+        assert store.get_zone(zone)[const.ZONE_DELTA] == pytest.approx(-4.0 * 19 / 24)
+
+    async def test_a_field_pyeto_does_without_does_not_reduce_the_share(self, coord):
+        c, store = coord
+        module_id, _ = await _module(c, store, "PyETO", returns=-4.0)
+        mid = await _group(
+            store,
+            mappings={T: _sensor("sensor.t"), SUN: _sensor("sensor.sun")},
+            readings=_hours(**{T: 20.0, SUN: 10.0}),
+            outages=[_outage(2, 10, fields=(SUN,))],
+        )
+        zone = await _zone(store, mid, module_id=module_id)
+
+        await c.async_calculate_zone(zone, now=NOW)
+
+        assert store.get_zone(zone)[const.ZONE_DELTA] == -4.0
+
+    async def test_pyeto_without_a_measured_required_field_books_the_rain_only(
+        self, coord
+    ):
+        c, store = coord
+        module_id, instance = await _module(c, store, "PyETO", returns=-4.0)
+        mid = await _group(
+            store,
+            mappings={
+                T: _sensor("sensor.t"),
+                DEW: _sensor("sensor.dew"),
+                PRECIP: _sensor("sensor.rain"),
+            },
+            readings=_hours(**{T: 20.0, PRECIP: lambda h: 0.0 if h < 12 else 3.0}),
+            outages=[_outage(-10, fields=(DEW,))],
+        )
+        zone = await _zone(store, mid, module_id=module_id)
+
+        await c.async_calculate_zone(zone, now=NOW)
+
+        instance.calculate.assert_not_called()
+        assert store.get_zone(zone)[const.ZONE_DELTA] == pytest.approx(3.0)
+        assert store.get_zone(zone)[const.ZONE_LAST_CONSUMED] == NOW
+
+    async def test_passthrough_books_the_measured_share_of_its_et(self, coord):
+        c, store = coord
+        module_id, _ = await _module(c, store, "Passthrough", returns=4.0)
+        mid = await _group(
+            store,
+            mappings={ET: _sensor("sensor.et")},
+            readings=_hours(**{ET: 4.0}),
+            outages=[_outage(2, 10, fields=(ET,))],
+        )
+        zone = await _zone(store, mid, module_id=module_id)
+
+        await c.async_calculate_zone(zone, now=NOW)
+
+        assert store.get_zone(zone)[const.ZONE_DELTA] == pytest.approx(-4.0 * 19 / 24)
+
+    async def test_passthrough_with_its_et_blocked_throughout_consumes_quietly(
+        self, coord, caplog
+    ):
+        c, store = coord
+        module_id, instance = await _module(c, store, "Passthrough", returns=4.0)
+        mid = await _group(
+            store,
+            mappings={ET: _sensor("sensor.et")},
+            readings=_hours(**{ET: 4.0}),
+            outages=[_outage(-10, fields=(ET,))],
+        )
+        zone = await _zone(store, mid, module_id=module_id)
+
+        await c.async_calculate_zone(zone, now=NOW)
+
+        instance.calculate.assert_not_called()
+        assert store.get_zone(zone)[const.ZONE_DELTA] == 0.0
+        assert store.get_zone(zone)[const.ZONE_LAST_CONSUMED] == NOW
+        assert "No evapotranspiration value provided" not in caplog.text
+        assert "calculation returned no result" not in caplog.text
+
+    async def test_passthrough_without_its_et_for_another_reason_still_says_so(
+        self, coord, caplog
+    ):
+        """Not a silent ET sensor: the field never arrived. Today's error, and the
+        window stays where it was."""
+        c, store = coord
+        module_id, _ = await _module(c, store, "Passthrough", returns=4.0)
+        mid = await _group(
+            store,
+            mappings={ET: _sensor("sensor.et")},
+            readings=_hours(**{T: 1.0}),
+            outages=[_outage(2, 10)],
+        )
+        zone = await _zone(store, mid, module_id=module_id)
+
+        await c.async_calculate_zone(zone, now=NOW)
+
+        assert "No evapotranspiration value provided" in caplog.text
+        assert store.get_zone(zone)[const.ZONE_LAST_CONSUMED] == W
+
+    async def test_a_static_zone_in_a_pausing_group_books_as_before(self, coord):
+        c, store = coord
+        module_id, _ = await _module(c, store, "Static", returns=-2.0)
+        mid = await _group(store, outages=[_outage(2, 10)])
+        zone = await _zone(store, mid, module_id=module_id)
+
+        await c.async_calculate_zone(zone, now=NOW)
+
+        assert store.get_zone(zone)[const.ZONE_DELTA] == -2.0
+
+
+class TestAGroupThatIsNotCutCalculatesAsBefore:
+    FIELDS = (
+        const.ZONE_DELTA,
+        const.ZONE_BUCKET,
+        const.ZONE_DURATION,
+        const.ZONE_EXPLANATION,
+    )
+
+    async def _results(self, c, store, module_id, *groups):
+        zones = [await _zone(store, mid, module_id=module_id) for mid in groups]
+        for zone in zones:
+            await c.async_calculate_zone(zone, now=NOW)
+        return [{f: store.get_zone(zone)[f] for f in self.FIELDS} for zone in zones]
+
+    async def test_keep_with_outages_and_pause_without_one_match_a_plain_group(
+        self, coord
+    ):
+        c, store = coord
+        module_id, _ = await _module(c, store, "PyETO", returns=-4.0)
+        plain, keep, quiet = await self._results(
+            c,
+            store,
+            module_id,
+            await _group(store, setting="keep"),
+            await _group(store, setting="keep", outages=[_outage(2, 10)]),
+            await _group(store, outages=[_outage(-30, -20)]),
+        )
+        assert keep == plain
+        assert quiet == plain
+
+    async def test_a_pausing_group_under_the_hourly_calculation_matches_too(
+        self, coord
+    ):
+        c, store = coord
+        await store.async_update_config({const.CONF_HOURLY_CALCULATION: True})
+        module_id, _ = await _module(c, store, "PyETO", returns=-4.0)
+        plain, paused = await self._results(
+            c,
+            store,
+            module_id,
+            await _group(store, setting="keep"),
+            await _group(store, outages=[_outage(2, 10)]),
+        )
+        assert paused == plain
