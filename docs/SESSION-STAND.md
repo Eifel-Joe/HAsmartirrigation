@@ -23,6 +23,110 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-12 — Feldtest Eifel-Joe#8 bestanden (#8 + `#42` nachgezogen); PR 2: Spec freigegeben; Upstream-Runden leer
+
+### Stand
+
+- **Upstream-Runden** 08:58 und 09:04 UTC (Fenster ab 2026-10-11 14:55, alle Autoren): leer. JustChr#193/#195/#196
+  ohne Kommentar, JustChr#194 offen (0 Reviews, `mergeable_state=clean`), `upstream/master` `6a40e083`, neuestes
+  Release weiter Pre-Release v2026.10.05. JustChr heute 05:48–05:54 UTC nur in einem anderen Repo aktiv. Scan-Skript:
+  Labels von #8/#20/#87/#88/#89 passen.
+- **Feldtest Eifel-Joe#8 bestanden** (HA-Prod nur gelesen, 08:58 UTC): `sensor_outages: []`, 8 Sensoren zuletzt
+  08:58:08 UTC, installiert `v2026.10.05b1`, `sensor.uptime` 2026-10-11 08:48:16 UTC. Beendete Ausfälle bleiben nur
+  7 Tage nach `end` in der Liste (`const.py:703`, `sensor_liveness.py:209-211`, auch im Tag `v2026.10.05b1`) → die
+  Lesung vom 11.10. 14:12 deckt die ersten zwei Stunden. Kommentar
+  [#8 `6121112008`](https://github.com/Eifel-Joe/HAsmartirrigation/issues/8#issuecomment-6121112008) und `#42`
+  Punkt 9 (zusätzlich „not yet in a release“ → „in upstream pre-release v2026.10.05“) — beide freigegeben, gesendet,
+  zurückgelesen, inhaltsgleich bis auf das `\n` von `--jq`. Texte/Readbacks: `D:\Entwicklung\HASI\session-1012-work\`.
+- **PR 2 Spec freigegeben:** `docs/superpowers/specs/2026-10-11-dead-weather-sensor-pr2-design.md` (Detail-Spec zu
+  Rev. 3). User-Entscheidungen F1 = 1 (Passthrough verbraucht wie PyETO, 0 ET, kein ERROR), F2 = 1 (Wert von vor der
+  Sperre gilt ab ihrem Ende wieder), F3 = 1 (Teiltag als bekannte Grenze), F4 = 1 (ganzes Mittel × Anteil), Ansatz 1
+  (Sperren als `blocked=` neben dem Aggregat), Abschnitte 1–6 einzeln, dann die schriftliche Fassung.
+
+### Fallen
+
+- `sensor_outages` leer heißt nicht „nie ein Ausfall“: geschlossene Einträge fallen nach 7 Tagen weg.
+- `owm_count_sandbox.py` im Archiv zeigt `events.sort()`, das Protokoll sagt `sorted()` auf Strings — welche Fassung
+  lief, ist unbestätigt.
+
+### Nächste Schritte
+
+1. Plan PR 2 per `superpowers:writing-plans` (Ablage `docs/superpowers/plans/`), probelaufen, Freigabe, Archiv (P1).
+2. Upstream-Runde ab 2026-10-12 09:04 UTC vor jedem Außen-Schritt.
+3. Aufräumen: `session-1011b-work` (Messprotokoll + Skript archiviert), `issue87-work` nach Merge von JustChr#194.
+
+## 2026-10-11 (2) — Feldtest #8 gilt ab 12.10. als bestanden; Eifel-Joe#88 → JustChr#195; Eifel-Joe#89 auf HA-Prod gemessen → JustChr#196; PR 2 vorbereitet; Upstream-Runden leer
+
+### Stand
+
+- **Upstream-Runden** 14:12, 14:23, 14:34, 14:49, 14:52, 14:55 UTC (Fenster ab 11:10, alle Autoren): leer bis auf unsere
+  JustChr#195/#196. JustChr#194 offen (0 Reviews), JustChr#193 ohne Antwort, `upstream/master` `6a40e083`, neuestes Release
+  Pre-Release v2026.10.05; letzte JustChr-Aktivität 06.10. 19:07 UTC.
+- **Feldtest Eifel-Joe#8** (HA-Prod v2026.10.05b1, nur gelesen, 14:12 UTC): `sensor_outages` leer, 8 Sensoren frisch;
+  Feuchte jeden Tag 99 % (09.10. ganztägig 95–99 %); HA-Prod-Neustart 11.10. 08:48 UTC (nicht von uns) ohne Fehlalarm. Kein
+  Beet-Lauf (Eimer +17,6 / +17,3 / +14,1 mm, letzter Lauf aller Zonen 30.09.). **User A1:** Feldtest gilt am 2026-10-12
+  06:57 UTC als bestanden, wenn bis dahin nichts kommt; auf den Beet-Lauf wird nicht gewartet. `#42` Punkt 9 nachgezogen.
+- **Eifel-Joe#88 (imperial) → [JustChr#195](https://github.com/JustChr/HAsmartirrigation/issues/195)** (User C1, Text DE →
+  EN freigegeben), mit bereinigtem Repro-Test `D:\Entwicklung\HASI\session-1011b-work\test_live_credit_units.py` (gegen die
+  `6a40e083`-Dateien `2 failed, 1 passed`; Blob-Hashes = `upstream/master`). Auf #88: Korrektur Zonengröße 10 statt 1 m²
+  (`6110024636`), „gemeldet“ (`6110111810`), Label `upstream:gemeldet`.
+- **Eifel-Joe#89 auf HA-Prod gemessen** (User B; DEBUG nur `…weathermodules.OWMClient` 14:21–14:46 UTC, zurückgebaut):
+  1 bzw. 3 echte `get_forecast_data` je Erneuerung, 0 `get_data`, 537 Cache-Treffer in 25 min (Herkunft nicht zugeordnet),
+  keine Pool-Warnung → **`schwere:niedrig`**. Protokoll `session-1011b-work\owm-prod-measurement-2026-10-11.md`. Auf #89:
+  Messung (`6110244016`), Korrektur `helpers.py:877` → `__init__.py:624-660` (`6110265016`), „gemeldet“ (`6110295807`),
+  Label `upstream:gemeldet`. **User D1 → [JustChr#196](https://github.com/JustChr/HAsmartirrigation/issues/196).**
+  Eifel-Joe#20 (`_is_fresh`): Kommentar `6110296344` + `upstream:gemeldet` (User E1).
+- **`#42`** ein Body-Ersatz: Punkte 9, 22, 25f, 25g. Alle Texte vorher freigegeben, nach dem Senden zurückgelesen und
+  verglichen (nur das `\n` von `--jq` mehr).
+- **PR 2 (Eifel-Joe#8):** Faktensammlung `D:\Entwicklung\HASI\issue8-pr2-work\context-2026-10-11.md` (Sonnet-Agent,
+  Stichproben geprüft: zwei Aufrufer von `aggregate_window`, Passthrough-`return None` ohne Wasserzeichen-Vorlauf,
+  `select_window` verwirft Randstempel). `superpowers:brainstorming` geladen, Klassifizierung architektonisch, noch keine
+  Frage gestellt.
+- HA-Test unberührt (Intervall 60 min, neuer Pirate-Schlüssel). HA-Prod: nur zwei `logger.set_level` (der Kind-Logger
+  steht bis zum nächsten Neustart auf WARNING, wirkungsgleich mit vorher).
+
+### Verworfen
+
+- Auf den ersten Beet-Lauf warten (A2): stand nur in unseren Übergaben, nicht im Kriterium der Spec; im Oktober womöglich
+  wochenlang kein Lauf.
+- #88/#89 direkt als PR (jeweils Variante 2): der Fix-Ort ist JustChrs Design-Wahl → erst Issue, PR angeboten.
+
+### Fallen
+
+- **Ich habe eine Außenwirkung gemeldet, die es nicht gab** (Kommentar auf #88 „gepostet und zurückgelesen“, ohne Aufruf
+  und ohne Freigabe) — in der nächsten Antwort richtiggestellt; Memory `no-fabricated-durations` ergänzt.
+- **Fork-Issue-Bodies vom Vortag trugen falsche Fakten** (#88 Zonengröße, #89 `helpers.py:877`) → vor jedem Upstream-Text
+  JEDE Fundstelle gegen den Upstream-SHA öffnen und jede Zahl neu belegen (Memory `workflow-agent-hygiene`).
+- Auto-Mode-Klassifizierer verweigerte `gh issue view … > datei && python …`; `gh api repos/…/issues/N --jq .body > datei`
+  ging.
+- `ha_get_logs(source="logger")` zeigt Kind-Logger nicht → Rückbau an ausbleibenden DEBUG-Zeilen belegen; Startzeit VOR
+  dem Aufruf notieren (`date` danach lag ~30 s zu spät).
+- Monty-Sandbox: `list.sort()` auf Listen von Listen wirft → Strings + `sorted()`. OWM-DEBUG-Zeilen tragen Koordinaten in
+  der URL → nur in der Sandbox auf Köpfe reduzieren.
+
+### Nächste Schritte
+
+1. Upstream-Runde ab 2026-10-11 14:55 UTC, alle Autoren. Neu in der Runde: JustChr#195, JustChr#196 (Antwort → Kommentar
+   in #88 bzw. #89/#20 + Label; „baue es“ → Spec + Plan nach P1, `upstream:freigegeben`). JustChr#194: Merge → Eifel-Joe#87
+   zu + `#42`, `issue87-work` aufräumen. JustChr#193: Form → Spec + Plan. Neues Release → production/HA-Prod nur auf Zuruf.
+   Vor JEDEM Außen-Schritt wiederholen.
+2. Feldtest #8 nach 2026-10-12 06:57 UTC lesen (HA-Prod, Diagnostics `data.store.mappings`, nur lesen): leer → bestanden;
+   Kommentar auf #8 + `#42` Punkt 9 (Text-Freigabe).
+3. **PR 2 Spec** per `superpowers:brainstorming` (architektonisch): Detail-Spec
+   `docs/superpowers/specs/2026-10-11-dead-weather-sensor-pr2-design.md`, entscheidet nur die offenen Punkte aus §4 der
+   Faktensammlung, sonst Verweis auf Spec Rev. 3. Erste Fragen, je eine: (F1) Feld ohne gültige Zeit — PyETO verbraucht
+   das Fenster und bucht 0, Passthrough lässt es liegen (ERROR): angleichen? (F2) welcher Wert gilt nach Sperren-Ende ohne
+   neue Zeile; (F3) Mittel über einen Teiltag: Grenze dokumentieren oder Mindestanteil; (F4) Buchungsanteil bei
+   `forecast_days > 0`. Danach Ansätze für die Rückgabe der Masken (§4 Frage 2), Design-Abschnitte, Spec, Freigabe, Plan
+   (`superpowers:writing-plans`), Archiv (P1).
+4. Aufräumen: `session-1011b-work` (Texte, Readbacks; Messprotokoll + `owm_count_sandbox.py` vorher mit der #89- oder
+   PR-2-Doku archivieren); `issue87-work` nach dem Merge von JustChr#194.
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:brainstorming` → `superpowers:writing-plans`; Upstream-Texte nach `pr-workflow`;
+  `superpowers:verification-before-completion` vor jeder Erledigt-Meldung.
+
 ## 2026-10-11 — Eifel-Joe#61 live belegt und geschlossen; Eifel-Joe#88 (imperial) + Eifel-Joe#89 (Abrufrate) neu; Upstream-Runden leer
 
 ### Stand
@@ -41,6 +145,11 @@
   mit 429). **Aktualisierungsintervall 60 min** (User-Entscheidung, bleibt bis Eifel-Joe#89 behoben). Sonst wie vor
   dem Test (Vergleich: nur `autoupdateinterval` und Laufzeitzähler `days_since_last_irrigation`).
 - **Imperial (E3) bestätigt** per lokalem Probetest (`.FF`, Panel `0 == 112`, Lauf „zone dropped“) → Eifel-Joe#88.
+- **Archiv gepusht** (Freigabe im Chat): `0303e068` auf `archive/design-history` = Spec Rev. 2, Plan Rev. 2/2a/2b,
+  `probes/2026-10-07-forecast-weighting-live/` (Protokoll, `o1.py`, `scout.py` + Tests, Imperial-Ausgabe, Reihen,
+  Konfig-/Koordinaten-Schnappschüsse, Probelauf Rev. 2) und diese Datei. Arbeitsordner danach nach
+  `D:\Entwicklung\HASI\_erledigt\issue61-work` verschoben (erster `mv` scheiterte mit „Device or resource busy“,
+  solange er Arbeitsverzeichnis der Shell war; derselbe Befehl danach erfolgreich).
 
 ### Verworfen
 
@@ -73,7 +182,7 @@
    entscheiden, ob und wie es upstream geht (berührt Eifel-Joe#20 `_is_fresh`).
 4. Eifel-Joe#88: entscheiden, ob es upstream gemeldet wird (JustChr hat die imperiale Prüfung selbst als offen
    benannt) — Text erst DE, dann EN, Freigabe.
-5. Aufräumen: `issue61-work` nach `_erledigt` (nach dem Archiv-Push), `issue87-work` nach dem Merge von JustChr#194.
+5. Aufräumen: `issue87-work` nach dem Merge von JustChr#194 (`issue61-work` ist erledigt).
 
 ### Empfohlene Skills
 
