@@ -95,7 +95,9 @@
         "drainage-integrated": "der Überschuss über der Feldkapazität versickert kontinuierlich über das Zeitfenster (Brooks–Corey), die Rate sinkt also beim Abfließen",
         "no-drainage": "Aktuelle Drainage ist 0, weil",
         "forecast-weighting-applied": "Die Vorhersagegewichtung hat das Defizit für den erwarteten Regen reduziert",
-        "crop-coefficient-applied": "Mit dem Pflanzenkoeffizienten skaliert"
+        "crop-coefficient-applied": "Mit dem Pflanzenkoeffizienten skaliert",
+        "sensor-outage": "Keine Werte von {fields} von {start} bis {end} (Sensor stumm).",
+        "sensor-outage-share": "Verdunstung für {share} % des Zeitraums gebucht."
       }
     }
   },
