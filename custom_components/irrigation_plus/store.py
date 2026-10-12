@@ -131,6 +131,7 @@ from .const import (
     MAPPING_MAX_TEMP,
     MAPPING_MIN_TEMP,
     MAPPING_NAME,
+    MAPPING_ON_SILENT_SENSOR,
     MAPPING_PRECIPITATION,
     MAPPING_PRESSURE,
     MAPPING_RADIATION_CALIBRATION,
@@ -146,6 +147,9 @@ from .const import (
     MODULE_ID,
     MODULE_NAME,
     MODULE_SCHEMA,
+    ON_SILENT_SENSOR_KEEP,
+    ON_SILENT_SENSOR_OPTIONS,
+    ON_SILENT_SENSOR_PAUSE,
     RETRIEVED_AT,
     UNIT_SYSTEM_METRIC,
     UNIT_SYSTEM_US_CUSTOMARY,
@@ -381,6 +385,10 @@ class MappingEntry:
     # outage that spans a restart keeps its start. Rides along on the next write;
     # a clean stop writes it too (set_mapping_sensor_last_seen).
     sensor_last_seen = attr.ib(type=dict, factory=dict)
+    # What the group does with a silent sensor: keep its last value or pause it
+    # (const.ON_SILENT_SENSOR_*). A group created now pauses; a stored group
+    # without the key keeps, which the load path sets (_as_on_silent_sensor).
+    on_silent_sensor = attr.ib(type=str, default=ON_SILENT_SENSOR_PAUSE)
 
 
 @attr.s(slots=True, frozen=True)
@@ -974,6 +982,16 @@ def _as_last_seen(value) -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def _as_on_silent_sensor(value) -> str:
+    """Coerce a stored ``on_silent_sensor``; anything unknown keeps the last value.
+
+    A group stored before the setting existed belongs to an existing install,
+    whose calculation must not change by itself; a value edited by hand must not
+    start cutting either. Only a group created now pauses (the attribute default).
+    """
+    return value if value in ON_SILENT_SENSOR_OPTIONS else ON_SILENT_SENSOR_KEEP
+
+
 class SmartIrrigationStorage:
     """Class to hold Irrigation Plus configuration data."""
 
@@ -1402,6 +1420,9 @@ class SmartIrrigationStorage:
                         sensor_outages=mapping.get(MAPPING_SENSOR_OUTAGES) or [],
                         sensor_last_seen=_as_last_seen(
                             mapping.get(MAPPING_SENSOR_LAST_SEEN)
+                        ),
+                        on_silent_sensor=_as_on_silent_sensor(
+                            mapping.get(MAPPING_ON_SILENT_SENSOR)
                         ),
                     )
             if "distributors" in data:
