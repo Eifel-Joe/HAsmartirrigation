@@ -712,6 +712,17 @@ MAPPING_SENSOR_OUTAGES = "sensor_outages"
 MAPPING_SENSOR_LAST_SEEN = "sensor_last_seen"
 # One repair issue per sensor group: f"{ISSUE_WEATHER_SENSOR_STALE}_{mapping_id}".
 ISSUE_WEATHER_SENSOR_STALE = "weather_sensor_stale"
+# The same notice for a group that pauses a silent sensor: its values are no
+# longer used. Chosen while the daily form of the calculation is the one that
+# cuts (see calculation._blocked_spans_for_zone).
+ISSUE_WEATHER_SENSOR_STALE_PAUSED = "weather_sensor_stale_paused"
+# What a sensor group does with a silent sensor (MappingEntry.on_silent_sensor):
+# keep using its last value, as before, or pause it so that the silent time books
+# nothing. A group stored without the key keeps; a new group pauses.
+MAPPING_ON_SILENT_SENSOR = "on_silent_sensor"
+ON_SILENT_SENSOR_KEEP = "keep"
+ON_SILENT_SENSOR_PAUSE = "pause"
+ON_SILENT_SENSOR_OPTIONS = (ON_SILENT_SENSOR_KEEP, ON_SILENT_SENSOR_PAUSE)
 MAPPING_MAPPINGS = "mappings"
 MAPPING_DEWPOINT = "Dewpoint"
 MAPPING_EVAPOTRANSPIRATION = "Evapotranspiration"
