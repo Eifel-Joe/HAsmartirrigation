@@ -109,3 +109,11 @@ def test_the_mapping_view_takes_the_setting_and_only_its_two_values():
     assert MAPPING_VIEW_SCHEMA({KEY: "keep"}) == {KEY: "keep"}
     with pytest.raises(vol.Invalid):
         MAPPING_VIEW_SCHEMA({KEY: "sometimes"})
+
+
+def test_the_mapping_view_leaves_an_omitted_setting_omitted():
+    """A default on the key would switch every group that keeps to pause the
+    first time an older panel saves it."""
+    from custom_components.irrigation_plus.websockets import MAPPING_VIEW_SCHEMA
+
+    assert MAPPING_VIEW_SCHEMA({const.MAPPING_NAME: "x"}) == {const.MAPPING_NAME: "x"}
