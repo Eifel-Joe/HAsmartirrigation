@@ -1890,9 +1890,9 @@ class CalculationMixin:
     async def _silent_sensor_explanation(self, blocked, share) -> str:
         """The sentences that say what a pausing group did not book, and how much it did.
 
-        One per blocked span, the fields silent over the same span as the
-        sentence shows it named together; the share only where the module's own
-        fields were cut. Times are on HA's clock, the frame of the buffer stamps.
+        One per blocked span as the sentence shows it, the fields silent over
+        it named together; the share only where the module's own fields were
+        cut. Times are on HA's clock, the frame of the buffer stamps.
         """
         language = self.hass.config.language
         sentence = await localize(
@@ -1910,7 +1910,7 @@ class CalculationMixin:
                 shown = (start.strftime(fmt), end.strftime(fmt))
                 fields_by_span.setdefault(shown, set()).add(field)
         text = ""
-        for (start, end), fields in sorted(fields_by_span.items()):
+        for (shown_start, shown_end), fields in sorted(fields_by_span.items()):
             names = [
                 await localize(
                     f"panels.mappings.cards.mapping.items.{field.lower()}", language
@@ -1919,8 +1919,8 @@ class CalculationMixin:
             ]
             text += " " + (
                 sentence.replace("{fields}", ", ".join(names))
-                .replace("{start}", start)
-                .replace("{end}", end)
+                .replace("{start}", shown_start)
+                .replace("{end}", shown_end)
             )
         if share is not None and share < 1:
             booked = await localize(
