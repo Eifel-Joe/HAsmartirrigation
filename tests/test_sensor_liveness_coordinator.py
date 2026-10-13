@@ -1157,6 +1157,32 @@ class TestThePausedNotice:
         assert "no longer used" not in warnings["sensor.rain"]
         assert "no longer used" in warnings["sensor.temp"]
 
+    async def test_a_closed_temperature_outage_leaves_an_open_rain_gauge_plain(
+        self, monkeypatch
+    ):
+        """Only an open outage counts for the text: the temperature is back, and
+        what is silent now is a gauge the calculation does not cut."""
+        group = self._rain_gauge_group({"Temperature": "sensor.temp"})
+        group[const.MAPPING_SENSOR_OUTAGES] = [
+            Outage(
+                "sensor.temp",
+                "dev1",
+                ("Temperature",),
+                T0 - timedelta(days=2),
+                T0 - timedelta(days=1),
+            ).to_store(),
+            Outage(
+                "sensor.rain", "dev1", ("Precipitation",), T0 - timedelta(hours=5)
+            ).to_store(),
+        ]
+        coord, store, issues = _coord(monkeypatch, [group], {}, {})
+
+        coord.async_resync_stale_issue(store.get_mapping(1))
+
+        assert issues.open["weather_sensor_stale_1"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE
+        )
+
     async def test_a_rain_gauge_turned_rain_rate_rewrites_the_open_notice(
         self, monkeypatch
     ):
