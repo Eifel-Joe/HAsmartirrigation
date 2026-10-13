@@ -1,0 +1,321 @@
+[
+  {
+    "n": 1,
+    "file": "sensor_liveness.py",
+    "mutation": "blocked_spans: no bridging of the first three hours",
+    "expected_killer": "test_the_first_three_hours_are_bridged",
+    "result": "KILLED",
+    "summary": "15 failed, 106 passed, 28 errors in 19.37s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestBlockedSpans::test_an_open_outage_blocks_up_to_the_window_end",
+      "TestBlockedSpans::test_an_outage_of_three_hours_or_less_blocks_nothing",
+      "TestBlockedSpans::test_overlapping_outages_of_one_field_merge",
+      "TestBlockedSpans::test_separate_outages_stay_separate_and_sorted",
+      "TestBlockedSpans::test_the_first_three_hours_are_bridged",
+      "TestTheBooking::test_passthrough_books_the_measured_share_of_its_et",
+      "TestTheBooking::test_pyeto_books_the_share_in_which_its_fields_were_measured",
+      "TestTheBooking::test_the_module_is_handed_the_spans",
+      "TestTheBooking::test_with_forecast_days_the_whole_mean_is_scaled",
+      "TestTheCommitCarriesTheSpans::test_the_aggregate_and_both_records_are_cut",
+      "TestTheExplanation::test_each_span_gets_its_own_sentence",
+      "TestTheExplanation::test_it_names_the_silent_time_and_the_share_booked",
+      "TestTheGate::test_a_pausing_group_is_cut_where_its_outage_blocks",
+      "TestTheGate::test_a_window_no_outage_reaches_is_not_cut",
+      "TestTheGate::test_outage_stamps_with_an_offset_are_read_on_has_clock"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 2,
+    "file": "sensor_liveness.py",
+    "mutation": "blocked_spans: an outage of exactly three hours blocks a zero-length span",
+    "expected_killer": "test_an_outage_of_three_hours_or_less_blocks_nothing",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 19.05s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestBlockedSpans::test_an_outage_of_three_hours_or_less_blocks_nothing"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 3,
+    "file": "sensor_liveness.py",
+    "mutation": "valid_share: the largest single blocked share instead of the union",
+    "expected_killer": "test_two_fields_silent_at_different_hours_leave_their_intersection",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 19.20s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestValidShare::test_two_fields_silent_at_different_hours_leave_their_intersection"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 4,
+    "file": "sensor_liveness.py",
+    "mutation": "group_pauses: case-insensitive comparison",
+    "expected_killer": "test_only_a_stored_pause_pauses",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 19.61s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestGroupPauses::test_only_a_stored_pause_pauses"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 5,
+    "file": "weather_aggregate.py",
+    "mutation": "_blocked_at: closed interval, the span end is blocked too",
+    "expected_killer": "test_the_reading_of_the_return_counts",
+    "result": "KILLED",
+    "summary": "10 failed, 111 passed, 28 errors in 19.13s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheCommitCarriesTheSpans::test_the_aggregate_and_both_records_are_cut",
+      "TestThePlainMean::test_a_span_at_the_window_start_drops_the_boundary_as_a_sample",
+      "TestThePlainMean::test_rows_inside_a_span_are_dropped",
+      "TestThePlainMean::test_the_reading_of_the_return_counts",
+      "TestTheTimeWeightedMean::test_frozen_rows_inside_the_span_do_not_count",
+      "test_a_row_stamped_after_now_counts_as_measured",
+      "test_each_aggregate_reads_only_the_valid_samples[first-span0-6.0]",
+      "test_each_aggregate_reads_only_the_valid_samples[median-span4-14.5]",
+      "test_each_aggregate_reads_only_the_valid_samples[minimum-span3-6.0]",
+      "test_each_aggregate_reads_only_the_valid_samples[sum-span5-225.0]"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 6,
+    "file": "weather_aggregate.py",
+    "mutation": "the boundary row is dropped when it lies in a span",
+    "expected_killer": "test_a_window_that_starts_blocked_holds_the_boundary_after_the_span",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 18.65s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheTimeWeightedMean::test_a_window_that_starts_blocked_holds_the_boundary_after_the_span"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 7,
+    "file": "weather_aggregate.py",
+    "mutation": "_segment_weighted_mean: each segment opens with the first value, not the held one",
+    "expected_killer": "test_a_value_is_not_held_into_a_span_and_holds_again_after_it",
+    "result": "KILLED",
+    "summary": "2 failed, 119 passed, 28 errors in 19.35s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheTimeWeightedMean::test_a_value_is_not_held_into_a_span_and_holds_again_after_it",
+      "TestTheTimeWeightedMean::test_frozen_rows_inside_the_span_do_not_count"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 8,
+    "file": "weather_aggregate.py",
+    "mutation": "_riemann_over: the whole pair counts, not its valid part",
+    "expected_killer": "test_a_rain_rate_is_integrated_over_its_valid_time_only",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 19.52s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestRain::test_a_rain_rate_is_integrated_over_its_valid_time_only"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 9,
+    "file": "weather_aggregate.py",
+    "mutation": "a field without valid time is no longer left out",
+    "expected_killer": "test_a_field_blocked_throughout_is_left_out_and_not_filled",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 20.17s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestFieldsWithoutValidTime::test_a_field_blocked_throughout_is_left_out_and_not_filled"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 10,
+    "file": "weather_aggregate.py",
+    "mutation": "a rain gauge (delta) is cut too",
+    "expected_killer": "test_a_rain_gauge_is_never_cut_even_if_asked",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 19.96s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestRain::test_a_rain_gauge_is_never_cut_even_if_asked"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 11,
+    "file": "calculation.py",
+    "mutation": "the gate ignores the hourly calculation",
+    "expected_killer": "test_with_the_hourly_calculation_nothing_is_cut",
+    "result": "KILLED",
+    "summary": "2 failed, 119 passed, 28 errors in 20.28s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestAGroupThatIsNotCutCalculatesAsBefore::test_a_pausing_group_under_the_hourly_calculation_matches_too",
+      "TestTheGate::test_with_the_hourly_calculation_nothing_is_cut"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 12,
+    "file": "calculation.py",
+    "mutation": "the gate also cuts a rain gauge (no delta filter)",
+    "expected_killer": "test_a_rain_gauge_is_never_cut_and_a_rain_rate_is",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 20.35s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheGate::test_a_rain_gauge_is_never_cut_and_a_rain_rate_is"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 13,
+    "file": "calculation.py",
+    "mutation": "PyETO is asked even when share is 0",
+    "expected_killer": "test_pyeto_without_a_measured_required_field_books_the_rain_only",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 19.92s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheBooking::test_pyeto_without_a_measured_required_field_books_the_rain_only"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 14,
+    "file": "calculation.py",
+    "mutation": "Passthrough: share 0 no longer consumes quietly",
+    "expected_killer": "test_passthrough_with_its_et_blocked_throughout_consumes_quietly",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 19.11s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheBooking::test_passthrough_with_its_et_blocked_throughout_consumes_quietly"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 15,
+    "file": "calculation.py",
+    "mutation": "the share does not scale the booking",
+    "expected_killer": "test_pyeto_books_the_share_in_which_its_fields_were_measured",
+    "result": "KILLED",
+    "summary": "3 failed, 118 passed, 28 errors in 19.87s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheBooking::test_passthrough_books_the_measured_share_of_its_et",
+      "TestTheBooking::test_pyeto_books_the_share_in_which_its_fields_were_measured",
+      "TestTheBooking::test_with_forecast_days_the_whole_mean_is_scaled"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 16,
+    "file": "calculation.py",
+    "mutation": "the amplitude record ignores a blocked temperature",
+    "expected_killer": "test_no_amplitude_is_recorded_when_the_temperature_was_blocked",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 20.45s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheRecordsSkipABlockedWindow::test_no_amplitude_is_recorded_when_the_temperature_was_blocked"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 17,
+    "file": "calculation.py",
+    "mutation": "the radiation record skips on any blocked field",
+    "expected_killer": "test_no_radiation_pair_is_recorded_when_the_sun_was_blocked",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 20.32s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheRecordsSkipABlockedWindow::test_no_radiation_pair_is_recorded_when_the_sun_was_blocked"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 18,
+    "file": "calculation.py",
+    "mutation": "the share sentence also appears at a share of 1",
+    "expected_killer": "test_a_field_the_module_does_without_gets_no_share_sentence",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 21.18s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheExplanation::test_a_field_the_module_does_without_gets_no_share_sentence"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 19,
+    "file": "store.py",
+    "mutation": "an unknown stored setting pauses instead of keeping",
+    "expected_killer": "test_a_stored_group_without_a_valid_setting_keeps",
+    "result": "KILLED",
+    "summary": "5 failed, 116 passed, 28 errors in 19.74s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "test_a_group_carried_over_from_smart_irrigation_keeps",
+      "test_a_stored_group_without_a_valid_setting_keeps[1]",
+      "test_a_stored_group_without_a_valid_setting_keeps[None]",
+      "test_a_stored_group_without_a_valid_setting_keeps[sometimes]",
+      "test_a_stored_group_without_a_valid_setting_keeps[stored3]"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 20,
+    "file": "sensor_liveness.py",
+    "mutation": "the notice always has the PR 1 key",
+    "expected_killer": "test_a_pausing_group_says_its_values_are_no_longer_used",
+    "result": "KILLED",
+    "summary": "3 failed, 118 passed, 28 errors in 20.56s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestThePausedNotice::test_a_pausing_group_says_its_values_are_no_longer_used",
+      "TestThePausedNotice::test_changing_the_setting_rewrites_the_open_notice",
+      "TestThePausedNotice::test_switching_the_hourly_calculation_rewrites_open_notices"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 21,
+    "file": "__init__.py",
+    "mutation": "no re-sync of the notice when the hourly calculation is switched",
+    "expected_killer": "test_switching_the_hourly_calculation_rewrites_open_notices",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 19.74s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestThePausedNotice::test_switching_the_hourly_calculation_rewrites_open_notices"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 22,
+    "file": "websockets.py",
+    "mutation": "the mapping view accepts any string for the setting",
+    "expected_killer": "test_the_mapping_view_takes_the_setting_and_only_its_two_values",
+    "result": "KILLED",
+    "summary": "1 failed, 120 passed, 28 errors in 19.77s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "test_the_mapping_view_takes_the_setting_and_only_its_two_values"
+    ],
+    "restored_sha256_ok": true
+  }
+]

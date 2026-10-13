@@ -126,7 +126,7 @@ einem Wegwerf-Worktree (Sonnet-Agent; Zahlen von mir an den Ergebnisdateien nach
 
 **Files:** keine Codeänderung.
 
-- [ ] **Step 1: Upstream-Runde und Basis prüfen**
+- [x] **Step 1: Upstream-Runde und Basis prüfen**
 
 ```bash
 cd /d/Entwicklung/HASI/HAsmartirrigation
@@ -137,7 +137,7 @@ git rev-parse --short=8 upstream/master
 Erwartet: `6a40e083`. Sonst: Upstream-Runde nach Memory `upstream-sweep-first`, dem User melden, die Anker dieses Plans
 auf dem neuen Commit neu suchen.
 
-- [ ] **Step 2: Worktree von `upstream/master` anlegen** (ohne Tracking, Memory `hasi-pr-build-recipe`)
+- [x] **Step 2: Worktree von `upstream/master` anlegen** (ohne Tracking, Memory `hasi-pr-build-recipe`)
 
 ```bash
 cd /d/Entwicklung/HASI/HAsmartirrigation
@@ -146,7 +146,7 @@ cp _local_socket_unblock.py /d/Entwicklung/HASI/issue8-pr2-work/wt/
 cd /d/Entwicklung/HASI/issue8-pr2-work/wt && git log --oneline -1
 ```
 
-- [ ] **Step 3: Baseline der vollen Suite** (Memory `rebaseline-when-the-base-moves`)
+- [x] **Step 3: Baseline der vollen Suite** (Memory `rebaseline-when-the-base-moves`)
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-pr2-work/wt
@@ -158,7 +158,7 @@ tail -c 400 ../suite-baseline.txt
 Erwartet: Zusammenfassung mit `failed`/`passed`/`skipped`/`errors` (die Windows-Altlasten: Tests, die ein neueres HA
 brauchen). Die Datei erst nach Laufende lesen. Zahlen in `../baseline.txt` notieren.
 
-- [ ] **Step 4: Frontend-Abhängigkeiten**
+- [x] **Step 4: Frontend-Abhängigkeiten**
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-pr2-work/wt/custom_components/irrigation_plus/frontend && npm ci && npx vitest run src/views/mappings/view-mappings-save.test.ts
@@ -183,7 +183,7 @@ Erwartet: `7 passed`.
   `blocked_spans(outages: list[Outage], start: datetime, end: datetime) -> dict[str, tuple[tuple[datetime, datetime], ...]]`;
   `valid_share(blocked: dict, fields, start: datetime, end: datetime) -> float`.
 
-- [ ] **Step 1: Failing test schreiben** — `tests/test_sensor_liveness_blocked.py`
+- [x] **Step 1: Failing test schreiben** — `tests/test_sensor_liveness_blocked.py`
 
 ```python
 """The time a pausing sensor group does not book: blocked spans and the share left."""
@@ -298,12 +298,12 @@ class TestGroupPauses:
         assert group_pauses({const.MAPPING_ON_SILENT_SENSOR: "PAUSE"}) is False
 ```
 
-- [ ] **Step 2: Test laufen lassen, er muss scheitern**
+- [x] **Step 2: Test laufen lassen, er muss scheitern**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_sensor_liveness_blocked.py -p _local_socket_unblock -q`
 Expected: Sammelfehler `ImportError: cannot import name 'blocked_spans'`.
 
-- [ ] **Step 3: Konstanten** — in `const.py` direkt nach `ISSUE_WEATHER_SENSOR_STALE = "weather_sensor_stale"` einfügen:
+- [x] **Step 3: Konstanten** — in `const.py` direkt nach `ISSUE_WEATHER_SENSOR_STALE = "weather_sensor_stale"` einfügen:
 
 ```python
 # The same notice for a group that pauses a silent sensor: its values are no
@@ -319,7 +319,7 @@ ON_SILENT_SENSOR_PAUSE = "pause"
 ON_SILENT_SENSOR_OPTIONS = (ON_SILENT_SENSOR_KEEP, ON_SILENT_SENSOR_PAUSE)
 ```
 
-- [ ] **Step 4: Reine Funktionen** — in `sensor_liveness.py` direkt nach `outages_of` (`:166-171`) einfügen:
+- [x] **Step 4: Reine Funktionen** — in `sensor_liveness.py` direkt nach `outages_of` (`:166-171`) einfügen:
 
 ```python
 def group_pauses(mapping: dict) -> bool:
@@ -379,7 +379,7 @@ def _merged(spans) -> tuple[tuple[datetime, datetime], ...]:
     return tuple(merged)
 ```
 
-- [ ] **Step 5: Modul-Docstring berichtigen** — in `sensor_liveness.py` den Absatz
+- [x] **Step 5: Modul-Docstring berichtigen** — in `sensor_liveness.py` den Absatz
 
 ```
 Nothing here changes a calculation: a silent sensor's last value is still used, as
@@ -395,12 +395,12 @@ that pauses it, ``blocked_spans`` turns the record into the time its daily
 calculation does not book (calculation._blocked_spans_for_zone).
 ```
 
-- [ ] **Step 6: Test laufen lassen, er muss grün sein**
+- [x] **Step 6: Test laufen lassen, er muss grün sein**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_sensor_liveness_blocked.py tests/test_sensor_liveness.py -p _local_socket_unblock -q`
 Expected: alle grün (15 neue plus die bestehenden von `test_sensor_liveness.py`).
 
-- [ ] **Step 7: Lint und Commit**
+- [x] **Step 7: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_sensor_liveness_blocked.py
@@ -434,7 +434,7 @@ EOF
 - Produces: `MappingEntry.on_silent_sensor: str` (Standard `"pause"`); jeder Mapping-Dict aus dem Store
   (`get_mapping`, `async_get_mappings`, Diagnose, WS-Lesepfad) trägt `"on_silent_sensor"`.
 
-- [ ] **Step 1: Failing test schreiben** — `tests/test_silent_sensor_setting.py`
+- [x] **Step 1: Failing test schreiben** — `tests/test_silent_sensor_setting.py`
 
 ```python
 """The sensor group's setting for a silent sensor: keep its last value or pause it."""
@@ -540,18 +540,18 @@ async def test_a_save_without_the_setting_leaves_it_alone(hass) -> None:
     assert store.get_mapping(group)[KEY] == "keep"
 ```
 
-- [ ] **Step 2: Test laufen lassen, er muss scheitern**
+- [x] **Step 2: Test laufen lassen, er muss scheitern**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_setting.py -p _local_socket_unblock -q`
 Expected: 10 FAIL — `KeyError: 'on_silent_sensor'` (das Feld gibt es noch nicht), bei den Tests, die es über
 `async_update_mapping` setzen, `TypeError: MappingEntry.__init__() got an unexpected keyword argument
 'on_silent_sensor'` (`attr.evolve`).
 
-- [ ] **Step 3: Import** — im Block `from .const import (` von `store.py` alphabetisch ergänzen: `MAPPING_ON_SILENT_SENSOR`
+- [x] **Step 3: Import** — im Block `from .const import (` von `store.py` alphabetisch ergänzen: `MAPPING_ON_SILENT_SENSOR`
   (nach `MAPPING_NAME`), `ON_SILENT_SENSOR_KEEP`, `ON_SILENT_SENSOR_OPTIONS`, `ON_SILENT_SENSOR_PAUSE` (an ihrer
   alphabetischen Stelle). `uvx ruff check --fix custom_components/irrigation_plus/store.py` sortiert nach, falls nötig.
 
-- [ ] **Step 4: Feld** — in `MappingEntry` direkt nach `sensor_last_seen = attr.ib(type=dict, factory=dict)`:
+- [x] **Step 4: Feld** — in `MappingEntry` direkt nach `sensor_last_seen = attr.ib(type=dict, factory=dict)`:
 
 ```python
     # What the group does with a silent sensor: keep its last value or pause it
@@ -560,7 +560,7 @@ Expected: 10 FAIL — `KeyError: 'on_silent_sensor'` (das Feld gibt es noch nich
     on_silent_sensor = attr.ib(type=str, default=ON_SILENT_SENSOR_PAUSE)
 ```
 
-- [ ] **Step 5: Laden** — im Lade-Pfad direkt nach
+- [x] **Step 5: Laden** — im Lade-Pfad direkt nach
 
 ```python
                         sensor_last_seen=_as_last_seen(
@@ -589,12 +589,12 @@ def _as_on_silent_sensor(value) -> str:
     return value if value in ON_SILENT_SENSOR_OPTIONS else ON_SILENT_SENSOR_KEEP
 ```
 
-- [ ] **Step 6: Test laufen lassen, er muss grün sein**
+- [x] **Step 6: Test laufen lassen, er muss grün sein**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_setting.py tests/test_sensor_liveness_store.py tests/test_store.py -p _local_socket_unblock -q`
 Expected: alle grün (10 neue Fälle).
 
-- [ ] **Step 7: Lint und Commit**
+- [x] **Step 7: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_silent_sensor_setting.py
@@ -626,7 +626,7 @@ EOF
   `blocked` hat die Form von `blocked_spans(...)` (Task 1). Rückgabe unverändert ein flaches Dict; ein Feld ohne
   gültige Zeit fehlt.
 
-- [ ] **Step 1: Failing test schreiben** — `tests/test_weather_aggregate_blocked.py`
+- [x] **Step 1: Failing test schreiben** — `tests/test_weather_aggregate_blocked.py`
 
 ```python
 """A pausing group's window: each blocked field reduced over its valid time only."""
@@ -812,14 +812,14 @@ def test_a_row_stamped_after_now_counts_as_measured():
     assert cut[T] == pytest.approx((225 + 100) / 19)
 ```
 
-- [ ] **Step 2: Test laufen lassen, er muss scheitern**
+- [x] **Step 2: Test laufen lassen, er muss scheitern**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_weather_aggregate_blocked.py -p _local_socket_unblock -q`
 Expected: FAIL mit `TypeError: aggregate_window() got an unexpected keyword argument 'blocked'`.
 
-- [ ] **Step 3: Import** — in `weather_aggregate.py` `import itertools` zwischen `import datetime` und `import logging`.
+- [x] **Step 3: Import** — in `weather_aggregate.py` `import itertools` zwischen `import datetime` und `import logging`.
 
-- [ ] **Step 4: Parameter durchreichen** — `aggregate_window` bekommt nach `time_weighted=False,` den Parameter
+- [x] **Step 4: Parameter durchreichen** — `aggregate_window` bekommt nach `time_weighted=False,` den Parameter
   `blocked=None,`; im Docstring nach dem Absatz zu `time_weighted` ergänzen:
 
 ```
@@ -832,7 +832,7 @@ Expected: FAIL mit `TypeError: aggregate_window() got an unexpected keyword argu
 
   Der Aufruf von `_aggregate` am Ende bekommt `blocked=blocked,` nach `time_weighted=time_weighted,`.
 
-- [ ] **Step 5: `_aggregate` verzweigt** — Signatur um `blocked=None,` nach `time_weighted=False,` erweitern; im
+- [x] **Step 5: `_aggregate` verzweigt** — Signatur um `blocked=None,` nach `time_weighted=False,` erweitern; im
   Schleifenkörper direkt nach
 
 ```python
@@ -864,7 +864,7 @@ Expected: FAIL mit `TypeError: aggregate_window() got an unexpected keyword argu
                 continue
 ```
 
-- [ ] **Step 6: Die Regeln** — direkt nach `_aggregate` (vor `class WaterStep`) einfügen:
+- [x] **Step 6: Die Regeln** — direkt nach `_aggregate` (vor `class WaterStep`) einfügen:
 
 ```python
 def _aggregate_blocked(
@@ -992,12 +992,12 @@ def _single_value(key, value, resultdata):
     resultdata[key] = value
 ```
 
-- [ ] **Step 7: Test laufen lassen, er muss grün sein; die Nachbarn bleiben grün**
+- [x] **Step 7: Test laufen lassen, er muss grün sein; die Nachbarn bleiben grün**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_weather_aggregate_blocked.py tests/test_weather_aggregate.py tests/test_aggregate_time_weighting_is_opt_in.py tests/test_continuous_update.py -p _local_socket_unblock -q`
 Expected: alle grün (23 neue Fälle).
 
-- [ ] **Step 8: Lint und Commit**
+- [x] **Step 8: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_weather_aggregate_blocked.py
@@ -1036,7 +1036,7 @@ EOF
   `_aggregate_for_zone(zone, *, now, blocked=None)`; `_record_window_amplitude(zone, weatherdata, *, now, blocked=None)`;
   `_record_window_radiation(zone, weatherdata, *, now, blocked=None)`. In `async_calculate_zone` heißt der Wert `blocked`.
 
-- [ ] **Step 1: Failing test schreiben** — `tests/test_silent_sensor_commit.py` (die Tasks 5 und 6 hängen weitere
+- [x] **Step 1: Failing test schreiben** — `tests/test_silent_sensor_commit.py` (die Tasks 5 und 6 hängen weitere
   Klassen an diese Datei an)
 
 ```python
@@ -1276,18 +1276,18 @@ class TestTheRecordsSkipABlockedWindow:
         assert len(store.get_mapping(mid)[const.MAPPING_RADIATION_CALIBRATION]) == 1
 ```
 
-- [ ] **Step 2: Test laufen lassen, er muss scheitern**
+- [x] **Step 2: Test laufen lassen, er muss scheitern**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_commit.py -p _local_socket_unblock -q`
 Expected: FAIL — `AttributeError: … has no attribute '_blocked_spans_for_zone'` bzw. `TypeError: … unexpected keyword argument 'blocked'`.
 
-- [ ] **Step 3: Imports** in `calculation.py`:
+- [x] **Step 3: Imports** in `calculation.py`:
   - `from .helpers import (` um `STAMP_FROM_STORE,` nach `STAMP_FROM_CLIENT,` ergänzen;
   - neue Zeile `from .sensor_liveness import blocked_spans, group_pauses, outages_of` (ruff `I`: zwischen
     `.localize` und `.weather_aggregate`);
   - `from .weather_aggregate import (` um `effective_aggregate,` nach `build_substeps,` ergänzen.
 
-- [ ] **Step 4: Das Gate** — direkt vor `async def _aggregate_for_zone` einfügen:
+- [x] **Step 4: Das Gate** — direkt vor `async def _aggregate_for_zone` einfügen:
 
 ```python
     def _blocked_spans_for_zone(self, zone, *, now):
@@ -1325,12 +1325,12 @@ Expected: FAIL — `AttributeError: … has no attribute '_blocked_spans_for_zon
         return blocked or None
 ```
 
-- [ ] **Step 5: `_aggregate_for_zone`** — Signatur `async def _aggregate_for_zone(self, zone, *, now, blocked=None):`;
-  im Docstring nach dem ersten Absatz ergänzen: ``` ``blocked`` is a pausing group's blocked time
+- [x] **Step 5: `_aggregate_for_zone`** — Signatur `async def _aggregate_for_zone(self, zone, *, now, blocked=None):`;
+  im Docstring direkt nach der Titelzeile (vor dem bisherigen ersten Absatz) als eigenen Absatz ergänzen: ``` ``blocked`` is a pausing group's blocked time
   (_blocked_spans_for_zone), passed to the aggregate as is.``` ; im `aggregate_window(...)`-Aufruf nach dem
   `time_weighted=(...)`-Argument `blocked=blocked,` anfügen.
 
-- [ ] **Step 6: `async_calculate_zone`** — die Zeile
+- [x] **Step 6: `async_calculate_zone`** — die Zeile
 
 ```python
         weatherdata, n_points = await self._aggregate_for_zone(zone, now=now)
@@ -1354,7 +1354,7 @@ Expected: FAIL — `AttributeError: … has no attribute '_blocked_spans_for_zon
         await self._record_window_radiation(zone, weatherdata, now=now, blocked=blocked)
 ```
 
-- [ ] **Step 7: Die Aufzeichnungen** — Signaturen `async def _record_window_amplitude(self, zone, weatherdata, *, now, blocked=None):`
+- [x] **Step 7: Die Aufzeichnungen** — Signaturen `async def _record_window_amplitude(self, zone, weatherdata, *, now, blocked=None):`
   und `async def _record_window_radiation(self, zone, weatherdata, *, now, blocked=None):`.
   In `_record_window_amplitude` den Docstring-Absatz „Skipped for a window materially shorter …“ ergänzen um
   ``` Skipped, too, when the temperature was blocked in the window: its spread then covers part of the day only.```
@@ -1373,7 +1373,7 @@ Expected: FAIL — `AttributeError: … has no attribute '_blocked_spans_for_zon
             return
 ```
 
-- [ ] **Step 8: Den Fake-Store eines bestehenden Tests ergänzen** — `tests/test_run_in_flight.py`, Klasse `_FakeStore`,
+- [x] **Step 8: Den Fake-Store eines bestehenden Tests ergänzen** — `tests/test_run_in_flight.py`, Klasse `_FakeStore`,
   nach `get_distributor` einfügen (das Gate fragt den Store jetzt nach der Sensorgruppe; der echte Store hat die
   Methode immer):
 
@@ -1382,12 +1382,12 @@ Expected: FAIL — `AttributeError: … has no attribute '_blocked_spans_for_zon
         return None
 ```
 
-- [ ] **Step 9: Test laufen lassen, er muss grün sein; die Nachbarn bleiben grün**
+- [x] **Step 9: Test laufen lassen, er muss grün sein; die Nachbarn bleiben grün**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_commit.py tests/test_run_in_flight.py tests/test_per_zone_consumption.py tests/test_window_amplitude.py tests/test_live_estimate_measured_radiation.py tests/test_coordinator_mixins.py -p _local_socket_unblock -q`
 Expected: alle grün (12 neue Fälle).
 
-- [ ] **Step 10: Lint und Commit**
+- [x] **Step 10: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_silent_sensor_commit.py tests/test_run_in_flight.py
@@ -1422,7 +1422,7 @@ EOF
   Modul-Konstante `_REQUIRED_SENSOR_FIELDS: dict[str, tuple[str, ...]]`; innerhalb von `calculate_module` die
   lokale Variable `share: float | None` (Task 6 liest sie).
 
-- [ ] **Step 1: Failing test schreiben** — an `tests/test_silent_sensor_commit.py` anhängen:
+- [x] **Step 1: Failing test schreiben** — an `tests/test_silent_sensor_commit.py` anhängen:
 
 ```python
 ET = const.MAPPING_EVAPOTRANSPIRATION
@@ -1658,7 +1658,7 @@ class TestAGroupThatIsNotCutCalculatesAsBefore:
         assert paused == plain
 ```
 
-- [ ] **Step 2: Test laufen lassen, er muss scheitern**
+- [x] **Step 2: Test laufen lassen, er muss scheitern**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_commit.py -p _local_socket_unblock -q`
 Expected: FAIL — `KeyError: 'blocked'` (der Commit reicht die Sperren noch nicht an das Modul),
@@ -1667,11 +1667,11 @@ ruft das Modul trotz ganz gesperrtem Taupunkt, Passthrough meldet den ERROR. Sch
 nicht ändern darf): die zwei Byte-Identitäts-Tests, der Static-Test, `test_a_field_pyeto_does_without…` und
 `test_passthrough_without_its_et_for_another_reason…`.
 
-- [ ] **Step 3: Imports** — `from .calcmodules.pyeto import SOLRAD_behavior` wird
+- [x] **Step 3: Imports** — `from .calcmodules.pyeto import SOLRAD_behavior` wird
   `from .calcmodules.pyeto import DAILY_FORM_FIELDS, SOLRAD_behavior`; die `sensor_liveness`-Zeile aus Task 4 wird
   `from .sensor_liveness import blocked_spans, group_pauses, outages_of, valid_share`.
 
-- [ ] **Step 4: Pflichtfelder** — direkt nach `BUFFER_RETENTION = timedelta(days=7)`:
+- [x] **Step 4: Pflichtfelder** — direkt nach `BUFFER_RETENTION = timedelta(days=7)`:
 
 ```python
 # The sensor-group fields each module cannot book without: a pausing group books
@@ -1694,7 +1694,7 @@ _REQUIRED_SENSOR_FIELDS = {
 }
 ```
 
-- [ ] **Step 5: Durchreichen** — in `async_calculate_zone` den Aufruf
+- [x] **Step 5: Durchreichen** — in `async_calculate_zone` den Aufruf
 
 ```python
         calc_data = await self.calculate_module(
@@ -1715,7 +1715,7 @@ _REQUIRED_SENSOR_FIELDS = {
         )
 ```
 
-- [ ] **Step 6: `calculate_module`** —
+- [x] **Step 6: `calculate_module`** —
   1. Signatur: `self, zone, weatherdata, forecastdata, *, now=None, run_start=None, blocked=None`. Im Docstring unter
      `forecastdata:` ergänzen:
      ```
@@ -1776,12 +1776,12 @@ _REQUIRED_SENSOR_FIELDS = {
                 et_delta *= share
 ```
 
-- [ ] **Step 7: Test laufen lassen, er muss grün sein; die Nachbarn bleiben grün**
+- [x] **Step 7: Test laufen lassen, er muss grün sein; die Nachbarn bleiben grün**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_commit.py tests/test_calculate_module.py tests/test_manual_bucket_assertion.py tests/test_mid_window_bucket_credit.py tests/test_summed_hourly_eto.py -p _local_socket_unblock -q`
 Expected: alle grün (12 neue Fälle in diesem Task).
 
-- [ ] **Step 8: Lint und Commit**
+- [x] **Step 8: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_silent_sensor_commit.py
@@ -1819,7 +1819,7 @@ EOF
   Schlüssel `module.calculation.explanation.sensor-outage` (Platzhalter `{fields}`, `{start}`, `{end}`) und
   `module.calculation.explanation.sensor-outage-share` (Platzhalter `{share}`).
 
-- [ ] **Step 1: Failing test schreiben** — an `tests/test_silent_sensor_commit.py` anhängen:
+- [x] **Step 1: Failing test schreiben** — an `tests/test_silent_sensor_commit.py` anhängen:
 
 ```python
 class TestTheExplanation:
@@ -1874,12 +1874,12 @@ class TestTheExplanation:
         assert "(sensor silent)" not in text
 ```
 
-- [ ] **Step 2: Test laufen lassen, er muss scheitern**
+- [x] **Step 2: Test laufen lassen, er muss scheitern**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_commit.py -k TestTheExplanation -p _local_socket_unblock -q`
 Expected: 4 FAIL (`assert '... (sensor silent).' in '...'`), `test_a_group_that_keeps_gets_no_sentence` grün.
 
-- [ ] **Step 3: Die Sätze** — in `calculate_module` direkt nach dem Kc-Block (dem `if kc != const.CONF_DEFAULT_KC:`
+- [x] **Step 3: Die Sätze** — in `calculate_module` direkt nach dem Kc-Block (dem `if kc != const.CONF_DEFAULT_KC:`
   mit `crop-coefficient-applied`) und vor `explanation += (await localize("module.calculation.explanation.bucket-was", …`
   einfügen:
 
@@ -1888,7 +1888,7 @@ Expected: 4 FAIL (`assert '... (sensor silent).' in '...'`), `test_a_group_that_
             explanation += await self._silent_sensor_explanation(blocked, share)
 ```
 
-  und direkt nach `calculate_module` die Methode:
+  und direkt nach `calculate_module` (auf `6a40e083` das letzte Mitglied, also ans Dateiende) die Methode:
 
 ```python
     async def _silent_sensor_explanation(self, blocked, share) -> str:
@@ -1927,7 +1927,7 @@ Expected: 4 FAIL (`assert '... (sensor silent).' in '...'`), `test_a_group_that_
         return text
 ```
 
-- [ ] **Step 4: Übersetzungen** — in jeder der 8 Dateien `frontend/localize/languages/<lang>.json` bekommt die Zeile
+- [x] **Step 4: Übersetzungen** — in jeder der 8 Dateien `frontend/localize/languages/<lang>.json` bekommt die Zeile
   `"crop-coefficient-applied": "…"` ein Komma, und direkt danach (gleiche Einrückung) folgen die zwei Zeilen:
 
 | Sprache | `sensor-outage` | `sensor-outage-share` |
@@ -1949,12 +1949,12 @@ Expected: 4 FAIL (`assert '... (sensor silent).' in '...'`), `test_a_group_that_
         "sensor-outage-share": "Evapotranspiration booked for {share} % of the period."
 ```
 
-- [ ] **Step 5: Test laufen lassen, er muss grün sein; i18n bleibt grün**
+- [x] **Step 5: Test laufen lassen, er muss grün sein; i18n bleibt grün**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_commit.py tests/test_i18n_completeness.py -p _local_socket_unblock -q`
 Expected: alle grün.
 
-- [ ] **Step 6: Lint und Commit** (das Bundle wird in Task 8 neu gebaut, zusammen mit den Panel-Texten)
+- [x] **Step 6: Lint und Commit** (das Bundle wird in Task 8 neu gebaut, zusammen mit den Panel-Texten)
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_silent_sensor_commit.py
@@ -1989,7 +1989,7 @@ EOF
   `async_resync_stale_issue(mapping: dict | None) -> None`. `_sync_stale_issue(mapping_id, name, outages)` behält
   seine Signatur (ein bestehender Test umhüllt sie, `test_sensor_liveness_coordinator.py:641-648`).
 
-- [ ] **Step 1: Failing test schreiben** — an `tests/test_sensor_liveness_coordinator.py` anhängen:
+- [x] **Step 1: Failing test schreiben** — an `tests/test_sensor_liveness_coordinator.py` anhängen:
 
 ```python
 def _pausing(group):
@@ -2092,13 +2092,13 @@ class TestThePausedNotice:
   `CLOSED_RECORD` steht bereits in der Datei (`:752`), ebenso `_coord`, `_group`, `_state`, `_mock_store_coord`,
   `_sensor_group_zero`, `T0`, `STALE`, `SimpleNamespace`, `AsyncMock`, `patch`.
 
-- [ ] **Step 2: Test laufen lassen, er muss scheitern**
+- [x] **Step 2: Test laufen lassen, er muss scheitern**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_sensor_liveness_coordinator.py -k TestThePausedNotice -p _local_socket_unblock -q`
 Expected: FAIL — falscher `translation_key`, fehlender Log-Text, `AttributeError: … 'async_resync_stale_issue'`.
 `test_under_the_hourly_calculation…` und `test_a_rename…` sind schon grün.
 
-- [ ] **Step 3: Variante wählen** — in `_sync_stale_issue` die Zeile
+- [x] **Step 3: Variante wählen** — in `_sync_stale_issue` die Zeile
   `translation_key=const.ISSUE_WEATHER_SENSOR_STALE,` ersetzen durch `translation_key=self._stale_issue_key(mapping_id),`
   und direkt nach `_sync_stale_issue` einfügen:
 
@@ -2139,7 +2139,7 @@ Expected: FAIL — falscher `translation_key`, fehlender Log-Text, `AttributeErr
         )
 ```
 
-- [ ] **Step 4: Log-Text** — in `_async_check_mapping_liveness` den Block
+- [x] **Step 4: Log-Text** — in `_async_check_mapping_liveness` den Block
 
 ```python
         for outage in opened:
@@ -2166,7 +2166,7 @@ Expected: FAIL — falscher `translation_key`, fehlender Log-Text, `AttributeErr
 
   (die vier Argumente `name, outage.entity_id, ", ".join(outage.fields), outage.start,` bleiben).
 
-- [ ] **Step 5: Auslöser** — `__init__.py`:
+- [x] **Step 5: Auslöser** — `__init__.py`:
   - in `async_update_config` direkt nach `await self.store.async_update_config(data)`:
 
 ```python
@@ -2186,7 +2186,7 @@ Expected: FAIL — falscher `translation_key`, fehlender Log-Text, `AttributeErr
                 self.async_resync_stale_issue(self.store.get_mapping(mapping_id))
 ```
 
-- [ ] **Step 6: Übersetzungen** — in `translations/<lang>.json` nach dem Block `"weather_sensor_stale": {…}` (Komma
+- [x] **Step 6: Übersetzungen** — in `translations/<lang>.json` nach dem Block `"weather_sensor_stale": {…}` (Komma
   setzen) den Block `"weather_sensor_stale_paused"` einfügen. Der Titel ist in jeder Sprache **wörtlich der von
   `weather_sensor_stale`**; die Beschreibungen (Absätze mit `\n\n` getrennt, Anführungszeichen wie in derselben Datei):
 
@@ -2201,12 +2201,12 @@ Expected: FAIL — falscher `translation_key`, fehlender Log-Text, `AttributeErr
 
   Die Optionsnamen in Anführungszeichen sind die Panel-Beschriftungen aus Task 8.
 
-- [ ] **Step 7: Test laufen lassen, er muss grün sein; die Nachbarn bleiben grün**
+- [x] **Step 7: Test laufen lassen, er muss grün sein; die Nachbarn bleiben grün**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_sensor_liveness_coordinator.py tests/test_sensor_liveness_repair.py tests/test_sensor_liveness.py tests/test_i18n_completeness.py tests/test_mapping_source_change.py -p _local_socket_unblock -q`
 Expected: alle grün (6 neue Fälle).
 
-- [ ] **Step 8: Lint und Commit**
+- [x] **Step 8: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_sensor_liveness_coordinator.py
@@ -2243,7 +2243,7 @@ EOF
   `SmartIrrigationMapping.on_silent_sensor?: string`; i18n-Block `panels.mappings.cards.mapping.on-silent-sensor`
   mit `title`, `help`, `keep`, `pause`.
 
-- [ ] **Step 1: Failing tests schreiben**
+- [x] **Step 1: Failing tests schreiben**
 
   An `tests/test_silent_sensor_setting.py` anhängen (Import `import voluptuous as vol` oben ergänzen):
 
@@ -2282,7 +2282,7 @@ def test_the_mapping_view_takes_the_setting_and_only_its_two_values():
   });
 ```
 
-- [ ] **Step 2: Tests laufen lassen, sie müssen scheitern**
+- [x] **Step 2: Tests laufen lassen, sie müssen scheitern**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_setting.py -p _local_socket_unblock -q`
 Expected: FAIL `ImportError: cannot import name 'MAPPING_VIEW_SCHEMA'`.
@@ -2291,7 +2291,7 @@ Run: `cd custom_components/irrigation_plus/frontend && npx vitest run src/views/
 Expected: „saves the setting for a silent sensor with the group“ FAIL (die Einstellung fehlt im gesendeten Körper);
 „sends no setting …“ ist schon grün (er hält fest, dass kein leerer Schlüssel mitgeht).
 
-- [ ] **Step 3: Schema** — in `websockets.py` das Schema aus dem Dekorator von `SmartIrrigationMappingView.post` als
+- [x] **Step 3: Schema** — in `websockets.py` das Schema aus dem Dekorator von `SmartIrrigationMappingView.post` als
   Modul-Konstante direkt vor `class SmartIrrigationMappingView` herausziehen und um die Einstellung ergänzen:
 
 ```python
@@ -2318,13 +2318,13 @@ MAPPING_VIEW_SCHEMA = vol.Schema(
   und den Dekorator auf `@RequestDataValidator(MAPPING_VIEW_SCHEMA)` setzen (der bisherige Kommentar zu den
   Server-Feldern steht jetzt über der Konstante).
 
-- [ ] **Step 4: Typ** — in `types.ts`, Klasse `SmartIrrigationMapping`, nach `data?: any[];`:
+- [x] **Step 4: Typ** — in `types.ts`, Klasse `SmartIrrigationMapping`, nach `data?: any[];`:
 
 ```ts
   on_silent_sensor?: string;
 ```
 
-- [ ] **Step 5: Speichern** — in `view-mappings.ts`, `saveToHA`, die zwei Zeilen
+- [x] **Step 5: Speichern** — in `view-mappings.ts`, `saveToHA`, die zwei Zeilen
 
 ```ts
     const { id, name, mappings } = mapping;
@@ -2345,7 +2345,7 @@ MAPPING_VIEW_SCHEMA = vol.Schema(
     });
 ```
 
-- [ ] **Step 6: Auswahl** — in `renderMappingCard` zwischen dem schließenden `</ha-settings-row>` der Namenszeile und
+- [x] **Step 6: Auswahl** — in `renderMappingCard` zwischen dem schließenden `</ha-settings-row>` der Namenszeile und
   `${this.renderMappingSettings(mapping, index)}` die Zeile `${this.renderOnSilentSensor(mapping, index)}` einfügen,
   und nach `renderMappingCard` die Methode:
 
@@ -2398,7 +2398,7 @@ MAPPING_VIEW_SCHEMA = vol.Schema(
   }
 ```
 
-- [ ] **Step 7: Beschriftungen** — in jeder `frontend/localize/languages/<lang>.json` im Block
+- [x] **Step 7: Beschriftungen** — in jeder `frontend/localize/languages/<lang>.json` im Block
   `panels.mappings.cards.mapping` nach dem Block `"items": {…}` (Komma setzen):
 
 ```json
@@ -2423,7 +2423,7 @@ MAPPING_VIEW_SCHEMA = vol.Schema(
 
   Die Optionsnamen müssen wörtlich zu den Anführungen im Hinweis aus Task 7 passen.
 
-- [ ] **Step 8: Tests laufen lassen, sie müssen grün sein**
+- [x] **Step 8: Tests laufen lassen, sie müssen grün sein**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_setting.py tests/test_i18n_completeness.py -p _local_socket_unblock -q`
 Expected: alle grün.
@@ -2431,7 +2431,7 @@ Expected: alle grün.
 Run: `cd custom_components/irrigation_plus/frontend && npx vitest run`
 Expected: alle grün (2 neue Fälle in `view-mappings-save.test.ts`).
 
-- [ ] **Step 9: Bundle bauen** (Node 24 reproduziert die CI byte-genau)
+- [x] **Step 9: Bundle bauen** (Node 24 reproduziert die CI byte-genau)
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-pr2-work/wt/custom_components/irrigation_plus/frontend && npm run build
@@ -2442,7 +2442,7 @@ Expected: `npm run build` ohne Lint-Fehler; `git status` zeigt die 4 Bundles als
 `irrigation-plus.js` und `irrigation-plus-card-impl.js` ändern sich inhaltlich (im Probelauf waren `-card.js` und
 `-card-legacy.js` byte-gleich mit HEAD; sie erscheinen nur wegen der Zeilenenden).
 
-- [ ] **Step 10: Lint und Commit**
+- [x] **Step 10: Lint und Commit**
 
 ```bash
 uvx black custom_components/irrigation_plus/ tests/test_silent_sensor_setting.py
@@ -2484,7 +2484,7 @@ sensor's last value.“ steht nicht mehr im Abschnitt; `grep -n "Keep the last v
 findet die neue Liste; `grep -n "pausing" custom_components/irrigation_plus/live_estimate.py` zeigt an beiden Stellen den
 Zusatz; volle Suite unverändert (Task 10).
 
-- [ ] **Step 1: Doku** (Wortlaut zur Freigabe mit diesem Plan; deutsch zur Prüfung, englisch in die Datei)
+- [x] **Step 1: Doku** (Wortlaut zur Freigabe mit diesem Plan; deutsch zur Prüfung, englisch in die Datei)
 
   Deutsch:
 
@@ -2523,7 +2523,7 @@ Pausing applies only without the hourly calculation; with it, the last value is 
 The three hours are fixed. An integration that updates less often, such as a cloud service polled every six hours, therefore raises the notice between its updates even though nothing has failed. With **Pause**, set such a sensor group to **Keep the last value**; otherwise part of the time between its updates is never booked.
 ```
 
-- [ ] **Step 2: Live-Schätzung** — in `live_estimate.py`:
+- [x] **Step 2: Live-Schätzung** — in `live_estimate.py`:
   - im Docstring von `_aggregate_live_window` nach dem ersten Absatz (`:590-596`) einen Absatz anfügen:
 
 ```
@@ -2536,7 +2536,7 @@ The three hours are fixed. An integration that updates less often, such as a clo
   - den Kommentar „Must match _aggregate_for_zone exactly …“ (`:617-619`) um eine Zeile ergänzen:
     `# (Apart from a pausing group's blocked time; see the docstring.)`
 
-- [ ] **Step 3: Kriterium prüfen und Commit**
+- [x] **Step 3: Kriterium prüfen und Commit**
 
 ```bash
 grep -c "Meanwhile the calculation keeps using" docs/configuration-sensor-groups.md   # 0
@@ -2563,7 +2563,7 @@ EOF
 
 **Files:** keine Codeänderung (außer Befunden aus dem Review, je mit eigenem Commit).
 
-- [ ] **Step 1: Lint**
+- [x] **Step 1: Lint**
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-pr2-work/wt
@@ -2576,7 +2576,7 @@ Expected: black sauber. ruff: keine Funde in den geänderten Dateien. Mit ruff 0
 `UP017` in Dateien, die dieser Branch nicht anfasst (`forecast_window.py`, `weathermodules/*`; Probelauf); die bleiben
 stehen. Vor dem Push prüfen, welche ruff-Version die CI nimmt, und dort sauber sein.
 
-- [ ] **Step 2: Volle Suite mit Namensvergleich**
+- [x] **Step 2: Volle Suite mit Namensvergleich**
 
 ```bash
 TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests -p _local_socket_unblock -q --no-header -rfE > ../suite-pr2.txt 2>&1
@@ -2593,7 +2593,7 @@ lässt Timer stehen, lokales Muster wie `test_per_zone_consumption.py`); per
 `grep -c "Lingering timer" ../suite-pr2.txt` gegen die Baseline gegenprüfen. `passed` = Baseline + 84 (15 + 11 + 23 +
 29 + 6; Probelauf 3819 → 3903). `failed` wie die Baseline.
 
-- [ ] **Step 3: Frontend**
+- [x] **Step 3: Frontend**
 
 ```bash
 cd custom_components/irrigation_plus/frontend && npx vitest run && npm run build && cd ../../.. && git status --short custom_components/irrigation_plus/frontend/dist/
@@ -2601,7 +2601,7 @@ cd custom_components/irrigation_plus/frontend && npx vitest run && npm run build
 
 Expected: vitest grün; nach dem Bau **keine** Änderung an `dist/` (der committete Stand ist der gebaute).
 
-- [ ] **Step 4: Mutationen** — Skript nach Vorbild `D:\Entwicklung\HASI\issue66-work\mutate.py` (Timeout, Anker genau
+- [x] **Step 4: Mutationen** — Skript nach Vorbild `D:\Entwicklung\HASI\issue66-work\mutate.py` (Timeout, Anker genau
   einmal, Sicherung `.bak` + sha256, Rücksetzen geprüft). Jede Mutation gegen die genannten Testdateien; jede muss
   sterben:
 
@@ -2633,10 +2633,14 @@ Expected: vitest grün; nach dem Bau **keine** Änderung an `dist/` (der committ
   Ergebnis nach `../mutate-pr2.txt`. Überlebt eine: zuerst prüfen, ob die Tests überhaupt gesammelt wurden (Memory
   `mutation-survivor-suspects-the-test`), dann den Test schärfen (eigener Commit).
 
-- [ ] **Step 5: Review** — `superpowers:requesting-code-review` (Opus) gegen Spec PR 2 und diesen Plan, Diff
+- [x] **Step 5: Review** — `superpowers:requesting-code-review` (Opus) gegen Spec PR 2 und diesen Plan, Diff
   `upstream/master..HEAD`. Befunde über `superpowers:receiving-code-review` prüfen, nicht reflexhaft umsetzen.
+  **Bau 2026-10-12:** Urteil „With fixes“ — 0 Critical, 2 Important (Hinweis/Log melden einen Schnitt, den die Rechnung
+  nicht macht: Regenzähler und Nicht-Pflichtfelder; Standard *pausieren* schneidet bei einem gerätelosen Template-Sensor
+  wie `wind_at_2m` aus der Doku in windstillen Nächten echtes ET), beide vom Controller nachgeprüft; Entscheidung beim
+  User. Bericht und Bauprotokoll: `docs/superpowers/probes/2026-10-12-dead-weather-sensor-pr2-build/`.
 
-- [ ] **Step 6: Eigene Bezüge** (Memory `no-own-issue-refs-upstream`)
+- [x] **Step 6: Eigene Bezüge** (Memory `no-own-issue-refs-upstream`)
 
 ```bash
 git diff upstream/master..HEAD -- custom_components/ tests/ docs/ | grep "^+" | grep -nE "Eifel-Joe|spec D[0-9]|spec §|Task [0-9]|PR [123]\b|PR [A-T]\b"

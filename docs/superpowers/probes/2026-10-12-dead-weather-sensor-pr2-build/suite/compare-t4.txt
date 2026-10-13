@@ -1,0 +1,14 @@
+HEAD d31311ed  label=t4  exit=1
+-- baseline summary:
+= 7 failed, 3819 passed, 9 skipped, 11 warnings, 430 errors in 382.00s (0:06:21) =
+-- this run summary:
+= 7 failed, 3879 passed, 9 skipped, 11 warnings, 442 errors in 347.36s (0:05:47) =
+-- (1) baseline names missing now (must be 0):
+0
+-- (2) FAILED sets:
+FAILED gleich
+-- (3) new names per file (allowed: only teardown 'Lingering timer' ERRORs of new tests):
+     12 ERROR tests/test_silent_sensor_commit.py
+-- classification of new names (UNEXPECTED must be 0):
+UNEXPECTED: 0
+-- 'Lingering timer' counts: baseline 860  now 884
