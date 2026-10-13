@@ -1918,5 +1918,12 @@ class CalculationMixin:
             booked = await localize(
                 "module.calculation.explanation.sensor-outage-share", language
             )
-            text += " " + booked.replace("{share}", f"{share * 100:.0f}")
+            # Kept between 1 and 99 while the share is strictly between 0 and 1:
+            # right after a sentence naming the silent time it must not read
+            # 100 %, nor 0 % when something was booked.
+            percent = round(share * 100)
+            if share > 0:
+                percent = max(percent, 1)
+            percent = min(percent, 99)
+            text += " " + booked.replace("{share}", str(percent))
         return text
