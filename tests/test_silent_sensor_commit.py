@@ -558,23 +558,24 @@ class TestTheExplanation:
         )
 
     async def test_a_field_twice_in_one_shown_minute_is_named_once(self, coord):
-        """Two outages of one field that both begin and end in the same minute the
-        sentence shows are one silence there: one sentence, the field named once."""
+        """A replaced sensor: the old and the new entity of one field each record
+        their own outage, so the field has two spans that begin and end in the
+        same minute the sentence shows. One sentence, the field named once."""
         c, store = coord
         text = await self._explain(
             c,
             store,
             outages=[
                 Outage(
-                    "sensor.t",
+                    "sensor.t_old",
                     "dev1",
                     (T,),
                     W + 2 * H + timedelta(seconds=5),
                     W + 5 * H + timedelta(seconds=10),
                 ).to_store(),
                 Outage(
-                    "sensor.t",
-                    "dev1",
+                    "sensor.t_new",
+                    "dev2",
                     (T,),
                     W + 2 * H + timedelta(seconds=20),
                     W + 5 * H + timedelta(seconds=40),
@@ -586,6 +587,54 @@ class TestTheExplanation:
             "No values from Temperature from 2026-07-01 05:00 to "
             "2026-07-01 05:00 (sensor silent)." in text
         )
+
+    async def test_a_field_back_an_hour_later_gets_its_own_sentence(self, coord):
+        """The same beginning, but one field returns in another minute: the spans
+        differ as the sentences show them, so each gets a sentence."""
+        c, store = coord
+        text = await self._explain(
+            c,
+            store,
+            mappings={T: _sensor("sensor.t"), DEW: _sensor("sensor.dew")},
+            outages=[
+                _outage(2, 10, fields=(T,)),
+                _outage(2, 11, fields=(DEW,)),
+            ],
+        )
+        assert text.count("(sensor silent)") == 2
+        assert (
+            "No values from Temperature from 2026-07-01 05:00 to "
+            "2026-07-01 10:00 (sensor silent)." in text
+        )
+        assert (
+            "No values from Dewpoint from 2026-07-01 05:00 to "
+            "2026-07-01 11:00 (sensor silent)." in text
+        )
+
+    async def test_sentences_follow_the_time_of_their_spans(self, coord):
+        """The field recorded first has the later span, yet its sentence comes
+        second: the sentences are in the order of the time they name."""
+        c, store = coord
+        text = await self._explain(
+            c,
+            store,
+            mappings={T: _sensor("sensor.t"), DEW: _sensor("sensor.dew")},
+            outages=[
+                _outage(10, 16, fields=(T,)),
+                _outage(0, 5, fields=(DEW,)),
+            ],
+        )
+        earlier = (
+            "No values from Dewpoint from 2026-07-01 03:00 to "
+            "2026-07-01 05:00 (sensor silent)."
+        )
+        later = (
+            "No values from Temperature from 2026-07-01 13:00 to "
+            "2026-07-01 16:00 (sensor silent)."
+        )
+        assert earlier in text
+        assert later in text
+        assert text.index(earlier) < text.index(later)
 
     async def test_a_field_the_module_does_without_gets_no_share_sentence(self, coord):
         c, store = coord
