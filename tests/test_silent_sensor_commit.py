@@ -250,6 +250,8 @@ class TestTheRecordsSkipABlockedWindow:
 ET = const.MAPPING_EVAPOTRANSPIRATION
 DEW = const.MAPPING_DEWPOINT
 SUN = const.MAPPING_SOLRAD
+WIND = const.MAPPING_WINDSPEED
+PRESSURE = const.MAPPING_PRESSURE
 
 
 async def _module(c, store, name, *, returns, forecast_days=0):
@@ -527,6 +529,63 @@ class TestTheExplanation:
         text = await self._explain(c, store, outages=[_outage(0, 5), _outage(10, 16)])
         assert text.count("(sensor silent)") == 2
         assert "2026-07-01 13:00 to 2026-07-01 16:00" in text
+
+    async def test_fields_back_milliseconds_apart_share_one_sentence(self, coord):
+        """A station reports its fields one by one, so each field's outage ends at
+        its own instant, milliseconds after the last. At the minute the sentence
+        shows that is one silence, and one sentence names all the fields."""
+        c, store = coord
+        fields = (T, DEW, WIND, PRESSURE)
+        text = await self._explain(
+            c,
+            store,
+            mappings={field: _sensor(f"sensor.{field.lower()}") for field in fields},
+            outages=[
+                Outage(
+                    f"sensor.{field.lower()}",
+                    "dev1",
+                    (field,),
+                    W + 2 * H,
+                    W + 10 * H + timedelta(milliseconds=6 * n),
+                ).to_store()
+                for n, field in enumerate(fields)
+            ],
+        )
+        assert text.count("(sensor silent)") == 1
+        assert (
+            "No values from Dewpoint, Pressure, Temperature, Wind speed from "
+            "2026-07-01 05:00 to 2026-07-01 10:00 (sensor silent)." in text
+        )
+
+    async def test_a_field_twice_in_one_shown_minute_is_named_once(self, coord):
+        """Two outages of one field that both begin and end in the same minute the
+        sentence shows are one silence there: one sentence, the field named once."""
+        c, store = coord
+        text = await self._explain(
+            c,
+            store,
+            outages=[
+                Outage(
+                    "sensor.t",
+                    "dev1",
+                    (T,),
+                    W + 2 * H + timedelta(seconds=5),
+                    W + 5 * H + timedelta(seconds=10),
+                ).to_store(),
+                Outage(
+                    "sensor.t",
+                    "dev1",
+                    (T,),
+                    W + 2 * H + timedelta(seconds=20),
+                    W + 5 * H + timedelta(seconds=40),
+                ).to_store(),
+            ],
+        )
+        assert text.count("(sensor silent)") == 1
+        assert (
+            "No values from Temperature from 2026-07-01 05:00 to "
+            "2026-07-01 05:00 (sensor silent)." in text
+        )
 
     async def test_a_field_the_module_does_without_gets_no_share_sentence(self, coord):
         c, store = coord

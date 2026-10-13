@@ -1890,18 +1890,25 @@ class CalculationMixin:
     async def _silent_sensor_explanation(self, blocked, share) -> str:
         """The sentences that say what a pausing group did not book, and how much it did.
 
-        One per blocked span, the fields silent over the same span named
-        together; the share only where the module's own fields were cut. Times
-        are on HA's clock, the frame of the buffer stamps.
+        One per blocked span, the fields silent over the same span as the
+        sentence shows it named together; the share only where the module's own
+        fields were cut. Times are on HA's clock, the frame of the buffer stamps.
         """
         language = self.hass.config.language
         sentence = await localize(
             "module.calculation.explanation.sensor-outage", language
         )
+        # Grouped by the span as the sentence shows it, to the minute: a
+        # station's fields come back one by one, milliseconds apart, so each
+        # field's outage ends at its own instant, and a group per exact span
+        # would write one sentence per field, all reading the same. A set, so a
+        # field with two spans inside one shown minute is named once.
+        fmt = "%Y-%m-%d %H:%M"
         fields_by_span: dict = {}
         for field, spans in blocked.items():
-            for span in spans:
-                fields_by_span.setdefault(span, []).append(field)
+            for start, end in spans:
+                shown = (start.strftime(fmt), end.strftime(fmt))
+                fields_by_span.setdefault(shown, set()).add(field)
         text = ""
         for (start, end), fields in sorted(fields_by_span.items()):
             names = [
@@ -1912,8 +1919,8 @@ class CalculationMixin:
             ]
             text += " " + (
                 sentence.replace("{fields}", ", ".join(names))
-                .replace("{start}", start.strftime("%Y-%m-%d %H:%M"))
-                .replace("{end}", end.strftime("%Y-%m-%d %H:%M"))
+                .replace("{start}", start)
+                .replace("{end}", end)
             )
         if share is not None and share < 1:
             booked = await localize(
