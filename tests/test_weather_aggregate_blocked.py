@@ -129,6 +129,18 @@ class TestFieldsWithoutValidTime:
         assert const.MAPPING_MAX_TEMP not in cut
         assert const.MAPPING_MIN_TEMP not in cut
 
+    def test_a_carried_value_alone_is_not_filled_in_either(self):
+        """No row of its own in the window, only the carry-forward: blocked
+        throughout, the field is still left out."""
+        cut = _agg(
+            _hourly(const.MAPPING_DEWPOINT),
+            blocked={T: (_span(0, 24),)},
+            last_entry={T: 20.0},
+        )
+        assert T not in cut
+        assert const.MAPPING_MAX_TEMP not in cut
+        assert const.MAPPING_MIN_TEMP not in cut
+
     def test_a_field_with_no_value_to_hold_is_left_out(self):
         """No boundary and every row inside the span: nothing measured to hold."""
         rows = [{const.RETRIEVED_AT: W + h * H, T: 5.0} for h in range(7, 11)]
@@ -151,6 +163,74 @@ class TestFieldsWithoutValidTime:
         cut = _agg([{const.RETRIEVED_AT: W, T: 7.0}], blocked={T: (_span(10, 14),)})
         assert cut[T] == 7.0
         assert cut[const.MAPPING_MAX_TEMP] == cut[const.MAPPING_MIN_TEMP] == 7.0
+
+
+class TestTwoSpansOnOneField:
+    """Spans at 3..6 h and 12..18 h leave three valid stretches: 0..3, 6..12 and
+    18..24 h. Readings at 0, 2, 8 and 20 h, and a frozen one inside each span."""
+
+    SPANS = (_span(3, 6), _span(12, 18))
+
+    @staticmethod
+    def _rows(field):
+        return [
+            {const.RETRIEVED_AT: W + h * H, field: value}
+            for h, value in (
+                (0, 10.0),
+                (2, 20.0),
+                (4, 99.0),
+                (8, 30.0),
+                (13, 99.0),
+                (20, 40.0),
+            )
+        ]
+
+    def test_the_plain_mean(self):
+        cut = _agg(self._rows(T), blocked={T: self.SPANS})
+        # The readings outside the spans: (10 + 20 + 30 + 40) / 4 = 25.
+        assert cut[T] == 25.0
+        assert cut[const.MAPPING_MAX_TEMP] == 40.0
+
+    def test_the_time_weighted_mean(self):
+        cut = _agg(self._rows(T), blocked={T: self.SPANS}, time_weighted=True)
+        # 0..3 h: 10 for 2 h, 20 for 1 h = 40. 6..12 h: 20 held across the span
+        # for 2 h, 30 for 4 h = 160. 18..24 h: 30 held for 2 h, 40 for 4 h = 220.
+        # (40 + 160 + 220) / 15 h = 28.
+        assert cut[T] == pytest.approx(28.0)
+
+    def test_the_rain_rate(self):
+        rate = _config(const.MAPPING_CONF_AGGREGATE_RIEMANNSUM, PRECIP)
+        cut = _agg(self._rows(PRECIP), blocked={PRECIP: self.SPANS}, config=rate)
+        # Trapezoids between the kept readings, each over its valid hours only:
+        # 0..2 h at 15 for 2 h = 30; 2..8 h at 25 for 1 + 2 h = 75; 8..20 h at 35
+        # for 4 + 2 h = 210. Nothing past the last reading: 30 + 75 + 210 = 315.
+        assert cut[PRECIP] == pytest.approx(315.0)
+
+
+class TestAWindowWithoutAWatermark:
+    """Without a watermark the window starts at its earliest reading, and every
+    reading stamped there is kept. Two of them inside a span with nothing after
+    it leave no sample, so the value held into the valid time stands in. (With
+    a watermark, the only way the commit cuts, one reading at most sits there.)"""
+
+    ROWS = [
+        {const.RETRIEVED_AT: W, WIND: 10.0},
+        {const.RETRIEVED_AT: W, WIND: 12.0},
+    ]
+
+    @pytest.mark.parametrize(
+        "aggregate",
+        [const.MAPPING_CONF_AGGREGATE_AVERAGE, const.MAPPING_CONF_AGGREGATE_MAXIMUM],
+    )
+    def test_the_held_value_stands_in(self, aggregate):
+        cut = aggregate_window(
+            self.ROWS,
+            None,
+            _config(aggregate),
+            now=W + 4 * H,
+            blocked={WIND: (_span(0, 2),)},
+        )
+        assert cut[WIND] == 12.0
 
 
 @pytest.mark.parametrize(

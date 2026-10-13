@@ -1027,6 +1027,35 @@ class TestThePausedNotice:
             const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
         )
 
+    async def test_a_keeping_group_switched_to_pause_gets_the_paused_notice(
+        self, monkeypatch
+    ):
+        """Through a store that keeps what is saved: the notice is brought in line
+        from the group as it reads after the write."""
+        group = _group(
+            fields={"Temperature": "sensor.temp"},
+            outages=[
+                Outage(
+                    "sensor.temp", "dev1", ("Temperature",), T0 - timedelta(hours=5)
+                ).to_store()
+            ],
+        )
+        group[const.MAPPING_ON_SILENT_SENSOR] = const.ON_SILENT_SENSOR_KEEP
+        coord, store, issues = _coord(monkeypatch, [group], {}, {})
+        coord.async_resync_stale_issue(store.get_mapping(1))
+        assert issues.open["weather_sensor_stale_1"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE
+        )
+
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_mapping_config(
+                1, {const.MAPPING_ON_SILENT_SENSOR: const.ON_SILENT_SENSOR_PAUSE}
+            )
+
+        assert issues.open["weather_sensor_stale_1"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        )
+
     async def test_a_rename_leaves_the_notice_alone(self, monkeypatch):
         coord, _, issues = _mock_store_coord(
             monkeypatch, _pausing(_sensor_group_zero("sensor.old"))

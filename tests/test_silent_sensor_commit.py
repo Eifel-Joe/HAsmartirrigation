@@ -109,6 +109,13 @@ class TestTheGate:
         zone = await _zone(store, await _group(store, outages=[_outage(2, 10)]))
         assert _gate(c, store, zone) == {T: ((W + 5 * H, W + 10 * H),)}
 
+    async def test_an_open_outage_blocks_up_to_the_commits_now(self, coord):
+        """Up to the ``now`` the commit is handed, the end of its window, not to
+        the clock."""
+        c, store = coord
+        zone = await _zone(store, await _group(store, outages=[_outage(2)]))
+        assert _gate(c, store, zone) == {T: ((W + 5 * H, NOW),)}
+
     async def test_a_group_that_keeps_is_not_cut(self, coord):
         c, store = coord
         mid = await _group(store, setting="keep", outages=[_outage(2, 10)])
