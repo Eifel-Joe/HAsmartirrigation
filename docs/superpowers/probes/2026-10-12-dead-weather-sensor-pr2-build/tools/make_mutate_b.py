@@ -72,12 +72,24 @@ NEW = '''    (23, WS, "the mapping view defaults an omitted setting to pause",
      "            if outage.end is None\\n",
      "",
      "test_a_closed_temperature_outage_leaves_an_open_rain_gauge_plain"),
+    (35, CALC, "the explanation groups by the exact span again",
+     "                shown = (start.strftime(fmt), end.strftime(fmt))\\n",
+     "                shown = (start.strftime(fmt), end.strftime(fmt + \\":%S.%f\\"))\\n",
+     "test_fields_back_milliseconds_apart_share_one_sentence"),
+    (36, CALC, "a field twice in one shown minute is named twice",
+     "                fields_by_span.setdefault(shown, set()).add(field)\\n",
+     "                fields_by_span.setdefault(shown, []).append(field)\\n",
+     "test_a_field_twice_in_one_shown_minute_is_named_once"),
+    (37, CALC, "the silent-time sentences lose their order",
+     "        for (shown_start, shown_end), fields in sorted(fields_by_span.items()):\\n",
+     "        for (shown_start, shown_end), fields in fields_by_span.items():\\n",
+     "test_sentences_follow_the_time_of_their_spans"),
 '''
 
 marker = '''     "test_the_mapping_view_takes_the_setting_and_only_its_two_values"),
 ]
 '''
 rep(marker, marker[: -len("]\n")] + NEW + "]\n")
-rep('mutations-pr2.json"', 'mutations-pr2b.json"')
+rep('mutations-pr2.json"', 'mutations-pr2c.json"')
 open("mutate-pr2b.py", "w", encoding="utf-8", newline="\n").write(src)
 print("ok")

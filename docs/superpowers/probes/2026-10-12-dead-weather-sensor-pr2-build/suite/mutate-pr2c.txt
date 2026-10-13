@@ -1,0 +1,143 @@
+sha256 before: __init__.py=8c50b2ae7ccc, calculation.py=76265841fe45, sensor_liveness.py=d1871bf163d1, store.py=3066fa7dd90b, weather_aggregate.py=ab2da7e268d8, websockets.py=ecea979df87c
+measuring the unmutated branch in D:\Entwicklung\HASI\issue8-pr2-work\wt ...
+  143 passed, 36 errors in 24.37s
+  pre-existing failures/errors: 36
+MUT  1 KILLED   blocked_spans: no bridging of the first three hours                      22 failed, 121 passed, 36 errors in 23.95s
+           killer: TestBlockedSpans::test_an_open_outage_blocks_up_to_the_window_end
+           killer: TestBlockedSpans::test_an_outage_of_three_hours_or_less_blocks_nothing
+           killer: TestBlockedSpans::test_outages_whose_spans_touch_merge
+           killer: TestBlockedSpans::test_overlapping_outages_of_one_field_merge
+           killer: TestBlockedSpans::test_separate_outages_stay_separate_and_sorted
+           killer: TestBlockedSpans::test_the_first_three_hours_are_bridged
+           killer: TestTheBooking::test_passthrough_books_the_measured_share_of_its_et
+           killer: TestTheBooking::test_pyeto_books_the_share_in_which_its_fields_were_measured
+           killer: TestTheBooking::test_the_module_is_handed_the_spans
+           killer: TestTheBooking::test_with_forecast_days_the_whole_mean_is_scaled
+           killer: TestTheCommitCarriesTheSpans::test_the_aggregate_and_both_records_are_cut
+           killer: TestTheExplanation::test_a_field_back_an_hour_later_gets_its_own_sentence
+           killer: TestTheExplanation::test_a_field_twice_in_one_shown_minute_is_named_once
+           killer: TestTheExplanation::test_a_share_that_would_round_to_100_reads_99
+           killer: TestTheExplanation::test_each_span_gets_its_own_sentence
+           killer: TestTheExplanation::test_fields_back_milliseconds_apart_share_one_sentence
+           killer: TestTheExplanation::test_it_names_the_silent_time_and_the_share_booked
+           killer: TestTheExplanation::test_sentences_follow_the_time_of_their_spans
+           killer: TestTheGate::test_a_pausing_group_is_cut_where_its_outage_blocks
+           killer: TestTheGate::test_a_window_no_outage_reaches_is_not_cut
+           killer: TestTheGate::test_an_open_outage_blocks_up_to_the_commits_now
+           killer: TestTheGate::test_outage_stamps_with_an_offset_are_read_on_has_clock
+MUT  2 KILLED   blocked_spans: an outage of exactly three hours blocks a zero-length spa 1 failed, 142 passed, 36 errors in 22.98s
+           killer: TestBlockedSpans::test_an_outage_of_three_hours_or_less_blocks_nothing
+MUT  3 KILLED   valid_share: the largest single blocked share instead of the union       1 failed, 142 passed, 36 errors in 22.97s
+           killer: TestValidShare::test_two_fields_silent_at_different_hours_leave_their_intersection
+MUT  4 KILLED   group_pauses: case-insensitive comparison                                1 failed, 142 passed, 36 errors in 24.92s
+           killer: TestGroupPauses::test_only_a_stored_pause_pauses
+MUT  5 KILLED   _blocked_at: closed interval, the span end is blocked too                10 failed, 133 passed, 36 errors in 23.09s
+           killer: TestTheCommitCarriesTheSpans::test_the_aggregate_and_both_records_are_cut
+           killer: TestThePlainMean::test_a_span_at_the_window_start_drops_the_boundary_as_a_sample
+           killer: TestThePlainMean::test_rows_inside_a_span_are_dropped
+           killer: TestThePlainMean::test_the_reading_of_the_return_counts
+           killer: TestTheTimeWeightedMean::test_frozen_rows_inside_the_span_do_not_count
+           killer: test_a_row_stamped_after_now_counts_as_measured
+           killer: test_each_aggregate_reads_only_the_valid_samples[first-span0-6.0]
+           killer: test_each_aggregate_reads_only_the_valid_samples[median-span4-14.5]
+           killer: test_each_aggregate_reads_only_the_valid_samples[minimum-span3-6.0]
+           killer: test_each_aggregate_reads_only_the_valid_samples[sum-span5-225.0]
+MUT  6 KILLED   the boundary row is dropped when it lies in a span                       3 failed, 140 passed, 36 errors in 22.60s
+           killer: TestAWindowWithoutAWatermark::test_the_held_value_stands_in[average]
+           killer: TestAWindowWithoutAWatermark::test_the_held_value_stands_in[maximum]
+           killer: TestTheTimeWeightedMean::test_a_window_that_starts_blocked_holds_the_boundary_after_the_span
+MUT  7 KILLED   _segment_weighted_mean: each segment opens with the first value, not the 3 failed, 140 passed, 36 errors in 22.15s
+           killer: TestTheTimeWeightedMean::test_a_value_is_not_held_into_a_span_and_holds_again_after_it
+           killer: TestTheTimeWeightedMean::test_frozen_rows_inside_the_span_do_not_count
+           killer: TestTwoSpansOnOneField::test_the_time_weighted_mean
+MUT  8 KILLED   _riemann_over: the whole pair counts, not its valid part                 2 failed, 141 passed, 36 errors in 22.29s
+           killer: TestRain::test_a_rain_rate_is_integrated_over_its_valid_time_only
+           killer: TestTwoSpansOnOneField::test_the_rain_rate
+MUT  9 KILLED   a field without valid time is no longer left out                         2 failed, 141 passed, 36 errors in 22.23s
+           killer: TestFieldsWithoutValidTime::test_a_carried_value_alone_is_not_filled_in_either
+           killer: TestFieldsWithoutValidTime::test_a_field_blocked_throughout_is_left_out_and_not_filled
+MUT 10 KILLED   a rain gauge (delta) is cut too                                          1 failed, 142 passed, 36 errors in 22.29s
+           killer: TestRain::test_a_rain_gauge_is_never_cut_even_if_asked
+MUT 11 KILLED   the gate ignores the hourly calculation                                  2 failed, 141 passed, 36 errors in 22.18s
+           killer: TestAGroupThatIsNotCutCalculatesAsBefore::test_a_pausing_group_under_the_hourly_calculation_matches_too
+           killer: TestTheGate::test_with_the_hourly_calculation_nothing_is_cut
+MUT 12 KILLED   the gate also cuts a rain gauge (no delta filter)                        1 failed, 142 passed, 36 errors in 22.67s
+           killer: TestTheGate::test_a_rain_gauge_is_never_cut_and_a_rain_rate_is
+MUT 13 KILLED   PyETO is asked even when share is 0                                      1 failed, 142 passed, 36 errors in 22.20s
+           killer: TestTheBooking::test_pyeto_without_a_measured_required_field_books_the_rain_only
+MUT 14 KILLED   Passthrough: share 0 no longer consumes quietly                          1 failed, 142 passed, 36 errors in 22.01s
+           killer: TestTheBooking::test_passthrough_with_its_et_blocked_throughout_consumes_quietly
+MUT 15 KILLED   the share does not scale the booking                                     3 failed, 140 passed, 36 errors in 22.22s
+           killer: TestTheBooking::test_passthrough_books_the_measured_share_of_its_et
+           killer: TestTheBooking::test_pyeto_books_the_share_in_which_its_fields_were_measured
+           killer: TestTheBooking::test_with_forecast_days_the_whole_mean_is_scaled
+MUT 16 KILLED   the amplitude record ignores a blocked temperature                       1 failed, 142 passed, 36 errors in 21.99s
+           killer: TestTheRecordsSkipABlockedWindow::test_no_amplitude_is_recorded_when_the_temperature_was_blocked
+MUT 17 KILLED   the radiation record skips on any blocked field                          1 failed, 142 passed, 36 errors in 22.19s
+           killer: TestTheRecordsSkipABlockedWindow::test_no_radiation_pair_is_recorded_when_the_sun_was_blocked
+MUT 18 KILLED   the share sentence also appears at a share of 1                          1 failed, 142 passed, 36 errors in 22.10s
+           killer: TestTheExplanation::test_a_field_the_module_does_without_gets_no_share_sentence
+MUT 19 KILLED   an unknown stored setting pauses instead of keeping                      5 failed, 138 passed, 36 errors in 22.80s
+           killer: test_a_group_carried_over_from_smart_irrigation_keeps
+           killer: test_a_stored_group_without_a_valid_setting_keeps[1]
+           killer: test_a_stored_group_without_a_valid_setting_keeps[None]
+           killer: test_a_stored_group_without_a_valid_setting_keeps[sometimes]
+           killer: test_a_stored_group_without_a_valid_setting_keeps[stored3]
+MUT 20 KILLED   the notice always has the PR 1 key                                       6 failed, 137 passed, 36 errors in 23.30s
+           killer: TestThePausedNotice::test_a_keeping_group_switched_to_pause_gets_the_paused_notice
+           killer: TestThePausedNotice::test_a_pausing_group_says_its_values_are_no_longer_used
+           killer: TestThePausedNotice::test_a_rain_gauge_turned_rain_rate_rewrites_the_open_notice
+           killer: TestThePausedNotice::test_a_silent_temperature_beside_it_brings_the_paused_notice
+           killer: TestThePausedNotice::test_changing_the_setting_rewrites_the_open_notice
+           killer: TestThePausedNotice::test_switching_the_hourly_calculation_rewrites_open_notices
+MUT 21 KILLED   no re-sync of the notice when the hourly calculation is switched         1 failed, 142 passed, 36 errors in 22.09s
+           killer: TestThePausedNotice::test_switching_the_hourly_calculation_rewrites_open_notices
+MUT 22 KILLED   the mapping view accepts any string for the setting                      1 failed, 142 passed, 36 errors in 22.09s
+           killer: test_the_mapping_view_takes_the_setting_and_only_its_two_values
+MUT 23 KILLED   the mapping view defaults an omitted setting to pause                    1 failed, 142 passed, 36 errors in 22.10s
+           killer: test_the_mapping_view_leaves_an_omitted_setting_omitted
+MUT 24 KILLED   _merged: touching spans stay apart                                       1 failed, 142 passed, 36 errors in 22.15s
+           killer: TestBlockedSpans::test_outages_whose_spans_touch_merge
+MUT 25 KILLED   the gate ends an open outage after the commit's now                      1 failed, 142 passed, 36 errors in 22.16s
+           killer: TestTheGate::test_an_open_outage_blocks_up_to_the_commits_now
+MUT 26 KILLED   the notice ignores which fields are cut                                  3 failed, 140 passed, 36 errors in 22.18s
+           killer: TestThePausedNotice::test_a_closed_temperature_outage_leaves_an_open_rain_gauge_plain
+           killer: TestThePausedNotice::test_a_rain_gauge_turned_rain_rate_rewrites_the_open_notice
+           killer: TestThePausedNotice::test_a_silent_rain_gauge_alone_keeps_the_plain_notice
+MUT 27 KILLED   the warning claims a cut for every outage of a cutting group             2 failed, 141 passed, 36 errors in 22.08s
+           killer: TestThePausedNotice::test_a_silent_rain_gauge_alone_keeps_the_plain_notice
+           killer: TestThePausedNotice::test_a_silent_temperature_beside_it_brings_the_paused_notice
+MUT 28 KILLED   no re-sync of the notice when the group's mapping changes                1 failed, 142 passed, 36 errors in 22.11s
+           killer: TestThePausedNotice::test_a_rain_gauge_turned_rain_rate_rewrites_the_open_notice
+MUT 29 KILLED   a sliver of booked time reads 0 %                                        1 failed, 142 passed, 36 errors in 22.05s
+           killer: TestTheExplanation::test_a_share_that_would_round_to_0_reads_1
+MUT 30 KILLED   a two-minute cut reads 100 %                                             1 failed, 142 passed, 36 errors in 22.27s
+           killer: TestTheExplanation::test_a_share_that_would_round_to_100_reads_99
+MUT 31 KILLED   plain mean without a valid sample has no fallback                        1 failed, 142 passed, 36 errors in 22.29s
+           killer: TestAWindowWithoutAWatermark::test_the_held_value_stands_in[average]
+MUT 32 KILLED   the other aggregates without a valid sample have no fallback             1 failed, 142 passed, 36 errors in 22.10s
+           killer: TestAWindowWithoutAWatermark::test_the_held_value_stands_in[maximum]
+MUT 33 KILLED   cuts_field cuts a rain gauge too                                         6 failed, 137 passed, 36 errors in 22.39s
+           killer: TestThePausedNotice::test_a_closed_temperature_outage_leaves_an_open_rain_gauge_plain
+           killer: TestThePausedNotice::test_a_rain_gauge_turned_rain_rate_rewrites_the_open_notice
+           killer: TestThePausedNotice::test_a_silent_rain_gauge_alone_keeps_the_plain_notice
+           killer: TestThePausedNotice::test_a_silent_temperature_beside_it_brings_the_paused_notice
+           killer: TestThePausedNotice::test_only_a_cumulative_rain_gauge_is_never_cut
+           killer: TestTheGate::test_a_rain_gauge_is_never_cut_and_a_rain_rate_is
+MUT 34 KILLED   a closed outage decides the notice text too                              1 failed, 142 passed, 36 errors in 22.18s
+           killer: TestThePausedNotice::test_a_closed_temperature_outage_leaves_an_open_rain_gauge_plain
+MUT 35 KILLED   the explanation groups by the exact span again                           6 failed, 137 passed, 36 errors in 22.34s
+           killer: TestTheExplanation::test_a_field_back_an_hour_later_gets_its_own_sentence
+           killer: TestTheExplanation::test_a_field_twice_in_one_shown_minute_is_named_once
+           killer: TestTheExplanation::test_a_share_that_would_round_to_100_reads_99
+           killer: TestTheExplanation::test_fields_back_milliseconds_apart_share_one_sentence
+           killer: TestTheExplanation::test_it_names_the_silent_time_and_the_share_booked
+           killer: TestTheExplanation::test_sentences_follow_the_time_of_their_spans
+MUT 36 KILLED   a field twice in one shown minute is named twice                         1 failed, 142 passed, 36 errors in 22.70s
+           killer: TestTheExplanation::test_a_field_twice_in_one_shown_minute_is_named_once
+MUT 37 KILLED   the silent-time sentences lose their order                               1 failed, 142 passed, 36 errors in 22.04s
+           killer: TestTheExplanation::test_sentences_follow_the_time_of_their_spans
+
+every source restored byte-for-byte (sha256): True; git diff --quiet HEAD: True
+37 killed / 37 applied / 37 total
+survived: []; hang: []; broken: []; not applied: []

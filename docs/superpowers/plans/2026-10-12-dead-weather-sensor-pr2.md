@@ -2952,6 +2952,8 @@ HA-Test bleiben das Abfrage-Intervall von 60 min und der neue Pirate-Schlüssel 
 - [ ] **Step 6: Aufräumen** — Testgruppen, -zonen und den MQTT-Block entfernen, `mqtt.reload`; Stundenrechnung auf den
   notierten Stand; prüfen, dass Intervall und Pirate-Schlüssel unverändert sind. Protokoll `livetest\L-pr2.md`.
 
+**Ausführung 2026-10-13:** Pre-Release v2026.10.13b1 (`77f041d2`) auf HA-Test (core-2026.10.0); Kriterien 2–5 bestanden, Kriterium 1: Anteil 84 % = vorab gerechnet, aber vier gleich lautende Sätze statt einem (Befund L1: Enden je Feld Millisekunden auseinander) → im Branch behoben (`fa701bcd`, `6fa424e8`), live noch nicht nachgeprüft. Protokoll `docs/superpowers/probes/2026-10-12-dead-weather-sensor-pr2-build/livetest/L-pr2.md`.
+
 ---
 
 ### Task 12: PR an JustChr und Nachlauf

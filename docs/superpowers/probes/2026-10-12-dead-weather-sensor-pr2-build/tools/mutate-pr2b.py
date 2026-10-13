@@ -25,7 +25,7 @@ import subprocess
 import sys
 
 WT = sys.argv[1] if len(sys.argv) > 1 else r"D:\Entwicklung\HASI\issue8-pr2-work\wt"
-OUT = sys.argv[2] if len(sys.argv) > 2 else r"D:\Entwicklung\HASI\issue8-pr2-work\sdd\mutations-pr2b.json"
+OUT = sys.argv[2] if len(sys.argv) > 2 else r"D:\Entwicklung\HASI\issue8-pr2-work\sdd\mutations-pr2c.json"
 PY = r"D:\Entwicklung\HASI\HAsmartirrigation\.venv\Scripts\python.exe"
 PROBE = r"D:\Entwicklung\HASI\issue8-pr2-work\sdd"
 TMP = os.path.join(PROBE, "tmp")
@@ -211,6 +211,18 @@ MUTATIONS = [
      "            if outage.end is None\n",
      "",
      "test_a_closed_temperature_outage_leaves_an_open_rain_gauge_plain"),
+    (35, CALC, "the explanation groups by the exact span again",
+     "                shown = (start.strftime(fmt), end.strftime(fmt))\n",
+     "                shown = (start.strftime(fmt), end.strftime(fmt + \":%S.%f\"))\n",
+     "test_fields_back_milliseconds_apart_share_one_sentence"),
+    (36, CALC, "a field twice in one shown minute is named twice",
+     "                fields_by_span.setdefault(shown, set()).add(field)\n",
+     "                fields_by_span.setdefault(shown, []).append(field)\n",
+     "test_a_field_twice_in_one_shown_minute_is_named_once"),
+    (37, CALC, "the silent-time sentences lose their order",
+     "        for (shown_start, shown_end), fields in sorted(fields_by_span.items()):\n",
+     "        for (shown_start, shown_end), fields in fields_by_span.items():\n",
+     "test_sentences_follow_the_time_of_their_spans"),
 ]
 
 
