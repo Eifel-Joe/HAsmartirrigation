@@ -18,7 +18,8 @@ ledger:
   forecast tier available — the configured weather service, else a Home
   Assistant weather entity, else the site's own history (see
   ``day_projection``) — and the module instance the commit uses prices the
-  result, so the inputs converge on exactly what the commit will see;
+  result, so the inputs converge on exactly what the commit will see (but for
+  a pausing sensor group's silent time; see ``_aggregate_live_window``);
 * **the weather client's hourly series**, where one exposes solar radiation;
 * a **Hargreaves-seeded proxy** distributed over the elapsed hours, for
   providers with neither.
@@ -587,7 +588,8 @@ class LiveEstimateMixin:
         return out
 
     def _aggregate_live_window(self, zone, anchor, *, now=None):
-        """The zone's elapsed window, reduced exactly as ``_aggregate_for_zone`` will.
+        """The zone's elapsed window, reduced exactly as ``_aggregate_for_zone`` will --
+        but for the one deliberate difference in the last paragraph.
 
         One reduction serving both halves of the estimate: the precipitation
         trace, and the day-level inputs the mirrored daily equation consumes. The
@@ -911,8 +913,9 @@ class LiveEstimateMixin:
         Observed so far, extended over the hours the window has not reached, with
         the extremes taken from the two together. The remainder shrinks to
         nothing as the window closes, so the inputs converge on exactly what the
-        commit will see -- no blend rule, no gate times, and no residual left
-        standing at the moment of commit.
+        commit will see (but for a pausing sensor group's silent time; see
+        ``_aggregate_live_window``) -- no blend rule, no gate times, and no
+        residual left standing at the moment of commit.
 
         Tiers are tried in a fixed order. The forecast-backed ones
         arrive already resolved on ``inputs``, since the series is fetched once
@@ -1106,11 +1109,13 @@ class LiveEstimateMixin:
         computed with a different equation and then compared against it.
 
         The elapsed window is reduced by the same call the commit reduces the
-        whole window with, its day-level extremes are replaced by the composed
-        ones, and the zone's own module instance prices the result. The window's
-        share is ``MAPPING_DATA_MULTIPLIER`` -- the commit's own ``hour_multiplier``
-        out of the same aggregate -- so the estimate charges the elapsed hours at
-        the rate the projected day total sets, and never charges past now.
+        whole window with (a pausing sensor group's silent time aside; see
+        ``_aggregate_live_window``), its day-level extremes are replaced by the
+        composed ones, and the zone's own module instance prices the result.
+        The window's share is ``MAPPING_DATA_MULTIPLIER`` -- the commit's own
+        ``hour_multiplier`` out of the same aggregate -- so the estimate charges
+        the elapsed hours at the rate the projected day total sets, and never
+        charges past now.
 
         The crop coefficient is deliberately NOT applied here; the caller applies
         it to whichever source produced the window total, exactly as the commit
