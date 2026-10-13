@@ -179,3 +179,5 @@ Fix L1: Mutationen 37/37 (M35–M37 neu), expected killer 37/37, restore ok; Lin
 Task 11 Step 6: HA-Test aufgeräumt (Zonen 9–11, Gruppen 2–4, mqtt-YAML + reload, 5 Entitäten, 2 Geräte; Konfig wie vorher); L1 nicht live nachgeprüft (User „Freigabe“ ohne Wahl → Vorschlag 2)
 Task 11: complete (Pre-Release v2026.10.13b1 = 77f041d2; Live: Krit. 2–5 ✅, Krit. 1 Anteil ✅ / Satzform ❌ → L1 im Branch behoben fa701bcd+6fa424e8)
 Task 12: PR-Text de freigegeben („Freigabe“); en-Fassung texts/pr2-en.md zur Freigabe; Annahmen: nicht falten, README-Hinweis unverändert
+Task 12: Upstream-Runde 21:48 UTC leer, 0 behind, Eigenbezüge 0; Branch gepusht (origin/feat/pause-silent-weather-sensor = 6fa424e8); PR https://github.com/JustChr/HAsmartirrigation/pull/197 (Body zurückgelesen gleich bis auf jq-\n); an Sitzung gebunden (ccd_pr), Checks noch 0
+Task 12: P2 Kommentar Eifel-Joe#8 6157160369 (zurückgelesen gleich), #42 Punkt 9 (Zeilenenden erhalten, zurückgelesen gleich), Label bleibt upstream:freigegeben

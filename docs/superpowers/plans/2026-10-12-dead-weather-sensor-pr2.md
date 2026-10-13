@@ -2960,13 +2960,13 @@ HA-Test bleiben das Abfrage-Intervall von 60 min und der neue Pirate-Schlüssel 
 
 **Files:** keine Codeänderung. Texte unter `D:\Entwicklung\HASI\issue8-pr2-work\texts\`.
 
-- [ ] **Step 1: Upstream-Runde**, dann `git rev-list --count HEAD..upstream/master` = 0.
-- [ ] **Step 2: PR-Text** nach Skill `pr-workflow`: erst deutsch zur Freigabe, dann englisch. Inhalt: was PR 2 tut (die
+- [x] **Step 1: Upstream-Runde**, dann `git rev-list --count HEAD..upstream/master` = 0.
+- [x] **Step 2: PR-Text** nach Skill `pr-workflow`: erst deutsch zur Freigabe, dann englisch. Inhalt: was PR 2 tut (die
   Einstellung, der Schnitt im Tagespfad, der Anteil, `s = 0`, Hinweis-Variante, Erklärung), was er bewusst nicht tut
   (Stundenpfad und Live-Schätzung folgen), Bestand byte-identisch, Feldtest von PR 1 auf echter Hardware ohne
   Fehlalarm, Live-Test auf HA-Test, Zahlen (Tests, Mutationen) **auf dem Endstand nachgemessen**. Jede `datei:zeile`
   im Text gegen den Branch-SHA öffnen. Keine eigenen Issue-Verweise, keine Branch-SHAs.
-- [ ] **Step 3: Push und PR** (nach Freigabe):
+- [x] **Step 3: Push und PR** (nach Freigabe):
 
 ```bash
 git push -u origin feat/pause-silent-weather-sensor
@@ -2976,10 +2976,12 @@ gh pr create --repo JustChr/HAsmartirrigation --base master --head Eifel-Joe:fea
 
   Danach den Body per `gh api repos/JustChr/HAsmartirrigation/pulls/<N> --jq .body > datei` zurücklesen und mit `cmp`
   vergleichen.
-- [ ] **Step 4: P2** — Kommentar auf Eifel-Joe#8 (Text vorher freigeben), `#42` Punkt 9 nachziehen, Label bleibt
+- [x] **Step 4: P2** — Kommentar auf Eifel-Joe#8 (Text vorher freigeben), `#42` Punkt 9 nachziehen, Label bleibt
   `upstream:freigegeben`. production bekommt PR 2 mit dem Pre-Release aus Task 11; HA-Prod nur auf Zuruf.
-- [ ] **Step 5: P1** — Plan-Häkchen, Abweichungsprotokoll und Live-Test-Protokoll nach `archive/design-history`
+- [x] **Step 5: P1** — Plan-Häkchen, Abweichungsprotokoll und Live-Test-Protokoll nach `archive/design-history`
   (Worktree `pr139-work\archive-wt`).
+
+**Ausführung 2026-10-13/14:** Branch gepusht (`6fa424e8`, 18 Commits, nicht gefaltet), PR upstream 197 eröffnet, Body zurückgelesen gleich; Kommentar auf Eifel-Joe#8 (`6157160369`) und `#42` Punkt 9 freigegeben, gesendet, zurückgelesen gleich. Texte: `docs/superpowers/probes/2026-10-12-dead-weather-sensor-pr2-build/texts/`.
 
 ---
 
