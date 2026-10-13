@@ -2913,10 +2913,10 @@ Prüft das Ende-zu-Ende-Kriterium der Spec PR 2. **Alles hier betrifft nur HA-Te
 HA-Test bleiben das Abfrage-Intervall von 60 min und der neue Pirate-Schlüssel stehen; die Zonen 0 und 1 kommen nie auf
 `service`. Vor jedem schreibenden Aufruf die Instanz nennen; Neustarts von HA-Test ankündigen.
 
-- [ ] **Step 1: Basis prüfen** — `git fetch upstream && git rev-list --count HEAD..upstream/master` → `0`. Sonst:
+- [x] **Step 1: Basis prüfen** — `git fetch upstream && git rev-list --count HEAD..upstream/master` → `0`. Sonst:
   Upstream-Runde, den ungepushten Branch rebasen, Task 10 Steps 1–4 wiederholen.
 
-- [ ] **Step 2: production-Pre-Release** (Freigabe im Chat vorher; Rezept: Projekt-`CLAUDE.md` *Produktiv-Rebuild/-Release*
+- [x] **Step 2: production-Pre-Release** (Freigabe im Chat vorher; Rezept: Projekt-`CLAUDE.md` *Produktiv-Rebuild/-Release*
   und Memory `hasi-production-on-upstream`). Delta = `upstream/master` + die Commits dieses Branches + Branding +
   Build-Commit. Version `vJJJJ.MM.TTb1` in `manifest.json` und `const.py` (mit `v`), `frontend/package.json` ohne;
   dist mit Node 24, `git add -f`, Dateizahl prüfen. Vor dem Push: `git rev-list --count HEAD..upstream/master` = 0,
@@ -2926,7 +2926,7 @@ HA-Test bleiben das Abfrage-Intervall von 60 min und der neue Pirate-Schlüssel 
   Installation auf **HA-Test** per HACS, Neustart ankündigen und ausführen; danach Integration `loaded`, Version =
   Pre-Release, Log ohne Fehler von `irrigation_plus`.
 
-- [ ] **Step 3: Testaufbau** (HA-Test; Mittel wie PR 1, siehe Archiv
+- [x] **Step 3: Testaufbau** (HA-Test; Mittel wie PR 1, siehe Archiv
   `docs/superpowers/probes/2026-10-04-dead-weather-sensor-pr1/livetest/L-pr1.md`): MQTT-Sensoren per YAML unter
   `hasi_livetest/`, ohne Discovery, ein Gerät „HASI Livetest A“ mit Temperatur, Taupunkt, Wind und Druck. Zwei neue
   Sensorgruppen auf diese Sensoren: „Livetest Pause“ (`pause`) und „Livetest Keep“ (`keep`); je eine Wegwerf-Zone mit
@@ -2934,13 +2934,13 @@ HA-Test bleiben das Abfrage-Intervall von 60 min und der neue Pirate-Schlüssel 
   (Stand notieren). Werte für A einmal veröffentlichen, beide Zonen einmal berechnen (setzt ihr Wasserzeichen),
   Startzeit notieren.
 
-- [ ] **Step 4: Schweigen und Rechnen** — 3,5 h nichts an `hasi_livetest/a/#` veröffentlichen (Warten per
+- [x] **Step 4: Schweigen und Rechnen** — 3,5 h nichts an `hasi_livetest/a/#` veröffentlichen (Warten per
   Hintergrund-Schleife, kein Vordergrund-`sleep`). Danach: Diagnostics `data.store.mappings[].sensor_outages` beider
   Gruppen lesen (Beginn = letzte Meldung); **Soll vorab rechnen:** Anteil = (Fenster − (Ende − Beginn − 3 h)) / Fenster
   auf ganze Prozent, mit Fenster = Wasserzeichen bis Rechenzeitpunkt. Dann A wieder veröffentlichen (gleiche Werte),
   ≥ 5 min warten (Prüfung schließt den Ausfall), beide Zonen berechnen.
 
-- [ ] **Step 5: Kriterium** — belegt mit Tool-Output:
+- [x] **Step 5: Kriterium** — belegt mit Tool-Output:
   1. Erklärung der Pause-Zone: Satz 1 nennt Taupunkt, Druck, Temperatur, Windgeschwindigkeit von Beginn + 3 h bis Ende;
      Satz 2 nennt genau den vorab gerechneten Anteil.
   2. Erklärung der Keep-Zone: kein Satz; ihre Rechnung wie ohne Ausfall.
@@ -2949,10 +2949,10 @@ HA-Test bleiben das Abfrage-Intervall von 60 min und der neue Pirate-Schlüssel 
      Paused-Text.
   4. Mit eingeschalteter Stundenrechnung (kurzer Gegenlauf, eine Rechnung der Pause-Zone): kein Satz.
 
-- [ ] **Step 6: Aufräumen** — Testgruppen, -zonen und den MQTT-Block entfernen, `mqtt.reload`; Stundenrechnung auf den
+- [x] **Step 6: Aufräumen** — Testgruppen, -zonen und den MQTT-Block entfernen, `mqtt.reload`; Stundenrechnung auf den
   notierten Stand; prüfen, dass Intervall und Pirate-Schlüssel unverändert sind. Protokoll `livetest\L-pr2.md`.
 
-**Ausführung 2026-10-13:** Pre-Release v2026.10.13b1 (`77f041d2`) auf HA-Test (core-2026.10.0); Kriterien 2–5 bestanden, Kriterium 1: Anteil 84 % = vorab gerechnet, aber vier gleich lautende Sätze statt einem (Befund L1: Enden je Feld Millisekunden auseinander) → im Branch behoben (`fa701bcd`, `6fa424e8`), live noch nicht nachgeprüft. Protokoll `docs/superpowers/probes/2026-10-12-dead-weather-sensor-pr2-build/livetest/L-pr2.md`.
+**Ausführung 2026-10-13:** Pre-Release v2026.10.13b1 (`77f041d2`) auf HA-Test (core-2026.10.0); Kriterien 2–5 bestanden, Kriterium 1: Anteil 84 % = vorab gerechnet, aber vier gleich lautende Sätze statt einem (Befund L1: Enden je Feld Millisekunden auseinander) → im Branch behoben (`fa701bcd`, `6fa424e8`), live nicht nachgeprüft (User-Entscheidung 2026-10-13; HA-Test danach aufgeräumt). Protokoll `docs/superpowers/probes/2026-10-12-dead-weather-sensor-pr2-build/livetest/L-pr2.md`.
 
 ---
 

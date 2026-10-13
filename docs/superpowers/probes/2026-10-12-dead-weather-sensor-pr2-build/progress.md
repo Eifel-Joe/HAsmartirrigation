@@ -176,3 +176,6 @@ Fix L1 Runde 1: 6fa424e8 (Reihenfolge-Pin + Gegenprobe + Test-2 mit t_old/t_new 
 Fix L1 Runde 1: Re-Review (Sonnet) 3/3 ADDRESSED, keine neue Breakage; minor (deferred): Reihenfolge-Test bestünde auch bei Sortierung nach Feldname (Dewpoint früher UND alphabetisch zuerst)
 Fix L1: suite tL1b (6fa424e8): 7 failed / 3925 passed (+4) / 9 skipped / 466 errors (+4 Teardown); (1) 0, (2) FAILED gleich, (3) 36 Teardown, UNEXPECTED 0
 Fix L1: Mutationen 37/37 (M35–M37 neu), expected killer 37/37, restore ok; Lint 6fa424e8 black/ruff 0.16.10 sauber; Eigenbezüge 0; 18 Commits
+Task 11 Step 6: HA-Test aufgeräumt (Zonen 9–11, Gruppen 2–4, mqtt-YAML + reload, 5 Entitäten, 2 Geräte; Konfig wie vorher); L1 nicht live nachgeprüft (User „Freigabe“ ohne Wahl → Vorschlag 2)
+Task 11: complete (Pre-Release v2026.10.13b1 = 77f041d2; Live: Krit. 2–5 ✅, Krit. 1 Anteil ✅ / Satzform ❌ → L1 im Branch behoben fa701bcd+6fa424e8)
+Task 12: PR-Text de freigegeben („Freigabe“); en-Fassung texts/pr2-en.md zur Freigabe; Annahmen: nicht falten, README-Hinweis unverändert

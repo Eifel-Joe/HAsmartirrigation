@@ -106,4 +106,14 @@ silent-time sentence“ (Gruppierung nach `(start.strftime(fmt), end.strftime(fm
 | 4 | ✅ |
 | 5 | ✅ (Hinweis und WARNING) |
 
-Aufräumen (Step 6): offen — Entscheidung, ob L1 live nachgeprüft wird (dann wird der Aufbau weiterverwendet).
+## Aufräumen (13.10. ~21:40–21:47)
+
+Entscheidung (User „Freigabe“ ohne Wahl → Vorschlag 2): L1 nicht live nachgeprüft; Aufbau entfernt.
+- Zonen 9, 10, 11 und Gruppen 2, 3, 4 per Konfig-Views `remove` (die erste Fassung des Skripts brach an `%`-Formatierung
+  in der Sandbox ab, nachdem Zone 9 schon gelöscht war; Stand gelesen, Rest gezielt gelöscht). Übrig: Zonen 0–8,
+  Gruppen 0/1 (`keep`); keine Hinweise der Integration.
+- `mqtt`-Schlüssel per `ha_config_set_yaml remove` (Vorschau + Token, `config_check: ok`), `mqtt.reload`; die fünf
+  Entitäten per `ha_remove_entity`, die Geräte „HASI Livetest A/B“ per `ha_remove_device` (WebSocket-Registry-Befehle
+  sind in der Sandbox gesperrt). Kontrolle: keine Geräte/Entitäten mit „livetest“.
+- Konfiguration danach: `hourlycalculation false`, Auto-Update 60 min, `calctime 23:00` — wie vor dem Test. Wetterdienst
+  und Schlüssel nie angefasst.
