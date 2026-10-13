@@ -23,6 +23,74 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-13/14 — Eifel-Joe#8 PR 2 gebaut, Pre-Release v2026.10.13b1, Live-Test HA-Test, PR `JustChr#197` offen; Upstream-Runden leer
+
+### Stand
+
+- **Upstream-Runden** 12.10. 16:59, 19:05; 13.10. 06:30, 14:58, 19:37, 19:46, 21:48 UTC: leer. `upstream/master` weiter
+  `6a40e083`, JustChr#193/#194/#195/#196 ohne Kommentar, kein neues Release, JustChrs letzter CI-Lauf 06.10.
+- **PR 2 gebaut** (Plan `docs/superpowers/plans/2026-10-12-dead-weather-sensor-pr2.md`, subagent-driven; Ledger
+  `issue8-pr2-work\sdd\progress.md`): Branch `feat/pause-silent-weather-sensor` = 18 Commits auf `6a40e083`, HEAD
+  **`6fa424e8`**, gepusht nach `origin`. Tasks 1–9 je Commit baumgleich mit dem Probelauf; Abschluss-Review (Opus) „With
+  fixes“ → User-Entscheidungen E1 = 2, E2 = 2, E3 = ok, E4 = 3 (Spec-Nachtrag 2026-10-13, Plan Task 10b, Wortlaute de/en
+  freigegeben) → Fix-Welle C1–C6 + Pin; Live-Befund L1 → `fa701bcd` + `6fa424e8`. Endstand: Suite 7/3925/9/466 gegen
+  Baseline 7/3819/9/430 (0 Namen entfallen, FAILED gleich, 36 neue nur Teardown „Lingering timer“), **37/37 Mutationen**,
+  vitest 661, dist == Build, black + ruff 0.16.10 sauber, Eigenbezüge 0.
+- **production = Pre-Release [v2026.10.13b1](https://github.com/Eifel-Joe/HAsmartirrigation/releases/tag/v2026.10.13b1)**
+  `77f041d2` = `6a40e083` + Branding + upstream PR 194 + die ersten 16 PR-2-Commits + Build (0 behind / 19 ahead; **ohne**
+  L1-Fix). Backup lokal `backup/production-pre-v2026.10.13b1` = `fa31c31a`. ZIP aus dem SHA, sha256 `6072861c…`, HTTP 200.
+- **HA-Test auf v2026.10.13b1** (HACS + angekündigter Neustart), **Live-Test** Protokoll
+  `issue8-pr2-work\livetest\L-pr2.md` (archiviert): Kriterien 2–5 ✅ (Hinweis-Varianten, Regenzähler allein → normaler
+  Text, Wechsel mit Stundenrechnung, kein Satz unter Stundenrechnung), Kriterium 1: Anteil **84 % = vorab gerechnet** ✅,
+  aber **vier Sätze statt einem** (L1: Enden je Feld ms auseinander) → im Branch behoben, live nicht nachgeprüft
+  (Entscheidung). HA-Test aufgeräumt, Konfiguration wie vorher. **HA-Prod unberührt (v2026.10.05b1).**
+- **PR [JustChr/HAsmartirrigation#197](https://github.com/JustChr/HAsmartirrigation/pull/197)** offen, Body =
+  freigegebener Text (zurückgelesen gleich); an die Sitzung gebunden; **noch keine CI-Checks** (Stand 22:00 UTC).
+  P2: Kommentar Eifel-Joe#8 `6157160369`, `#42` Punkt 9 — beide freigegeben, zurückgelesen gleich. Label bleibt
+  `upstream:freigegeben`, #8 bleibt offen (PR 3).
+- **P1:** Archiv `archive/design-history` bis **`3f6e3430`** (Spec-Nachtrag, Plan bis Task 12 abgehakt, Bauprotokoll
+  `probes/2026-10-12-dead-weather-sensor-pr2-build/` mit Reviews, Suite-Vergleichen, Mutationen, Live-Test, Texten).
+
+### Verworfen
+
+- Die zwei laut Review „unerreichbaren“ Zweige in `_aggregate_blocked` entfernen: ohne Wasserzeichen erreichbar, sonst
+  `statistics.mean([])` → stattdessen gepinnt.
+- Historie falten: nicht gemacht (User ohne Wahl → Vorschlag „nicht falten“, JustChr squasht).
+- README-Hinweis „nothing but branding“ anpassen: nicht gemacht (Präzedenz b2/06b1).
+
+### Fallen
+
+- **HA-MCP fiel mitten im Live-Test aus der Sitzung**; weiter mit `tools\mcp_test.py` (nur HA-Test) +
+  `issue8-pr2-work\livetest\run_code.py`. Ausgabe nur mit `PYTHONIOENCODING=utf-8` (sonst cp1252-Abbruch NACH dem
+  Schreibaufruf — erst Stand lesen, nie blind wiederholen); Umlaute erscheinen als Mojibake (Client), nicht im Produkt.
+- **Sandbox (Monty):** kein `%`-Formatieren; `config/entity_registry/remove` und `device_registry/remove_config_entry`
+  gesperrt → `ha_remove_entity`/`ha_remove_device`; die Konfig-Views der Integration nehmen nur POST, gelesen wird per WS
+  (`irrigation_plus/zones|mappings|config`). Die Konfig enthält den Wetterschlüssel → immer projizieren.
+- **Zone per API anlegen** braucht die Panel-Standardwerte (`lead_time 0` u. a.), sonst `calculate` → 500
+  (`calculation.py:1836`, Bestand).
+- **`TaskStop` beendet nur die Bash**, nicht den venv-pytest-Kindprozess → `taskkill /T /F /PID`; nie eine Suite neben
+  einer Agenten-Mutation laufen lassen.
+- **Bash-Heredoc frisst `\\n`** (wieder zweimal) → Generatoren mit Backslashes per Write-Tool.
+- System-Log fasst je Quelle nur die letzten 5 Meldungen → Log-Zeilen im Roh-Log (`error_log`) suchen.
+
+### Nächste Schritte
+
+1. **Upstream-Runde** ab 2026-10-13 21:48 UTC; **CI auf #197** (`mcp__ccd_pr__get_status` oder `gh pr checks 197 --repo
+   JustChr/HAsmartirrigation`): Laufen keine Checks, braucht der Fork-PR evtl. JustChrs Freigabe. Ist der Lint-Job rot
+   wegen **ruff 0.17.0 UP017** in fremden Dateien (E4), dem User einen kurzen Hinweis-Kommentar vorschlagen (Text vorher
+   freigeben).
+2. JustChrs Antwort auf #197 → P2 (Einwand wörtlich als Link + Satz in #8, Label im selben Zug); Änderungswünsche als
+   neue Commits auf demselben Branch (Skill `pr-workflow` §6).
+3. **production b2** (mit L1-Fix) und HA-Prod-Update nur auf Zuruf.
+4. Aufräumen (nach Ansehen, Memory `scratch-dirs-hold-irreproducible-evidence`): `prodrebuild-1013b1-work` (Worktree +
+   ZIP), `issue8-pr2-work\probe` und `src`, `session-1011b-work`, `issue87-work` nach Merge von JustChr#194;
+   `issue8-pr2-work\wt` bis zum Merge von #197.
+5. Danach PR 3 (Stundenpfad + Live-Schätzung): Spec + Plan.
+
+### Empfohlene Skills
+
+- `task-loop`, `pr-workflow`, `superpowers:receiving-code-review` (für JustChrs Review), `superpowers:verification-before-completion`.
+
 ## 2026-10-12 — Feldtest Eifel-Joe#8 bestanden (#8 + `#42` nachgezogen); PR 2: Spec + Plan freigegeben, probegelaufen; Upstream-Runden leer
 
 ### Stand
@@ -50,7 +118,9 @@
   auf `6a40e083` (+84 = berechnet), FAILED-Namen gleich, +28 ERROR nur Teardown „Lingering timer“ aus
   `test_silent_sensor_commit.py`; 22/22 Mutationen getötet; vitest +2. Berichtigt im Plan: Task-2-RED, Task-8-Testzeile
   (prettier) und Bundle-Zahl **2**, Task-9-Kriterium, Task-10-Vergleich und ruff. Patch + Protokolle:
-  `issue8-pr2-work\probe\` (archiviert, siehe unten).
+  `issue8-pr2-work\probe\`, archiviert mit dem Plan in `4abd4c7a`
+  (`docs/superpowers/probes/2026-10-12-dead-weather-sensor-pr2-plan/`). Probe-Worktree und lokaler Branch
+  `probe/pr2-plan` entfernt (nie gepusht).
 
 ### Verworfen
 
