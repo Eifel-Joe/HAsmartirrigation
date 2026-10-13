@@ -491,6 +491,30 @@ class TestTheExplanation:
         assert "Evapotranspiration booked for 79 % of the period." in text
         assert text.index("(sensor silent)") < text.index("Bucket was")
 
+    async def test_a_share_that_would_round_to_100_reads_99(self, coord):
+        """Two minutes silent in a day: right after the sentence naming them, the
+        share must not read as all of the period."""
+        c, store = coord
+        text = await self._explain(c, store, outages=[_outage(2, 5 + 2 / 60)])
+        assert "from 2026-07-01 05:00 to 2026-07-01 05:02 (sensor silent)." in text
+        assert "Evapotranspiration booked for 99 % of the period." in text
+
+    async def test_a_share_that_would_round_to_0_reads_1(self, coord):
+        """Two minutes measured in a day: something was booked, so not 0 %."""
+        c, store = coord
+        text = await self._explain(c, store, outages=[_outage(-3, 24 - 2 / 60)])
+        assert "Evapotranspiration booked for 1 % of the period." in text
+
+    async def test_a_field_blocked_throughout_books_0_percent(self, coord):
+        c, store = coord
+        text = await self._explain(
+            c,
+            store,
+            mappings={T: _sensor("sensor.t"), DEW: _sensor("sensor.dew")},
+            outages=[_outage(-10, fields=(DEW,))],
+        )
+        assert "Evapotranspiration booked for 0 % of the period." in text
+
     async def test_each_span_gets_its_own_sentence(self, coord):
         c, store = coord
         text = await self._explain(c, store, outages=[_outage(0, 5), _outage(10, 16)])
