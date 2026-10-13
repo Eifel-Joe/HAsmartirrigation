@@ -423,11 +423,12 @@ class CalculationMixin:
         Only a group that pauses a silent sensor is cut, and only in the daily
         form: with the hourly calculation the replayed balance checks itself
         against this aggregate's precipitation, so cutting one and not the
-        other would fail that check; that form cuts together with the live
-        estimate. None leaves the commit as it always was, and so does a window
-        no outage reaches, or a zone that has never consumed (its first commit
-        anchors it). A cumulative rain gauge is never blocked: what it reads
-        after the return is a measurement, only delivered late.
+        other would fail that check. The hourly form is not cut here: it would
+        have to be cut together with the live estimate. None leaves the commit
+        as it always was, and so does a window no outage reaches, or a zone
+        that has never consumed (its first commit anchors it). Which fields are
+        blocked, ``sensor_liveness.cuts_field`` decides: never a cumulative
+        rain gauge.
         """
         mapping_id = zone.get(const.ZONE_MAPPING)
         if mapping_id is None:
