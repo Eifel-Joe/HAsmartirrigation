@@ -41,11 +41,16 @@ from .helpers import (
 )
 from .helpers import as_datetime as _as_datetime
 from .localize import localize
-from .sensor_liveness import blocked_spans, group_pauses, outages_of, valid_share
+from .sensor_liveness import (
+    blocked_spans,
+    cuts_field,
+    group_pauses,
+    outages_of,
+    valid_share,
+)
 from .weather_aggregate import (
     aggregate_window,
     build_substeps,
-    effective_aggregate,
     merge_latest_per_field,
     select_window,
     weather_day,
@@ -442,7 +447,7 @@ class CalculationMixin:
             for field, spans in blocked_spans(
                 outages_of(mapping), watermark, now
             ).items()
-            if effective_aggregate(field, config) != const.MAPPING_CONF_AGGREGATE_DELTA
+            if cuts_field(field, config)
         }
         return blocked or None
 

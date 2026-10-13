@@ -30,6 +30,7 @@ from homeassistant.util import dt as dt_util
 
 from . import const
 from .helpers import STAMP_FROM_STORE, coerce_stamp, local_naive_now
+from .weather_aggregate import effective_aggregate
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -180,6 +181,21 @@ def group_pauses(mapping: dict) -> bool:
     existed, a test double without it, or a value edited by hand.
     """
     return mapping.get(const.MAPPING_ON_SILENT_SENSOR) == const.ON_SILENT_SENSOR_PAUSE
+
+
+def cuts_field(field: str, mappings_config: dict) -> bool:
+    """Whether a pausing group leaves this field's silent time out of its booking.
+
+    Every field but a cumulative rain gauge (aggregate ``delta``): what a gauge
+    shows after its return is rain it measured, only delivered late, so its
+    silent time is not cut. The commit's gate
+    (calculation._blocked_spans_for_zone) and the notice both ask here, so the
+    notice says a value is no longer used only where the calculation cuts it.
+    """
+    return (
+        effective_aggregate(field, mappings_config)
+        != const.MAPPING_CONF_AGGREGATE_DELTA
+    )
 
 
 def blocked_spans(
@@ -511,13 +527,14 @@ class SensorLivenessMixin:
             )
             self._fire_weather_stale(mapping_id, name, outage)
         cuts = self._group_cuts(mapping) if opened else False
+        config = mapping.get(const.MAPPING_MAPPINGS) or {}
         for outage in opened:
             _LOGGER.warning(
                 (
                     "Sensor group %s: %s (%s) has not reported since %s; its values "
-                    "are no longer used and no evapotranspiration is booked while it "
-                    "is silent"
-                    if cuts
+                    "are no longer used, and where the calculation cannot do without "
+                    "them no evapotranspiration is booked while it is silent"
+                    if cuts and any(cuts_field(f, config) for f in outage.fields)
                     else "Sensor group %s: %s (%s) has not reported since %s; its last "
                     "value is still used"
                 ),
@@ -561,7 +578,7 @@ class SensorLivenessMixin:
             issue_id,
             is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
-            translation_key=self._stale_issue_key(mapping_id),
+            translation_key=self._stale_issue_key(mapping_id, outages),
             translation_placeholders=placeholders,
         )
 
@@ -570,17 +587,27 @@ class SensorLivenessMixin:
 
         A pausing group, and only without the hourly calculation (see
         calculation._blocked_spans_for_zone); every other group still uses the
-        last value.
+        last value. Which fields it leaves out, ``cuts_field`` says.
         """
         # Imported here: calculation imports this module.
         from .calculation import hourly_calculation_enabled
 
         return group_pauses(mapping) and not hourly_calculation_enabled(self.store)
 
-    def _stale_issue_key(self, mapping_id) -> str:
-        """The notice's text: the paused one where the group's values are cut."""
+    def _stale_issue_key(self, mapping_id, outages: list[Outage]) -> str:
+        """The notice's text: the paused one where the group's values are cut.
+
+        That takes a group that cuts and an open outage with a field it cuts; a
+        silent rain gauge alone keeps the plain text.
+        """
         mapping = self.store.get_mapping(mapping_id) or {}
-        if self._group_cuts(mapping):
+        config = mapping.get(const.MAPPING_MAPPINGS) or {}
+        if self._group_cuts(mapping) and any(
+            cuts_field(field, config)
+            for outage in outages
+            if outage.end is None
+            for field in outage.fields
+        ):
             return const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
         return const.ISSUE_WEATHER_SENSOR_STALE
 
