@@ -53,6 +53,15 @@ class TestBlockedSpans:
         )
         assert spans == {"Temperature": ((T0 + 3 * H, T0 + 14 * H),)}
 
+    def test_outages_whose_spans_touch_merge(self):
+        spans = blocked_spans(
+            [_outage(0, 10, entity="sensor.a"), _outage(7, 14, entity="sensor.b")],
+            T0,
+            END,
+        )
+        # sensor.a blocks 3..10 h and sensor.b 10..14 h: one span, not two.
+        assert spans == {"Temperature": ((T0 + 3 * H, T0 + 14 * H),)}
+
     def test_separate_outages_stay_separate_and_sorted(self):
         spans = blocked_spans([_outage(10, 15), _outage(0, 5)], T0, END)
         assert spans == {
