@@ -20,3 +20,8 @@ Spec-Check per Skript, Quality-Review Sonnet, volle Suite mit dreiteiligem Namen
   Critical/Important; Minor-Befunde im Ledger `progress.md`. Abschluss-Review `final-review-report.md`: „With fixes“,
   2 Important — Entscheidung beim User (Stand dieses Protokolls).
 - `reports/task-N-report.md`: Berichte der Implementer (RED/GREEN-Belege).
+- **Fix-Welle 2026-10-13** (Plan Task 10b, Spec-Nachtrag 2026-10-13, User-Entscheidungen E1–E4, Wortlaute freigegeben):
+  C1–C6 `720b9e84` … `549d5e2e` (Opus), Re-Review (Sonnet, `reports/rereview-t10b-report.md`) ohne offene Befunde
+  außer einem Pin, nachgezogen in `030e12a3`. Endstand `030e12a3`: Suite 7 / 3921 / 9 / 462 (`suite/compare-t10c.txt`),
+  Mutationen 34/34 (`suite/mutate-pr2b.txt`; M12/M20 neu verankert, M23–M34 neu), vitest 661, dist == Build,
+  black/ruff sauber, Eigenbezüge 0.

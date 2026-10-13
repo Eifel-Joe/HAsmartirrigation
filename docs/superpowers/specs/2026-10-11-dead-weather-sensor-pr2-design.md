@@ -296,3 +296,31 @@ pausierenden Gruppe schweigt 3,5 h, danach Berechnung der Zone.
 
 Die englischen und die übrigen sechs Fassungen folgen dem freigegebenen Deutsch; Quellen-Namen sind die
 Panel-Beschriftungen.
+
+## Nachtrag 2026-10-13 — nach der Abschluss-Review (User-Entscheidungen E1–E4)
+
+Die Abschluss-Review (Opus, Bericht im Archiv `probes/2026-10-12-dead-weather-sensor-pr2-build/final-review-report.md`)
+fand zwei Lücken dieser Spec; beide vom Controller am Code nachgeprüft. Entscheidungen des Users im Chat 2026-10-13:
+
+- **E1 = 2 — Hinweis und Log nur, wo wirklich geschnitten wird, Wortlaut eingeschränkt.** §5 knüpfte die Variante
+  `weather_sensor_stale_paused` nur an „pausiert und keine Stundenrechnung“. Fällt nur ein Regenzähler aus (Aggregat
+  `delta`, nach §1 nie gesperrt), behauptete der Hinweis einen Schnitt, den die Rechnung nicht macht; für Feuchte oder
+  Sonne allein stimmte „keine Verdunstung gebucht“ nicht (§3: nur Pflichtfelder zählen). Neu:
+  - Ein gemeinsamer Helfer „wird dieses Feld geschnitten“ (jedes Feld außer `effective_aggregate == delta`) für das
+    Gate (§1) und den Hinweis; die Variante und der Schnitt-Text im WARNING erscheinen nur, wenn die Gruppe schneidet
+    **und** ein offener Ausfall (beim Log: dieser Ausfall) mindestens ein solches Feld hat. Sonst PR-1-Text.
+  - Neu synchronisiert wird zusätzlich, wenn sich die Zuordnung der Gruppe (`mappings`) ändert.
+  - Wortlaut von Hinweis, Log, Panel-Hilfe und Doku: „wo die Verdunstungsrechnung ohne einen davon nicht auskommt, wird
+    … keine Verdunstung gebucht“; „ein Regenzähler zählt weiter“.
+- **E2 = 2 — gerätelose Sensoren, die nur bei Wertänderung melden:** Doku und Hinweis sagen, dass *Pausieren* deren
+  Werte bei langer Gleichheit (Wind-Template bei Windstille) auslässt, und raten zu *Letzten Wert behalten* oder einem
+  UI-Template-Helfer am Gerät der Station. Kein Code; Rev. 3 nahm für diese Klasse nur den Fehlalarm hin, der Schnitt
+  ist damit benannt.
+- **E3 = freigegeben:** (a) Satz 2 der Erklärung zeigt höchstens 99 %, solange `share < 1`, und mindestens 1 %, solange
+  `share > 0`; bei 0 bleibt 0 % (ersetzt „`f"{share * 100:.0f}"`“ aus den Global Constraints des Plans). (b) Panel-Hilfe
+  und Doku nennen die Einstellung beim UI-Namen „Stündliche Verdunstung“ / „Hourly evapotranspiration“ (Experimentelle
+  Funktionen). (c) Doku ohne relative Zeitangaben („from now on“, „existed before“), Satz zu seltenen Updates eindeutig.
+- **E4 = 3:** ruff in der Upstream-CI ist ungepinnt (0.17.0 meldet 20 UP017 in Dateien, die dieser Branch nicht
+  anfasst) — abwarten, vor dem PR nachsehen.
+
+Freigegebene Wortlaute (de/en) stehen im Plan, Task 10b. Die übrigen sechs Sprachen folgen dem englischen Text.

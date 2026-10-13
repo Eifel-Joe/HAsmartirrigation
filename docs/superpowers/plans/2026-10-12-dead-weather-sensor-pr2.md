@@ -2651,6 +2651,260 @@ Expected: beide leer.
 
 ---
 
+### Task 10b: Fix-Welle nach der Abschluss-Review (User-Entscheidungen E1–E3, 2026-10-13)
+
+**Grund:** Abschluss-Review „With fixes“ (Bericht `docs/superpowers/probes/2026-10-12-dead-weather-sensor-pr2-build/
+final-review-report.md`), Entscheidungen im Spec-Nachtrag 2026-10-13. Wortlaute de/en vom User freigegeben am
+2026-10-13; die sechs übrigen Sprachen folgen dem englischen Text.
+
+**Basis:** `a9708bec`. Ein Implementer, sechs Commits (C1–C6) in dieser Reihenfolge, jeder für sich grün. Neue
+Produktions-Logik nur nach einem roten Test (C1, C2); reine Pins (C6) dürfen auf dem heutigen Code sofort grün sein —
+dass sie beißen, zeigt der Mutationslauf des Controllers danach.
+
+**Ersetzt aus den Global Constraints:** „Anteil in ganzen Prozent (`f"{share * 100:.0f}"`)“ gilt nur noch mit der
+Klammer aus C2.
+
+**Files:**
+- Modify: `custom_components/irrigation_plus/sensor_liveness.py`, `calculation.py`, `__init__.py`, `const.py`
+  (Kommentar), `live_estimate.py` (Kommentare), `translations/*.json` (8), `frontend/localize/languages/*.json` (8),
+  `frontend/dist/` (neu gebaut), `docs/configuration-sensor-groups.md`
+- Tests: `tests/test_sensor_liveness_coordinator.py`, `tests/test_silent_sensor_commit.py`,
+  `tests/test_silent_sensor_setting.py`, `tests/test_weather_aggregate_blocked.py`, `tests/test_sensor_liveness_blocked.py`
+
+---
+
+- [x] **C1: Hinweis und Log nur, wo wirklich geschnitten wird (E1, E2-Satz im Hinweis)**
+
+  1. **Helfer** in `sensor_liveness.py` (Modulebene, neben `group_pauses`):
+     `def cuts_field(field: str, mappings_config: dict) -> bool` — wahr für jedes Feld außer einem mit
+     `effective_aggregate(field, mappings_config) == const.MAPPING_CONF_AGGREGATE_DELTA` (Import aus
+     `.weather_aggregate`; vorher prüfen, dass kein Import-Zyklus entsteht — `calculation` importiert `sensor_liveness`
+     schon). Docstring: warum ein Regenzähler nie geschnitten wird (was er nach der Rückkehr zeigt, ist gemessen, nur
+     spät geliefert).
+  2. **Gate** `calculation._blocked_spans_for_zone`: der Filter `effective_aggregate(field, config) !=
+     const.MAPPING_CONF_AGGREGATE_DELTA` wird `cuts_field(field, config)`; sonst unverändert.
+  3. **Hinweis:** `_stale_issue_key` bekommt die Ausfälle, die `_sync_stale_issue` ohnehin hat:
+     `self._stale_issue_key(mapping_id, outages)`; Variante `ISSUE_WEATHER_SENSOR_STALE_PAUSED` nur wenn
+     `self._group_cuts(mapping)` **und** ein offener Ausfall (`o.end is None`) aus `outages` mindestens ein Feld mit
+     `cuts_field(f, config)` hat (`config = mapping.get(const.MAPPING_MAPPINGS) or {}`, `mapping` aus dem Store wie
+     heute). Die Signatur von `_sync_stale_issue` bleibt.
+  4. **Log beim Öffnen** (`sensor_liveness.py`, WARNING-Schleife über `opened`): Schnitt-Text nur, wenn die Gruppe
+     schneidet **und** dieser Ausfall ein Feld mit `cuts_field` hat; sonst der PR-1-Text („its last value is still
+     used“). Schnitt-Text neu, wörtlich:
+     `"Sensor group %s: %s (%s) has not reported since %s; its values are no longer used, and where the calculation cannot do without them no evapotranspiration is booked while it is silent"`
+  5. **Re-Sync bei Zuordnungswechsel** (`__init__.py`, `async_update_mapping_config`, die Stelle mit
+     `if const.MAPPING_ON_SILENT_SENSOR in data:`): Bedingung wird
+     `if const.MAPPING_ON_SILENT_SENSOR in data or const.MAPPING_MAPPINGS in data:`; Kommentar entsprechend (der
+     Hinweis sagt, ob die Werte der Gruppe noch verwendet werden — das hängt an der Einstellung und daran, welche Felder
+     geschnitten werden).
+  6. **Hinweistext `issues.weather_sensor_stale_paused.description`** in `translations/*.json` — nur diese zwei Stellen
+     ändern, alles andere (Absatz 3, Titel, Anführungszeichen der Datei) bleibt Zeichen für Zeichen:
+     - **de**, Absatz 1 komplett: „Irrigation Plus hat seit {since} nichts mehr von {entities} gehört. Nach drei Stunden
+       Stille werden diese Werte nicht mehr verwendet; ein Regenzähler zählt weiter. Wo die Verdunstungsrechnung ohne
+       einen davon nicht auskommt, wird für die Zeit ohne Werte keine Verdunstung gebucht; Zonen, die davon abhängen,
+       wässern deshalb weniger oder gar nicht, bis wieder Werte kommen.“
+     - **de**, letzter Satz von Absatz 2 (ersetzt „Aktualisiert die Integration nur alle paar Stunden, stelle …, sonst
+       fehlt bei jedem Update ein Teil der Zeit.“): „Aktualisiert die Integration nur alle paar Stunden oder meldet der
+       Sensor nur, wenn sich sein Wert ändert (etwa ein Template-Sensor ohne Gerät, der bei Windstille auf 0 bleibt),
+       stelle die Sensorgruppe auf „Letzten Wert behalten“; sonst fehlt jedes Mal ein Teil der Zeit.“
+     - **en**, Absatz 1 komplett: "Irrigation Plus has not heard from {entities} since {since}. After three hours of
+       silence these values are no longer used; a rain gauge still counts. Where the evapotranspiration calculation
+       cannot do without one of them, no evapotranspiration is booked for the time without values; zones that depend
+       on them therefore water less or not at all until new values arrive."
+     - **en**, letzter Satz von Absatz 2: "If the integration only updates every few hours, or the sensor reports only
+       when its value changes (such as a template sensor without a device that stays at 0 while there is no wind), set
+       the sensor group to "Keep the last value"; otherwise part of the time is missing every time."
+     - **es fr it nl no sk:** dieselben zwei Stellen aus dem englischen Text übersetzen, ausgehend von der bestehenden
+       Fassung der Datei (deren Begriffe für Regenzähler, „Letzten Wert behalten“ und Anführungszeichen übernehmen;
+       der Optionsname muss gleich der Panel-Beschriftung `panels.mappings.cards.mapping.on-silent-sensor.keep` der
+       Sprache sein). Platzhalter `{since}`, `{entities}` unverändert.
+  7. **Tests** (`tests/test_sensor_liveness_coordinator.py`, Klasse `TestThePausedNotice`, vorhandene Helfer nutzen),
+     zuerst schreiben, RED zeigen:
+     - pausierende Gruppe, Stundenrechnung aus, einziger offener Ausfall nur mit dem Feld `Precipitation` und einer
+       Zuordnung, deren Niederschlag ein Sensor mit Aggregat `delta` ist → Hinweis-Schlüssel `weather_sensor_stale`,
+       WARNING mit „its last value is still used“.
+     - dieselbe Gruppe, zusätzlich ein offener Ausfall mit `Temperature` → `weather_sensor_stale_paused`; im Log trägt
+       nur der Temperatur-Ausfall den Schnitt-Text.
+     - Zuordnungswechsel bei offenem Regenzähler-Ausfall: Niederschlag von `delta` auf `riemannsum` über
+       `async_update_mapping_config` mit `mappings` im Payload → der offene Hinweis wechselt auf
+       `weather_sensor_stale_paused`.
+     - `cuts_field` direkt: `delta`-Niederschlag → falsch; Niederschlags-Rate (`riemannsum`) → wahr; `Temperature` →
+       wahr.
+     Bestehende Tests der Variante (Gruppen mit gemappter Temperatur o. Ä.) müssen grün bleiben; scheitert einer, weil
+     sein Ausfall nur Felder hat, die nach `cuts_field` nicht geschnitten werden, ist das ein Befund für den Bericht,
+     kein stilles Anpassen.
+  8. Commit:
+     ```
+     fix(liveness): the paused notice and log only where a field is actually cut
+
+     A pausing group's notice and warning said that no evapotranspiration is
+     booked even when the only silent sensor was a cumulative rain gauge,
+     which the calculation never cuts, or a field the module can do without.
+     One helper now decides which fields are cut, for the commit's gate and
+     for the notice: the paused text appears only when an open outage has
+     such a field, and it says that evapotranspiration stops only where the
+     calculation cannot do without the value. The notice is brought in line
+     when the group's mapping changes, too, and it now also names sensors
+     that report only when their value changes.
+
+     Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+     ```
+
+- [x] **C2: Satz 2 der Erklärung nie 100 % oder 0 % gegen das Gebuchte (E3a)**
+
+  1. `calculation._silent_sensor_explanation`: statt `f"{share * 100:.0f}"` eine ganze Zahl `percent =
+     round(share * 100)`, bei `share > 0` mindestens 1, bei `share < 1` höchstens 99 (Satz 2 erscheint nur bei
+     `share < 1`); `str(percent)` einsetzen. Kurzer Kommentar warum (ein Satz direkt hinter „no values from … (sensor
+     silent)“ darf nicht „100 %“ sagen, und „0 %“ nicht, wenn gebucht wurde).
+  2. Tests in `tests/test_silent_sensor_commit.py` (`TestTheExplanation`), zuerst schreiben, RED zeigen: Anteil, der
+     auf 100 runden würde (z. B. 2 min Sperre in 24 h) → „99 %“; Anteil knapp über 0 (z. B. 2 min gültig in 24 h) →
+     „1 %“; Anteil genau 0 (PyETO, Taupunkt das ganze Fenster gesperrt) → „booked for 0 % of the period“ (dieser
+     dritte Fall ist heute schon grün und pinnt den `share == 0`-Zweig der Erklärung). Der bestehende 79-%-Test bleibt.
+  3. Commit:
+     ```
+     fix(calculation): the share sentence never reads 100 % or 0 % against what was booked
+
+     A two-minute block in a day rounded to "booked for 100 % of the period"
+     right after the sentence naming the silent time, and a sliver of valid
+     time rounded to 0 % although something was booked. The percentage now
+     stays between 1 and 99 while the share is strictly between 0 and 1.
+
+     Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+     ```
+
+- [x] **C3: Panel-Hilfe nennt die Einschränkung und den Namen der Einstellung (E1, E3b)**
+
+  1. `frontend/localize/languages/*.json`, Schlüssel `panels.mappings.cards.mapping.on-silent-sensor.help`:
+     - **de:** „Pausieren: Nach 3 Stunden ohne Meldung werden die Werte des Sensors nicht mehr verwendet; wo die
+       Verdunstungsrechnung ohne sie nicht auskommt, wird für diese Zeit keine Verdunstung gebucht. Ein Regenzähler zählt
+       weiter. Gilt nur, solange „Stündliche Verdunstung“ (Experimentelle Funktionen) aus ist.“
+     - **en:** "Pause: after 3 hours without a report, the sensor's values are no longer used; where the
+       evapotranspiration calculation cannot do without them, no evapotranspiration is booked for that time. A rain
+       gauge still counts. Applies only while "Hourly evapotranspiration" (Experimental features) is off."
+     - **es fr it nl no sk:** aus dem Englischen; Name der Einstellung = `panels.experimental.hourly_calculation.title`
+       der Sprache, Name des Bereichs = `panels.experimental.title` der Sprache.
+  2. `cd custom_components/irrigation_plus/frontend && npx vitest run && npm run build`; `git add -f
+     custom_components/irrigation_plus/frontend/dist/`; die geänderten Bundles zählen (erwartet: nur
+     `irrigation-plus-card-impl.js`, das en.json einbettet — weicht es ab, je Bundle `git diff --cached --stat` prüfen
+     und im Bericht nennen). `pytest tests/test_i18n_completeness.py` grün.
+  3. Commit:
+     ```
+     fix(panel): the pause help says what it leaves out and names the hourly setting
+
+     The help promised that no evapotranspiration is booked for any silent
+     sensor and called the hourly setting by a name the panel does not use.
+     It now says that only values the calculation cannot do without stop the
+     booking, that a rain gauge still counts, and names the setting as the
+     Experimental features tab shows it.
+
+     Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+     ```
+
+- [x] **C4: Doku (E1, E2, E3b, E3c)** — `docs/configuration-sensor-groups.md`, Abschnitt „When a sensor goes silent“,
+  genau diese Ersetzungen (sonst nichts):
+  1. Punkt *Pause*, Anfang bis vor „Rain from a cumulative rain gauge …“ ersetzen durch:
+     "- **Pause** (the default for a newly created sensor group): from three hours after the sensor's last report until
+     it reports again, its values are no longer used. Where the evapotranspiration calculation cannot do without one of
+     them (for PyETO: temperature, dewpoint, wind speed and pressure; for the passthrough module: its
+     evapotranspiration sensor), the daily calculation books no evapotranspiration for that time. "
+  2. Punkt *Keep the last value*: „(the setting of every sensor group that existed before)“ →
+     "(the setting of every sensor group created before this option existed)"
+  3. Absatz zur Stundenrechnung, erster Satz „Pausing applies only without the hourly calculation; with it, the last
+     value is still used.“ → "Pausing applies only while **Hourly evapotranspiration** (under **Setup → Experimental**)
+     is off; with it on, the last value is still used."
+  4. Absatz zu den drei Stunden, letzter Satz „With **Pause**, set such a sensor group to **Keep the last value**;
+     otherwise part of the time between its updates is never booked.“ → "If such a sensor group is on **Pause**,
+     switch it to **Keep the last value**; otherwise part of the time between its updates is never booked."
+  5. Nach dem Absatz zu Sensoren ohne Gerät („A sensor without a device that reports only when its value changes, …“)
+     ein neuer Absatz: "With **Pause**, such a sensor's values are then left out as well: the wind template above, for
+     example, stays at 0 on a calm night, and no evapotranspiration is booked for that time. For a sensor group with
+     such a sensor, choose **Keep the last value**, or create the template in the UI as a template helper and attach it
+     to the weather station's device, so that the device's other sensors keep it alive."
+  Commit:
+  ```
+  docs: what a pause leaves out, and the sensors it catches unawares
+
+  The section said a pause stops all booking for any silent sensor. It now
+  names the values the calculation cannot do without, calls the hourly
+  setting by its name in the panel, avoids "from now on", and warns that a
+  device-less sensor which reports only on change, such as the wind
+  template the page suggests, is left out on a calm night under Pause.
+
+  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+  ```
+
+- [x] **C5: Kommentare, die den Stundenpfad oder die Live-Schätzung als geschnitten lesen** — nur Kommentare/Docstrings:
+  - `calculation.py`, Docstring `_blocked_spans_for_zone`: „…; that form cuts together with the live estimate.“ so
+    fassen, dass klar ist: die Stundenform wird hier nicht geschnitten, sie müsste zusammen mit der Live-Schätzung
+    geschnitten werden. Den Satz zum Regenzähler auf `cuts_field` verweisen lassen.
+  - `const.py`, Kommentar über `ISSUE_WEATHER_SENSOR_STALE_PAUSED`: „Chosen while the daily form of the calculation is
+    the one that cuts“ → nach C1 korrekt: gewählt, wo die Tagesrechnung der Gruppe die stumme Zeit wirklich auslässt
+    (pausierende Gruppe, Stundenrechnung aus, ein offener Ausfall mit einem geschnittenen Feld; siehe
+    `sensor_liveness.cuts_field`).
+  - `live_estimate.py`: die Zusagen der Genauigkeit im Modul-Docstring (`converge on exactly what the commit will
+    see`), in der ersten Zeile von `_aggregate_live_window` („reduced exactly as `_aggregate_for_zone` will“), in
+    `_projected_extremes` („converge on exactly what the commit will see“) und an der Stelle „reduced by the same call
+    the commit reduces the whole window with“ je mit einem kurzen Zusatz einschränken, der auf die bewusste Ausnahme
+    in `_aggregate_live_window` verweist (die stumme Zeit einer pausierenden Gruppe). Kein Code.
+  Beleg im Bericht: `git diff` zeigt in diesen Dateien nur Kommentar-/Docstring-Zeilen (z. B. AST-Vergleich ohne
+  Docstrings). Commit:
+  ```
+  docs(comments): no comment claims the hourly form or the live estimate is cut
+
+  Comments described the hourly form as cutting together with the live
+  estimate and the live estimate as converging on exactly what the commit
+  sees. Neither holds for a pausing group's silent time, which only the
+  daily commit leaves out; the comments now say so.
+
+  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+  ```
+
+- [x] **C6: Pins für Kanten, die die Reviews ungepinnt fanden** (nur Tests, alle sofort grün erwartet; scheitert einer,
+  ist das ein echter Befund — STOP und melden, nicht den Code anpassen):
+  1. `tests/test_silent_sensor_setting.py`: Ein Speichern ohne den Schlüssel bleibt ohne den Schlüssel —
+     `MAPPING_VIEW_SCHEMA({const.MAPPING_NAME: "x"}) == {const.MAPPING_NAME: "x"}` (fängt ein `default=` am Schlüssel,
+     das jede *behalten*-Gruppe beim Speichern eines alten Panels umstellen würde).
+  2. `tests/test_silent_sensor_commit.py`, `TestTheGate`: offener Ausfall → die Sperre endet beim `now` des Commits
+     (nicht bei der Uhr): Ausfall offen seit W + 2 h → `{T: ((W + 5 h, NOW),)}` (an die Helfer der Datei anpassen).
+  3. `tests/test_weather_aggregate_blocked.py`: Feld ohne eigene Zeilen im Fenster, nur `last_entry` (z. B.
+     `{T: 20.0}`), über das ganze Fenster gesperrt → `T` fehlt im Ergebnis (kein Auffüllen); Zeilen nur für ein anderes
+     Feld (Taupunkt).
+  4. `tests/test_weather_aggregate_blocked.py`: zwei Sperren an einem Feld (drei gültige Abschnitte) — einfaches
+     Mittel, zeitgewichtetes Mittel und `riemannsum`, je mit von Hand gerechnetem Sollwert im Kommentar.
+  5. `tests/test_weather_aggregate_blocked.py`: Fenster **ohne** Wasserzeichen (`watermark=None`), zwei Zeilen
+     desselben Felds am Fensterstart mit gleichem Stempel, beide in einer Sperre `[t0, t0 + 2 h)`, danach keine Zeile,
+     `now = t0 + 4 h` → einfaches Mittel und `maximum` ergeben den gehaltenen letzten Wert (pinnt die zwei
+     Rückfall-Zweige `… if values else held[0]` und `elif not values` in `_aggregate_blocked`, die über den Commit
+     unerreichbar sind, ohne Wasserzeichen aber erreichbar — ohne sie würfe `statistics.mean([])`).
+  6. `tests/test_sensor_liveness_blocked.py`: zwei Ausfälle eines Felds, deren Sperren aneinanderstoßen (Ende der einen
+     = Beginn der anderen) → eine Sperre.
+  7. `tests/test_sensor_liveness_coordinator.py`: offener Hinweis einer Gruppe auf *behalten* (PR-1-Text), dann
+     `async_update_mapping_config` mit `on_silent_sensor: "pause"` über einen Store, der den Wert wirklich speichert
+     (`_FakeStore` der Datei oder echter Store) → der Hinweis wechselt auf die Variante (pinnt, dass der Abgleich nach
+     dem Schreiben liest).
+  Commit:
+  ```
+  test: pin the edges of a pause the reviews found unpinned
+
+  A save without the setting, an open outage ending at the commit's now,
+  a fully blocked field with only a carried value, two spans on one field,
+  the fallbacks of a window without a watermark, touching spans, and a
+  notice switching from keep to pause through a real save.
+
+  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+  ```
+
+- [x] **Abschluss des Tasks (Implementer):** `uvx black custom_components/irrigation_plus/ <geänderte Testdateien>`,
+  `uvx ruff check custom_components/irrigation_plus/` (nur die 20 bekannten UP017), die geänderten Testdateien grün,
+  `git status --short` leer. **Controller danach:** volle Suite mit Namensvergleich, vitest + Build (dist == HEAD),
+  Mutationen 1–22 plus neue (Schema-`default`, `_merged` `<=`→`<`, Gate-`now` → Uhr, `cuts_field` ohne `delta`-Prüfung
+  im Hinweis, Re-Sync ohne `mappings`, beide Prozent-Klammern, beide Rückfall-Zweige), Re-Review der Fix-Welle,
+  Eigenbezug-Greps.
+
+**Bau 2026-10-13:** C1–C6 = `720b9e84` … `549d5e2e`, dazu Pin `030e12a3` (Re-Review: Filter `outage.end is None` ungepinnt). Suite 7/3921/9/462 (Baseline 7/3819/9/430; 0 entfallen, FAILED gleich, 32 neue nur Teardown „Lingering timer“), Mutationen 34/34 (M12/M20 neu verankert, M23–M34 neu), vitest 661, dist == Build, Re-Review: alle Befunde erledigt.
+
+---
+
 ### Task 11: Pre-Release und Live-Test auf HA-Test
 
 **Files:** keine Codeänderung. Belege nach `D:\Entwicklung\HASI\issue8-pr2-work\livetest\`.

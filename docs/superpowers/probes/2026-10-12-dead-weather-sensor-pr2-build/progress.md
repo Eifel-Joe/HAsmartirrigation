@@ -136,3 +136,25 @@ Task 10 Step 5: Abschluss-Review (Opus) „With fixes“: 0 Critical, 2 Importan
   Important 1 (Hinweis/Log melden Schnitt, den die Rechnung nicht macht: nur-Regenzähler-Ausfall → paused-Text; Nicht-Pflichtfelder → „no ET booked“ falsch) — vom Controller nachgeprüft: Code folgt Spec §5 wörtlich (Variante = pause UND nicht Stundenrechnung, ohne Feldbezug) → Spec-Lücke, kein Umsetzungsfehler; Probe des Reviewers sdd/probe_rain_notice.py
   Important 2 (Standard pause + gerätelose Template-Sensoren wie `wind_at_2m` aus der Doku :43-49 → windstille Nacht = Ausfall → Wind (Pflichtfeld) gesperrt → ~29 % ET weg) — nachgeprüft: Doku :66 nennt gerätelose Template-/Utility-Meter-Sensoren selbst als „looks silent“; Rev. 3 nahm nur den Fehlalarm hin
 Ruling: STOP vor der Fix-Welle — beide Important berühren Spec §5 und vom User freigegebene Wortlaute (Hinweis, Doku, Panel-Hilfe) bzw. die Standard-Entscheidung 9 → User-Entscheidung; die reinen Test-Pins/Kommentare bündle ich danach in EINE Fix-Welle — kostet: Wartezeit bis zur Antwort
+Archiv: 342be9e1 gepusht (4abd4c7a..342be9e1, origin == lokal 0/0); Upstream-Runde 19:05 UTC leer (6a40e083). Entscheidungsfragen E1–E4 an den User gestellt; Fix-Welle wartet.
+User 2026-10-13: E1=2, E2=2, E3=Ok, E4=3; Wortlaute de/en freigegeben („Texte freigegeben“)
+Spec-Nachtrag 2026-10-13 + Plan Task 10b (C1–C6) geschrieben (Hauptbaum, ungetrackt)
+Ruling: die zwei „unerreichbaren“ Zweige in _aggregate_blocked bleiben und werden gepinnt statt entfernt — über den Commit unerreichbar (Gate nur mit Wasserzeichen, dann ≤1 Zeile ≤ start), ohne Wasserzeichen aber erreichbar, ohne sie würfe statistics.mean([]) — kostet: ein Test mit konstruiertem Eingang
+Ruling: Fix-Welle als eigene Commits C1–C6 auf a9708bec (kein Falten jetzt); ob gefaltet wird, entscheidet der User vor dem PR (wie bei PR 1) — kostet: a9708bec-Message behauptet Kommentare „qualified“, erst C5 macht es wahr
+Ruling: Fix-Implementer Opus (mehrere Dateien, 6 Übersetzungen, Handrechnungen) — kostet mehr Token als Sonnet
+Task 10b: BASE a9708bec, Implementer (Opus) dispatcht
+Task 10b: implementer DONE_WITH_CONCERNS, 6 Commits 720b9e84..549d5e2e; 12/12 freigegebene Wortlaute per Skript wörtlich; Eigenbezug-Greps leer; Trailer 6× Opus; Bedenken: Mock-Store-Anpassung in test_a_source_change_empties_the_record_and_drops_the_notice (keine Assertion geändert), 2 Bundles statt 1 (irrigation-plus.js bettet en.json auch ein), sk 'vôbec'→'vôbec nie'
+Task 10b: mutate-pr2b.py vorbereitet (make_mutate_b.py): M12/M20 neu verankert, M23–M33 neu (Schema-default, _merged <=, Gate-now, Hinweis/Log ohne cuts_field, Re-Sync ohne mappings, 2 Prozent-Klammern, 2 Rückfall-Zweige, cuts_field=True); MUT_CHECK 33/33 Anker genau einmal auf 549d5e2e
+Task 10b: suite t10b: 7 failed / 3920 passed (+17 = neue Fälle inkl. Parametrisierung) / 9 skipped / 462 errors (+4 Teardown der neuen Koordinator-Tests); (1) 0, (2) FAILED gleich, (3) 32 Teardown-ERROR test_silent_sensor_commit.py, UNEXPECTED 0
+Task 10b: Re-Review (Sonnet): alle Befunde 1–8g ADDRESSED, keine neue Critical/Important; Mock-Anpassung = getreues Double (Produktionspfad durch test_sensor_liveness_repair.py::test_the_notice_goes_when_its_sensor_is_replaced gedeckt); 6 Übersetzungen per Skript geprüft (keep-Label, Name der Einstellung, Platzhalter, Anführungszeichen)
+Task 10b: minor (Re-Review): `if outage.end is None` in _stale_issue_key (sensor_liveness.py:608) ungepinnt
+Ruling: diesen einen Pin noch ergänzen (ein Test, Sonnet) statt parken — der Maintainer fährt eigene Mutationen, und ein überlebender Mutant verdächtigt den Test (Memory) — kostet einen kleinen Dispatch außerhalb der „einen Fix-Welle“
+Task 10b: out-of-scope (deferred): weather_aggregate.py:525 wiederholt die delta-Ausnahme inline (Import-Richtung); live_estimate.py:596 „agree by construction“ ohne Zusatz (durch erste Zeile + letzten Absatz gedeckt)
+Task 10b: Pin 030e12a3 „test: a closed outage does not decide the paused notice“ (Sonnet): grün 49 passed, unter Mutation (Zeile 608 entfernt) rot `'weather_sensor_stale_paused' == 'weather_sensor_stale'`, Datei per cmp zurück
+Task 10b: M34 (Filter `if outage.end is None` entfernt) in mutate-pr2b.py, 34/34 Anker; Frontend auf 030e12a3: vitest 661 passed, Build lässt dist unverändert, git status leer, tsc ohne Ausgabe
+Task 10b: Suite t10c + Mutationen 1–34 laufen (nacheinander, Hintergrund)
+Task 10b: suite t10c (HEAD 030e12a3): 7 failed / 3921 passed (+1 Pin) / 9 skipped / 462 errors; (1) 0, (2) FAILED gleich, (3) 32 Teardown, UNEXPECTED 0
+Task 10b: Mutationen 34 killed / 34 applied / 34 total, expected killer 34/34, sha256 restore True, git diff --quiet HEAD True (mutate-pr2b.txt, mutations-pr2b.json)
+Task 10b: Lint auf 030e12a3: black 70+6 unverändert, ruff 0.16.10 Paket „All checks passed!“, ruff 0.17.0 geänderte .py „All checks passed!“; Eigenbezüge Diff 0 / Messages 0; 16 Commits, 0 behind
+Task 10b: complete (commits a9708bec..030e12a3, re-review clean, 1 Pin nachgezogen)
+Task 10: complete (Steps 1–6 auf a9708bec, Fix-Welle 10b auf 030e12a3)
