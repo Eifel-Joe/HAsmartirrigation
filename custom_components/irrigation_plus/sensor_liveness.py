@@ -504,9 +504,11 @@ class SensorLivenessMixin:
         this check's stale copy, and the outages and their events would return.
         """
         now = now if now is not None else local_naive_now()
+        cut_changed = False
         for mapping in await self.store.async_get_mappings():
             try:
-                await self._async_check_mapping_liveness(mapping, now)
+                if await self._async_check_mapping_liveness(mapping, now):
+                    cut_changed = True
             except Exception:
                 # A periodic check: one broken group must not stop the others,
                 # every five minutes, for good.
@@ -514,8 +516,27 @@ class SensorLivenessMixin:
                     "Sensor liveness check failed for sensor group %s",
                     mapping.get(const.MAPPING_ID),
                 )
+        if cut_changed:
+            await self._refresh_estimates_after_outage_change()
 
-    async def _async_check_mapping_liveness(self, mapping: dict, now: datetime) -> None:
+    async def _refresh_estimates_after_outage_change(self) -> None:
+        """Recompute the live estimates once a pausing group's cut has moved.
+
+        Nothing else would: a silent station writes no rows, so the ingestion
+        that normally refreshes them stays quiet until the next poll, commit or
+        run. Not the throttled refresh -- a reading in the last minute would
+        swallow it, and this check comes round only every five minutes.
+        """
+        refresh = getattr(self, "async_refresh_zone_estimates", None)
+        if refresh is None:
+            return
+        try:
+            await refresh()
+        except Exception:  # noqa: BLE001 — an estimate must not break the check
+            _LOGGER.debug("Live estimate refresh after an outage failed", exc_info=True)
+
+    async def _async_check_mapping_liveness(self, mapping: dict, now: datetime) -> bool:
+        """Check one sensor group; whether an outage of a pausing one opened or closed."""
         mapping_id = mapping[const.MAPPING_ID]
         name = mapping.get(const.MAPPING_NAME) or str(mapping_id)
         outages = outages_of(mapping)
@@ -579,6 +600,7 @@ class SensorLivenessMixin:
             self._fire_weather_stale(mapping_id, name, outage)
         if opened or closed:
             self._sync_stale_issue(mapping_id, name, kept)
+        return bool(opened or closed) and group_pauses(mapping)
 
     def _sensor_liveness_snapshot(self, entity_id: str):
         """``(own, siblings, device_id)`` for one sensor-mapped entity."""
