@@ -85,8 +85,9 @@ def required_sensor_fields(module_name, *, hourly=False):
     were measured, so the share depends on the form of the equation: PyETO's
     hourly form needs temperature, humidity, wind and the sun
     (``HOURLY_ROW_REQUIRED``) and derives pressure from the elevation, its
-    daily form the fields above. A free function, because the live estimate
-    has to book the same share and its mixin cannot call this one's.
+    daily form the fields of ``_REQUIRED_SENSOR_FIELDS``. A free function,
+    because the live estimate has to book the same share and its mixin cannot
+    call this one's.
     """
     if hourly and module_name == "PyETO":
         return HOURLY_ROW_REQUIRED

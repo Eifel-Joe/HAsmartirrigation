@@ -1179,9 +1179,9 @@ class LiveEstimateMixin:
 
         A pausing sensor group's commit books only the part of the window in
         which every field of its daily form was measured (``blocked``), so this
-        books the same part. With none, nothing is booked: a field silent
-        throughout answers 0 here rather than None, which would send the source
-        chain on to a weather service the commit never books from.
+        books the same part. With no measured time, nothing is booked: a field
+        silent throughout answers 0 here rather than None, which would send the
+        source chain on to a weather service the commit never books from.
 
         The crop coefficient is deliberately NOT applied here; the caller applies
         it to whichever source produced the window total, exactly as the commit
@@ -1194,9 +1194,9 @@ class LiveEstimateMixin:
             return None
         # The share comes before the forecast is looked up: a window in which a
         # field of the daily form was silent throughout is booked as 0 by the
-        # commit, which asks neither the equation nor the forecast for it. Asked
-        # after the forecast, a zone with none in hand would return None here and
-        # the source chain would move on to a weather service.
+        # commit whatever the forecast says, and the equation is not asked for
+        # it. Asked after the forecast, a zone with none in hand would return
+        # None here and the source chain would move on to a weather service.
         share = None
         if blocked:
             module = self.store.get_module(zone.get(const.ZONE_MODULE)) or {}
