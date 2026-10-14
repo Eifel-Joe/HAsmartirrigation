@@ -235,6 +235,39 @@ def valid_share(blocked: dict, fields, start: datetime, end: datetime) -> float:
     return max(0.0, (length - gone) / length)
 
 
+def zone_blocked_spans(store, zone: dict, start, end) -> dict | None:
+    """A pausing group's blocked time in one zone's window ``[start, end)``, or None.
+
+    The one place the commit and the live estimate take their spans from, so both
+    leave out the same time. A free function over the store rather than a method:
+    the live estimate's mixin runs on its own in its tests, where a cross-mixin
+    call raises and is swallowed as a failed estimate. ``start`` is the caller's
+    -- the commit's watermark, the estimate's anchor -- and ``end`` its ``now``,
+    which also ends an open outage.
+
+    None leaves a window exactly as it always was: a group that keeps, a zone
+    without a group or a start, an empty window, or one no outage reaches. Which
+    fields are cut, ``cuts_field`` says: never a cumulative rain gauge.
+    """
+    mapping_id = zone.get(const.ZONE_MAPPING)
+    if mapping_id is None:
+        return None
+    mapping = store.get_mapping(mapping_id)
+    if not mapping or not group_pauses(mapping):
+        return None
+    start = coerce_stamp(start, STAMP_FROM_STORE)
+    end = coerce_stamp(end, STAMP_FROM_STORE)
+    if start is None or end is None:
+        return None
+    config = mapping.get(const.MAPPING_MAPPINGS) or {}
+    blocked = {
+        field: spans
+        for field, spans in blocked_spans(outages_of(mapping), start, end).items()
+        if cuts_field(field, config)
+    }
+    return blocked or None
+
+
 def _merged(spans) -> tuple[tuple[datetime, datetime], ...]:
     """Sorted spans with every overlap or touch joined into one."""
     merged: list[tuple[datetime, datetime]] = []
