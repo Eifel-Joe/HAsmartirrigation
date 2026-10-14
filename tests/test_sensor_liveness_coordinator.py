@@ -1233,6 +1233,7 @@ class TestTheEstimateFollowsTheRecord:
             {"dev1": ["sensor.temp"], "dev2": ["sensor.wind"]},
         )
         coord.async_refresh_zone_estimates = AsyncMock()
+        coord.async_refresh_zone_estimates_throttled = AsyncMock()
         return coord, store
 
     async def test_an_outage_that_opens_refreshes_the_estimates(self, monkeypatch):
@@ -1241,6 +1242,7 @@ class TestTheEstimateFollowsTheRecord:
         )
         await coord.async_check_sensor_liveness(now=T0)
         coord.async_refresh_zone_estimates.assert_awaited_once()
+        coord.async_refresh_zone_estimates_throttled.assert_not_awaited()
 
     async def test_a_check_that_changes_nothing_does_not(self, monkeypatch):
         coord, _ = self._silent_station(
@@ -1261,6 +1263,7 @@ class TestTheEstimateFollowsTheRecord:
         )
         await coord.async_check_sensor_liveness(now=T0 + timedelta(minutes=5))
         assert coord.async_refresh_zone_estimates.await_count == 2
+        coord.async_refresh_zone_estimates_throttled.assert_not_awaited()
 
     async def test_a_group_that_keeps_does_not(self, monkeypatch):
         coord, store = self._silent_station(
