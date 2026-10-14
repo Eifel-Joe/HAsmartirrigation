@@ -23,6 +23,62 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-14 (2) — PR 3 (Eifel-Joe#8, Teil 3) gebaut: 14 Commits, Suite + 37/37, Abschluss-Review mit Fix-Welle; Archiv gepusht; Upstream-Runden leer
+
+### Stand
+
+- **Upstream-Runden** 13:59, 15:02, 16:47 und 18:04 UTC (Fenster ab 13:56): leer. `JustChr#197` offen, Kopf `6fa424e8`,
+  0 Reviews, keine CI (letzter Workflow-Lauf bei JustChr weiter 2026-10-08); `upstream/master` `6a40e083`. P2: nichts.
+- **PR 3 gebaut** (subagent-driven, Sonnet-Implementer, Review je Task, Abschluss-Review Opus) im Worktree
+  `issue8-pr3-work\wt`, Branch `feat/pause-silent-sensor-hourly-live` (lokal, **ungepusht**), auf `6fa424e8`:
+  14 Commits `d72c05d1` … `c21478c8` = 9 Tasks + Fix-Runde T7 `08728aa7` + Fix-Runde T9 `e62b046f` + Abschluss-Fix-Welle
+  `08fed661`/`1b0dfee0`/`c21478c8`. Ledger mit allen Rulings: `issue8-pr3-work\sdd\progress.md`.
+- **Belege Endstand `c21478c8`:** volle Suite 7 failed / 4001 passed / 9 skipped / 496 errors gegen Baseline 7/3925/9/466
+  (FAILED gleich, nur die 2 umbenannten Namen entfallen, neue ERROR alle Teardown „Lingering timer“, UNEXPECTED 0;
+  `sdd\compare-t10f.txt`); Mutationen **37/37** je vom erwarteten Killer (`mutate-final-wt.txt`; auch auf `e62b046f`
+  37/37); black + ruff 0.16.10 sauber; Eigenbezüge in Diff und Messages 0.
+- **Über den Plan hinaus** (Rulings, je mit Review): T7 — im Tagesform-Spiegel der Anteil vor der Prognose (sonst fiel die
+  Kette bei Anteil 0 ohne Prognose zum Wetterdienst, Commit bucht 0; Spec G9). T9 — Test hält die freigegebene
+  Abweichung „ungedrosselte Neuberechnung“. Abschluss-Review „bereit mit Fixes“ (0 C / 1 I / 13 M) → eine Fix-Welle:
+  Pins für Verdrahtungen, die kein Test bemerkte, Test-Schärfungen, Kommentare, `dt_hours` → `measured_hours`;
+  Produktionslogik unverändert; Nach-Review 18/18, 4 Minor geparkt.
+- **Archiv** (Freigabe „Archiv pushen“): `add8be59..d8deb5f8` = Plan abgehakt + Bauprotokoll
+  `probes/2026-10-14-dead-weather-sensor-pr3-build/`. **Noch nicht im Archiv:** Ergebnis des zweiten Mutationslaufs
+  (37/37 auf `c21478c8`) und dieser Sitzungsstand; Plan Task 10 Step 5 deshalb noch offen.
+- **C: lief voll** (0 Byte). User-Rüge „wieder auf C:“ — Temp der Läufe lag auf C:. Behoben (siehe Fallen); eigener
+  Müll: 17 HASI-Dateien aus `%TEMP%` und 135 alte Sitzungsordner nach `_erledigt\c-temp-2026-10-14\` verschoben, 4
+  pytest-Ordner gelöscht. Unser Anteil war ~15 MB; C: fiel danach wieder auf 0 und stand später bei 2,5 GB frei —
+  Ursache nicht von uns, nicht untersucht (Entscheidung des Users).
+
+### Fallen
+
+- Temp-Umleitung gehört in die Werkzeuge, nicht ins Gedächtnis: `TEMP`/`TMP`/`TMPDIR` und `UV_CACHE_DIR` auf
+  `issue8-pr3-work\{tmp,uv-cache}` (in `task_compare.sh`, `sdd\suite_compare.sh`, `sdd\header.md`; `mutate-pr3.py` setzt
+  TEMP selbst). Bei vollem C: scheitern `uvx` (`os error 112`) und `sort`/Pipes (`No space left on device`).
+- Reviewer parallel zu einem Mutationslauf nur mit Lesen aus Git-Objekten (`git show <sha>:pfad`).
+- `review-package` im Worktree aufrufen (sonst „bad BASE“).
+- `%TEMP%\mig-*` (3227 Ordner, Backups `claude_terminal_pro`) sind nicht von HASI — liegen lassen.
+
+### Nächste Schritte
+
+1. **Upstream-Runde** ab 2026-10-14 18:04 UTC; #197 (Antwort, Merge, CI). Antwort von JustChr → P2, Änderungen an PR 2
+   als neue Commits in `issue8-pr2-work\wt`, danach in PR 3 nachziehen.
+2. **Task 11 nur mit Freigaben:** production-Pre-Release nach Memory `hasi-production-on-upstream` (Rezept v2026.10.13b1;
+   PR 2 inkl. L1-Fix `fa701bcd`/`6fa424e8` + diese 14 Commits), Release-Text de → en, Push/Release; HA-Test-Update
+   (Neustart ankündigen); Live-Test nach Spec PR 3 *Ende-zu-Ende-Kriterium* (3,5 h Ausfall tagsüber), Protokoll
+   `issue8-pr3-work\livetest\L-pr3.md`.
+3. **Nächster Archiv-Stand** (Freigabe): `mutate-final-wt.txt` + `mutations-final-wt.json` + dieser Sitzungsstand, dann
+   Plan Task 10 Step 5 abhaken.
+4. **Task 12** nach Merge von #197: `rebase --onto`, Neubeleg (Baseline, Suite, Mutationen, Lint, dist), PR-Text de → en,
+   P2.
+5. Aufräumen nach Freigabe: `issue8-pr3-work\probe-wt` (Worktree) und `src` (Plan-Belege archiviert); `uv-cache` (38 MB)
+   nach PR 3.
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:verification-before-completion`; Task 11: Memory `hasi-production-on-upstream`,
+  `hasi-livetest-capability-boundary`, `ha-no-auto-restart`; Task 12: `pr-workflow`, Memory `hasi-pr-build-recipe`.
+
 ## 2026-10-14 — Upstream-Runden leer; `JustChr#197` ohne CI (CI-Hinweis gesendet); aufgeräumt; PR 3: Spec + Plan freigegeben, Probelauf 37/37
 
 ### Stand
@@ -93,7 +149,7 @@
   `red-check.txt`); Patch `probe-2026-10-14.patch`. **Vom User freigegeben 2026-10-14**: Plan, Doku-Wortlaut (de, Abschnitt
   *Wortlaute*) und die vier Abweichungen von der Spec (Planende: ungedrosselte Neuberechnung, leere Zeilen, Regen-Zuwachs
   am Sperrrand geteilt, gleichwertige Bedingung entfernt); Ausführung **subagent-driven**. Plan + Probelauf-Belege
-  archiviert unter `probes/2026-10-14-dead-weather-sensor-pr3-plan/` (Push freigegeben).
+  archiviert unter `probes/2026-10-14-dead-weather-sensor-pr3-plan/`, Archiv `add8be59` (Push freigegeben, Remote = lokal).
 - Fallen: `ruff` ungepinnt zieht 0.17 → UP017 in fremden Dateien, deshalb `uvx ruff@0.16.10`; `git cherry-pick` kennt kein
   `-q`; Bash-Heredoc frisst `\n` (Skripte mit Backslashes per Write-Tool); eine Testzeile genau auf dem `now` einer offenen
   Sperre zählt als gemessen (halboffen) — Fixtures mit eingefrorenen Werten enden davor; mit `now` genau auf der vollen

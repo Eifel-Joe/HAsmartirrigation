@@ -27,9 +27,12 @@ Spec-Check per Skript, Task-Review Sonnet, Abschluss-Review Opus. Spec:
   ERROR sind Teardown „Lingering timer“ von Tests mit echtem Koordinator (Klassifizierer `tools/classify_new_errors.py`,
   UNEXPECTED 0). Gegen den Probe-Endstand (3989/487) nur der Test der T7-Fix-Runde mehr; die Fix-Welle +11.
 - **Mutationen** (`tools/mutate-pr3.py`, 37 Anker): auf `e62b046f` **37/37 getötet**, jede vom im Plan genannten Killer,
-  jede Quelle sha256-gleich zurück (`suite/mutate-wt.txt`, `suite/mutations-wt.json`). Auf dem Endstand `c21478c8`
-  (Anker 37/37 je genau einmal) lief zum Zeitpunkt dieses Protokolls ein zweiter Lauf — Ergebnis folgt mit dem
-  nächsten Archiv-Stand.
+  jede Quelle sha256-gleich zurück (`suite/mutate-wt.txt`, `suite/mutations-wt.json`). Zweiter Lauf auf dem Endstand
+  `c21478c8` (`suite/mutate-final-wt.txt`, `suite/mutations-final-wt.json`): ebenfalls **37/37 getötet**, jede vom
+  genannten Killer, nichts überlebt/hängend/kaputt/nicht angewandt, jede Quelle sha256-gleich zurück,
+  `git diff --quiet HEAD` wahr. Dass er wirklich `c21478c8` gemessen hat: die im Kopf des Protokolls stehenden
+  Quell-Hashes sind gleich denen des sauberen Worktrees auf `c21478c8`, und `c21478c8` ändert `weather_aggregate.py`
+  gegenüber `1b0dfee0`.
 - **Lint:** black (26.10.1) sauber, ruff 0.16.10 sauber (uv-Cache auf D:, weil C: voll war); Eigenbezüge in Diff und
   Commit-Messages 0.
 - **Reviews:** `reports/review-tN-report.md` je Task, Nach-Reviews der Fix-Runden `reports/rereview-*-report.md`.

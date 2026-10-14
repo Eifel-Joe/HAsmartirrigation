@@ -3949,7 +3949,7 @@ zurück. Kein pytest-Lauf daneben (Memory `workflow-agent-hygiene`).
   Plan. Rückmeldungen über `superpowers:receiving-code-review` prüfen; Entscheidungen, die die Spec berühren, dem User
   vorlegen.
 
-- [ ] **Step 5: P1** — Plan-Häkchen und Bauprotokoll (`issue8-pr3-work\task-*.txt`, `suite-final.txt`, `mutate-wt.txt`,
+- [x] **Step 5: P1** — Plan-Häkchen und Bauprotokoll (`issue8-pr3-work\task-*.txt`, `suite-final.txt`, `mutate-wt.txt`,
   Review-Bericht) nach `archive/design-history`, `docs/superpowers/probes/2026-10-14-dead-weather-sensor-pr3-build/`;
   Push nur nach Freigabe.
 
