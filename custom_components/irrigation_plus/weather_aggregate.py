@@ -1386,7 +1386,15 @@ def _weights_from_hourly_et(weights, hours, dt_hours, hourly_et):
 
 
 def build_substeps(
-    readings, watermark, mappings_config, *, now=None, hourly_et=None, applied=None
+    readings,
+    watermark,
+    mappings_config,
+    *,
+    now=None,
+    hourly_et=None,
+    applied=None,
+    blocked=None,
+    required=(),
 ):
     """Cut a zone's window into ordered water-balance sub-steps, or None.
 
@@ -1416,6 +1424,16 @@ def build_substeps(
     inside the window. Each one earns a cut and is booked on the step it ends,
     exactly as rain is; the caller must then start the replay from the level
     BEFORE those credits, since the stored bucket already contains them.
+
+    ``blocked`` is a pausing sensor group's blocked time per field and
+    ``required`` the fields the zone's form of the equation cannot do without.
+    ET is booked only where all of those were measured, so it is placed only
+    there: the sun weighs the steps over that time alone, and the sun's own
+    blocked time weighs nothing either, its frozen value being no measurement.
+    That moves where the window's ET lands, never how much there is. A blocked
+    rain rate adds only its measured rain, as the aggregate does, so the two
+    still reconcile. Without spans on any of those fields the steps are exactly
+    what they were.
 
     Returns None whenever the window cannot be sub-stepped faithfully — no
     timestamps, a zero-length window, a precipitation aggregate with no time
@@ -1447,6 +1465,9 @@ def build_substeps(
         increments = _precip_increments(
             precip_samples,
             effective_aggregate(const.MAPPING_PRECIPITATION, mappings_config),
+            spans=blocked.get(const.MAPPING_PRECIPITATION) if blocked else None,
+            start=start,
+            end=end,
         )
         if increments is None:
             return None
@@ -1486,25 +1507,59 @@ def build_substeps(
     # against 0.039 for the flat one, with an hour-boundary jump smaller than a
     # typical within-hour step. That is what keeps the intra-day shape honest for
     # anything that later publishes it.
+    #
+    # A pausing group books ET only where every required field was measured, so
+    # ``mask`` -- that blocked time plus the sun's own -- is where none is
+    # placed. None while neither has spans, which leaves the placement as it was.
+    mask = None
+    booked = None
+    if blocked:
+        spans = sorted(
+            span
+            for key in {*required, const.MAPPING_SOLRAD}
+            for span in blocked.get(key, ())
+        )
+        if spans:
+            mask = spans
+            booked = _valid_segments(spans, start, end)
     solar = by_sensor.get(const.MAPPING_SOLRAD)
     table = None
+    masked_sun = None
     if solar:
         solar = _clamped_samples(solar, start, end)
         if solar is not None:
-            points, values, cumulative = _hold_integral_table(solar, start, end)
-            if cumulative[-1] > 0:
-                table = (points, values, cumulative)
+            if mask is None:
+                points, values, cumulative = _hold_integral_table(solar, start, end)
+                if cumulative[-1] > 0:
+                    table = (points, values, cumulative)
+            else:
+                sun = _masked_hold_table(
+                    solar,
+                    blocked.get(const.MAPPING_SOLRAD, ()),
+                    start,
+                    end,
+                    mask=mask,
+                )
+                if sun is not None and sun[2][-1] > 0:
+                    masked_sun = sun
 
     steps = []
     weights = []
     hours = []
+    # Each step's measured time, in hours: all of it without a mask.
+    measured = []
     for i in range(len(cuts) - 1):
         a, b = cuts[i], cuts[i + 1]
         dt_hours = (b - a).total_seconds() / 3600
-        if table is None:
+        measured_hours = dt_hours if booked is None else _overlap_hours(booked, a, b)
+        if masked_sun is not None:
+            weight = max(
+                0.0, _masked_upto(masked_sun, b)[0] - _masked_upto(masked_sun, a)[0]
+            )
+        elif table is None:
             # No usable radiation (unmapped, or a window entirely after dark):
             # fall back to elapsed time, which is the same total spread flat.
-            weight = dt_hours
+            weight = measured_hours
         else:
             weight = max(
                 0.0,
@@ -1513,11 +1568,10 @@ def build_substeps(
         weights.append(weight)
         hours.append(a.replace(minute=0, second=0, microsecond=0))
         steps.append((dt_hours, rain_at.get(b, 0.0), applied_at.get(b, 0.0)))
+        measured.append(measured_hours)
 
     if hourly_et is not None:
-        weights = _weights_from_hourly_et(
-            weights, hours, [dt for dt, _, _ in steps], hourly_et
-        )
+        weights = _weights_from_hourly_et(weights, hours, measured, hourly_et)
         if weights is None:
             return None
 
@@ -1525,10 +1579,15 @@ def build_substeps(
     if total <= 0:
         # Night-only window under solar weighting. ET over such a window is
         # <= 0.017 mm/day, but it still has to go somewhere: spread it by time.
-        weights = [dt for dt, _, _ in steps]
+        weights = list(measured)
         total = sum(weights)
         if total <= 0:
-            return None
+            # No measured time at all: nothing is booked, so the ET to place is
+            # 0 -- spread it flat, so the rain still replays.
+            weights = [dt for dt, _, _ in steps]
+            total = sum(weights)
+            if total <= 0:
+                return None
 
     return [
         WaterStep(dt_hours, weight / total, precip_mm, applied_mm)
