@@ -41,13 +41,7 @@ from .helpers import (
 )
 from .helpers import as_datetime as _as_datetime
 from .localize import localize
-from .sensor_liveness import (
-    blocked_spans,
-    cuts_field,
-    group_pauses,
-    outages_of,
-    valid_share,
-)
+from .sensor_liveness import valid_share, zone_blocked_spans
 from .weather_aggregate import (
     aggregate_window,
     build_substeps,
@@ -420,37 +414,20 @@ class CalculationMixin:
     def _blocked_spans_for_zone(self, zone, *, now):
         """The time this zone's window may not book from its sensor group, or None.
 
-        Only a group that pauses a silent sensor is cut, and only in the daily
-        form: with the hourly calculation the replayed balance checks itself
-        against this aggregate's precipitation, so cutting one and not the
-        other would fail that check. The hourly form is not cut here: it would
-        have to be cut together with the live estimate. None leaves the commit
-        as it always was, and so does a window no outage reaches, or a zone
-        that has never consumed (its first commit anchors it). Which fields are
-        blocked, ``sensor_liveness.cuts_field`` decides: never a cumulative
-        rain gauge.
+        The commit's window runs from the zone's watermark to ``now``, and
+        ``sensor_liveness.zone_blocked_spans`` cuts it -- the function the live
+        estimate asks too. A zone that has never consumed has no watermark and
+        is not cut (its first commit anchors it).
+
+        Only in the daily form for now: with the hourly calculation the replayed
+        balance checks itself against this aggregate's precipitation, so cutting
+        one and not the other would fail that check.
         """
-        mapping_id = zone.get(const.ZONE_MAPPING)
-        if mapping_id is None:
-            return None
-        mapping = self.store.get_mapping(mapping_id)
-        if not mapping or not group_pauses(mapping):
-            return None
         if hourly_calculation_enabled(self.store):
             return None
-        watermark = coerce_stamp(zone.get(const.ZONE_LAST_CONSUMED), STAMP_FROM_STORE)
-        now = coerce_stamp(now, STAMP_FROM_STORE)
-        if watermark is None or now is None or watermark >= now:
-            return None
-        config = mapping.get(const.MAPPING_MAPPINGS) or {}
-        blocked = {
-            field: spans
-            for field, spans in blocked_spans(
-                outages_of(mapping), watermark, now
-            ).items()
-            if cuts_field(field, config)
-        }
-        return blocked or None
+        return zone_blocked_spans(
+            self.store, zone, zone.get(const.ZONE_LAST_CONSUMED), now
+        )
 
     async def _aggregate_for_zone(self, zone, *, now, blocked=None):
         """Aggregate this zone's window of its mapping's shared buffer.
