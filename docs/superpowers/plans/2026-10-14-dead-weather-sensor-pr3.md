@@ -145,7 +145,7 @@ Commits erzeugt** (Generator `issue8-pr3-work\make_plan.py`), nicht abgetippt.
 
 **Files:** keine Codeänderung.
 
-- [ ] **Step 1: Upstream-Runde und Basis prüfen**
+- [x] **Step 1: Upstream-Runde und Basis prüfen**
 
 ```bash
 cd /d/Entwicklung/HASI/HAsmartirrigation
@@ -158,7 +158,7 @@ Erwartet: `6fa424e8`, PR offen, 18 Commits. Hat das Review von PR 197 Commits hi
 Anker-Stelle dieses Plans per `grep -n` neu suchen und die Baseline dort messen. Ist PR 197 schon gemergt: Basis =
 `upstream/master` (dann enthält er PR 2 gesquasht); Anker ebenso neu suchen.
 
-- [ ] **Step 2: Worktree von `6fa424e8` anlegen**
+- [x] **Step 2: Worktree von `6fa424e8` anlegen**
 
 ```bash
 cd /d/Entwicklung/HASI/HAsmartirrigation
@@ -167,7 +167,7 @@ cp _local_socket_unblock.py /d/Entwicklung/HASI/issue8-pr3-work/wt/
 cd /d/Entwicklung/HASI/issue8-pr3-work/wt && git log --oneline -1
 ```
 
-- [ ] **Step 3: Baseline der vollen Suite** (Memory `rebaseline-when-the-base-moves`)
+- [x] **Step 3: Baseline der vollen Suite** (Memory `rebaseline-when-the-base-moves`)
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-pr3-work/wt
@@ -179,7 +179,7 @@ tail -c 300 ../suite-base-wt.txt
 Erwartet (gemessen auf `6fa424e8` am 2026-10-13): `7 failed, 3925 passed, 9 skipped, … 466 errors`. Die Datei erst nach
 Laufende lesen.
 
-- [ ] **Step 4: Vergleichsskript für die Task-Prüfungen anlegen**
+- [x] **Step 4: Vergleichsskript für die Task-Prüfungen anlegen**
 
 ```bash
 cat > /d/Entwicklung/HASI/issue8-pr3-work/task_compare.sh <<'SH'
@@ -222,7 +222,7 @@ Neue ERROR dürfen nur aus den drei neuen Dateien mit echtem Koordinator kommen 
   ohne Regenzähler. `CalculationMixin._blocked_spans_for_zone(zone, *, now)` bleibt mit gleicher Signatur und ruft die
   Funktion; das Gate auf die Stundenrechnung bleibt bis Task 5.
 
-- [ ] **Step 1: Tests schreiben**
+- [x] **Step 1: Tests schreiben**
 
 Modify `tests/test_sensor_liveness_blocked.py`:
 
@@ -342,12 +342,12 @@ index c08d0b10..bdd109b6 100644
 +        }
 ```
 
-- [ ] **Step 2: RED**
+- [x] **Step 2: RED**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_sensor_liveness_blocked.py -p _local_socket_unblock -q`
 Expected: Sammelfehler `ImportError: cannot import name 'zone_blocked_spans'`.
 
-- [ ] **Step 3: Implementierung**
+- [x] **Step 3: Implementierung**
 
 Modify `custom_components/irrigation_plus/calculation.py`:
 
@@ -471,11 +471,11 @@ index 57396369..f45f3eda 100644
      merged: list[tuple[datetime, datetime]] = []
 ```
 
-- [ ] **Step 4: GREEN**
+- [x] **Step 4: GREEN**
 
 Run: wie Step 2. Expected: `25 passed`.
 
-- [ ] **Step 5: Prüfen**
+- [x] **Step 5: Prüfen**
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-pr3-work/wt
@@ -485,7 +485,7 @@ uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_co
 
 Expected: kein Baseline-Name entfällt, keine neuen FAILED, keine neuen ERROR.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/sensor_liveness.py custom_components/irrigation_plus/calculation.py tests/test_sensor_liveness_blocked.py
@@ -521,7 +521,7 @@ EOF
   `_overlap_hours(segments, a, b)`, `_books_nothing(row)`. Eine gesperrte Stunde ist eine Zeile mit `coverage_h == 0.0`
   ohne Messfelder; `eto_hourly_series` gibt für sie `0.0`.
 
-- [ ] **Step 1: Tests schreiben**
+- [x] **Step 1: Tests schreiben**
 
 Create `tests/test_hourly_rows_blocked.py`:
 
@@ -832,12 +832,12 @@ class TestPricing:
         assert cut[hours.index(T0 + 10 * H)] == 0.0
 ```
 
-- [ ] **Step 2: RED**
+- [x] **Step 2: RED**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_hourly_rows_blocked.py -p _local_socket_unblock -q`
 Expected: Sammelfehler `ImportError: cannot import name 'HOURLY_ROW_REQUIRED'`.
 
-- [ ] **Step 3: Implementierung** (der Diff enthält auch die Umbenennung `_HOURLY_ROW_REQUIRED` → `HOURLY_ROW_REQUIRED`,
+- [x] **Step 3: Implementierung** (der Diff enthält auch die Umbenennung `_HOURLY_ROW_REQUIRED` → `HOURLY_ROW_REQUIRED`,
   drei Stellen)
 
 Modify `custom_components/irrigation_plus/et_estimate.py`:
@@ -1213,11 +1213,11 @@ index a3501009..3b4fdc8f 100644
          # Sensor wind speed is handed to FAO-56 as u2 exactly as the daily path
 ```
 
-- [ ] **Step 4: GREEN**
+- [x] **Step 4: GREEN**
 
 Run: wie Step 2. Expected: `17 passed`.
 
-- [ ] **Step 5: Prüfen**
+- [x] **Step 5: Prüfen**
 
 ```bash
 uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_components/irrigation_plus/
@@ -1226,7 +1226,7 @@ uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_co
 
 Expected: kein Baseline-Name entfällt, keine neuen FAILED oder ERROR.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/weather_aggregate.py custom_components/irrigation_plus/et_estimate.py tests/test_hourly_rows_blocked.py
@@ -1259,7 +1259,7 @@ EOF
   Task 2.
 - Produces: `build_substeps(…, blocked=None, required=())` — `required` = Pflichtmenge der Form, die der Commit rechnet.
 
-- [ ] **Step 1: Tests schreiben**
+- [x] **Step 1: Tests schreiben**
 
 Create `tests/test_substeps_blocked.py`:
 
@@ -1454,12 +1454,12 @@ class TestTheRainStillReconciles:
         assert sum(steps[i].precip_mm for i in before) == pytest.approx(2.0)
 ```
 
-- [ ] **Step 2: RED**
+- [x] **Step 2: RED**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_substeps_blocked.py -p _local_socket_unblock -q`
 Expected: `9 failed`, jeweils `TypeError: build_substeps() got an unexpected keyword argument 'blocked'`.
 
-- [ ] **Step 3: Implementierung**
+- [x] **Step 3: Implementierung**
 
 Modify `custom_components/irrigation_plus/weather_aggregate.py`:
 
@@ -1611,11 +1611,11 @@ index 3b4fdc8f..6d21067f 100644
          WaterStep(dt_hours, weight / total, precip_mm, applied_mm)
 ```
 
-- [ ] **Step 4: GREEN**
+- [x] **Step 4: GREEN**
 
 Run: wie Step 2. Expected: `9 passed`.
 
-- [ ] **Step 5: Prüfen**
+- [x] **Step 5: Prüfen**
 
 ```bash
 uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_components/irrigation_plus/
@@ -1624,7 +1624,7 @@ uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_co
 
 Expected: kein Baseline-Name entfällt, keine neuen FAILED oder ERROR.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/weather_aggregate.py tests/test_substeps_blocked.py
@@ -1658,7 +1658,7 @@ EOF
 - Das Gate steht noch: Im Betrieb erreicht die Stundenform bis Task 5 keine Sperre; die Tests rufen `calculate_module`
   direkt mit Sperren.
 
-- [ ] **Step 1: Tests schreiben**
+- [x] **Step 1: Tests schreiben**
 
 Create `tests/test_silent_sensor_hourly_commit.py`:
 
@@ -1906,12 +1906,12 @@ class TestTheReplayedBalance:
         assert "Number of steps:" in data[const.ZONE_EXPLANATION]
 ```
 
-- [ ] **Step 2: RED**
+- [x] **Step 2: RED**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_silent_sensor_hourly_commit.py -p _local_socket_unblock -q`
 Expected: Sammelfehler `ImportError: cannot import name 'required_sensor_fields'`.
 
-- [ ] **Step 3: Implementierung**
+- [x] **Step 3: Implementierung**
 
 Modify `custom_components/irrigation_plus/calculation.py`:
 
@@ -2098,11 +2098,11 @@ index b32b5977..cc432db1 100644
          # place them, and carrying them into a later window would put them
 ```
 
-- [ ] **Step 4: GREEN**
+- [x] **Step 4: GREEN**
 
 Run: wie Step 2. Expected: `10 passed`, dazu 8 Teardown-ERROR „Lingering timer“.
 
-- [ ] **Step 5: Prüfen**
+- [x] **Step 5: Prüfen**
 
 ```bash
 uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_components/irrigation_plus/
@@ -2111,7 +2111,7 @@ uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_co
 
 Expected: kein Baseline-Name entfällt; keine neuen FAILED; neue ERROR nur 8 in `test_silent_sensor_hourly_commit.py`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/calculation.py tests/test_silent_sensor_hourly_commit.py
@@ -2145,7 +2145,7 @@ EOF
 
 **Interfaces:** keine neuen Namen.
 
-- [ ] **Step 1: Die vier Tests des Zwischenstands umdrehen**
+- [x] **Step 1: Die vier Tests des Zwischenstands umdrehen**
 
 Modify `tests/test_sensor_liveness_coordinator.py`:
 
@@ -2258,7 +2258,7 @@ index 4cfad275..3b4283b9 100644
  class TestTheExplanation:
 ```
 
-- [ ] **Step 2: RED**
+- [x] **Step 2: RED**
 
 ```bash
 K="test_the_hourly_calculation_is_cut_the_same or test_a_pausing_group_under_the_hourly_switch_is_cut_too or test_under_the_hourly_calculation_too_they_are_no_longer_used or test_switching_the_hourly_calculation_leaves_the_notice_alone"
@@ -2267,7 +2267,7 @@ TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest 
 
 Expected: `4 failed` (im Probelauf gegen den Stand von Task 4 gemessen).
 
-- [ ] **Step 3: Implementierung (Python, Kommentare)**
+- [x] **Step 3: Implementierung (Python, Kommentare)**
 
 Modify `custom_components/irrigation_plus/__init__.py`:
 
@@ -2411,7 +2411,7 @@ index 6d21067f..aa2684b5 100644
  
 ```
 
-- [ ] **Step 4: Panel-Hilfe in 8 Sprachen** — Skript nach `D:\Entwicklung\HASI\issue8-pr3-work\strip_help.py` legen
+- [x] **Step 4: Panel-Hilfe in 8 Sprachen** — Skript nach `D:\Entwicklung\HASI\issue8-pr3-work\strip_help.py` legen
   (per Write-Werkzeug, die englische Zeile enthält `\"`) und ausführen:
 
 ```python
@@ -2456,7 +2456,7 @@ for name, sentence in SENTENCES.items():
 
 Expected: 8 × `removed`; `git diff --stat` 8 Dateien, je 1 Zeile.
 
-- [ ] **Step 5: Doku** — nach der Freigabe des Wortlauts (Abschnitt *Wortlaute*); der Block zeigt die englische Fassung
+- [x] **Step 5: Doku** — nach der Freigabe des Wortlauts (Abschnitt *Wortlaute*); der Block zeigt die englische Fassung
   des Probelaufs:
 
 Modify `docs/configuration-sensor-groups.md`:
@@ -2481,7 +2481,7 @@ index a474e7b4..42f7f1cf 100644
  
 ```
 
-- [ ] **Step 6: Bundles bauen**
+- [x] **Step 6: Bundles bauen**
 
 ```bash
 cd custom_components/irrigation_plus/frontend && npm ci && npm run build && cd -
@@ -2493,11 +2493,11 @@ for f in custom_components/irrigation_plus/frontend/dist/*.js; do echo "$f $(gre
 Expected: nur `irrigation-plus.js` und `irrigation-plus-card-impl.js` geändert (die anderen zwei nur im Zeilenende); in
 keinem Bundle mehr „Applies only while“.
 
-- [ ] **Step 7: GREEN**
+- [x] **Step 7: GREEN**
 
 Run: wie Step 2. Expected: `4 passed` (dazu 2 Teardown-ERROR).
 
-- [ ] **Step 8: Prüfen**
+- [x] **Step 8: Prüfen**
 
 ```bash
 uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_components/irrigation_plus/
@@ -2508,7 +2508,7 @@ Expected: es entfallen genau die zwei alten Namen `test_with_the_hourly_calculat
 `test_a_pausing_group_under_the_hourly_calculation_matches_too`; keine neuen FAILED; neue ERROR nur 2 in
 `test_silent_sensor_commit.py` (die umbenannten) und 8 in `test_silent_sensor_hourly_commit.py`.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/calculation.py custom_components/irrigation_plus/sensor_liveness.py custom_components/irrigation_plus/__init__.py custom_components/irrigation_plus/const.py custom_components/irrigation_plus/weather_aggregate.py custom_components/irrigation_plus/frontend/localize/languages/ docs/configuration-sensor-groups.md tests/test_silent_sensor_commit.py tests/test_sensor_liveness_coordinator.py
@@ -2554,7 +2554,7 @@ EOF
   `_composed_day_et(…, blocked=None)`, `_daily_mirror_et(…, blocked=None)`, `_buffer_water_steps(…, blocked=None,
   required=())`.
 
-- [ ] **Step 1: Tests schreiben** (und das Test-Double anpassen, das die neuen Schlüsselwörter sonst mit `TypeError`
+- [x] **Step 1: Tests schreiben** (und das Test-Double anpassen, das die neuen Schlüsselwörter sonst mit `TypeError`
   ablehnt — die Schätzung gälte dann als fehlgeschlagen)
 
 Modify `tests/test_live_estimate_replayed_balance.py`:
@@ -2786,14 +2786,14 @@ class TestTheCurrentTemperature:
         assert c._latest_temperature(zone, {}, blocked=earlier, now=NOW) == 25.0
 ```
 
-- [ ] **Step 2: RED**
+- [x] **Step 2: RED**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_live_estimate_silent_sensor.py -p _local_socket_unblock -q`
 Expected: alle bis auf `test_a_group_that_keeps_is_estimated_as_before` rot — `AttributeError: module
 'custom_components.irrigation_plus.live_estimate' has no attribute 'zone_blocked_spans'`, `TypeError: … _latest_temperature()
 got an unexpected keyword argument 'blocked'`, Live-Eimer ≠ Commit-Eimer, kein Unterschied im Niederschlag/Übertrag.
 
-- [ ] **Step 3: Implementierung**
+- [x] **Step 3: Implementierung**
 
 Modify `custom_components/irrigation_plus/live_estimate.py`:
 
@@ -3232,11 +3232,11 @@ index aa2684b5..4846e3bd 100644
          The aggregated weather dict (including ``MAPPING_DATA_MULTIPLIER``), or
 ```
 
-- [ ] **Step 4: GREEN**
+- [x] **Step 4: GREEN**
 
 Run: wie Step 2. Expected: `8 passed`, dazu Teardown-ERROR.
 
-- [ ] **Step 5: Prüfen**
+- [x] **Step 5: Prüfen**
 
 ```bash
 uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_components/irrigation_plus/
@@ -3246,7 +3246,7 @@ uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_co
 Expected: es entfallen nur die zwei in Task 5 umbenannten Namen; keine neuen FAILED; neue ERROR nur aus den neuen Dateien
 und den zwei umbenannten Tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/live_estimate.py custom_components/irrigation_plus/weather_aggregate.py tests/test_live_estimate_silent_sensor.py tests/test_live_estimate_replayed_balance.py
@@ -3278,7 +3278,7 @@ EOF
 - Consumes: `required_sensor_fields` (Task 4), `valid_share` (PR 2), `_daily_mirror_et(…, blocked=)` (Task 6).
 - Produces: `_daily_mirror_et` gibt bei Anteil 0 `_DayTotal(0.0, TIER_OBSERVED)` statt `None`.
 
-- [ ] **Step 1: Tests schreiben**
+- [x] **Step 1: Tests schreiben**
 
 Create `tests/test_live_estimate_silent_sensor_daily.py`:
 
@@ -3406,13 +3406,13 @@ class TestNothingMeasuredIsNothingBooked:
         )
 ```
 
-- [ ] **Step 2: RED**
+- [x] **Step 2: RED**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_live_estimate_silent_sensor_daily.py -p _local_socket_unblock -q`
 Expected: `2 failed, 1 passed` — der Live-Eimer verfehlt den gebuchten (ohne Anteil), und
 `AssertionError: assert 'hourly' == 'daily_mirror'` (die Kette rutscht zur Stundenreihe des Wetterdienstes).
 
-- [ ] **Step 3: Implementierung**
+- [x] **Step 3: Implementierung**
 
 Modify `custom_components/irrigation_plus/live_estimate.py`:
 
@@ -3508,18 +3508,18 @@ index 42f7f1cf..2d8bc77c 100644
  
 ```
 
-- [ ] **Step 4: GREEN**
+- [x] **Step 4: GREEN**
 
 Run: wie Step 2. Expected: `3 passed`, dazu Teardown-ERROR.
 
-- [ ] **Step 5: Prüfen**
+- [x] **Step 5: Prüfen**
 
 ```bash
 uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_components/irrigation_plus/
 ../task_compare.sh t7 $(ls tests/test_live_estimate*.py tests/test_silent_sensor*.py tests/test_next_irrigation*.py)
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/live_estimate.py docs/configuration-sensor-groups.md tests/test_live_estimate_silent_sensor_daily.py
@@ -3548,7 +3548,7 @@ EOF
 - Consumes: `zone_blocked_spans` (Task 1), `_aggregate_live_window(…, blocked=)` und `_composed_day_et(…, blocked=)`
   (Task 6).
 
-- [ ] **Step 1: Tests schreiben**
+- [x] **Step 1: Tests schreiben**
 
 Modify `tests/test_live_estimate_silent_sensor_daily.py`:
 
@@ -3633,13 +3633,13 @@ index 7fd0b71a..9a568ec7 100644
 +        assert calls[0][2:] == (ANCHOR, self.MID)
 ```
 
-- [ ] **Step 2: RED**
+- [x] **Step 2: RED**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_live_estimate_silent_sensor_daily.py -p _local_socket_unblock -q -k Projection`
 Expected: `2 failed` — `assert 1.6405 < 1.6405` (die Hochrechnung bleibt ungeschnitten) und `assert 0 == 1` (keine
 Sperren erfragt).
 
-- [ ] **Step 3: Implementierung**
+- [x] **Step 3: Implementierung**
 
 Modify `custom_components/irrigation_plus/live_estimate.py`:
 
@@ -3673,18 +3673,18 @@ index 7bfc4141..fc481527 100644
                  return projected
 ```
 
-- [ ] **Step 4: GREEN**
+- [x] **Step 4: GREEN**
 
 Run: `… -m pytest tests/test_live_estimate_silent_sensor_daily.py …`. Expected: `5 passed`, dazu Teardown-ERROR.
 
-- [ ] **Step 5: Prüfen**
+- [x] **Step 5: Prüfen**
 
 ```bash
 uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_components/irrigation_plus/
 ../task_compare.sh t8 $(ls tests/test_live_estimate*.py tests/test_silent_sensor*.py tests/test_next_irrigation*.py)
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/live_estimate.py tests/test_live_estimate_silent_sensor_daily.py
@@ -3714,7 +3714,7 @@ EOF
 - Produces: `_async_check_mapping_liveness(…) -> bool` — wahr, wenn bei einer pausierenden Gruppe ein Ausfall geöffnet
   oder geschlossen wurde.
 
-- [ ] **Step 1: Tests schreiben**
+- [x] **Step 1: Tests schreiben**
 
 Modify `tests/test_sensor_liveness_coordinator.py`:
 
@@ -3801,13 +3801,13 @@ index 004ccad1..895a4700 100644
 +        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES]
 ```
 
-- [ ] **Step 2: RED**
+- [x] **Step 2: RED**
 
 Run: `TZ=UTC /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -m pytest tests/test_sensor_liveness_coordinator.py -p _local_socket_unblock -q -k TestTheEstimateFollowsTheRecord`
 Expected: `4 failed, 2 passed` (`Expected mock to have been awaited once. Awaited 0 times.`; die zwei grünen sind die
 Wächter „behalten“ und „Fehler bleibt folgenlos“).
 
-- [ ] **Step 3: Implementierung**
+- [x] **Step 3: Implementierung**
 
 Modify `custom_components/irrigation_plus/sensor_liveness.py`:
 
@@ -3868,18 +3868,18 @@ index 0c009009..966a8697 100644
          """``(own, siblings, device_id)`` for one sensor-mapped entity."""
 ```
 
-- [ ] **Step 4: GREEN**
+- [x] **Step 4: GREEN**
 
 Run: wie Step 2. Expected: `6 passed`.
 
-- [ ] **Step 5: Prüfen**
+- [x] **Step 5: Prüfen**
 
 ```bash
 uvx black custom_components/irrigation_plus/ && uvx ruff@0.16.10 check custom_components/irrigation_plus/
 ../task_compare.sh t9 $(ls tests/test_live_estimate*.py tests/test_silent_sensor*.py tests/test_sensor_liveness*.py tests/test_next_irrigation*.py)
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add custom_components/irrigation_plus/sensor_liveness.py tests/test_sensor_liveness_coordinator.py
@@ -3904,7 +3904,7 @@ EOF
 
 **Files:** keine Codeänderung (Fix-Runden aus dem Review als eigene Commits mit Test zuerst).
 
-- [ ] **Step 1: Lint und Eigenbezüge**
+- [x] **Step 1: Lint und Eigenbezüge**
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-pr3-work/wt
@@ -3916,7 +3916,7 @@ git grep -n "Eifel-Joe#" HEAD -- custom_components tests
 
 Erwartet: Lint sauber; die drei Greps leer.
 
-- [ ] **Step 2: Volle Suite mit Namensvergleich**
+- [x] **Step 2: Volle Suite mit Namensvergleich**
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-pr3-work/wt
@@ -3934,7 +3934,7 @@ umbenannten Namen; FAILED gleich; neu nur ERROR aus `test_live_estimate_silent_s
 `test_silent_sensor_hourly_commit.py` (8) — alle „Lingering timer“. +64 passed = die neuen Fälle (9 + 17 + 9 + 10 + 8 +
 5 + 6; die 4 umgedrehten ersetzen alte).
 
-- [ ] **Step 3: Mutationen**
+- [x] **Step 3: Mutationen**
 
 ```bash
 cd /d/Entwicklung/HASI/issue8-pr3-work
@@ -3945,7 +3945,7 @@ MUT_TIMEOUT=400 /d/Entwicklung/HASI/HAsmartirrigation/.venv/Scripts/python.exe -
 Erwartet: jede der 37 Anker genau einmal; „37 killed / 37 applied“, jede vom genannten Killer; jede Quelle byte-gleich
 zurück. Kein pytest-Lauf daneben (Memory `workflow-agent-hygiene`).
 
-- [ ] **Step 4: Abschluss-Review** (`superpowers:requesting-code-review`, Opus): Diff `6fa424e8..HEAD`, Spec PR 3 und dieser
+- [x] **Step 4: Abschluss-Review** (`superpowers:requesting-code-review`, Opus): Diff `6fa424e8..HEAD`, Spec PR 3 und dieser
   Plan. Rückmeldungen über `superpowers:receiving-code-review` prüfen; Entscheidungen, die die Spec berühren, dem User
   vorlegen.
 

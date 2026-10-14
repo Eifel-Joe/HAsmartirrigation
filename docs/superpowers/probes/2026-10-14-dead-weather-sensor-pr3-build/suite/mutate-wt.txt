@@ -1,0 +1,182 @@
+sha256 before: calculation.py=13a104d036bf, et_estimate.py=5d40133d787a, live_estimate.py=b6042055c8db, sensor_liveness.py=68a511a02bc0, weather_aggregate.py=76c715081eec
+measuring the unmutated branch in wt ...
+  167 passed, 58 errors in 43.00s
+  pre-existing failures/errors: 58
+MUT  1 KILLED   zone_blocked_spans: a group that keeps is cut too                        7 failed, 160 passed, 58 errors in 39.65s
+           killer: TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_a_group_that_keeps_is_estimated_as_before
+           killer: TestZoneBlockedSpans::test_a_group_that_keeps_is_not_cut
+           killer: TestAGroupThatIsNotCutCalculatesAsBefore::test_keep_with_outages_and_pause_without_one_match_a_plain_group
+           killer: TestTheCommitCarriesTheSpans::test_a_group_that_keeps_aggregates_as_before
+           killer: TestTheExplanation::test_a_group_that_keeps_gets_no_sentence
+           killer: TestTheGate::test_a_group_that_keeps_is_not_cut
+MUT  2 KILLED   zone_blocked_spans: a rain gauge is cut too                              2 failed, 165 passed, 58 errors in 40.83s
+           killer: TestZoneBlockedSpans::test_a_rain_gauge_is_never_cut_and_a_rain_rate_is
+           killer: TestTheGate::test_a_rain_gauge_is_never_cut_and_a_rain_rate_is
+MUT  3 KILLED   zone_blocked_spans: a zone without a window start is cut                 1 failed, 166 passed, 58 errors in 33.86s
+           killer: TestZoneBlockedSpans::test_no_group_no_start_or_no_window_is_not_cut
+MUT  4 KILLED   the notice is plain again under the hourly calculation                   2 failed, 165 passed, 58 errors in 32.74s
+           killer: TestThePausedNotice::test_changing_the_setting_rewrites_the_open_notice
+           killer: TestThePausedNotice::test_under_the_hourly_calculation_too_they_are_no_longer_used
+MUT  5 KILLED   a group that keeps refreshes the estimates too                           1 failed, 166 passed, 58 errors in 29.91s
+           killer: TestTheEstimateFollowsTheRecord::test_a_group_that_keeps_does_not
+MUT  6 KILLED   an outage that opens refreshes nothing                                   4 failed, 163 passed, 58 errors in 32.86s
+           killer: TestTheEstimateFollowsTheRecord::test_a_check_that_changes_nothing_does_not
+           killer: TestTheEstimateFollowsTheRecord::test_an_outage_that_closes_refreshes_them_again
+           killer: TestTheEstimateFollowsTheRecord::test_an_outage_that_opens_refreshes_the_estimates
+           killer: TestTheEstimateFollowsTheRecord::test_two_groups_in_one_check_refresh_once
+MUT  7 KILLED   a failing refresh breaks the check                                       5 failed, 162 passed, 58 errors in 31.45s
+           killer: TestTheEstimateFollowsTheRecord::test_a_refresh_that_fails_leaves_the_check_intact
+           killer: TestThePausedNotice::test_a_pausing_group_says_its_values_are_no_longer_used
+           killer: TestThePausedNotice::test_a_silent_rain_gauge_alone_keeps_the_plain_notice
+           killer: TestThePausedNotice::test_a_silent_temperature_beside_it_brings_the_paused_notice
+           killer: TestThePausedNotice::test_under_the_hourly_calculation_too_they_are_no_longer_used
+MUT  8 KILLED   every group of a check refreshes on its own                              1 failed, 166 passed, 58 errors in 31.60s
+           killer: TestTheEstimateFollowsTheRecord::test_two_groups_in_one_check_refresh_once
+MUT  9 KILLED   the commit's gate on the hourly calculation is back                      5 failed, 162 passed, 58 errors in 31.04s
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit
+           killer: TestTheRainItPublishes::test_a_blocked_rain_rate_is_published_as_the_commit_books_it
+           killer: TestAGroupThatIsNotCutCalculatesAsBefore::test_a_pausing_group_under_the_hourly_switch_is_cut_too
+           killer: TestTheGate::test_the_hourly_calculation_is_cut_the_same
+MUT 10 KILLED   the hourly form needs only the daily fields                              4 failed, 163 passed, 58 errors in 31.13s
+           killer: TestTheFieldsEachFormNeeds::test_the_hourly_form_needs_temperature_humidity_wind_and_sun
+           killer: TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing
+           killer: TestTheHourlyForm::test_dewpoint_does_not
+           killer: TestTheHourlyForm::test_humidity_counts_in_the_hourly_form
+MUT 11 KILLED   the share is taken with the daily fields in the hourly form              3 failed, 164 passed, 58 errors in 31.24s
+           killer: TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing
+           killer: TestTheHourlyForm::test_dewpoint_does_not
+           killer: TestTheHourlyForm::test_humidity_counts_in_the_hourly_form
+MUT 12 KILLED   the hourly total is scaled by the share a second time                    3 failed, 164 passed, 58 errors in 31.65s
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit
+           killer: TestTheHourlyForm::test_it_books_the_rows_once_and_names_the_share
+MUT 13 KILLED   the hourly rows are not handed the spans                                 4 failed, 163 passed, 58 errors in 29.20s
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit
+           killer: TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing
+           killer: TestTheHourlyForm::test_it_books_the_rows_once_and_names_the_share
+MUT 14 KILLED   the replay is not handed the spans                                       1 failed, 166 passed, 58 errors in 30.91s
+           killer: TestTheReplayedBalance::test_it_still_replays_under_a_blocked_rain_rate
+MUT 15 KILLED   a blocked hour keeps its readings and is priced                          20 failed, 147 passed, 58 errors in 28.89s
+           killer: TestABlockedHourBooksNothing::test_a_partly_blocked_hour_is_charged_its_measured_part
+           killer: TestABlockedHourBooksNothing::test_hours_inside_a_span_stay_as_rows_without_et
+           killer: TestABlockedHourBooksNothing::test_hours_outside_the_spans_match_the_unblocked_rows
+           killer: TestABlockedHourBooksNothing::test_the_series_charges_such_a_row_nothing
+           killer: TestARequiredFieldBlockedThroughout::test_a_field_whose_every_reading_is_inside_a_span_books_nothing
+           killer: TestARequiredFieldBlockedThroughout::test_the_rows_stay_and_book_nothing
+           killer: TestAWindowThatStartsInsideASpan::test_the_dead_sensors_boundary_value_is_never_priced
+           killer: TestEachFieldIsAveragedOverItsOwnValidTime::test_a_frozen_value_stamped_inside_a_span_is_not_used
+           killer: TestPricing::test_hourly_eto_priced_passes_the_spans_on
+           killer: TestTheClearnessRatio::test_after_the_span_the_ratio_from_before_holds
+           killer: TestTheClearnessRatio::test_frozen_solar_inside_a_span_changes_no_row
+           killer: TestTheCarryFollowsTheOutages::test_an_outage_that_closes_drops_the_carried_hours
+           killer: TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit
+           killer: TestTheSpansAreComputedOnce::test_one_refresh_asks_once
+           killer: TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing
+           killer: TestTheHourlyForm::test_humidity_counts_in_the_hourly_form
+           killer: TestTheHourlyForm::test_it_books_the_rows_once_and_names_the_share
+           killer: TestTheReplayedBalance::test_it_still_replays_under_a_blocked_required_field
+MUT 16 KILLED   an hour is charged its whole coverage                                    21 failed, 146 passed, 58 errors in 29.86s
+           killer: TestABlockedHourBooksNothing::test_a_partly_blocked_hour_is_charged_its_measured_part
+           killer: TestABlockedHourBooksNothing::test_hours_inside_a_span_stay_as_rows_without_et
+           killer: TestABlockedHourBooksNothing::test_hours_outside_the_spans_match_the_unblocked_rows
+           killer: TestABlockedHourBooksNothing::test_the_series_charges_such_a_row_nothing
+           killer: TestARequiredFieldBlockedThroughout::test_a_field_whose_every_reading_is_inside_a_span_books_nothing
+           killer: TestARequiredFieldBlockedThroughout::test_the_rows_stay_and_book_nothing
+           killer: TestAWindowThatStartsInsideASpan::test_the_dead_sensors_boundary_value_is_never_priced
+           killer: TestEachFieldIsAveragedOverItsOwnValidTime::test_a_frozen_value_stamped_inside_a_span_is_not_used
+           killer: TestEachFieldIsAveragedOverItsOwnValidTime::test_two_fields_silent_in_different_parts_of_one_hour
+           killer: TestPricing::test_hourly_eto_priced_passes_the_spans_on
+           killer: TestTheClearnessRatio::test_after_the_span_the_ratio_from_before_holds
+           killer: TestTheClearnessRatio::test_frozen_solar_inside_a_span_changes_no_row
+           killer: TestTheCarryFollowsTheOutages::test_an_outage_that_closes_drops_the_carried_hours
+           killer: TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit
+           killer: TestTheSpansAreComputedOnce::test_one_refresh_asks_once
+           killer: TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing
+           killer: TestTheHourlyForm::test_humidity_counts_in_the_hourly_form
+           killer: TestTheHourlyForm::test_it_books_the_rows_once_and_names_the_share
+           killer: TestTheReplayedBalance::test_it_still_replays_under_a_blocked_required_field
+MUT 17 KILLED   a blocked field is held into its span                                    5 failed, 162 passed, 58 errors in 31.89s
+           killer: TestEachFieldIsAveragedOverItsOwnValidTime::test_two_fields_silent_in_different_parts_of_one_hour
+           killer: TestPressureIsNotRequired::test_an_hour_without_valid_pressure_takes_the_elevation
+           killer: TestTheEtLandsInMeasuredTime::test_a_required_field_silent_places_no_et_there
+           killer: TestTheEtLandsInMeasuredTime::test_inside_an_hour_the_quantum_goes_to_its_measured_part
+           killer: TestTheEtLandsInMeasuredTime::test_silent_sun_places_no_et_in_its_span_either
+MUT 18 KILLED   a frozen reading inside a span is used                                   2 failed, 165 passed, 58 errors in 31.34s
+           killer: TestARequiredFieldBlockedThroughout::test_a_field_whose_every_reading_is_inside_a_span_books_nothing
+           killer: TestEachFieldIsAveragedOverItsOwnValidTime::test_a_frozen_value_stamped_inside_a_span_is_not_used
+MUT 19 KILLED   a required field with nothing to hold books as if measured               1 failed, 166 passed, 58 errors in 30.68s
+           killer: TestARequiredFieldBlockedThroughout::test_a_field_whose_every_reading_is_inside_a_span_books_nothing
+MUT 20 KILLED   frozen solar inside a span feeds the ratio                               1 failed, 166 passed, 58 errors in 30.81s
+           killer: TestTheClearnessRatio::test_frozen_solar_inside_a_span_changes_no_row
+MUT 21 KILLED   the ratio hold refills a blocked hour                                    2 failed, 165 passed, 58 errors in 31.62s
+           killer: TestTheClearnessRatio::test_after_the_span_the_ratio_from_before_holds
+           killer: TestTheClearnessRatio::test_frozen_solar_inside_a_span_changes_no_row
+MUT 22 KILLED   a row covering no time is priced                                         12 failed, 155 passed, 58 errors in 30.04s
+           killer: TestABlockedHourBooksNothing::test_the_series_charges_such_a_row_nothing
+           killer: TestARequiredFieldBlockedThroughout::test_the_rows_stay_and_book_nothing
+           killer: TestPricing::test_hourly_eto_priced_passes_the_spans_on
+           killer: TestTheCarryFollowsTheOutages::test_an_outage_that_closes_drops_the_carried_hours
+           killer: TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit
+           killer: TestTheSpansAreComputedOnce::test_one_refresh_asks_once
+           killer: TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing
+           killer: TestTheHourlyForm::test_humidity_counts_in_the_hourly_form
+           killer: TestTheHourlyForm::test_it_books_the_rows_once_and_names_the_share
+           killer: TestTheReplayedBalance::test_it_still_replays_under_a_blocked_required_field
+MUT 23 KILLED   a blocked rain rate's pair counts whole                                  4 failed, 163 passed, 58 errors in 31.33s
+           killer: TestRain::test_a_blocked_rain_rate_is_bucketed_over_its_valid_time_only
+           killer: TestTheReplayedBalance::test_it_still_replays_under_a_blocked_rain_rate
+           killer: TestTheRainStillReconciles::test_a_blocked_rain_rate_adds_only_its_measured_rain
+           killer: TestTheRainStillReconciles::test_rain_just_before_a_span_lands_before_it
+MUT 24 KILLED   rain lands at the next reading, not at the end of its measured part      2 failed, 165 passed, 58 errors in 30.36s
+           killer: TestRain::test_a_blocked_rain_rate_is_bucketed_over_its_valid_time_only
+           killer: TestTheRainStillReconciles::test_rain_just_before_a_span_lands_before_it
+MUT 25 KILLED   the replay places ET where a required field was silent                   3 failed, 164 passed, 58 errors in 29.45s
+           killer: TestTheEtLandsInMeasuredTime::test_a_dark_hour_spreads_its_quantum_over_its_measured_time
+           killer: TestTheEtLandsInMeasuredTime::test_a_required_field_silent_places_no_et_there
+           killer: TestTheEtLandsInMeasuredTime::test_inside_an_hour_the_quantum_goes_to_its_measured_part
+MUT 26 KILLED   the replay weighs the sun's own silent time                              1 failed, 166 passed, 58 errors in 29.39s
+           killer: TestTheEtLandsInMeasuredTime::test_silent_sun_places_no_et_in_its_span_either
+MUT 27 KILLED   a dark hour spreads its ET over its silent part too                      1 failed, 166 passed, 58 errors in 32.18s
+           killer: TestTheEtLandsInMeasuredTime::test_a_dark_hour_spreads_its_quantum_over_its_measured_time
+MUT 28 KILLED   a window with no measured time is not stepped                            1 failed, 166 passed, 58 errors in 31.11s
+           killer: TestTheEtLandsInMeasuredTime::test_a_window_with_no_measured_time_still_steps
+MUT 29 KILLED   the carry ignores the outage record                                      3 failed, 164 passed, 58 errors in 30.41s
+           killer: TestTheCarryFollowsTheOutages::test_an_outage_that_closes_drops_the_carried_hours
+           killer: TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours
+           killer: TestTheRainItPublishes::test_a_blocked_rain_rate_is_published_as_the_commit_books_it
+MUT 30 KILLED   the hourly source is not handed the spans                                4 failed, 163 passed, 58 errors in 31.15s
+           killer: TestTheCarryFollowsTheOutages::test_an_outage_that_closes_drops_the_carried_hours
+           killer: TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now
+           killer: TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit
+MUT 31 KILLED   the live aggregate is not handed the spans                               3 failed, 164 passed, 58 errors in 30.99s
+           killer: TestTheRainItPublishes::test_a_blocked_rain_rate_is_published_as_the_commit_books_it
+           killer: TestTheMirrorBooksTheShare::test_it_lands_on_the_cut_bucket
+           killer: TestTheProjectionToTheDecisionPoint::test_it_is_priced_from_the_cut_window
+MUT 32 KILLED   a silent temperature is read as current                                  1 failed, 166 passed, 58 errors in 32.03s
+           killer: TestTheCurrentTemperature::test_a_silent_temperature_is_not_read_as_current
+MUT 33 KILLED   an ended temperature span still counts as silent now                     1 failed, 166 passed, 58 errors in 31.55s
+           killer: TestTheCurrentTemperature::test_a_silent_temperature_is_not_read_as_current
+MUT 34 KILLED   the mirror books the whole window                                        1 failed, 166 passed, 58 errors in 30.77s
+           killer: TestTheMirrorBooksTheShare::test_it_lands_on_the_cut_bucket
+MUT 35 KILLED   nothing measured sends the chain on                                      2 failed, 165 passed, 58 errors in 31.62s
+           killer: TestNothingMeasuredIsNothingBooked::test_a_zone_that_averages_forecast_days_in_needs_no_forecast_for_it
+           killer: TestNothingMeasuredIsNothingBooked::test_it_does_not_fall_back_to_a_weather_service
+MUT 36 KILLED   the hourly source's rain is not cut                                      1 failed, 166 passed, 58 errors in 30.90s
+           killer: TestTheRainItPublishes::test_a_blocked_rain_rate_is_published_as_the_commit_books_it
+MUT 37 KILLED   the projection is priced off the uncut window                            2 failed, 165 passed, 58 errors in 31.48s
+           killer: TestTheProjectionToTheDecisionPoint::test_it_asks_for_its_spans_once
+           killer: TestTheProjectionToTheDecisionPoint::test_it_is_priced_from_the_cut_window
+
+every source restored byte-for-byte (sha256): True; git diff --quiet HEAD: True
+37 killed / 37 applied / 37 total
+survived: []; hang: []; broken: []; not applied: []

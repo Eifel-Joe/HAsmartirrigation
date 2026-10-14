@@ -1,0 +1,19 @@
+HEAD c21478c8  label=t10f  exit=1
+-- baseline summary:
+= 7 failed, 3925 passed, 9 skipped, 11 warnings, 466 errors in 453.50s (0:07:33) =
+-- this run summary:
+= 7 failed, 4001 passed, 9 skipped, 11 warnings, 496 errors in 460.03s (0:07:40) =
+-- (1) baseline names missing now (expected: only the 2 renamed in the hourly-switch task):
+2
+ERROR tests/test_silent_sensor_commit.py::TestAGroupThatIsNotCutCalculatesAsBefore::test_a_pausing_group_under_the_hourly_calculation_matches_too
+ERROR tests/test_silent_sensor_commit.py::TestTheGate::test_with_the_hourly_calculation_nothing_is_cut
+-- (2) FAILED sets:
+FAILED gleich
+-- (3) new names per file (allowed: only teardown 'Lingering timer' ERRORs of new tests):
+     14 ERROR tests/test_live_estimate_silent_sensor.py
+      7 ERROR tests/test_live_estimate_silent_sensor_daily.py
+      2 ERROR tests/test_silent_sensor_commit.py
+      9 ERROR tests/test_silent_sensor_hourly_commit.py
+-- classification of new names (UNEXPECTED must be 0):
+UNEXPECTED: 0
+-- 'Lingering timer' counts: baseline 932  now 992
