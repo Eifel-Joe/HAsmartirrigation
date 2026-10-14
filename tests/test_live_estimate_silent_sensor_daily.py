@@ -119,3 +119,22 @@ class TestNothingMeasuredIsNothingBooked:
         assert est["live_deficit"] == pytest.approx(
             round(data[const.ZONE_BUCKET], 2), abs=0.01
         )
+
+    async def test_a_zone_that_averages_forecast_days_in_needs_no_forecast_for_it(
+        self, coordinator
+    ):
+        """The commit books 0 without asking for a forecast, so the mirror does too."""
+        c, store = coordinator
+        zone, module, instance = await _estimating_zone(c, store, 2.0)
+        instance.forecast_days = 2
+        rows = _provider_rows(0.0)
+        await _silent(store, zone, -4)
+
+        est = _estimate(c, store, zone, instance, module, rows=rows, tz=0.0)
+        data = await _committed(c, store, zone)
+
+        assert est["method"] == "daily_mirror"
+        assert est["et_since"] == 0.0
+        assert est["live_deficit"] == pytest.approx(
+            round(data[const.ZONE_BUCKET], 2), abs=0.01
+        )
