@@ -345,9 +345,9 @@ def aggregate_window(
             mean they have always had.
         blocked: ``{field: ((from, to), ...)}``, each field's blocked time
             inside the window (sensor_liveness.zone_blocked_spans). Only a
-            pausing sensor group's commit passes it. A blocked field is reduced
-            over its valid time and left out when it has none; a field without
-            spans is reduced exactly as without the argument.
+            pausing sensor group's commit and live estimate pass it. A blocked
+            field is reduced over its valid time and left out when it has none;
+            a field without spans is reduced exactly as without the argument.
 
     Returns:
         The aggregated weather dict (including ``MAPPING_DATA_MULTIPLIER``), or
