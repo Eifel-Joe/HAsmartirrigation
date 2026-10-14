@@ -2014,7 +2014,13 @@ class LiveEstimateMixin:
                     v if metric else convert_between(const.UNIT_MM, const.UNIT_INCH, v)
                 )
 
-            agg = self._aggregate_live_window(zone, anchor, now=now_local)
+            # A pausing group's silent time, once: the projection books nothing,
+            # but it is priced off the window's observed part, and a dead
+            # sensor's frozen value is no observation.
+            blocked = zone_blocked_spans(self.store, zone, anchor, now_local)
+            agg = self._aggregate_live_window(
+                zone, anchor, now=now_local, blocked=blocked
+            )
             modinst = (inputs.get("modules") or {}).get(zone.get(const.ZONE_MODULE))
             # Only the zones whose commit runs the daily equation may be priced
             # by their own module: for anyone else that instance is configured
@@ -2033,6 +2039,7 @@ class LiveEstimateMixin:
                 geometry=geometry,
                 modinst=modinst if own_equation else None,
                 blend=blend if own_equation else _TODAY_ALONE,
+                blocked=blocked,
             )
             if day is None:
                 return projected

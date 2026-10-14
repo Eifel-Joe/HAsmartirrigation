@@ -12,6 +12,7 @@ from datetime import timedelta
 import pytest
 
 from custom_components.irrigation_plus import const
+from custom_components.irrigation_plus import live_estimate as live_estimate_module
 from custom_components.irrigation_plus.sensor_liveness import Outage
 from tests.test_live_estimate_replayed_balance import (
     ANCHOR,
@@ -138,3 +139,65 @@ class TestNothingMeasuredIsNothingBooked:
         assert est["live_deficit"] == pytest.approx(
             round(data[const.ZONE_BUCKET], 2), abs=0.01
         )
+
+
+class TestTheProjectionToTheDecisionPoint:
+    """The projection books nothing, but it is priced off the window's observed
+    part -- which for a pausing group is the part that was measured."""
+
+    MID = ANCHOR + 14 * H
+    UNTIL = ANCHOR + 20 * H
+
+    async def _frozen_zone(self, c, store):
+        """While silent from 7 h after the anchor the sensor froze at 40 °C, a
+        poll stamping it fresh. The reading at ``MID`` itself is a measurement:
+        an open span ends at the refresh's "now", half-open."""
+        zone, module, instance = await _estimating_zone(c, store, 2.0)
+        readings = [
+            (
+                {**row, T: 40.0}
+                if ANCHOR + 7 * H <= row[const.RETRIEVED_AT] < self.MID
+                else row
+            )
+            for row in store.get_mapping_buffer(zone[const.ZONE_MAPPING])
+            if row[const.RETRIEVED_AT] <= self.MID
+        ]
+        store.set_mapping_buffer(zone[const.ZONE_MAPPING], readings)
+        inputs = _estimating_inputs(
+            instance, module, now=self.MID, forecast=_hourly_forecast()
+        )
+        return zone, inputs
+
+    def _projected(self, c, store, zone, inputs):
+        zone = store.get_zone(zone[const.ZONE_ID])
+        estimate = c._intraday_for_zone(zone, inputs)
+        return c._carry_estimate_to(zone, estimate, inputs, self.UNTIL)
+
+    async def test_it_is_priced_from_the_cut_window(self, coordinator):
+        c, store = coordinator
+        zone, inputs = await self._frozen_zone(c, store)
+        kept = self._projected(c, store, zone, inputs)
+        await _silent(store, zone, 4)
+        paused = self._projected(c, store, zone, inputs)
+        assert kept["carried_to_decision"] is True
+        assert paused["carried_to_decision"] is True
+        assert paused["projected_et"] < kept["projected_et"]
+
+    async def test_it_asks_for_its_spans_once(self, coordinator, monkeypatch):
+        c, store = coordinator
+        zone, inputs = await self._frozen_zone(c, store)
+        await _silent(store, zone, 4)
+        estimate = c._intraday_for_zone(store.get_zone(zone[const.ZONE_ID]), inputs)
+        calls = []
+        real = live_estimate_module.zone_blocked_spans
+
+        def counting(*args, **kwargs):
+            calls.append(args)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(live_estimate_module, "zone_blocked_spans", counting)
+        c._carry_estimate_to(
+            store.get_zone(zone[const.ZONE_ID]), estimate, inputs, self.UNTIL
+        )
+        assert len(calls) == 1
+        assert calls[0][2:] == (ANCHOR, self.MID)
