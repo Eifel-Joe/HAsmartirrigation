@@ -64,11 +64,24 @@
 4. `issue87-work` nach Merge von JustChr#194; Rest von `issue8-pr2-work` nach Merge von #197. In `_erledigt` hängen
    registrierte Worktrees (`issue5-work\pre-wt`, `issue5-work\wt`, `issue22-wt-rev3`, `prodrebuild-1013b1-work\wt`) —
    Löschen entscheidet der User.
-5. PR 3 (Stundenpfad + Live-Schätzung): Spec + Plan.
+5. PR 3 (Stundenpfad + Live-Schätzung): Spec + Plan — **begonnen, siehe unten**.
+
+### PR 3 (Eifel-Joe#8, Teil 3) — Stand
+- **Archiv-Push** (User-Freigabe): `f55de7bb..6d2decf9` auf `archive/design-history` = RED-Test JustChr#195
+  (`probes/2026-10-11-imperial-live-credit/`) + dieser Sitzungsstand; Remote = lokal, Blob gleich (`14945f38`).
+- Faktensammlung (Sonnet-Agent, nur gelesen) `D:\Entwicklung\HASI\issue8-pr3-work\context-2026-10-14.md` auf der
+  Lese-Kopie `issue8-pr3-work\src` (= `git archive 6fa424e8`); die drei tragenden Befunde vom Controller am Code
+  nachgeprüft. Auftrag: `issue8-pr3-work\AUFTRAG-context.md`.
+- User-Entscheidungen G1–G12 + Freigabe der Design-Abschnitte 1–5 im Chat: `issue8-pr3-work\decisions.md`. Kern: G1
+  **stapeln** auf `6fa424e8`, PR nach Merge von #197; G2 **ein PR**, Teil A Commit / Teil B Live.
+- **Spec geschrieben** `docs/superpowers/specs/2026-10-14-dead-weather-sensor-pr3-design.md` (Hauptbaum, untracked),
+  Selbstprüfung durch; **vom User freigegeben 2026-10-14** („Spec passt“), mit Faktensammlung, Auftrag und
+  Entscheidungen archiviert (`probes/2026-10-14-dead-weather-sensor-pr3-survey/`, Push freigegeben). Nächster Schritt:
+  Plan (`superpowers:writing-plans`).
 
 ### Empfohlene Skills
 
-- `task-loop`, `pr-workflow`, `superpowers:receiving-code-review`, für PR 3 `superpowers:brainstorming`.
+- `task-loop`, `pr-workflow`, `superpowers:receiving-code-review`; für PR 3 nach Spec-Freigabe `superpowers:writing-plans`.
 
 ## 2026-10-13/14 — Eifel-Joe#8 PR 2 gebaut, Pre-Release v2026.10.13b1, Live-Test HA-Test, PR `JustChr#197` offen; Upstream-Runden leer
 
