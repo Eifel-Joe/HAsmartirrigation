@@ -17,6 +17,7 @@ import pytest
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from custom_components.irrigation_plus import SmartIrrigationCoordinator, const
+from custom_components.irrigation_plus import calculation as calculation_module
 from custom_components.irrigation_plus.calculation import required_sensor_fields
 from custom_components.irrigation_plus.et_estimate import eto_hourly_series
 from custom_components.irrigation_plus.store import SmartIrrigationStorage
@@ -129,6 +130,31 @@ async def _commit(c, zone, blocked=None):
     return await c.calculate_module(zone, weatherdata, None, now=NOW, blocked=blocked)
 
 
+def _recording_substeps(monkeypatch):
+    """The sub-steps each commit's replay is handed, one entry per commit."""
+    seen = []
+    real = calculation_module.build_substeps
+
+    def recording(*args, **kwargs):
+        steps = real(*args, **kwargs)
+        seen.append(steps)
+        return steps
+
+    monkeypatch.setattr(calculation_module, "build_substeps", recording)
+    return seen
+
+
+def _inside(steps, lo, hi):
+    """Indices of the steps lying inside ``[lo, hi)``, counted from ``T0``."""
+    out, start = [], T0
+    for i, step in enumerate(steps):
+        end = start + timedelta(hours=step.dt_hours)
+        if lo <= start and end <= hi:
+            out.append(i)
+        start = end
+    return out
+
+
 def _summed(readings, blocked, config=None):
     rows = build_hourly_rows(
         readings,
@@ -224,6 +250,36 @@ class TestTheDailyFormUnderTheHourlySwitch:
 
 
 class TestTheReplayedBalance:
+    async def test_the_daily_form_places_no_et_in_silent_time(
+        self, coordinator, monkeypatch
+    ):
+        """Estimated sun and no sun sensor: the daily form runs under the hourly
+        switch and its balance is replayed. The fields of the daily form decide
+        where its ET is placed, as they decide the share it books."""
+        c, store = coordinator
+        readings = [{k: v for k, v in row.items() if k != SUN} for row in _readings()]
+        zone = await _zone(c, store, readings, solrad="1")
+        seen = _recording_substeps(monkeypatch)
+        span = (T0 + 10 * H, T0 + 12 * H)
+
+        plain = await _commit(c, zone)
+        assert "Number of steps:" in plain[const.ZONE_EXPLANATION]
+        plain_steps = seen[-1]
+        assert plain_steps
+
+        # Humidity is not a field of the daily form: nothing moves.
+        await _commit(c, zone, {RH: (span,)})
+        assert seen[-1] == plain_steps
+
+        # Temperature is: no ET is placed in the hours it was silent.
+        cut = await _commit(c, zone, {T: (span,)})
+        steps = seen[-1]
+        inside = _inside(steps, *span)
+        assert inside
+        assert all(steps[i].et_weight == 0.0 for i in inside)
+        assert sum(step.et_weight for step in steps) == pytest.approx(1.0)
+        assert "Number of steps:" in cut[const.ZONE_EXPLANATION]
+
     async def test_it_still_replays_under_a_blocked_rain_rate(self, coordinator):
         c, store = coordinator
         readings = _readings(

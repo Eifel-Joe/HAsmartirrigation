@@ -148,10 +148,13 @@ class TestTheProjectionToTheDecisionPoint:
     MID = ANCHOR + 14 * H
     UNTIL = ANCHOR + 20 * H
 
-    async def _frozen_zone(self, c, store):
+    async def _frozen_zone(self, c, store, *, service_forecast=True):
         """While silent from 7 h after the anchor the sensor froze at 40 °C, a
         poll stamping it fresh. The reading at ``MID`` itself is a measurement:
-        an open span ends at the refresh's "now", half-open."""
+        an open span ends at the refresh's "now", half-open.
+
+        ``service_forecast`` hands the weather service's hourly series in; without
+        it the rest of the day is drawn from the sensor group alone."""
         zone, module, instance = await _estimating_zone(c, store, 2.0)
         readings = [
             (
@@ -164,7 +167,10 @@ class TestTheProjectionToTheDecisionPoint:
         ]
         store.set_mapping_buffer(zone[const.ZONE_MAPPING], readings)
         inputs = _estimating_inputs(
-            instance, module, now=self.MID, forecast=_hourly_forecast()
+            instance,
+            module,
+            now=self.MID,
+            forecast=_hourly_forecast() if service_forecast else None,
         )
         return zone, inputs
 
@@ -182,6 +188,27 @@ class TestTheProjectionToTheDecisionPoint:
         assert kept["carried_to_decision"] is True
         assert paused["carried_to_decision"] is True
         assert paused["projected_et"] < kept["projected_et"]
+
+    async def test_a_temperature_silent_now_anchors_no_remainder(self, coordinator):
+        """With no forecast the rest of the day is drawn from the group's own
+        trailing amplitude, held to the temperature it reads now. A temperature
+        silent now reads nothing: the sensor's frozen value anchors no remainder,
+        and the tier says the day was not projected -- in the estimate and in
+        its carry to the decision point alike."""
+        c, store = coordinator
+        zone, inputs = await self._frozen_zone(c, store, service_forecast=False)
+        await store.async_update_mapping(
+            zone[const.ZONE_MAPPING],
+            {const.MAPPING_TEMPERATURE_AMPLITUDES: [["2026-05-21", 14.0]]},
+        )
+        kept = self._projected(c, store, zone, inputs)
+        assert kept["forecast_tier"] == "self_contained"
+        assert kept["projection_tier"] == "self_contained"
+
+        await _silent(store, zone, 4)
+        paused = self._projected(c, store, zone, inputs)
+        assert paused["forecast_tier"] == "observed"
+        assert paused["projection_tier"] == "observed"
 
     async def test_it_asks_for_its_spans_once(self, coordinator, monkeypatch):
         c, store = coordinator
