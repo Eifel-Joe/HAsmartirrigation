@@ -664,7 +664,11 @@ def _aggregate_blocked(
 
 
 def _valid_segments(spans, start, end):
-    """``[start, end)`` minus the sorted, merged ``spans``: where a field was measured."""
+    """``[start, end)`` minus the ``spans``: where a field was measured.
+
+    ``spans`` are sorted (overlaps allowed); an unsorted list would drop every
+    span that lies before one already passed.
+    """
     segments = []
     cursor = start
     for lo, hi in spans:
@@ -1042,7 +1046,7 @@ def _ratio_hold_solar(rows, solar_samples, latitude, longitude, elevation, tz_of
     That ingest clamp stays — it guards readings, this guards fabricated hours.
 
     An hour that books nothing (``coverage_h`` 0, a pausing group's blocked
-    hour) carries no reading to take a ratio from and needs no solar; the ratio
+    hour) has no air state to take a ratio against and needs no solar; the ratio
     is carried across it, so after a span the one from before it holds.
     """
     if latitude is None or longitude is None:
@@ -1351,13 +1355,15 @@ def build_hourly_rows(
     return rows
 
 
-def _weights_from_hourly_et(weights, hours, dt_hours, hourly_et):
+def _weights_from_hourly_et(weights, hours, measured_hours, hourly_et):
     """Rescale intra-hour weights so each hour carries its own ET, or None.
 
     ``weights`` shape the ET *within* an hour; ``hourly_et`` sets how much ET
     that hour gets. Multiplying the two gives a weight set whose per-hour sums
     are proportional to the hourly ETo series, which is what makes the window
     total a sum of hourly quanta rather than one daily number spread out.
+    ``measured_hours`` is the time of each step in which its ET is booked: the
+    step's whole length, less what a pausing sensor group was silent in it.
 
     Returns None when a step's hour is absent from ``hourly_et``: the two are
     derived from the same window, so a gap means an assumption broke, and
@@ -1369,18 +1375,18 @@ def _weights_from_hourly_et(weights, hours, dt_hours, hourly_et):
             return None
         per_hour_weight[hour] = per_hour_weight.get(hour, 0.0) + weight
     out = []
-    for hour, weight, dt in zip(hours, weights, dt_hours, strict=True):
+    for hour, weight, measured in zip(hours, weights, measured_hours, strict=True):
         share = per_hour_weight[hour]
         if share > 0:
             fraction = weight / share
         else:
             # This hour is entirely dark (or has no usable radiation) but still
-            # has ET to place: fall back to elapsed time WITHIN the hour, so the
+            # has ET to place: fall back to measured time WITHIN the hour, so the
             # hour's own total is preserved rather than leaking to a bright one.
-            hour_seconds = sum(
-                d for h, d in zip(hours, dt_hours, strict=True) if h == hour
+            hour_measured = sum(
+                m for h, m in zip(hours, measured_hours, strict=True) if h == hour
             )
-            fraction = dt / hour_seconds if hour_seconds > 0 else 0.0
+            fraction = measured / hour_measured if hour_measured > 0 else 0.0
         out.append(fraction * hourly_et[hour])
     return out
 
@@ -1582,8 +1588,8 @@ def build_substeps(
         weights = list(measured)
         total = sum(weights)
         if total <= 0:
-            # No measured time at all: nothing is booked, so the ET to place is
-            # 0 -- spread it flat, so the rain still replays.
+            # No measured time to place it in: spread it flat, as for a window
+            # without radiation, so the rain still replays.
             weights = [dt for dt, _, _ in steps]
             total = sum(weights)
             if total <= 0:

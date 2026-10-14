@@ -188,9 +188,9 @@ def cuts_field(field: str, mappings_config: dict) -> bool:
 
     Every field but a cumulative rain gauge (aggregate ``delta``): what a gauge
     shows after its return is rain it measured, only delivered late, so its
-    silent time is not cut. The commit's gate
-    (calculation._blocked_spans_for_zone) and the notice both ask here, so the
-    notice says a value is no longer used only where the calculation cuts it.
+    silent time is not cut. ``zone_blocked_spans``, the one gate of the commit
+    and the live estimate, and the notice both ask here, so the notice says a
+    value is no longer used only where the calculation cuts it.
     """
     return (
         effective_aggregate(field, mappings_config)

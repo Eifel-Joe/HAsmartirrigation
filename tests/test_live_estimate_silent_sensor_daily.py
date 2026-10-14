@@ -124,7 +124,7 @@ class TestNothingMeasuredIsNothingBooked:
     async def test_a_zone_that_averages_forecast_days_in_needs_no_forecast_for_it(
         self, coordinator
     ):
-        """The commit books 0 without asking for a forecast, so the mirror does too."""
+        """The commit books 0 whatever the forecast, so the mirror needs none for it."""
         c, store = coordinator
         zone, module, instance = await _estimating_zone(c, store, 2.0)
         instance.forecast_days = 2
@@ -149,9 +149,12 @@ class TestTheProjectionToTheDecisionPoint:
     UNTIL = ANCHOR + 20 * H
 
     async def _frozen_zone(self, c, store, *, service_forecast=True):
-        """While silent from 7 h after the anchor the sensor froze at 40 °C, a
-        poll stamping it fresh. The reading at ``MID`` itself is a measurement:
-        an open span ends at the refresh's "now", half-open.
+        """From 7 h after the anchor the sensor is frozen at 40 °C, a poll
+        stamping it fresh. A test that opens the outage 4 h after the anchor
+        (``_silent(.., 4)``) has the temperature silent from then and blocked
+        from 7 h, the first three hours being bridged. The reading at ``MID``
+        itself is a measurement: an open span ends at the refresh's "now",
+        half-open.
 
         ``service_forecast`` hands the weather service's hourly series in; without
         it the rest of the day is drawn from the sensor group alone."""
