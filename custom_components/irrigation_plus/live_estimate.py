@@ -1190,9 +1190,13 @@ class LiveEstimateMixin:
         The clamp warning is suppressed explicitly (see :meth:`_composed_day_et`).
         """
         modinst = (inputs.get("modules") or {}).get(zone.get(const.ZONE_MODULE))
-        blend = self._mirror_blend(zone, modinst, inputs, anchor=anchor, now=now)
-        if blend is None:
+        if not self._daily_form_applies(zone, modinst):
             return None
+        # The share comes before the forecast is looked up: a window in which a
+        # field of the daily form was silent throughout is booked as 0 by the
+        # commit, which asks neither the equation nor the forecast for it. Asked
+        # after the forecast, a zone with none in hand would return None here and
+        # the source chain would move on to a weather service.
         share = None
         if blocked:
             module = self.store.get_module(zone.get(const.ZONE_MODULE)) or {}
@@ -1201,6 +1205,9 @@ class LiveEstimateMixin:
                 share = valid_share(blocked, fields, anchor, now)
                 if share == 0:
                     return _DayTotal(0.0, TIER_OBSERVED)
+        blend = self._commit_forecast(modinst, inputs, anchor=anchor, now=now)
+        if blend is None:
+            return None
         day = self._composed_day_et(
             zone,
             agg,
