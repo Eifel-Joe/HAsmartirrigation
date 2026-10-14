@@ -23,6 +23,53 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-14 — Upstream-Runde leer; `JustChr#197` ohne CI (bei JustChr läuft seit 08.10. kein Workflow); aufgeräumt nach `_erledigt`
+
+### Stand
+
+- **Upstream-Runde** 2026-10-14 01:36 UTC, Fenster ab 2026-10-13 23:14 UTC, alle Autoren (Issues/PRs, Issue-Kommentare,
+  Review-Kommentare, Releases): **leer**. `upstream/master` weiter `6a40e083`; JustChr#193/#194/#195/#196/#197 offen, je
+  0 Kommentare, #197 0 Reviews; neuestes Release weiter v2026.10.05 (Pre-Release).
+- **CI auf JustChr#197:** `gh pr checks` → „no checks reported“, `mcp__ccd_pr__get_status` 0 Checks, mergeable CLEAN.
+  **Keine wartende Fork-Freigabe:** `actions/runs?status=action_required` = 0, `?branch=feat/pause-silent-weather-sensor`
+  = 0, `?head_sha=<6fa424e8…>` = 0. **Im ganzen Repo ist seit 2026-10-08 05:41 UTC kein Workflow gelaufen**, auch nicht der
+  tägliche hassfest-Cron (`0 0 * * *`, bis 08.10. jeden Tag grün); die Workflows stehen auf `active` (HACS Action wie
+  bisher `disabled_manually`). Der Lint-Hinweis (ruff 0.17.0 UP017, E4) entfällt mangels Lauf. **Hinweis-Kommentar zur
+  fehlenden CI gesendet** (Text freigegeben, Runde davor 01:47 UTC leer):
+  [`6159057785`](https://github.com/JustChr/HAsmartirrigation/pull/197#issuecomment-6159057785), 01:47:35 UTC,
+  zurückgelesen gleich (`issue8-pr2-work\texts\pr197-ci-note-{en,readback}.md`).
+- P2: nichts zu tun (keine Antwort von JustChr). production `77f041d2` unverändert; HA-Prod-Version in dieser Sitzung nicht
+  geprüft.
+- **Aufgeräumt (nach Ansehen, verschoben, nichts gelöscht)** nach `D:\Entwicklung\HASI\_erledigt\`, README dort ergänzt:
+  `prodrebuild-1013b1-work` (Worktree `wt` per `git worktree move`, sauber, = Tag `v2026.10.13b1` bei origin; ZIP =
+  Release-Asset; `dl\body.txt` = Release-Text), `issue8-pr2-work\probe` (Patch/Mutationsbericht/Abweichungen im Archiv,
+  Rest Hilfsskripte), `issue8-pr2-work\src` (358 Dateien blob-gleich mit `6a40e083`), `session-1011b-work` (Messung +
+  Skript im Archiv, Rest Texte/Readbacks auf GitHub). Blob-Abgleich gegen die ganze Archiv-Historie (`f55de7bb`).
+  `suite_compare.sh` und `mutate-pr2b.py` zeigen nur auf `issue8-pr2-work\{wt,sdd}` und die Baseline oben — unberührt.
+- **Fund beim Ansehen:** `_erledigt\session-1011b-work\test_live_credit_units.py` ist ein fertiger RED-Test für den
+  Imperial-Defekt (Eifel-Joe#88 → JustChr#195): auf `6a40e083` 2 failed (Panel `0 == 112`, Lauf „zone dropped“), 1 passed
+  (metrisch). Nicht im Archiv → mit README nach `probes/2026-10-11-imperial-live-credit/` (User-Freigabe für den Push).
+
+### Fallen
+
+- pytest mit einer Testdatei außerhalb von `--rootdir` sammelt ab `C:\` (PermissionError) → Testdatei in ein eigenes
+  Verzeichnis, `--rootdir .`, `_local_socket_unblock.py` daneben, Quellbaum per `PYTHONPATH`.
+
+### Nächste Schritte
+
+1. Upstream-Runde ab 2026-10-14 01:47 UTC; CI auf #197 und JustChrs Reaktion auf den CI-Hinweis.
+2. JustChrs Antwort auf #197 → P2 (Link + Satz in Eifel-Joe#8, Label im selben Zug); Änderungen als neue Commits im
+   Worktree `issue8-pr2-work\wt`, je Änderung Test zuerst, `sdd\suite_compare.sh`, `sdd\mutate-pr2b.py`, Review.
+3. production b2 (L1-Fix `fa701bcd`, `6fa424e8`) und HA-Prod nur auf Zuruf.
+4. `issue87-work` nach Merge von JustChr#194; Rest von `issue8-pr2-work` nach Merge von #197. In `_erledigt` hängen
+   registrierte Worktrees (`issue5-work\pre-wt`, `issue5-work\wt`, `issue22-wt-rev3`, `prodrebuild-1013b1-work\wt`) —
+   Löschen entscheidet der User.
+5. PR 3 (Stundenpfad + Live-Schätzung): Spec + Plan.
+
+### Empfohlene Skills
+
+- `task-loop`, `pr-workflow`, `superpowers:receiving-code-review`, für PR 3 `superpowers:brainstorming`.
+
 ## 2026-10-13/14 — Eifel-Joe#8 PR 2 gebaut, Pre-Release v2026.10.13b1, Live-Test HA-Test, PR `JustChr#197` offen; Upstream-Runden leer
 
 ### Stand
