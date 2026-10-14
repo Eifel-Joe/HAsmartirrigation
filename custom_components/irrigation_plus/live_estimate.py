@@ -110,7 +110,12 @@ from .et_estimate import (
     rigorous_et_since,
 )
 from .helpers import STAMP_FROM_CLIENT, coerce_stamp, convert_between
-from .sensor_liveness import group_pauses, outages_of, zone_blocked_spans
+from .sensor_liveness import (
+    group_pauses,
+    outages_of,
+    valid_share,
+    zone_blocked_spans,
+)
 from .weather_aggregate import aggregate_window, build_substeps, weather_day
 
 _LOGGER = logging.getLogger(__name__)
@@ -1165,13 +1170,18 @@ class LiveEstimateMixin:
         computed with a different equation and then compared against it.
 
         The elapsed window is reduced by the same call the commit reduces the
-        whole window with (a pausing sensor group's silent time aside; see
-        ``_aggregate_live_window``), its day-level extremes are replaced by the
-        composed ones, and the zone's own module instance prices the result.
-        The window's share is ``MAPPING_DATA_MULTIPLIER`` -- the commit's own
+        whole window with, its day-level extremes are replaced by the composed
+        ones, and the zone's own module instance prices the result. The window's
+        share is ``MAPPING_DATA_MULTIPLIER`` -- the commit's own
         ``hour_multiplier`` out of the same aggregate -- so the estimate charges
         the elapsed hours at the rate the projected day total sets, and never
         charges past now.
+
+        A pausing sensor group's commit books only the part of the window in
+        which every field of its daily form was measured (``blocked``), so this
+        books the same part. With none, nothing is booked: a field silent
+        throughout answers 0 here rather than None, which would send the source
+        chain on to a weather service the commit never books from.
 
         The crop coefficient is deliberately NOT applied here; the caller applies
         it to whichever source produced the window total, exactly as the commit
@@ -1183,6 +1193,14 @@ class LiveEstimateMixin:
         blend = self._mirror_blend(zone, modinst, inputs, anchor=anchor, now=now)
         if blend is None:
             return None
+        share = None
+        if blocked:
+            module = self.store.get_module(zone.get(const.ZONE_MODULE)) or {}
+            fields = required_sensor_fields(module.get(const.MODULE_NAME))
+            if fields is not None:
+                share = valid_share(blocked, fields, anchor, now)
+                if share == 0:
+                    return _DayTotal(0.0, TIER_OBSERVED)
         day = self._composed_day_et(
             zone,
             agg,
@@ -1199,7 +1217,10 @@ class LiveEstimateMixin:
         multiplier = agg.get(const.MAPPING_DATA_MULTIPLIER)
         if multiplier is None:
             return None
-        return day._replace(total_mm=day.total_mm * float(multiplier))
+        total = day.total_mm * float(multiplier)
+        if share is not None:
+            total *= share
+        return day._replace(total_mm=total)
 
     def _buffer_water_steps(
         self,
