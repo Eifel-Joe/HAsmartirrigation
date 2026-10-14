@@ -10,13 +10,22 @@ from datetime import timedelta
 
 import pytest
 
+from custom_components.irrigation_plus import calculation as calculation_module
 from custom_components.irrigation_plus import const
 from custom_components.irrigation_plus import live_estimate as live_estimate_module
 from custom_components.irrigation_plus.sensor_liveness import Outage
 from tests.test_live_estimate_replayed_balance import (
+    ANCHOR,
     NOW,
     T0,
+    WINDOW_END,
+    _client_inputs,
+    _estimating_inputs,
+    _estimating_zone,
+    _hourly_forecast,
     _inputs,
+    _provider_rows,
+    _proxy_inputs,
     _rate_readings,
     _zone,
     make_coordinator,
@@ -59,6 +68,31 @@ async def _committed(c, store, zone, now=NOW):
     return await c.calculate_module(zone, weatherdata, None, now=now, blocked=blocked)
 
 
+def _recording_substeps(monkeypatch, module):
+    """The sub-steps ``module`` hands its replay, one entry per call."""
+    seen = []
+    real = module.build_substeps
+
+    def recording(*args, **kwargs):
+        steps = real(*args, **kwargs)
+        seen.append(steps)
+        return steps
+
+    monkeypatch.setattr(module, "build_substeps", recording)
+    return seen
+
+
+def _inside(steps, start, lo, hi):
+    """Indices of the steps lying inside ``[lo, hi)``; the first begins at ``start``."""
+    out = []
+    for i, step in enumerate(steps):
+        end = start + timedelta(hours=step.dt_hours)
+        if lo <= start and end <= hi:
+            out.append(i)
+        start = end
+    return out
+
+
 class TestTheLiveCurveLandsOnTheCutBucket:
     async def test_the_hourly_source_agrees_with_the_commit(self, coordinator):
         """Temperature silent from 06:00 to 12:00: 09:00-12:00 is blocked."""
@@ -97,6 +131,67 @@ class TestTheLiveCurveLandsOnTheCutBucket:
         assert after == before
 
 
+class TestTheReplayUnderTheHourlySwitch:
+    """Estimated sun keeps the daily form under the hourly switch, and the balance
+    of such a zone is still replayed -- by the commit and by the estimate alike,
+    with the ET placed in the time the fields of the daily form were measured."""
+
+    BLOCKED = (T0 + 9 * H, T0 + 16 * H)
+
+    def _estimate(self, c, store, zone, instance, module):
+        return c._intraday_for_zone(
+            store.get_zone(zone[const.ZONE_ID]),
+            _estimating_inputs(instance, module, forecast=_hourly_forecast()),
+        )
+
+    @pytest.mark.parametrize("sun", [True, False], ids=["with_sun", "without_sun"])
+    async def test_a_daily_mirror_zone_replays_its_measured_time(
+        self, coordinator, monkeypatch, sun
+    ):
+        """Temperature silent from 06:00 to 16:00 (blocked 09:00-16:00), without a
+        sun sensor as well as with one."""
+        c, store = coordinator
+        zone, module, instance = await _estimating_zone(c, store, 2.0)
+        if not sun:
+            store.set_mapping_buffer(
+                zone[const.ZONE_MAPPING],
+                [
+                    {k: v for k, v in row.items() if k != const.MAPPING_SOLRAD}
+                    for row in store.get_mapping_buffer(zone[const.ZONE_MAPPING])
+                ],
+            )
+        await _silent(store, zone, _record(6, 16))
+        live = _recording_substeps(monkeypatch, live_estimate_module)
+        booked = _recording_substeps(monkeypatch, calculation_module)
+
+        est = self._estimate(c, store, zone, instance, module)
+        data = await _committed(c, store, zone, now=WINDOW_END)
+
+        assert est["method"] == "daily_mirror"
+        assert est["balance_form"] == "replayed"
+        steps = live[-1]
+        inside = _inside(steps, ANCHOR, *self.BLOCKED)
+        assert inside
+        assert all(steps[i].et_weight == 0.0 for i in inside)
+        assert sum(step.et_weight for step in steps) == pytest.approx(1.0)
+        assert steps == booked[-1]
+        assert est["live_deficit"] == pytest.approx(
+            round(data[const.ZONE_BUCKET], 2), abs=0.01
+        )
+
+    async def test_a_field_the_daily_form_does_without_places_its_et_as_before(
+        self, coordinator, monkeypatch
+    ):
+        c, store = coordinator
+        zone, module, instance = await _estimating_zone(c, store, 2.0)
+        live = _recording_substeps(monkeypatch, live_estimate_module)
+        plain = self._estimate(c, store, zone, instance, module)
+        assert plain["balance_form"] == "replayed"
+        await _silent(store, zone, _record(6, 16, fields=(const.MAPPING_HUMIDITY,)))
+        self._estimate(c, store, zone, instance, module)
+        assert live[-1] == live[0]
+
+
 class TestTheRainItPublishes:
     async def test_a_blocked_rain_rate_is_published_as_the_commit_books_it(
         self, coordinator
@@ -124,6 +219,51 @@ class TestTheRainItPublishes:
         zone = store.get_zone(zone[const.ZONE_ID])
         blocked = c._blocked_spans_for_zone(zone, now=NOW)
         weatherdata, _ = await c._aggregate_for_zone(zone, now=NOW, blocked=blocked)
+        assert est["precip_since"] == pytest.approx(
+            weatherdata[const.MAPPING_PRECIPITATION], abs=1e-3
+        )
+        assert est["precip_since"] < uncut["precip_since"] - 1.0
+        # The replay reconciles its steps against the rain it publishes: handed
+        # the uncut rate it would not, and the window would fall back to lumped.
+        assert uncut["balance_form"] == "replayed"
+        assert est["balance_form"] == "replayed"
+
+    @pytest.mark.parametrize("source", ["hourly", "proxy"])
+    async def test_a_blocked_rain_rate_is_cut_on_every_source(
+        self, coordinator, source
+    ):
+        """A zone whose ET does not come from the buffer still publishes the rain
+        its commit books: of a rate only the measured time, whichever source
+        priced the ET (a client's hourly rows, or the forecast proxy)."""
+        c, store = coordinator
+        rate = {
+            const.MAPPING_PRECIPITATION: {
+                const.MAPPING_CONF_AGGREGATE: const.MAPPING_CONF_AGGREGATE_RIEMANNSUM
+            }
+        }
+        zone = await _zone(
+            c,
+            store,
+            2.0,
+            readings=_rate_readings({10: 2.0, 11: 2.0, 15: 1.0}),
+            mappings_config=rate,
+            module_name="Passthrough",
+        )
+        inputs = (
+            _client_inputs(_provider_rows(0.0))
+            if source == "hourly"
+            else _proxy_inputs()
+        )
+        uncut = c._intraday_for_zone(store.get_zone(zone[const.ZONE_ID]), inputs)
+        await _silent(
+            store, zone, _record(6, 12, fields=(const.MAPPING_PRECIPITATION,))
+        )
+        est = c._intraday_for_zone(store.get_zone(zone[const.ZONE_ID]), inputs)
+        zone = store.get_zone(zone[const.ZONE_ID])
+        blocked = c._blocked_spans_for_zone(zone, now=NOW)
+        weatherdata, _ = await c._aggregate_for_zone(zone, now=NOW, blocked=blocked)
+
+        assert est["method"] == uncut["method"] == source
         assert est["precip_since"] == pytest.approx(
             weatherdata[const.MAPPING_PRECIPITATION], abs=1e-3
         )
