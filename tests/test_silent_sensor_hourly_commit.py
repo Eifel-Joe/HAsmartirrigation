@@ -226,7 +226,7 @@ class TestTheHourlyForm:
         data = await _commit(
             c, zone, {const.MAPPING_DEWPOINT: ((T0 + 10 * H, T0 + 12 * H),)}
         )
-        assert data[const.ZONE_DELTA] == pytest.approx(plain[const.ZONE_DELTA])
+        assert data[const.ZONE_DELTA] == plain[const.ZONE_DELTA]
         assert "booked for" not in data[const.ZONE_EXPLANATION]
 
 

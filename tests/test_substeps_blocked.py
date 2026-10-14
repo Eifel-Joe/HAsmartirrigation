@@ -101,6 +101,29 @@ class TestTheEtLandsInMeasuredTime:
             readings, blocked={const.MAPPING_HUMIDITY: (span,)}, required=DAILY
         ) == _steps(readings)
 
+    def test_the_spans_of_several_fields_are_taken_in_time_order(self):
+        """Five fields, each silent for an hour of its own. The fields are
+        gathered from a set, so the order they come in is not the order of time.
+        No sun sensor, so the measured time alone places the ET."""
+        readings = [{k: v for k, v in row.items() if k != SUN} for row in _readings()]
+        spans = {
+            SUN: (T0 + 2 * H, T0 + 3 * H),
+            const.MAPPING_DEWPOINT: (T0 + 4 * H, T0 + 5 * H),
+            T: (T0 + 6 * H, T0 + 7 * H),
+            const.MAPPING_WINDSPEED: (T0 + 8 * H, T0 + 9 * H),
+            const.MAPPING_PRESSURE: (T0 + 10 * H, T0 + 11 * H),
+        }
+        cut = _steps(
+            readings,
+            blocked={field: (span,) for field, span in spans.items()},
+            required=DAILY,
+        )
+        for span in spans.values():
+            inside = _span_of(cut, *span)
+            assert inside
+            assert all(cut[i].et_weight == 0.0 for i in inside)
+        assert sum(s.et_weight for s in cut) == pytest.approx(1.0)
+
     def test_silent_sun_places_no_et_in_its_span_either(self):
         """The sun's own frozen value must not weight its silent time."""
         readings = _readings()

@@ -112,14 +112,20 @@ class TestTheLiveCurveLandsOnTheCutBucket:
         assert est["balance_form"] == "replayed"
 
     async def test_an_open_outage_cuts_up_to_now(self, coordinator):
+        """Open from 14:00, blocked from 17:00 to the estimate's now: both cut the
+        same, and both cut something."""
         c, store = coordinator
         zone = await _zone(c, store, 2.0)
+        uncut = c._intraday_for_zone(store.get_zone(zone[const.ZONE_ID]), _inputs())
+        uncut_data = await _committed(c, store, zone)
         await _silent(store, zone, _record(14))
         est = c._intraday_for_zone(store.get_zone(zone[const.ZONE_ID]), _inputs())
         data = await _committed(c, store, zone)
         assert est["live_deficit"] == pytest.approx(
             round(data[const.ZONE_BUCKET], 2), abs=0.01
         )
+        assert est["et_since"] < uncut["et_since"] - 0.1
+        assert data[const.ZONE_BUCKET] > uncut_data[const.ZONE_BUCKET] + 0.1
 
     async def test_a_group_that_keeps_is_estimated_as_before(self, coordinator):
         c, store = coordinator
@@ -316,6 +322,35 @@ class TestTheCarryFollowsTheOutages:
         cold = self._est(c, store, zone)
         assert warm == cold
         assert warm["et_since"] > open_est["et_since"]
+
+    async def test_an_open_outage_keeps_the_carried_hours_from_one_minute_to_the_next(
+        self, coordinator, monkeypatch
+    ):
+        """The key is the outage's record, not the spans cut from it: an open
+        span ends at "now" and would change every minute, and the whole window
+        would be priced again each time."""
+        c, store = coordinator
+        zone = await _zone(c, store, 2.0)
+        await _silent(store, zone, _record(6))
+        self._est(c, store, zone)
+        carried = c._hourly_carry()[zone[const.ZONE_ID]]
+        assert carried.boundary == NOW - H
+
+        priced_from = []
+        real = live_estimate_module.hourly_eto_priced
+
+        def recording(readings, watermark, *args, **kwargs):
+            priced_from.append(watermark)
+            return real(readings, watermark, *args, **kwargs)
+
+        monkeypatch.setattr(live_estimate_module, "hourly_eto_priced", recording)
+        c._intraday_for_zone(
+            store.get_zone(zone[const.ZONE_ID]),
+            _inputs(now=self.LATE + timedelta(minutes=2)),
+        )
+
+        assert priced_from == [carried.boundary]
+        assert c._hourly_carry()[zone[const.ZONE_ID]].outages == carried.outages
 
     async def test_switching_the_setting_drops_the_carried_hours(self, coordinator):
         c, store = coordinator
