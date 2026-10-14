@@ -10,8 +10,8 @@ while an outage is open, and a bus event when one starts and when it ends (#188)
 
 The outage record says when a sensor fell silent and the notice tells the user. A
 group that keeps a silent sensor's last value calculates as before; for a group
-that pauses it, ``blocked_spans`` turns the record into the time its daily
-calculation does not book (calculation._blocked_spans_for_zone).
+that pauses it, ``zone_blocked_spans`` turns the record into the time its
+calculation and its live estimate do not book.
 
 The rules are plain functions, testable without a running Home Assistant; the
 ``SensorLivenessMixin`` at the end is the coordinator glue.
@@ -616,16 +616,13 @@ class SensorLivenessMixin:
         )
 
     def _group_cuts(self, mapping: dict) -> bool:
-        """Whether this group's daily calculation leaves a silent sensor's time out.
+        """Whether this group's calculation leaves a silent sensor's time out.
 
-        A pausing group, and only without the hourly calculation (see
-        calculation._blocked_spans_for_zone); every other group still uses the
-        last value. Which fields it leaves out, ``cuts_field`` says.
+        A pausing group, in every form of the calculation (``zone_blocked_spans``);
+        every other group still uses the last value. Which fields it leaves out,
+        ``cuts_field`` says.
         """
-        # Imported here: calculation imports this module.
-        from .calculation import hourly_calculation_enabled
-
-        return group_pauses(mapping) and not hourly_calculation_enabled(self.store)
+        return group_pauses(mapping)
 
     def _stale_issue_key(self, mapping_id, outages: list[Outage]) -> str:
         """The notice's text: the paused one where the group's values are cut.
@@ -645,7 +642,7 @@ class SensorLivenessMixin:
         return const.ISSUE_WEATHER_SENSOR_STALE
 
     def async_resync_stale_issue(self, mapping: dict | None) -> None:
-        """Bring a group's open notice in line with its setting and the calculation form.
+        """Bring a group's open notice in line with its setting and its fields.
 
         Called when either changes; otherwise the notice is touched only when an
         outage opens or closes. A group without an open outage has no notice.

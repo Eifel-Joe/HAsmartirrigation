@@ -434,14 +434,11 @@ class CalculationMixin:
         The commit's window runs from the zone's watermark to ``now``, and
         ``sensor_liveness.zone_blocked_spans`` cuts it -- the function the live
         estimate asks too. A zone that has never consumed has no watermark and
-        is not cut (its first commit anchors it).
-
-        Only in the daily form for now: with the hourly calculation the replayed
-        balance checks itself against this aggregate's precipitation, so cutting
-        one and not the other would fail that check.
+        is not cut (its first commit anchors it). Every form of the calculation
+        takes the same spans: the aggregate, the hourly rows and the replayed
+        balance are cut together, so the balance still reconciles with the
+        aggregate's precipitation.
         """
-        if hourly_calculation_enabled(self.store):
-            return None
         return zone_blocked_spans(
             self.store, zone, zone.get(const.ZONE_LAST_CONSUMED), now
         )
