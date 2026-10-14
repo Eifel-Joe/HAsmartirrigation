@@ -344,8 +344,8 @@ def aggregate_window(
             produces; defaults to False so poll-only installs keep the plain
             mean they have always had.
         blocked: ``{field: ((from, to), ...)}``, each field's blocked time
-            inside the window (sensor_liveness.blocked_spans). Only a pausing
-            sensor group's daily commit passes it. A blocked field is reduced
+            inside the window (sensor_liveness.zone_blocked_spans). Only a
+            pausing sensor group's commit passes it. A blocked field is reduced
             over its valid time and left out when it has none; a field without
             spans is reduced exactly as without the argument.
 

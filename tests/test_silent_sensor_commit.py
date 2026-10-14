@@ -121,11 +121,13 @@ class TestTheGate:
         mid = await _group(store, setting="keep", outages=[_outage(2, 10)])
         assert _gate(c, store, await _zone(store, mid)) is None
 
-    async def test_with_the_hourly_calculation_nothing_is_cut(self, coord):
+    async def test_the_hourly_calculation_is_cut_the_same(self, coord):
         c, store = coord
         await store.async_update_config({const.CONF_HOURLY_CALCULATION: True})
         mid = await _group(store, outages=[_outage(2, 10)])
-        assert _gate(c, store, await _zone(store, mid)) is None
+        assert _gate(c, store, await _zone(store, mid)) == {
+            T: ((W + 5 * H, W + 10 * H),)
+        }
 
     async def test_a_window_no_outage_reaches_is_not_cut(self, coord):
         c, store = coord
@@ -462,9 +464,9 @@ class TestAGroupThatIsNotCutCalculatesAsBefore:
         assert keep == plain
         assert quiet == plain
 
-    async def test_a_pausing_group_under_the_hourly_calculation_matches_too(
-        self, coord
-    ):
+    async def test_a_pausing_group_under_the_hourly_switch_is_cut_too(self, coord):
+        """The stub keeps the daily form (no measured sun), so the daily fields
+        decide: temperature blocked 05:00-10:00 leaves 19 of 24 hours."""
         c, store = coord
         await store.async_update_config({const.CONF_HOURLY_CALCULATION: True})
         module_id, _ = await _module(c, store, "PyETO", returns=-4.0)
@@ -475,7 +477,9 @@ class TestAGroupThatIsNotCutCalculatesAsBefore:
             await _group(store, setting="keep"),
             await _group(store, outages=[_outage(2, 10)]),
         )
-        assert paused == plain
+        assert plain[const.ZONE_DELTA] == pytest.approx(-4.0)
+        assert paused[const.ZONE_DELTA] == pytest.approx(-4.0 * 19 / 24)
+        assert "booked for 79 % of the period" in paused[const.ZONE_EXPLANATION]
 
 
 class TestTheExplanation:

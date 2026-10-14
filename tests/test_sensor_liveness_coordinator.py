@@ -1007,13 +1007,14 @@ class TestThePausedNotice:
         assert "no longer used" in caplog.text
         assert "still used" not in caplog.text
 
-    async def test_under_the_hourly_calculation_its_values_are_still_used(
+    async def test_under_the_hourly_calculation_too_they_are_no_longer_used(
         self, monkeypatch, caplog
     ):
         group = _pausing(_group(fields={"Temperature": "sensor.temp"}))
         key = await self._silent(monkeypatch, group, hourly=True)
-        assert key == const.ISSUE_WEATHER_SENSOR_STALE
-        assert "still used" in caplog.text
+        assert key == const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        assert "no longer used" in caplog.text
+        assert "still used" not in caplog.text
 
     async def test_changing_the_setting_rewrites_the_open_notice(self, monkeypatch):
         coord, _, issues = _mock_store_coord(
@@ -1064,27 +1065,20 @@ class TestThePausedNotice:
             await coord.async_update_mapping_config(0, {const.MAPPING_NAME: "renamed"})
         assert issues.open["weather_sensor_stale_0"] == {}
 
-    async def test_switching_the_hourly_calculation_rewrites_open_notices(
+    async def test_switching_the_hourly_calculation_leaves_the_notice_alone(
         self, monkeypatch
     ):
+        """Both forms cut, so the switch no longer decides the notice's text."""
         group = _pausing(_sensor_group_zero("sensor.old"))
         coord, store, issues = _mock_store_coord(monkeypatch, group)
         store.async_update_config = AsyncMock()
         store.async_get_mappings = AsyncMock(return_value=[group])
 
-        store.config = _hourly(True)
-        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
-            await coord.async_update_config({const.CONF_HOURLY_CALCULATION: True})
-        assert issues.open["weather_sensor_stale_0"]["translation_key"] == (
-            const.ISSUE_WEATHER_SENSOR_STALE
-        )
-
-        store.config = _hourly(False)
-        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
-            await coord.async_update_config({const.CONF_HOURLY_CALCULATION: False})
-        assert issues.open["weather_sensor_stale_0"]["translation_key"] == (
-            const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
-        )
+        for hourly in (True, False):
+            store.config = _hourly(hourly)
+            with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+                await coord.async_update_config({const.CONF_HOURLY_CALCULATION: hourly})
+            assert issues.open["weather_sensor_stale_0"] == {}
 
     async def test_a_group_without_an_open_outage_is_not_asked_about(self, monkeypatch):
         group = _pausing(_sensor_group_zero("sensor.old"))
