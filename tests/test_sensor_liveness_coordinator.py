@@ -218,6 +218,10 @@ def _coord(monkeypatch, groups, states, devices):
     coord.hass.states.get = Mock(side_effect=states.get)
     coord.hass.bus.async_fire = Mock()
     coord.store = store
+    # The refresh after a pausing group's outage moved is the live estimate's, not
+    # this check's: a stand-in, so it does not run for real against the fake store
+    # (where it fails, unseen, in the debug log).
+    coord.async_refresh_zone_estimates = AsyncMock()
     device_of = {e: d for d, entities in devices.items() for e in entities}
 
     def entities_of_device(hass, entity_id):
@@ -1288,4 +1292,5 @@ class TestTheEstimateFollowsTheRecord:
         )
         coord.async_refresh_zone_estimates = AsyncMock(side_effect=RuntimeError)
         await coord.async_check_sensor_liveness(now=T0)
+        coord.async_refresh_zone_estimates.assert_awaited_once()
         assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES]

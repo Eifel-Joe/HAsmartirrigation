@@ -217,6 +217,27 @@ class TestARequiredFieldBlockedThroughout:
         assert _rows(readings, blocked={SUN: ((T0, T0 + 2 * H),)}) is None
 
 
+class TestSpansOfDifferentFieldsAreTakenInTimeOrder:
+    def test_a_late_field_with_an_early_span_is_not_overlooked(self):
+        """The sun comes after the temperature among the required fields, yet its
+        span lies before the temperature's: 08:00-10:00 for the sun, 12:00-14:00
+        for the temperature. Each holds back the hours it covers, and no others."""
+        blocked = {
+            SUN: ((T0 + 8 * H, T0 + 10 * H),),
+            T: ((T0 + 12 * H, T0 + 14 * H),),
+        }
+        rows = _by_hour(_rows(_dense(), blocked=blocked))
+        silent = {
+            hour for hour in range(24) if rows[T0 + hour * H]["coverage_h"] == 0.0
+        }
+        assert silent == {8, 9, 12, 13}
+        assert all(
+            rows[T0 + hour * H]["coverage_h"] == 1.0
+            for hour in range(24)
+            if hour not in silent
+        )
+
+
 class TestPressureIsNotRequired:
     def test_an_hour_without_valid_pressure_takes_the_elevation(self):
         rows = _by_hour(_rows(_dense(), blocked={P: ((T0 + 10 * H, T0 + 12 * H),)}))
