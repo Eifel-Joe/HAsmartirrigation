@@ -1,0 +1,39 @@
+T1 tests=[tests/test_sensor_liveness_blocked.py]
+   ============================== 1 error in 1.66s ===============================
+   E   ImportError: cannot import name 'zone_blocked_spans' from 'custom_components.irrigation_plus.sensor_liveness' (D:\Entwicklung\HASI\issue8-pr3-work\redcheck-
+T2 tests=[tests/test_hourly_rows_blocked.py]
+   ============================== 1 error in 1.50s ===============================
+   E   ImportError: cannot import name 'HOURLY_ROW_REQUIRED' from 'custom_components.irrigation_plus.weather_aggregate' (D:\Entwicklung\HASI\issue8-pr3-work\redche
+T3 tests=[tests/test_substeps_blocked.py]
+   ============================== 9 failed in 2.18s ==============================
+   E   TypeError: build_substeps() got an unexpected keyword argument 'blocked'
+   E   TypeError: build_substeps() got an unexpected keyword argument 'blocked'
+T4 tests=[tests/test_silent_sensor_hourly_commit.py]
+   ============================== 1 error in 1.51s ===============================
+   E   ImportError: cannot import name 'required_sensor_fields' from 'custom_components.irrigation_plus.calculation' (D:\Entwicklung\HASI\issue8-pr3-work\redcheck-
+T5 tests=[tests/test_sensor_liveness_coordinator.py
+tests/test_silent_sensor_commit.py]
+   ================= 4 failed, 82 deselected, 2 errors in 3.31s ==================
+   E   AssertionError: assert None == {'Temperature': ((datetime.datetime(2026, 7, 1, 5, 0), datetime.datetime(2026, 7, 1, 10, 0)),)}
+   E   assert -4.0 == -3.1666666666666665 ± 3.2e-06
+T6 tests=[tests/test_live_estimate_replayed_balance.py
+tests/test_live_estimate_silent_sensor.py]
+   ==================== 7 failed, 1 passed, 8 errors in 4.64s ====================
+   E   assert 1.96 == 2.77 ± 1.0e-02
+   E     Obtained: 1.96
+T7 tests=[tests/test_live_estimate_silent_sensor_daily.py]
+   ==================== 2 failed, 1 passed, 3 errors in 3.75s ====================
+   E   assert -2.61 == -1.65 ± 1.0e-02
+   E     Obtained: -2.61
+T8 tests=[tests/test_live_estimate_silent_sensor_daily.py]
+   ================== 2 failed, 3 deselected, 2 errors in 2.20s ==================
+   E   assert 1.6405 < 1.6405
+   E   assert 0 == 1
+T9 tests=[tests/test_sensor_liveness_coordinator.py]
+   ================= 4 failed, 2 passed, 49 deselected in 2.56s ==================
+   E   AssertionError: Expected mock to have been awaited once. Awaited 0 times.
+   E   AssertionError: Expected mock to have been awaited once. Awaited 0 times.
+error: Your local changes to the following files would be overwritten by checkout:
+	tests/test_sensor_liveness_coordinator.py
+Please commit your changes or stash them before you switch branches.
+Aborting

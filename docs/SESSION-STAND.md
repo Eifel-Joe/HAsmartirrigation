@@ -23,7 +23,7 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
-## 2026-10-14 — Upstream-Runde leer; `JustChr#197` ohne CI (bei JustChr läuft seit 08.10. kein Workflow); aufgeräumt nach `_erledigt`
+## 2026-10-14 — Upstream-Runden leer; `JustChr#197` ohne CI (CI-Hinweis gesendet); aufgeräumt; PR 3: Spec + Plan freigegeben, Probelauf 37/37
 
 ### Stand
 
@@ -57,14 +57,21 @@
 
 ### Nächste Schritte
 
-1. Upstream-Runde ab 2026-10-14 01:47 UTC; CI auf #197 und JustChrs Reaktion auf den CI-Hinweis.
-2. JustChrs Antwort auf #197 → P2 (Link + Satz in Eifel-Joe#8, Label im selben Zug); Änderungen als neue Commits im
-   Worktree `issue8-pr2-work\wt`, je Änderung Test zuerst, `sdd\suite_compare.sh`, `sdd\mutate-pr2b.py`, Review.
-3. production b2 (L1-Fix `fa701bcd`, `6fa424e8`) und HA-Prod nur auf Zuruf.
-4. `issue87-work` nach Merge von JustChr#194; Rest von `issue8-pr2-work` nach Merge von #197. In `_erledigt` hängen
+1. **Upstream-Runde** ab 2026-10-14 13:56 UTC (letzte Runde, leer; davor nur unser CI-Hinweis); CI auf #197 und JustChrs
+   Reaktion auf den CI-Hinweis. Vor jedem Außen-Schritt wiederholen.
+2. **PR 3 bauen** nach `docs/superpowers/plans/2026-10-14-dead-weather-sensor-pr3.md`, subagent-driven
+   (`superpowers:subagent-driven-development`), Task 0 bis Task 10; der Plan ist freigegeben. Task 0 Step 1 prüft, ob
+   `origin/feat/pause-silent-weather-sensor` noch `6fa424e8` ist und ob #197 gemergt wurde — sonst Basis und Anker neu.
+   Weicht ein Block vom Patch ab: `issue8-pr3-work\probe-2026-10-14.patch` gilt. Task 11 (Pre-Release, Live-Test HA-Test)
+   und Task 12 (nach Merge von #197) nur mit Freigaben im Chat.
+3. JustChrs Antwort auf #197 → P2 (Link + Satz in Eifel-Joe#8, Label im selben Zug); Änderungen als neue Commits im
+   Worktree `issue8-pr2-work\wt`, je Änderung Test zuerst, `sdd\suite_compare.sh`, `sdd\mutate-pr2b.py`, Review — und
+   danach in PR 3 nachziehen (G1).
+4. production b2 (L1-Fix `fa701bcd`, `6fa424e8`) und HA-Prod nur auf Zuruf; Plan Task 11 nimmt PR 3 mit.
+5. Aufräumen: `issue87-work` nach Merge von JustChr#194; Rest von `issue8-pr2-work` nach Merge von #197;
+   `issue8-pr3-work\probe-wt` und `src` nach dem Bau von PR 3 (Patch und Belege sind archiviert). In `_erledigt` hängen
    registrierte Worktrees (`issue5-work\pre-wt`, `issue5-work\wt`, `issue22-wt-rev3`, `prodrebuild-1013b1-work\wt`) —
    Löschen entscheidet der User.
-5. PR 3 (Stundenpfad + Live-Schätzung): Spec + Plan — **begonnen, siehe unten**.
 
 ### PR 3 (Eifel-Joe#8, Teil 3) — Stand
 - **Archiv-Push** (User-Freigabe): `f55de7bb..6d2decf9` auf `archive/design-history` = RED-Test JustChr#195
@@ -76,12 +83,27 @@
   **stapeln** auf `6fa424e8`, PR nach Merge von #197; G2 **ein PR**, Teil A Commit / Teil B Live.
 - **Spec geschrieben** `docs/superpowers/specs/2026-10-14-dead-weather-sensor-pr3-design.md` (Hauptbaum, untracked),
   Selbstprüfung durch; **vom User freigegeben 2026-10-14** („Spec passt“), mit Faktensammlung, Auftrag und
-  Entscheidungen archiviert (`probes/2026-10-14-dead-weather-sensor-pr3-survey/`, Push freigegeben). Nächster Schritt:
-  Plan (`superpowers:writing-plans`).
+  Entscheidungen archiviert (`probes/2026-10-14-dead-weather-sensor-pr3-survey/`, Archiv `7e2c5c98`, Push freigegeben).
+- **Plan geschrieben** `docs/superpowers/plans/2026-10-14-dead-weather-sensor-pr3.md` (Hauptbaum, untracked; Tasks 0–12,
+  Teil A 1–5 Commit, Teil B 6–9 Live). Code-/Testblöcke **aus einem Probelauf erzeugt**: Wegwerf-Worktree
+  `issue8-pr3-work\probe-wt` (losgelöst, 9 Task-Commits auf `6fa424e8`, Kopf `8bd004a9`, Baum = gemessener Stand),
+  Generator `issue8-pr3-work\make_plan.py` (+ `plan-skeleton.md`, `plan-tasks.md`, `plan-*.md`). Belege: volle Suite
+  7/3989/9/487 gegen 7/3925/9/466 (FAILED gleich, nur 2 umbenannte Namen entfallen, neue ERROR nur Teardown);
+  **37/37 Mutationen** (`mutate-pr3.py`, `mutate-final.txt`); alle 9 RED-Erwartungen gemessen (`red_check.sh`,
+  `red-check.txt`); Patch `probe-2026-10-14.patch`. **Vom User freigegeben 2026-10-14**: Plan, Doku-Wortlaut (de, Abschnitt
+  *Wortlaute*) und die vier Abweichungen von der Spec (Planende: ungedrosselte Neuberechnung, leere Zeilen, Regen-Zuwachs
+  am Sperrrand geteilt, gleichwertige Bedingung entfernt); Ausführung **subagent-driven**. Plan + Probelauf-Belege
+  archiviert unter `probes/2026-10-14-dead-weather-sensor-pr3-plan/` (Push freigegeben).
+- Fallen: `ruff` ungepinnt zieht 0.17 → UP017 in fremden Dateien, deshalb `uvx ruff@0.16.10`; `git cherry-pick` kennt kein
+  `-q`; Bash-Heredoc frisst `\n` (Skripte mit Backslashes per Write-Tool); eine Testzeile genau auf dem `now` einer offenen
+  Sperre zählt als gemessen (halboffen) — Fixtures mit eingefrorenen Werten enden davor; mit `now` genau auf der vollen
+  Stunde deckt der Live-Übertrag alle Stunden ab, Tests für den Übertrag deshalb mit `now` mitten in einer Stunde.
 
 ### Empfohlene Skills
 
-- `task-loop`, `pr-workflow`, `superpowers:receiving-code-review`; für PR 3 nach Spec-Freigabe `superpowers:writing-plans`.
+- `task-loop`, `superpowers:subagent-driven-development`, `superpowers:test-driven-development`,
+  `superpowers:requesting-code-review` / `receiving-code-review`, `superpowers:verification-before-completion`; für
+  Antworten auf #197 `pr-workflow`.
 
 ## 2026-10-13/14 — Eifel-Joe#8 PR 2 gebaut, Pre-Release v2026.10.13b1, Live-Test HA-Test, PR `JustChr#197` offen; Upstream-Runden leer
 

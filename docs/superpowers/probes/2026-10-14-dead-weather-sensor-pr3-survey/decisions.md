@@ -21,3 +21,4 @@ Fakten: `context-2026-10-14.md` (Basis `6fa424e8`); die Top-3-Befunde vom Contro
 | — | Abschnitte 1 (Rahmen) + 2 (Teil A Commit) | **freigegeben** (User: „Passt so“) |
 | — | Abschnitte 3 (Teil B Live) + 4 (Melden/Texte/Doku) | **freigegeben** (User: „Passt so“ je Abschnitt) |
 | — | Abschnitt 5 (Tests, E2E, Lieferung, Nicht-Umfang) | **freigegeben** (User: „Passt so“) → Spec schreiben |
+| — | Plan, Doku-Wortlaut (de), vier Abweichungen von der Spec, Ausführung | **freigegeben** 2026-10-14 (User: „Plan passt, Wortlaut ok, subagent-driven, Archiv pushen“) |

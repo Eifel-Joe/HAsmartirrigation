@@ -1,0 +1,582 @@
+[
+  {
+    "n": 1,
+    "file": "sensor_liveness.py",
+    "mutation": "zone_blocked_spans: a group that keeps is cut too",
+    "expected_killer": "test_a_group_that_keeps_is_not_cut",
+    "result": "KILLED",
+    "summary": "7 failed, 159 passed, 57 errors in 48.79s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_a_group_that_keeps_is_estimated_as_before",
+      "TestZoneBlockedSpans::test_a_group_that_keeps_is_not_cut",
+      "TestAGroupThatIsNotCutCalculatesAsBefore::test_keep_with_outages_and_pause_without_one_match_a_plain_group",
+      "TestTheCommitCarriesTheSpans::test_a_group_that_keeps_aggregates_as_before",
+      "TestTheExplanation::test_a_group_that_keeps_gets_no_sentence",
+      "TestTheGate::test_a_group_that_keeps_is_not_cut"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 2,
+    "file": "sensor_liveness.py",
+    "mutation": "zone_blocked_spans: a rain gauge is cut too",
+    "expected_killer": "test_a_rain_gauge_is_never_cut_and_a_rain_rate_is",
+    "result": "KILLED",
+    "summary": "2 failed, 164 passed, 57 errors in 44.79s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestZoneBlockedSpans::test_a_rain_gauge_is_never_cut_and_a_rain_rate_is",
+      "TestTheGate::test_a_rain_gauge_is_never_cut_and_a_rain_rate_is"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 3,
+    "file": "sensor_liveness.py",
+    "mutation": "zone_blocked_spans: a zone without a window start is cut",
+    "expected_killer": "test_no_group_no_start_or_no_window_is_not_cut",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 44.87s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestZoneBlockedSpans::test_no_group_no_start_or_no_window_is_not_cut"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 4,
+    "file": "sensor_liveness.py",
+    "mutation": "the notice is plain again under the hourly calculation",
+    "expected_killer": "test_under_the_hourly_calculation_too_they_are_no_longer_used",
+    "result": "KILLED",
+    "summary": "2 failed, 164 passed, 57 errors in 36.49s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestThePausedNotice::test_changing_the_setting_rewrites_the_open_notice",
+      "TestThePausedNotice::test_under_the_hourly_calculation_too_they_are_no_longer_used"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 5,
+    "file": "sensor_liveness.py",
+    "mutation": "a group that keeps refreshes the estimates too",
+    "expected_killer": "test_a_group_that_keeps_does_not",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 34.29s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheEstimateFollowsTheRecord::test_a_group_that_keeps_does_not"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 6,
+    "file": "sensor_liveness.py",
+    "mutation": "an outage that opens refreshes nothing",
+    "expected_killer": "test_an_outage_that_opens_refreshes_the_estimates",
+    "result": "KILLED",
+    "summary": "4 failed, 162 passed, 57 errors in 33.60s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheEstimateFollowsTheRecord::test_a_check_that_changes_nothing_does_not",
+      "TestTheEstimateFollowsTheRecord::test_an_outage_that_closes_refreshes_them_again",
+      "TestTheEstimateFollowsTheRecord::test_an_outage_that_opens_refreshes_the_estimates",
+      "TestTheEstimateFollowsTheRecord::test_two_groups_in_one_check_refresh_once"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 7,
+    "file": "sensor_liveness.py",
+    "mutation": "a failing refresh breaks the check",
+    "expected_killer": "test_a_refresh_that_fails_leaves_the_check_intact",
+    "result": "KILLED",
+    "summary": "5 failed, 161 passed, 57 errors in 33.14s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheEstimateFollowsTheRecord::test_a_refresh_that_fails_leaves_the_check_intact",
+      "TestThePausedNotice::test_a_pausing_group_says_its_values_are_no_longer_used",
+      "TestThePausedNotice::test_a_silent_rain_gauge_alone_keeps_the_plain_notice",
+      "TestThePausedNotice::test_a_silent_temperature_beside_it_brings_the_paused_notice",
+      "TestThePausedNotice::test_under_the_hourly_calculation_too_they_are_no_longer_used"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 8,
+    "file": "sensor_liveness.py",
+    "mutation": "every group of a check refreshes on its own",
+    "expected_killer": "test_two_groups_in_one_check_refresh_once",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 34.70s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheEstimateFollowsTheRecord::test_two_groups_in_one_check_refresh_once"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 9,
+    "file": "calculation.py",
+    "mutation": "the commit's gate on the hourly calculation is back",
+    "expected_killer": "test_the_hourly_calculation_is_cut_the_same",
+    "result": "KILLED",
+    "summary": "5 failed, 161 passed, 57 errors in 36.88s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit",
+      "TestTheRainItPublishes::test_a_blocked_rain_rate_is_published_as_the_commit_books_it",
+      "TestAGroupThatIsNotCutCalculatesAsBefore::test_a_pausing_group_under_the_hourly_switch_is_cut_too",
+      "TestTheGate::test_the_hourly_calculation_is_cut_the_same"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 10,
+    "file": "calculation.py",
+    "mutation": "the hourly form needs only the daily fields",
+    "expected_killer": "test_the_hourly_form_needs_temperature_humidity_wind_and_sun",
+    "result": "KILLED",
+    "summary": "4 failed, 162 passed, 57 errors in 37.03s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheFieldsEachFormNeeds::test_the_hourly_form_needs_temperature_humidity_wind_and_sun",
+      "TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing",
+      "TestTheHourlyForm::test_dewpoint_does_not",
+      "TestTheHourlyForm::test_humidity_counts_in_the_hourly_form"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 11,
+    "file": "calculation.py",
+    "mutation": "the share is taken with the daily fields in the hourly form",
+    "expected_killer": "test_humidity_counts_in_the_hourly_form",
+    "result": "KILLED",
+    "summary": "3 failed, 163 passed, 57 errors in 33.69s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing",
+      "TestTheHourlyForm::test_dewpoint_does_not",
+      "TestTheHourlyForm::test_humidity_counts_in_the_hourly_form"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 12,
+    "file": "calculation.py",
+    "mutation": "the hourly total is scaled by the share a second time",
+    "expected_killer": "test_it_books_the_rows_once_and_names_the_share",
+    "result": "KILLED",
+    "summary": "3 failed, 163 passed, 57 errors in 34.83s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit",
+      "TestTheHourlyForm::test_it_books_the_rows_once_and_names_the_share"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 13,
+    "file": "calculation.py",
+    "mutation": "the hourly rows are not handed the spans",
+    "expected_killer": "test_it_books_the_rows_once_and_names_the_share",
+    "result": "KILLED",
+    "summary": "4 failed, 162 passed, 57 errors in 33.70s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit",
+      "TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing",
+      "TestTheHourlyForm::test_it_books_the_rows_once_and_names_the_share"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 14,
+    "file": "calculation.py",
+    "mutation": "the replay is not handed the spans",
+    "expected_killer": "test_it_still_replays_under_a_blocked_rain_rate",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 34.16s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheReplayedBalance::test_it_still_replays_under_a_blocked_rain_rate"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 15,
+    "file": "weather_aggregate.py",
+    "mutation": "a blocked hour keeps its readings and is priced",
+    "expected_killer": "test_hours_inside_a_span_stay_as_rows_without_et",
+    "result": "KILLED",
+    "summary": "20 failed, 146 passed, 57 errors in 33.89s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestABlockedHourBooksNothing::test_a_partly_blocked_hour_is_charged_its_measured_part",
+      "TestABlockedHourBooksNothing::test_hours_inside_a_span_stay_as_rows_without_et",
+      "TestABlockedHourBooksNothing::test_hours_outside_the_spans_match_the_unblocked_rows",
+      "TestABlockedHourBooksNothing::test_the_series_charges_such_a_row_nothing",
+      "TestARequiredFieldBlockedThroughout::test_a_field_whose_every_reading_is_inside_a_span_books_nothing",
+      "TestARequiredFieldBlockedThroughout::test_the_rows_stay_and_book_nothing",
+      "TestAWindowThatStartsInsideASpan::test_the_dead_sensors_boundary_value_is_never_priced",
+      "TestEachFieldIsAveragedOverItsOwnValidTime::test_a_frozen_value_stamped_inside_a_span_is_not_used",
+      "TestPricing::test_hourly_eto_priced_passes_the_spans_on",
+      "TestTheClearnessRatio::test_after_the_span_the_ratio_from_before_holds",
+      "TestTheClearnessRatio::test_frozen_solar_inside_a_span_changes_no_row",
+      "TestTheCarryFollowsTheOutages::test_an_outage_that_closes_drops_the_carried_hours",
+      "TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit",
+      "TestTheSpansAreComputedOnce::test_one_refresh_asks_once",
+      "TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing",
+      "TestTheHourlyForm::test_humidity_counts_in_the_hourly_form",
+      "TestTheHourlyForm::test_it_books_the_rows_once_and_names_the_share",
+      "TestTheReplayedBalance::test_it_still_replays_under_a_blocked_required_field"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 16,
+    "file": "weather_aggregate.py",
+    "mutation": "an hour is charged its whole coverage",
+    "expected_killer": "test_a_partly_blocked_hour_is_charged_its_measured_part",
+    "result": "KILLED",
+    "summary": "21 failed, 145 passed, 57 errors in 32.05s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestABlockedHourBooksNothing::test_a_partly_blocked_hour_is_charged_its_measured_part",
+      "TestABlockedHourBooksNothing::test_hours_inside_a_span_stay_as_rows_without_et",
+      "TestABlockedHourBooksNothing::test_hours_outside_the_spans_match_the_unblocked_rows",
+      "TestABlockedHourBooksNothing::test_the_series_charges_such_a_row_nothing",
+      "TestARequiredFieldBlockedThroughout::test_a_field_whose_every_reading_is_inside_a_span_books_nothing",
+      "TestARequiredFieldBlockedThroughout::test_the_rows_stay_and_book_nothing",
+      "TestAWindowThatStartsInsideASpan::test_the_dead_sensors_boundary_value_is_never_priced",
+      "TestEachFieldIsAveragedOverItsOwnValidTime::test_a_frozen_value_stamped_inside_a_span_is_not_used",
+      "TestEachFieldIsAveragedOverItsOwnValidTime::test_two_fields_silent_in_different_parts_of_one_hour",
+      "TestPricing::test_hourly_eto_priced_passes_the_spans_on",
+      "TestTheClearnessRatio::test_after_the_span_the_ratio_from_before_holds",
+      "TestTheClearnessRatio::test_frozen_solar_inside_a_span_changes_no_row",
+      "TestTheCarryFollowsTheOutages::test_an_outage_that_closes_drops_the_carried_hours",
+      "TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit",
+      "TestTheSpansAreComputedOnce::test_one_refresh_asks_once",
+      "TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing",
+      "TestTheHourlyForm::test_humidity_counts_in_the_hourly_form",
+      "TestTheHourlyForm::test_it_books_the_rows_once_and_names_the_share",
+      "TestTheReplayedBalance::test_it_still_replays_under_a_blocked_required_field"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 17,
+    "file": "weather_aggregate.py",
+    "mutation": "a blocked field is held into its span",
+    "expected_killer": "test_two_fields_silent_in_different_parts_of_one_hour",
+    "result": "KILLED",
+    "summary": "5 failed, 161 passed, 57 errors in 33.18s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestEachFieldIsAveragedOverItsOwnValidTime::test_two_fields_silent_in_different_parts_of_one_hour",
+      "TestPressureIsNotRequired::test_an_hour_without_valid_pressure_takes_the_elevation",
+      "TestTheEtLandsInMeasuredTime::test_a_required_field_silent_places_no_et_there",
+      "TestTheEtLandsInMeasuredTime::test_inside_an_hour_the_quantum_goes_to_its_measured_part",
+      "TestTheEtLandsInMeasuredTime::test_silent_sun_places_no_et_in_its_span_either"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 18,
+    "file": "weather_aggregate.py",
+    "mutation": "a frozen reading inside a span is used",
+    "expected_killer": "test_a_frozen_value_stamped_inside_a_span_is_not_used",
+    "result": "KILLED",
+    "summary": "2 failed, 164 passed, 57 errors in 33.41s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestARequiredFieldBlockedThroughout::test_a_field_whose_every_reading_is_inside_a_span_books_nothing",
+      "TestEachFieldIsAveragedOverItsOwnValidTime::test_a_frozen_value_stamped_inside_a_span_is_not_used"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 19,
+    "file": "weather_aggregate.py",
+    "mutation": "a required field with nothing to hold books as if measured",
+    "expected_killer": "test_a_field_whose_every_reading_is_inside_a_span_books_nothing",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 37.61s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestARequiredFieldBlockedThroughout::test_a_field_whose_every_reading_is_inside_a_span_books_nothing"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 20,
+    "file": "weather_aggregate.py",
+    "mutation": "frozen solar inside a span feeds the ratio",
+    "expected_killer": "test_frozen_solar_inside_a_span_changes_no_row",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 35.60s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheClearnessRatio::test_frozen_solar_inside_a_span_changes_no_row"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 21,
+    "file": "weather_aggregate.py",
+    "mutation": "the ratio hold refills a blocked hour",
+    "expected_killer": "test_after_the_span_the_ratio_from_before_holds",
+    "result": "KILLED",
+    "summary": "2 failed, 164 passed, 57 errors in 37.20s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheClearnessRatio::test_after_the_span_the_ratio_from_before_holds",
+      "TestTheClearnessRatio::test_frozen_solar_inside_a_span_changes_no_row"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 22,
+    "file": "et_estimate.py",
+    "mutation": "a row covering no time is priced",
+    "expected_killer": "test_the_series_charges_such_a_row_nothing",
+    "result": "KILLED",
+    "summary": "12 failed, 154 passed, 57 errors in 33.77s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestABlockedHourBooksNothing::test_the_series_charges_such_a_row_nothing",
+      "TestARequiredFieldBlockedThroughout::test_the_rows_stay_and_book_nothing",
+      "TestPricing::test_hourly_eto_priced_passes_the_spans_on",
+      "TestTheCarryFollowsTheOutages::test_an_outage_that_closes_drops_the_carried_hours",
+      "TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit",
+      "TestTheSpansAreComputedOnce::test_one_refresh_asks_once",
+      "TestTheHourlyForm::test_a_required_field_silent_throughout_books_nothing",
+      "TestTheHourlyForm::test_humidity_counts_in_the_hourly_form",
+      "TestTheHourlyForm::test_it_books_the_rows_once_and_names_the_share",
+      "TestTheReplayedBalance::test_it_still_replays_under_a_blocked_required_field"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 23,
+    "file": "weather_aggregate.py",
+    "mutation": "a blocked rain rate's pair counts whole",
+    "expected_killer": "test_a_blocked_rain_rate_adds_only_its_measured_rain",
+    "result": "KILLED",
+    "summary": "4 failed, 162 passed, 57 errors in 35.07s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestRain::test_a_blocked_rain_rate_is_bucketed_over_its_valid_time_only",
+      "TestTheReplayedBalance::test_it_still_replays_under_a_blocked_rain_rate",
+      "TestTheRainStillReconciles::test_a_blocked_rain_rate_adds_only_its_measured_rain",
+      "TestTheRainStillReconciles::test_rain_just_before_a_span_lands_before_it"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 24,
+    "file": "weather_aggregate.py",
+    "mutation": "rain lands at the next reading, not at the end of its measured part",
+    "expected_killer": "test_rain_just_before_a_span_lands_before_it",
+    "result": "KILLED",
+    "summary": "2 failed, 164 passed, 57 errors in 36.47s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestRain::test_a_blocked_rain_rate_is_bucketed_over_its_valid_time_only",
+      "TestTheRainStillReconciles::test_rain_just_before_a_span_lands_before_it"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 25,
+    "file": "weather_aggregate.py",
+    "mutation": "the replay places ET where a required field was silent",
+    "expected_killer": "test_a_required_field_silent_places_no_et_there",
+    "result": "KILLED",
+    "summary": "3 failed, 163 passed, 57 errors in 38.91s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheEtLandsInMeasuredTime::test_a_dark_hour_spreads_its_quantum_over_its_measured_time",
+      "TestTheEtLandsInMeasuredTime::test_a_required_field_silent_places_no_et_there",
+      "TestTheEtLandsInMeasuredTime::test_inside_an_hour_the_quantum_goes_to_its_measured_part"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 26,
+    "file": "weather_aggregate.py",
+    "mutation": "the replay weighs the sun's own silent time",
+    "expected_killer": "test_silent_sun_places_no_et_in_its_span_either",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 35.47s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheEtLandsInMeasuredTime::test_silent_sun_places_no_et_in_its_span_either"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 27,
+    "file": "weather_aggregate.py",
+    "mutation": "a dark hour spreads its ET over its silent part too",
+    "expected_killer": "test_a_dark_hour_spreads_its_quantum_over_its_measured_time",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 35.86s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheEtLandsInMeasuredTime::test_a_dark_hour_spreads_its_quantum_over_its_measured_time"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 28,
+    "file": "weather_aggregate.py",
+    "mutation": "a window with no measured time is not stepped",
+    "expected_killer": "test_a_window_with_no_measured_time_still_steps",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 37.41s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheEtLandsInMeasuredTime::test_a_window_with_no_measured_time_still_steps"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 29,
+    "file": "live_estimate.py",
+    "mutation": "the carry ignores the outage record",
+    "expected_killer": "test_an_outage_that_closes_drops_the_carried_hours",
+    "result": "KILLED",
+    "summary": "3 failed, 163 passed, 57 errors in 37.09s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheCarryFollowsTheOutages::test_an_outage_that_closes_drops_the_carried_hours",
+      "TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours",
+      "TestTheRainItPublishes::test_a_blocked_rain_rate_is_published_as_the_commit_books_it"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 30,
+    "file": "live_estimate.py",
+    "mutation": "the hourly source is not handed the spans",
+    "expected_killer": "test_the_hourly_source_agrees_with_the_commit",
+    "result": "KILLED",
+    "summary": "4 failed, 162 passed, 57 errors in 38.81s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheCarryFollowsTheOutages::test_an_outage_that_closes_drops_the_carried_hours",
+      "TestTheCarryFollowsTheOutages::test_switching_the_setting_drops_the_carried_hours",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_an_open_outage_cuts_up_to_now",
+      "TestTheLiveCurveLandsOnTheCutBucket::test_the_hourly_source_agrees_with_the_commit"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 31,
+    "file": "live_estimate.py",
+    "mutation": "the live aggregate is not handed the spans",
+    "expected_killer": "test_it_lands_on_the_cut_bucket",
+    "result": "KILLED",
+    "summary": "3 failed, 163 passed, 57 errors in 37.92s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheRainItPublishes::test_a_blocked_rain_rate_is_published_as_the_commit_books_it",
+      "TestTheMirrorBooksTheShare::test_it_lands_on_the_cut_bucket",
+      "TestTheProjectionToTheDecisionPoint::test_it_is_priced_from_the_cut_window"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 32,
+    "file": "live_estimate.py",
+    "mutation": "a silent temperature is read as current",
+    "expected_killer": "test_a_silent_temperature_is_not_read_as_current",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 38.22s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheCurrentTemperature::test_a_silent_temperature_is_not_read_as_current"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 33,
+    "file": "live_estimate.py",
+    "mutation": "an ended temperature span still counts as silent now",
+    "expected_killer": "test_a_silent_temperature_is_not_read_as_current",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 38.59s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheCurrentTemperature::test_a_silent_temperature_is_not_read_as_current"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 34,
+    "file": "live_estimate.py",
+    "mutation": "the mirror books the whole window",
+    "expected_killer": "test_it_lands_on_the_cut_bucket",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 35.78s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheMirrorBooksTheShare::test_it_lands_on_the_cut_bucket"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 35,
+    "file": "live_estimate.py",
+    "mutation": "nothing measured sends the chain on",
+    "expected_killer": "test_it_does_not_fall_back_to_a_weather_service",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 36.48s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestNothingMeasuredIsNothingBooked::test_it_does_not_fall_back_to_a_weather_service"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 36,
+    "file": "live_estimate.py",
+    "mutation": "the hourly source's rain is not cut",
+    "expected_killer": "test_a_blocked_rain_rate_is_published_as_the_commit_books_it",
+    "result": "KILLED",
+    "summary": "1 failed, 165 passed, 57 errors in 35.52s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheRainItPublishes::test_a_blocked_rain_rate_is_published_as_the_commit_books_it"
+    ],
+    "restored_sha256_ok": true
+  },
+  {
+    "n": 37,
+    "file": "live_estimate.py",
+    "mutation": "the projection is priced off the uncut window",
+    "expected_killer": "test_it_is_priced_from_the_cut_window",
+    "result": "KILLED",
+    "summary": "2 failed, 164 passed, 57 errors in 36.41s",
+    "expected_killer_among_killers": true,
+    "killed_by": [
+      "TestTheProjectionToTheDecisionPoint::test_it_asks_for_its_spans_once",
+      "TestTheProjectionToTheDecisionPoint::test_it_is_priced_from_the_cut_window"
+    ],
+    "restored_sha256_ok": true
+  }
+]
