@@ -1214,3 +1214,75 @@ class TestThePausedNotice:
         assert sensor_liveness.cuts_field("Precipitation", gauge) is False
         assert sensor_liveness.cuts_field("Precipitation", rate) is True
         assert sensor_liveness.cuts_field("Temperature", gauge) is True
+
+
+class TestTheEstimateFollowsTheRecord:
+    """A pausing group's live estimate cuts its outages, and a silent station
+    writes no rows that would refresh it -- so the check does, once, when an
+    outage of such a group opens or closes."""
+
+    def _silent_station(self, monkeypatch, *groups):
+        last = T0 - STALE - timedelta(seconds=1)
+        coord, store, issues = _coord(
+            monkeypatch,
+            list(groups),
+            {
+                "sensor.temp": _state("sensor.temp", "21.5", last),
+                "sensor.wind": _state("sensor.wind", "2.0", last),
+            },
+            {"dev1": ["sensor.temp"], "dev2": ["sensor.wind"]},
+        )
+        coord.async_refresh_zone_estimates = AsyncMock()
+        return coord, store
+
+    async def test_an_outage_that_opens_refreshes_the_estimates(self, monkeypatch):
+        coord, _ = self._silent_station(
+            monkeypatch, _pausing(_group(fields={"Temperature": "sensor.temp"}))
+        )
+        await coord.async_check_sensor_liveness(now=T0)
+        coord.async_refresh_zone_estimates.assert_awaited_once()
+
+    async def test_a_check_that_changes_nothing_does_not(self, monkeypatch):
+        coord, _ = self._silent_station(
+            monkeypatch, _pausing(_group(fields={"Temperature": "sensor.temp"}))
+        )
+        await coord.async_check_sensor_liveness(now=T0)
+        await coord.async_check_sensor_liveness(now=T0 + timedelta(minutes=5))
+        coord.async_refresh_zone_estimates.assert_awaited_once()
+
+    async def test_an_outage_that_closes_refreshes_them_again(self, monkeypatch):
+        coord, _ = self._silent_station(
+            monkeypatch, _pausing(_group(fields={"Temperature": "sensor.temp"}))
+        )
+        await coord.async_check_sensor_liveness(now=T0)
+        back = T0 + timedelta(minutes=3)
+        coord.hass.states.get = Mock(
+            side_effect={"sensor.temp": _state("sensor.temp", "22.0", back)}.get
+        )
+        await coord.async_check_sensor_liveness(now=T0 + timedelta(minutes=5))
+        assert coord.async_refresh_zone_estimates.await_count == 2
+
+    async def test_a_group_that_keeps_does_not(self, monkeypatch):
+        coord, store = self._silent_station(
+            monkeypatch, _group(fields={"Temperature": "sensor.temp"})
+        )
+        await coord.async_check_sensor_liveness(now=T0)
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES]
+        coord.async_refresh_zone_estimates.assert_not_awaited()
+
+    async def test_two_groups_in_one_check_refresh_once(self, monkeypatch):
+        coord, _ = self._silent_station(
+            monkeypatch,
+            _pausing(_group(1, fields={"Temperature": "sensor.temp"})),
+            _pausing(_group(2, name="Lawn", fields={"Windspeed": "sensor.wind"})),
+        )
+        await coord.async_check_sensor_liveness(now=T0)
+        coord.async_refresh_zone_estimates.assert_awaited_once()
+
+    async def test_a_refresh_that_fails_leaves_the_check_intact(self, monkeypatch):
+        coord, store = self._silent_station(
+            monkeypatch, _pausing(_group(fields={"Temperature": "sensor.temp"}))
+        )
+        coord.async_refresh_zone_estimates = AsyncMock(side_effect=RuntimeError)
+        await coord.async_check_sensor_liveness(now=T0)
+        assert store.mappings[1][const.MAPPING_SENSOR_OUTAGES]
