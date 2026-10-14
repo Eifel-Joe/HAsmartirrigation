@@ -43,6 +43,7 @@ from .helpers import as_datetime as _as_datetime
 from .localize import localize
 from .sensor_liveness import valid_share, zone_blocked_spans
 from .weather_aggregate import (
+    HOURLY_ROW_REQUIRED,
     aggregate_window,
     build_substeps,
     merge_latest_per_field,
@@ -56,11 +57,12 @@ _LOGGER = logging.getLogger(__name__)
 # regardless of zone watermarks (bounds storage if a zone stops consuming).
 BUFFER_RETENTION = timedelta(days=7)
 
-# The sensor-group fields each module cannot book without: a pausing group books
-# only the part of a window in which all of them were measured. PyETO's daily
-# form refuses a day without the fields of DAILY_FORM_FIELDS, whose minimum and
-# maximum temperature are derived from the mapped Temperature; a missing Solar
-# Radiation it estimates instead. Passthrough books its ET field.
+# The sensor-group fields each module cannot book without in its daily form: a
+# pausing group books only the part of a window in which all of them were
+# measured. PyETO's daily form refuses a day without the fields of
+# DAILY_FORM_FIELDS, whose minimum and maximum temperature are derived from the
+# mapped Temperature; a missing Solar Radiation it estimates instead. Passthrough
+# books its ET field.
 _REQUIRED_SENSOR_FIELDS = {
     "PyETO": tuple(
         dict.fromkeys(
@@ -74,6 +76,21 @@ _REQUIRED_SENSOR_FIELDS = {
     ),
     "Passthrough": (const.MAPPING_EVAPOTRANSPIRATION,),
 }
+
+
+def required_sensor_fields(module_name, *, hourly=False):
+    """The fields a module cannot book without, in the form that ran, or None.
+
+    A pausing sensor group books only the part of a window in which all of them
+    were measured, so the share depends on the form of the equation: PyETO's
+    hourly form needs temperature, humidity, wind and the sun
+    (``HOURLY_ROW_REQUIRED``) and derives pressure from the elevation, its
+    daily form the fields above. A free function, because the live estimate
+    has to book the same share and its mixin cannot call this one's.
+    """
+    if hourly and module_name == "PyETO":
+        return HOURLY_ROW_REQUIRED
+    return _REQUIRED_SENSOR_FIELDS.get(module_name)
 
 
 def pending_bucket_events(zone):
@@ -919,7 +936,7 @@ class CalculationMixin:
         """
         return hourly_calculation_enabled(self.store)
 
-    def _hourly_et_for_zone(self, zone, modinst, *, now):
+    def _hourly_et_for_zone(self, zone, modinst, *, now, blocked=None):
         """Summed FAO-56 hourly ETo over this zone's window, or None to use the daily form.
 
         The daily FAO-56 equation run on window-mean weather is systematically
@@ -950,6 +967,11 @@ class CalculationMixin:
 
         In every case the caller keeps the daily path, so the fallback is today's
         behaviour rather than a fabricated series.
+
+        ``blocked`` (a pausing group's spans) charges each hour only for its
+        measured time, so the total is already the booked part. A required
+        field silent throughout keeps this form and books nothing: it is not one
+        of the reasons above to leave it.
         """
         if not self._hourly_calculation_enabled():
             return None
@@ -1008,6 +1030,7 @@ class CalculationMixin:
             # clearness ratio rather than the last absolute value, which needs
             # the site's own solar geometry.
             geometry=SiteGeometry(latitude, longitude, elevation, tz_offset_h, tz),
+            blocked=blocked,
         )
         if priced is None:
             return None
@@ -1026,7 +1049,15 @@ class CalculationMixin:
         return total, per_hour
 
     def _substeps_for_zone(
-        self, zone, precip_total, *, now, hourly_et=None, applied=None
+        self,
+        zone,
+        precip_total,
+        *,
+        now,
+        hourly_et=None,
+        applied=None,
+        blocked=None,
+        required=(),
     ):
         """Water-balance sub-steps for this zone's window, or None to lump.
 
@@ -1042,6 +1073,9 @@ class CalculationMixin:
         so the two have to replay for exactly the same zones. Answering that
         question here rather than at the call site is what lets the estimate ask
         it of a zone without reproducing the conditions.
+
+        ``blocked`` and ``required`` (the fields of the form that ran) place a
+        pausing group's ET only where it was booked; see ``build_substeps``.
         """
         if not replayed_balance_applies(self.store, zone):
             return None
@@ -1062,6 +1096,8 @@ class CalculationMixin:
             now=now,
             hourly_et=hourly_et,
             applied=applied,
+            blocked=blocked,
+            required=required,
         )
         if not steps:
             return None
@@ -1230,19 +1266,6 @@ class CalculationMixin:
         # back to the single-shot path.
         if now is None:
             now = local_naive_now()
-        # A pausing group books only the part of the window in which every field
-        # the module cannot do without was measured; None for every other commit,
-        # which books exactly as it always has.
-        share = None
-        if blocked is not None:
-            required = _REQUIRED_SENSOR_FIELDS.get(m[const.MODULE_NAME])
-            watermark = coerce_stamp(
-                zone.get(const.ZONE_LAST_CONSUMED), STAMP_FROM_STORE
-            )
-            if required is not None and watermark is not None:
-                share = valid_share(
-                    blocked, required, watermark, coerce_stamp(now, STAMP_FROM_STORE)
-                )
         # precip = 0
         ha_config_is_metric = self.hass.config.units is METRIC_SYSTEM
         bucket = zone.get(const.ZONE_BUCKET)
@@ -1268,10 +1291,26 @@ class CalculationMixin:
         # it would warn the user to check a sensor whose reading the calculation
         # never used. A clamp warning has to mean something.
         hourly = (
-            self._hourly_et_for_zone(zone, modinst, now=now)
+            self._hourly_et_for_zone(zone, modinst, now=now, blocked=blocked)
             if module_uses_precipitation
             else None
         )
+        # A pausing group books only the part of the window in which every field
+        # the form that ran cannot do without was measured; None for every other
+        # commit, which books exactly as it always has. The hourly rows charge
+        # each hour for that part already, so there the share only names it.
+        required = required_sensor_fields(
+            m[const.MODULE_NAME], hourly=hourly is not None
+        )
+        share = None
+        if blocked is not None:
+            watermark = coerce_stamp(
+                zone.get(const.ZONE_LAST_CONSUMED), STAMP_FROM_STORE
+            )
+            if required is not None and watermark is not None:
+                share = valid_share(
+                    blocked, required, watermark, coerce_stamp(now, STAMP_FROM_STORE)
+                )
         delta = 0.0
         if m[const.MODULE_NAME] == "PyETO":
             # share 0: a field the equation cannot do without was silent for the
@@ -1380,7 +1419,13 @@ class CalculationMixin:
         # stops acting and the gap is frozen in.
         applied = pending_bucket_events(zone)
         steps = self._substeps_for_zone(
-            zone, precip, now=now, hourly_et=hourly_et, applied=applied
+            zone,
+            precip,
+            now=now,
+            hourly_et=hourly_et,
+            applied=applied,
+            blocked=blocked,
+            required=required or (),
         )
         # Consumed whether or not the replay ran: the single-shot path cannot
         # place them, and carrying them into a later window would put them
