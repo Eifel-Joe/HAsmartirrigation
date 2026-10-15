@@ -1243,6 +1243,11 @@ class SmartIrrigationCoordinator(
         if const.CONF_AUTO_UPDATE_ENABLED in data:
             await self.set_up_auto_update_time(data)
         await self.store.async_update_config(data)
+        if const.CONF_HOURLY_CALCULATION in data:
+            # A pausing group's notice says whether its values are left out,
+            # and only the daily form leaves them out.
+            for mapping in await self.store.async_get_mappings():
+                self.async_resync_stale_issue(mapping)
         async_dispatcher_send(self.hass, const.DOMAIN + "_config_updated")
 
     async def set_up_auto_update_time(self, data):  # noqa: D102
@@ -1836,6 +1841,10 @@ class SmartIrrigationCoordinator(
                     async_dispatcher_send(
                         self.hass, const.DOMAIN + "_config_updated", zone_id
                     )
+            if const.MAPPING_ON_SILENT_SENSOR in data or const.MAPPING_MAPPINGS in data:
+                # The open notice says whether the group's values are still used:
+                # that hangs on the setting and on which fields the group cuts.
+                self.async_resync_stale_issue(self.store.get_mapping(mapping_id))
             async_dispatcher_send(
                 self.hass, const.DOMAIN + "_config_updated", mapping_id
             )

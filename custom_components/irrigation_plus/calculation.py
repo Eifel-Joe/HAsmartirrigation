@@ -17,7 +17,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 from . import const
-from .calcmodules.pyeto import SOLRAD_behavior
+from .calcmodules.pyeto import DAILY_FORM_FIELDS, SOLRAD_behavior
 from .day_projection import (
     MAX_REMAINDER_HOURS,
     extraterrestrial_mj,
@@ -33,6 +33,7 @@ from .et_estimate import (
 from .forecast_window import expected_rain
 from .helpers import (
     STAMP_FROM_CLIENT,
+    STAMP_FROM_STORE,
     coerce_stamp,
     convert_between,
     loadModules,
@@ -40,6 +41,13 @@ from .helpers import (
 )
 from .helpers import as_datetime as _as_datetime
 from .localize import localize
+from .sensor_liveness import (
+    blocked_spans,
+    cuts_field,
+    group_pauses,
+    outages_of,
+    valid_share,
+)
 from .weather_aggregate import (
     aggregate_window,
     build_substeps,
@@ -53,6 +61,25 @@ _LOGGER = logging.getLogger(__name__)
 # How long a reading may linger in the shared mapping buffer before it is pruned
 # regardless of zone watermarks (bounds storage if a zone stops consuming).
 BUFFER_RETENTION = timedelta(days=7)
+
+# The sensor-group fields each module cannot book without: a pausing group books
+# only the part of a window in which all of them were measured. PyETO's daily
+# form refuses a day without the fields of DAILY_FORM_FIELDS, whose minimum and
+# maximum temperature are derived from the mapped Temperature; a missing Solar
+# Radiation it estimates instead. Passthrough books its ET field.
+_REQUIRED_SENSOR_FIELDS = {
+    "PyETO": tuple(
+        dict.fromkeys(
+            (
+                const.MAPPING_TEMPERATURE
+                if field in (const.MAPPING_MIN_TEMP, const.MAPPING_MAX_TEMP)
+                else field
+            )
+            for field in DAILY_FORM_FIELDS
+        )
+    ),
+    "Passthrough": (const.MAPPING_EVAPOTRANSPIRATION,),
+}
 
 
 def pending_bucket_events(zone):
@@ -390,8 +417,46 @@ class CalculationMixin:
             async_dispatcher_send(self.hass, const.DOMAIN + "_config_updated", zone_id)
         async_dispatcher_send(self.hass, const.DOMAIN + "_update_frontend")
 
-    async def _aggregate_for_zone(self, zone, *, now):
+    def _blocked_spans_for_zone(self, zone, *, now):
+        """The time this zone's window may not book from its sensor group, or None.
+
+        Only a group that pauses a silent sensor is cut, and only in the daily
+        form: with the hourly calculation the replayed balance checks itself
+        against this aggregate's precipitation, so cutting one and not the
+        other would fail that check. The hourly form is not cut here: it would
+        have to be cut together with the live estimate. None leaves the commit
+        as it always was, and so does a window no outage reaches, or a zone
+        that has never consumed (its first commit anchors it). Which fields are
+        blocked, ``sensor_liveness.cuts_field`` decides: never a cumulative
+        rain gauge.
+        """
+        mapping_id = zone.get(const.ZONE_MAPPING)
+        if mapping_id is None:
+            return None
+        mapping = self.store.get_mapping(mapping_id)
+        if not mapping or not group_pauses(mapping):
+            return None
+        if hourly_calculation_enabled(self.store):
+            return None
+        watermark = coerce_stamp(zone.get(const.ZONE_LAST_CONSUMED), STAMP_FROM_STORE)
+        now = coerce_stamp(now, STAMP_FROM_STORE)
+        if watermark is None or now is None or watermark >= now:
+            return None
+        config = mapping.get(const.MAPPING_MAPPINGS) or {}
+        blocked = {
+            field: spans
+            for field, spans in blocked_spans(
+                outages_of(mapping), watermark, now
+            ).items()
+            if cuts_field(field, config)
+        }
+        return blocked or None
+
+    async def _aggregate_for_zone(self, zone, *, now, blocked=None):
         """Aggregate this zone's window of its mapping's shared buffer.
+
+        ``blocked`` is a pausing group's blocked time (_blocked_spans_for_zone),
+        passed to the aggregate as is.
 
         Returns ``(weatherdata, n_points)`` where ``n_points`` is the number of
         new readings in the zone's window, or ``(None, 0)`` when there is nothing
@@ -430,6 +495,7 @@ class CalculationMixin:
                 )
                 is True
             ),
+            blocked=blocked,
         )
         return weatherdata, len(window)
 
@@ -603,7 +669,12 @@ class CalculationMixin:
             )
             return
 
-        weatherdata, n_points = await self._aggregate_for_zone(zone, now=now)
+        # A pausing sensor group books nothing for a silent sensor's time; None
+        # for every other zone, whose commit stays exactly as it was.
+        blocked = self._blocked_spans_for_zone(zone, now=now)
+        weatherdata, n_points = await self._aggregate_for_zone(
+            zone, now=now, blocked=blocked
+        )
         if weatherdata is None:
             _LOGGER.debug(
                 "async_calculate_zone: no weather data to consume for zone %s",
@@ -612,7 +683,12 @@ class CalculationMixin:
             return
 
         calc_data = await self.calculate_module(
-            zone, weatherdata, forecastdata, now=now, run_start=run_start
+            zone,
+            weatherdata,
+            forecastdata,
+            now=now,
+            run_start=run_start,
+            blocked=blocked,
         )
         if calc_data is None:
             _LOGGER.error(
@@ -622,8 +698,8 @@ class CalculationMixin:
             )
             return
 
-        await self._record_window_amplitude(zone, weatherdata, now=now)
-        await self._record_window_radiation(zone, weatherdata, now=now)
+        await self._record_window_amplitude(zone, weatherdata, now=now, blocked=blocked)
+        await self._record_window_radiation(zone, weatherdata, now=now, blocked=blocked)
 
         calc_data[const.ZONE_LAST_CALCULATED] = now
         calc_data[const.ZONE_LAST_UPDATED] = now
@@ -641,7 +717,7 @@ class CalculationMixin:
         )
         async_dispatcher_send(self.hass, const.DOMAIN + "_update_frontend")
 
-    async def _record_window_amplitude(self, zone, weatherdata, *, now):
+    async def _record_window_amplitude(self, zone, weatherdata, *, now, blocked=None):
         """Record this window's temperature spread against its sensor group.
 
         The live estimate's self-contained tier scales its projection by the mean
@@ -658,9 +734,13 @@ class CalculationMixin:
         Skipped for a window materially shorter than a day: its spread is not a
         day's amplitude, and recording it would drag the mean down exactly when
         the projection leans on it hardest.
+        Skipped, too, when the temperature was blocked in the window: its spread
+        then covers part of the day only.
         """
         mapping_id = zone.get(const.ZONE_MAPPING)
         if mapping_id is None:
+            return
+        if blocked and const.MAPPING_TEMPERATURE in blocked:
             return
         multiplier = weatherdata.get(const.MAPPING_DATA_MULTIPLIER) or 0.0
         if multiplier < const.TEMPERATURE_AMPLITUDE_MIN_MULTIPLIER:
@@ -691,14 +771,17 @@ class CalculationMixin:
             },
         )
 
-    async def _record_window_radiation(self, zone, weatherdata, *, now):
+    async def _record_window_radiation(self, zone, weatherdata, *, now, blocked=None):
         """Record this window's measured radiation against what was forecast for it.
 
         Taken here because only at commit do the measured mean and the forecast's
         own figure cover the same hours. Keyed by end date and replaced, for the
-        reason :meth:`_record_window_amplitude` gives.
+        reason :meth:`_record_window_amplitude` gives. Not when the sun was blocked
+        in the window: its mean then covers part of the day only.
         """
         mapping_id = zone.get(const.ZONE_MAPPING)
+        if blocked and const.MAPPING_SOLRAD in blocked:
+            return
         mean = weatherdata.get(const.MAPPING_SOLRAD)
         start = _as_datetime(zone.get(const.ZONE_LAST_CONSUMED))
         if mapping_id is None or mean is None or start is None or start >= now:
@@ -1138,7 +1221,7 @@ class CalculationMixin:
         return 0.0
 
     async def calculate_module(
-        self, zone, weatherdata, forecastdata, *, now=None, run_start=None
+        self, zone, weatherdata, forecastdata, *, now=None, run_start=None, blocked=None
     ):
         """Calculate irrigation values for a zone using the specified weather and forecast data.
 
@@ -1146,6 +1229,8 @@ class CalculationMixin:
             zone: The zone dictionary containing configuration and state.
             weatherdata: Aggregated weather data for the calculation.
             forecastdata: Forecast data if required by the module.
+            blocked: a pausing sensor group's blocked time per field
+                (_blocked_spans_for_zone); None books as always.
 
         Returns:
             dict: Updated zone data including calculation results and explanation.
@@ -1168,6 +1253,19 @@ class CalculationMixin:
         # back to the single-shot path.
         if now is None:
             now = local_naive_now()
+        # A pausing group books only the part of the window in which every field
+        # the module cannot do without was measured; None for every other commit,
+        # which books exactly as it always has.
+        share = None
+        if blocked is not None:
+            required = _REQUIRED_SENSOR_FIELDS.get(m[const.MODULE_NAME])
+            watermark = coerce_stamp(
+                zone.get(const.ZONE_LAST_CONSUMED), STAMP_FROM_STORE
+            )
+            if required is not None and watermark is not None:
+                share = valid_share(
+                    blocked, required, watermark, coerce_stamp(now, STAMP_FROM_STORE)
+                )
         # precip = 0
         ha_config_is_metric = self.hass.config.units is METRIC_SYSTEM
         bucket = zone.get(const.ZONE_BUCKET)
@@ -1199,7 +1297,10 @@ class CalculationMixin:
         )
         delta = 0.0
         if m[const.MODULE_NAME] == "PyETO":
-            if hourly is None:
+            # share 0: a field the equation cannot do without was silent for the
+            # whole window. Nothing is booked, so the equation is not asked (it
+            # would warn about the missing field); the rain still counts.
+            if hourly is None and share != 0:
                 # pyeto expects pressure in hpa, solar radiation in mj/m2/day and wind speed in m/s
                 delta = modinst.calculate(
                     weather_data=weatherdata,
@@ -1220,7 +1321,12 @@ class CalculationMixin:
         elif m[const.MODULE_NAME] == "Static":
             delta = modinst.calculate()
         elif m[const.MODULE_NAME] == "Passthrough":
-            if const.MAPPING_EVAPOTRANSPIRATION in weatherdata:
+            if share == 0:
+                # Its ET sensor was silent for the whole window: nothing to book,
+                # and nothing is misconfigured. The window is consumed as PyETO's
+                # is, rather than left to grow with an error at every run.
+                delta = 0.0
+            elif const.MAPPING_EVAPOTRANSPIRATION in weatherdata:
                 delta = 0 - modinst.calculate(
                     et_data=weatherdata[const.MAPPING_EVAPOTRANSPIRATION]
                 )
@@ -1253,6 +1359,10 @@ class CalculationMixin:
         else:
             et_term = delta
             et_delta = delta * kc * hour_multiplier
+            if share is not None:
+                # Only the measured part of the window books; the forecast days
+                # the module averaged in are part of that mean.
+                et_delta *= share
         delta = et_delta + precip
         data[const.ZONE_DELTA] = delta
         _LOGGER.debug("[calculate-module]: new delta: %s", delta)
@@ -1426,6 +1536,8 @@ class CalculationMixin:
                 )
                 + f" (Kc {kc:.2f} &times; {et_term:.2f})."
             )
+        if blocked:
+            explanation += await self._silent_sensor_explanation(blocked, share)
         explanation += (
             await localize(
                 "module.calculation.explanation.bucket-was", self.hass.config.language
@@ -1774,3 +1886,52 @@ class CalculationMixin:
         data[const.ZONE_DURATION] = duration
         data[const.ZONE_EXPLANATION] = explanation
         return data
+
+    async def _silent_sensor_explanation(self, blocked, share) -> str:
+        """The sentences that say what a pausing group did not book, and how much it did.
+
+        One per blocked span as the sentence shows it, the fields silent over
+        it named together; the share only where the module's own fields were
+        cut. Times are on HA's clock, the frame of the buffer stamps.
+        """
+        language = self.hass.config.language
+        sentence = await localize(
+            "module.calculation.explanation.sensor-outage", language
+        )
+        # Grouped by the span as the sentence shows it, to the minute: a
+        # station's fields come back one by one, milliseconds apart, so each
+        # field's outage ends at its own instant, and a group per exact span
+        # would write one sentence per field, all reading the same. A set, so a
+        # field with two spans inside one shown minute is named once.
+        fmt = "%Y-%m-%d %H:%M"
+        fields_by_span: dict = {}
+        for field, spans in blocked.items():
+            for start, end in spans:
+                shown = (start.strftime(fmt), end.strftime(fmt))
+                fields_by_span.setdefault(shown, set()).add(field)
+        text = ""
+        for (shown_start, shown_end), fields in sorted(fields_by_span.items()):
+            names = [
+                await localize(
+                    f"panels.mappings.cards.mapping.items.{field.lower()}", language
+                )
+                for field in sorted(fields)
+            ]
+            text += " " + (
+                sentence.replace("{fields}", ", ".join(names))
+                .replace("{start}", shown_start)
+                .replace("{end}", shown_end)
+            )
+        if share is not None and share < 1:
+            booked = await localize(
+                "module.calculation.explanation.sensor-outage-share", language
+            )
+            # Kept between 1 and 99 while the share is strictly between 0 and 1:
+            # right after a sentence naming the silent time it must not read
+            # 100 %, nor 0 % when something was booked.
+            percent = round(share * 100)
+            if share > 0:
+                percent = max(percent, 1)
+            percent = min(percent, 99)
+            text += " " + booked.replace("{share}", str(percent))
+        return text

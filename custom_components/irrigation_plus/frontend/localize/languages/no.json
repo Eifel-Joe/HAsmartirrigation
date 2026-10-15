@@ -95,7 +95,9 @@
         "drainage-integrated": "overskuddet over feltkapasiteten dreneres kontinuerlig over vinduet (Brooks–Corey), så raten faller etter hvert som det dreneres",
         "no-drainage": "Gjeldende drenering er 0 fordi",
         "forecast-weighting-applied": "Værvarselvekting reduserte underskuddet for forventet regn",
-        "crop-coefficient-applied": "Skalert med plantekoeffisienten"
+        "crop-coefficient-applied": "Skalert med plantekoeffisienten",
+        "sensor-outage": "Ingen verdier fra {fields} fra {start} til {end} (sensoren er stille).",
+        "sensor-outage-share": "Fordampning bokført for {share} % av perioden."
       }
     }
   },
@@ -233,6 +235,12 @@
             "temperature": "Temperatur",
             "windspeed": "Vindhastighet",
             "current precipitation": "Nåværende nedbør"
+          },
+          "on-silent-sensor": {
+            "title": "Når en sensor blir stille",
+            "help": "Sett på pause: etter 3 timer uten rapport brukes ikke sensorens verdier lenger; der fordampningsberegningen ikke klarer seg uten dem, bokføres det ingen fordampning for den tiden. En nedbørsmåler teller fortsatt med. Gjelder bare så lenge «Timesvis evapotranspirasjon» (Eksperimentelle funksjoner) er av.",
+            "keep": "Behold siste verdi",
+            "pause": "Sett på pause"
           },
           "sensor-aggregate-of-sensor-values-to-calculate": "av sensordata for å beregne varighet",
           "sensor-aggregate-use-the": "Bruk",

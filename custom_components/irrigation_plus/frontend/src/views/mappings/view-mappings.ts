@@ -376,8 +376,15 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
 
     // Only send editable fields — server-computed fields (data, data_last_updated,
     // data_last_entry, data_last_calculation) are rejected by the backend schema.
-    const { id, name, mappings } = mapping;
-    await saveMapping(this.hass, { id, name, mappings });
+    const { id, name, mappings, on_silent_sensor } = mapping;
+    await saveMapping(this.hass, {
+      id,
+      name,
+      mappings,
+      // Absent on a copy made before the server sent it: the server then keeps
+      // what it has, and a group created now pauses by default.
+      ...(on_silent_sensor === undefined ? {} : { on_silent_sensor }),
+    });
   }
   renderMappingSetting(index: number, value: string): TemplateResult {
     const mapping = this.mappings[index];
@@ -1043,6 +1050,7 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
                 })}"
             />
           </ha-settings-row>
+          ${this.renderOnSilentSensor(mapping, index)}
           ${this.renderMappingSettings(mapping, index)}
           <div class="card-footer">
             ${numberofzonesusingthismapping
@@ -1062,6 +1070,53 @@ class SmartIrrigationViewMappings extends SubscribeMixin(LitElement) {
           </div>
         </div>
       </ha-card>
+    `;
+  }
+
+  private renderOnSilentSensor(
+    mapping: SmartIrrigationMapping,
+    index: number,
+  ): TemplateResult {
+    if (!this.hass) {
+      return html``;
+    }
+    const language = this.hass.language;
+    // A group the server has not sent back yet is a new one, and a new group pauses.
+    const value = mapping.on_silent_sensor ?? "pause";
+    return html`
+      <ha-settings-row>
+        <span slot="heading"
+          >${localize(
+            "panels.mappings.cards.mapping.on-silent-sensor.title",
+            language,
+          )}</span
+        >
+        <span slot="description"
+          >${localize(
+            "panels.mappings.cards.mapping.on-silent-sensor.help",
+            language,
+          )}</span
+        >
+        <select
+          id="on_silent_sensor${mapping.id}"
+          class="settings-input"
+          @change="${(e: Event) =>
+            this.handleEditMapping(index, {
+              ...mapping,
+              on_silent_sensor: (e.target as HTMLSelectElement).value,
+            })}"
+        >
+          ${["pause", "keep"].map(
+            (option) =>
+              html`<option value="${option}" ?selected="${value === option}">
+                ${localize(
+                  `panels.mappings.cards.mapping.on-silent-sensor.${option}`,
+                  language,
+                )}
+              </option>`,
+          )}
+        </select>
+      </ha-settings-row>
     `;
   }
 

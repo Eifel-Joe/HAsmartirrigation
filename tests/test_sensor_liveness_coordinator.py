@@ -790,9 +790,15 @@ class TestTheOutageRecordFollowsTheConfiguration:
     async def test_a_source_change_empties_the_record_and_drops_the_notice(
         self, monkeypatch
     ):
-        coord, store, issues = _mock_store_coord(
-            monkeypatch, _sensor_group_zero("sensor.old")
-        )
+        group = _sensor_group_zero("sensor.old")
+        coord, store, issues = _mock_store_coord(monkeypatch, group)
+
+        def keep(_mapping_id, changes):
+            # A change to the mapping brings the notice in line from the group
+            # read back after the write, so the mock store keeps what it is given.
+            store.get_mapping.return_value = {**group, **changes}
+
+        store.async_update_mapping.side_effect = keep
         new = {
             const.MAPPING_MAPPINGS: {
                 "Temperature": {
@@ -967,3 +973,250 @@ class TestTheOutageRecordFollowsTheConfiguration:
         await coord.async_update_mapping_config(0, {const.ATTR_REMOVE: True})
 
         coord.hass.bus.async_fire.assert_not_called()
+
+
+def _pausing(group):
+    group[const.MAPPING_ON_SILENT_SENSOR] = const.ON_SILENT_SENSOR_PAUSE
+    return group
+
+
+def _hourly(on):
+    return SimpleNamespace(**{const.CONF_HOURLY_CALCULATION: on})
+
+
+class TestThePausedNotice:
+    async def _silent(self, monkeypatch, group, *, hourly=None):
+        last = T0 - STALE - timedelta(seconds=1)
+        coord, store, issues = _coord(
+            monkeypatch,
+            [group],
+            {"sensor.temp": _state("sensor.temp", "21.5", last)},
+            {"dev1": ["sensor.temp"]},
+        )
+        if hourly is not None:
+            store.config = _hourly(hourly)
+        await coord.async_check_sensor_liveness(now=T0)
+        return issues.open["weather_sensor_stale_1"]["translation_key"]
+
+    async def test_a_pausing_group_says_its_values_are_no_longer_used(
+        self, monkeypatch, caplog
+    ):
+        group = _pausing(_group(fields={"Temperature": "sensor.temp"}))
+        key = await self._silent(monkeypatch, group)
+        assert key == const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        assert "no longer used" in caplog.text
+        assert "still used" not in caplog.text
+
+    async def test_under_the_hourly_calculation_its_values_are_still_used(
+        self, monkeypatch, caplog
+    ):
+        group = _pausing(_group(fields={"Temperature": "sensor.temp"}))
+        key = await self._silent(monkeypatch, group, hourly=True)
+        assert key == const.ISSUE_WEATHER_SENSOR_STALE
+        assert "still used" in caplog.text
+
+    async def test_changing_the_setting_rewrites_the_open_notice(self, monkeypatch):
+        coord, _, issues = _mock_store_coord(
+            monkeypatch, _pausing(_sensor_group_zero("sensor.old"))
+        )
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_mapping_config(
+                0, {const.MAPPING_ON_SILENT_SENSOR: const.ON_SILENT_SENSOR_PAUSE}
+            )
+        assert issues.open["weather_sensor_stale_0"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        )
+
+    async def test_a_keeping_group_switched_to_pause_gets_the_paused_notice(
+        self, monkeypatch
+    ):
+        """Through a store that keeps what is saved: the notice is brought in line
+        from the group as it reads after the write."""
+        group = _group(
+            fields={"Temperature": "sensor.temp"},
+            outages=[
+                Outage(
+                    "sensor.temp", "dev1", ("Temperature",), T0 - timedelta(hours=5)
+                ).to_store()
+            ],
+        )
+        group[const.MAPPING_ON_SILENT_SENSOR] = const.ON_SILENT_SENSOR_KEEP
+        coord, store, issues = _coord(monkeypatch, [group], {}, {})
+        coord.async_resync_stale_issue(store.get_mapping(1))
+        assert issues.open["weather_sensor_stale_1"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE
+        )
+
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_mapping_config(
+                1, {const.MAPPING_ON_SILENT_SENSOR: const.ON_SILENT_SENSOR_PAUSE}
+            )
+
+        assert issues.open["weather_sensor_stale_1"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        )
+
+    async def test_a_rename_leaves_the_notice_alone(self, monkeypatch):
+        coord, _, issues = _mock_store_coord(
+            monkeypatch, _pausing(_sensor_group_zero("sensor.old"))
+        )
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_mapping_config(0, {const.MAPPING_NAME: "renamed"})
+        assert issues.open["weather_sensor_stale_0"] == {}
+
+    async def test_switching_the_hourly_calculation_rewrites_open_notices(
+        self, monkeypatch
+    ):
+        group = _pausing(_sensor_group_zero("sensor.old"))
+        coord, store, issues = _mock_store_coord(monkeypatch, group)
+        store.async_update_config = AsyncMock()
+        store.async_get_mappings = AsyncMock(return_value=[group])
+
+        store.config = _hourly(True)
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_config({const.CONF_HOURLY_CALCULATION: True})
+        assert issues.open["weather_sensor_stale_0"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE
+        )
+
+        store.config = _hourly(False)
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_config({const.CONF_HOURLY_CALCULATION: False})
+        assert issues.open["weather_sensor_stale_0"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        )
+
+    async def test_a_group_without_an_open_outage_is_not_asked_about(self, monkeypatch):
+        group = _pausing(_sensor_group_zero("sensor.old"))
+        group[const.MAPPING_SENSOR_OUTAGES] = [CLOSED_RECORD]
+        coord, _, _ = _mock_store_coord(monkeypatch, group)
+        monkeypatch.setattr(
+            sensor_liveness,
+            "_issue_registry",
+            Mock(side_effect=AssertionError("issue registry asked")),
+        )
+        coord.async_resync_stale_issue(group)
+        coord.async_resync_stale_issue(None)
+
+    def _rain_gauge_group(self, fields=None):
+        """A pausing group reading a cumulative rain gauge (``delta``) and ``fields``."""
+        group = _pausing(
+            _group(fields={"Precipitation": "sensor.rain", **(fields or {})})
+        )
+        group[const.MAPPING_MAPPINGS]["Precipitation"][
+            const.MAPPING_CONF_AGGREGATE
+        ] = const.MAPPING_CONF_AGGREGATE_DELTA
+        return group
+
+    async def test_a_silent_rain_gauge_alone_keeps_the_plain_notice(
+        self, monkeypatch, caplog
+    ):
+        """The calculation never cuts a cumulative rain gauge, so nothing tells the
+        user that its values are no longer used."""
+        last = T0 - STALE - timedelta(seconds=1)
+        coord, _, issues = _coord(
+            monkeypatch,
+            [self._rain_gauge_group()],
+            {"sensor.rain": _state("sensor.rain", "0.0", last)},
+            {"dev1": ["sensor.rain"]},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert issues.open["weather_sensor_stale_1"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE
+        )
+        assert "its last value is still used" in caplog.text
+        assert "no longer used" not in caplog.text
+
+    async def test_a_silent_temperature_beside_it_brings_the_paused_notice(
+        self, monkeypatch, caplog
+    ):
+        last = T0 - STALE - timedelta(seconds=1)
+        coord, _, issues = _coord(
+            monkeypatch,
+            [self._rain_gauge_group({"Temperature": "sensor.temp"})],
+            {
+                "sensor.rain": _state("sensor.rain", "0.0", last),
+                "sensor.temp": _state("sensor.temp", "21.5", last),
+            },
+            {"dev1": ["sensor.rain", "sensor.temp"]},
+        )
+
+        await coord.async_check_sensor_liveness(now=T0)
+
+        assert issues.open["weather_sensor_stale_1"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        )
+        warnings = {
+            record.args[1]: record.getMessage()
+            for record in caplog.records
+            if record.levelname == "WARNING"
+        }
+        assert "its last value is still used" in warnings["sensor.rain"]
+        assert "no longer used" not in warnings["sensor.rain"]
+        assert "no longer used" in warnings["sensor.temp"]
+
+    async def test_a_closed_temperature_outage_leaves_an_open_rain_gauge_plain(
+        self, monkeypatch
+    ):
+        """Only an open outage counts for the text: the temperature is back, and
+        what is silent now is a gauge the calculation does not cut."""
+        group = self._rain_gauge_group({"Temperature": "sensor.temp"})
+        group[const.MAPPING_SENSOR_OUTAGES] = [
+            Outage(
+                "sensor.temp",
+                "dev1",
+                ("Temperature",),
+                T0 - timedelta(days=2),
+                T0 - timedelta(days=1),
+            ).to_store(),
+            Outage(
+                "sensor.rain", "dev1", ("Precipitation",), T0 - timedelta(hours=5)
+            ).to_store(),
+        ]
+        coord, store, issues = _coord(monkeypatch, [group], {}, {})
+
+        coord.async_resync_stale_issue(store.get_mapping(1))
+
+        assert issues.open["weather_sensor_stale_1"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE
+        )
+
+    async def test_a_rain_gauge_turned_rain_rate_rewrites_the_open_notice(
+        self, monkeypatch
+    ):
+        """Which fields are cut follows the group's mapping, so a change to it
+        brings the open notice in line as a change to the setting does."""
+        group = self._rain_gauge_group()
+        group[const.MAPPING_SENSOR_OUTAGES] = [
+            Outage(
+                "sensor.rain", "dev1", ("Precipitation",), T0 - timedelta(hours=5)
+            ).to_store()
+        ]
+        coord, store, issues = _coord(monkeypatch, [group], {}, {})
+        coord.async_resync_stale_issue(store.get_mapping(1))
+        assert issues.open["weather_sensor_stale_1"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE
+        )
+
+        rate = store.get_mapping(1)[const.MAPPING_MAPPINGS]
+        rate["Precipitation"][
+            const.MAPPING_CONF_AGGREGATE
+        ] = const.MAPPING_CONF_AGGREGATE_RIEMANNSUM
+        with patch("custom_components.irrigation_plus.async_dispatcher_send"):
+            await coord.async_update_mapping_config(1, {const.MAPPING_MAPPINGS: rate})
+
+        assert issues.open["weather_sensor_stale_1"]["translation_key"] == (
+            const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        )
+
+    def test_only_a_cumulative_rain_gauge_is_never_cut(self):
+        gauge = self._rain_gauge_group()[const.MAPPING_MAPPINGS]
+        rate = copy.deepcopy(gauge)
+        rate["Precipitation"][
+            const.MAPPING_CONF_AGGREGATE
+        ] = const.MAPPING_CONF_AGGREGATE_RIEMANNSUM
+        assert sensor_liveness.cuts_field("Precipitation", gauge) is False
+        assert sensor_liveness.cuts_field("Precipitation", rate) is True
+        assert sensor_liveness.cuts_field("Temperature", gauge) is True

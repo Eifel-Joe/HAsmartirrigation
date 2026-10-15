@@ -8,8 +8,10 @@ sensor's HA *device* -- at a living station some value reports or changes within
 longer than that on the sensor group, and tells the user: a repair issue per group
 while an outage is open, and a bus event when one starts and when it ends (#188).
 
-Nothing here changes a calculation: a silent sensor's last value is still used, as
-before. The outage record says when it fell silent and the notice tells the user.
+The outage record says when a sensor fell silent and the notice tells the user. A
+group that keeps a silent sensor's last value calculates as before; for a group
+that pauses it, ``blocked_spans`` turns the record into the time its daily
+calculation does not book (calculation._blocked_spans_for_zone).
 
 The rules are plain functions, testable without a running Home Assistant; the
 ``SensorLivenessMixin`` at the end is the coordinator glue.
@@ -28,6 +30,7 @@ from homeassistant.util import dt as dt_util
 
 from . import const
 from .helpers import STAMP_FROM_STORE, coerce_stamp, local_naive_now
+from .weather_aggregate import effective_aggregate
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -169,6 +172,78 @@ def outages_of(mapping: dict) -> list[Outage]:
     if not isinstance(stored, list):
         return []
     return [outage for raw in stored if (outage := Outage.from_store(raw)) is not None]
+
+
+def group_pauses(mapping: dict) -> bool:
+    """Whether a sensor group pauses a silent sensor rather than keep its last value.
+
+    Anything but a stored ``pause`` keeps: a group written before the setting
+    existed, a test double without it, or a value edited by hand.
+    """
+    return mapping.get(const.MAPPING_ON_SILENT_SENSOR) == const.ON_SILENT_SENSOR_PAUSE
+
+
+def cuts_field(field: str, mappings_config: dict) -> bool:
+    """Whether a pausing group leaves this field's silent time out of its booking.
+
+    Every field but a cumulative rain gauge (aggregate ``delta``): what a gauge
+    shows after its return is rain it measured, only delivered late, so its
+    silent time is not cut. The commit's gate
+    (calculation._blocked_spans_for_zone) and the notice both ask here, so the
+    notice says a value is no longer used only where the calculation cuts it.
+    """
+    return (
+        effective_aggregate(field, mappings_config)
+        != const.MAPPING_CONF_AGGREGATE_DELTA
+    )
+
+
+def blocked_spans(
+    outages: list[Outage], start: datetime, end: datetime
+) -> dict[str, tuple[tuple[datetime, datetime], ...]]:
+    """Each field's blocked time inside ``[start, end)``: where it is not measured.
+
+    An outage blocks from its start plus ``STALE_AFTER`` -- the first hours are
+    bridged with the last value, as they are for the notice -- up to its end,
+    half-open so that the reading of the return counts. An open outage blocks up
+    to ``end``. A field's spans are merged and cut to the window; a field left
+    without a span is not listed, and only the fields an outage recorded are.
+    """
+    found: dict[str, list[tuple[datetime, datetime]]] = {}
+    for outage in outages:
+        lo = max(outage.start + STALE_AFTER, start)
+        hi = min(outage.end if outage.end is not None else end, end)
+        if hi <= lo:
+            continue
+        for field in outage.fields:
+            found.setdefault(field, []).append((lo, hi))
+    return {field: _merged(spans) for field, spans in found.items()}
+
+
+def valid_share(blocked: dict, fields, start: datetime, end: datetime) -> float:
+    """The part of ``[start, end)`` in which all ``fields`` are unblocked at once.
+
+    The intersection of their valid times, not the smallest single share: two
+    fields silent at different hours leave less than either alone. A field
+    without spans is valid throughout; an empty window has nothing to cut.
+    """
+    length = (end - start).total_seconds()
+    if length <= 0:
+        return 1.0
+    spans = _merged([span for field in fields for span in blocked.get(field, ())])
+    gone = sum((hi - lo).total_seconds() for lo, hi in spans)
+    return max(0.0, (length - gone) / length)
+
+
+def _merged(spans) -> tuple[tuple[datetime, datetime], ...]:
+    """Sorted spans with every overlap or touch joined into one."""
+    merged: list[tuple[datetime, datetime]] = []
+    for lo, hi in sorted(spans):
+        if merged and lo <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+        else:
+            merged.append((lo, hi))
+    return tuple(merged)
 
 
 @dataclass(frozen=True)
@@ -451,10 +526,18 @@ class SensorLivenessMixin:
                 outage.end,
             )
             self._fire_weather_stale(mapping_id, name, outage)
+        cuts = self._group_cuts(mapping) if opened else False
+        config = mapping.get(const.MAPPING_MAPPINGS) or {}
         for outage in opened:
             _LOGGER.warning(
-                "Sensor group %s: %s (%s) has not reported since %s; its last "
-                "value is still used",
+                (
+                    "Sensor group %s: %s (%s) has not reported since %s; its values "
+                    "are no longer used, and where the calculation cannot do without "
+                    "them no evapotranspiration is booked while it is silent"
+                    if cuts and any(cuts_field(f, config) for f in outage.fields)
+                    else "Sensor group %s: %s (%s) has not reported since %s; its last "
+                    "value is still used"
+                ),
                 name,
                 outage.entity_id,
                 ", ".join(outage.fields),
@@ -495,8 +578,53 @@ class SensorLivenessMixin:
             issue_id,
             is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
-            translation_key=const.ISSUE_WEATHER_SENSOR_STALE,
+            translation_key=self._stale_issue_key(mapping_id, outages),
             translation_placeholders=placeholders,
+        )
+
+    def _group_cuts(self, mapping: dict) -> bool:
+        """Whether this group's daily calculation leaves a silent sensor's time out.
+
+        A pausing group, and only without the hourly calculation (see
+        calculation._blocked_spans_for_zone); every other group still uses the
+        last value. Which fields it leaves out, ``cuts_field`` says.
+        """
+        # Imported here: calculation imports this module.
+        from .calculation import hourly_calculation_enabled
+
+        return group_pauses(mapping) and not hourly_calculation_enabled(self.store)
+
+    def _stale_issue_key(self, mapping_id, outages: list[Outage]) -> str:
+        """The notice's text: the paused one where the group's values are cut.
+
+        That takes a group that cuts and an open outage with a field it cuts; a
+        silent rain gauge alone keeps the plain text.
+        """
+        mapping = self.store.get_mapping(mapping_id) or {}
+        config = mapping.get(const.MAPPING_MAPPINGS) or {}
+        if self._group_cuts(mapping) and any(
+            cuts_field(field, config)
+            for outage in outages
+            if outage.end is None
+            for field in outage.fields
+        ):
+            return const.ISSUE_WEATHER_SENSOR_STALE_PAUSED
+        return const.ISSUE_WEATHER_SENSOR_STALE
+
+    def async_resync_stale_issue(self, mapping: dict | None) -> None:
+        """Bring a group's open notice in line with its setting and the calculation form.
+
+        Called when either changes; otherwise the notice is touched only when an
+        outage opens or closes. A group without an open outage has no notice.
+        """
+        if not mapping:
+            return
+        outages = outages_of(mapping)
+        if not any(o.end is None for o in outages):
+            return
+        mapping_id = mapping[const.MAPPING_ID]
+        self._sync_stale_issue(
+            mapping_id, mapping.get(const.MAPPING_NAME) or str(mapping_id), outages
         )
 
     def _retire_outages(self, mapping: dict | None) -> None:

@@ -95,7 +95,9 @@
         "drainage-integrated": "el excedente por encima de la capacidad de campo drena de forma continua durante el intervalo (Brooks–Corey), por lo que la tasa disminuye a medida que drena",
         "no-drainage": "El drenaje actual es 0 porque",
         "forecast-weighting-applied": "La ponderación por pronóstico redujo el déficit por la lluvia prevista",
-        "crop-coefficient-applied": "Escalado por el coeficiente de cultivo"
+        "crop-coefficient-applied": "Escalado por el coeficiente de cultivo",
+        "sensor-outage": "Sin valores de {fields} desde {start} hasta {end} (sensor sin informar).",
+        "sensor-outage-share": "Evapotranspiración contabilizada para el {share} % del periodo."
       }
     }
   },
@@ -233,6 +235,12 @@
             "temperature": "Temperatura",
             "windspeed": "Velocidad del viento",
             "current precipitation": "Precipitación actual"
+          },
+          "on-silent-sensor": {
+            "title": "Cuando un sensor deja de informar",
+            "help": "Pausar: tras 3 horas sin informar, los valores del sensor dejan de usarse; donde el cálculo de la evapotranspiración no puede prescindir de ellos, no se contabiliza evapotranspiración para ese tiempo. Un pluviómetro se sigue contabilizando. Solo se aplica mientras «Evapotranspiración horaria» (Funciones experimentales) esté desactivada.",
+            "keep": "Mantener el último valor",
+            "pause": "Pausar"
           },
           "sensor-aggregate-of-sensor-values-to-calculate": "de los valores de los sensores para calcular la duración",
           "sensor-aggregate-use-the": "Usar la",

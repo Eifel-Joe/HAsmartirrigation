@@ -95,7 +95,9 @@
         "drainage-integrated": "het overschot boven veldcapaciteit draineert continu over het venster (Brooks–Corey), dus de snelheid neemt af naarmate het afvloeit",
         "no-drainage": "Huidige drainage is 0 omdat",
         "forecast-weighting-applied": "Voorspellingsweging verlaagde het tekort voor de verwachte regen",
-        "crop-coefficient-applied": "Geschaald met de gewascoëfficiënt"
+        "crop-coefficient-applied": "Geschaald met de gewascoëfficiënt",
+        "sensor-outage": "Geen waarden van {fields} van {start} tot {end} (sensor stil).",
+        "sensor-outage-share": "Verdamping geboekt voor {share} % van de periode."
       }
     }
   },
@@ -233,6 +235,12 @@
             "temperature": "Temperatuur",
             "windspeed": "Wind snelheid",
             "current precipitation": "Huidige neerslag"
+          },
+          "on-silent-sensor": {
+            "title": "Als een sensor stil valt",
+            "help": "Pauzeren: na 3 uur zonder melding worden de waarden van de sensor niet meer gebruikt; waar de verdampingsberekening niet zonder deze waarden kan, wordt voor die tijd geen verdamping geboekt. Een regenmeter telt nog steeds mee. Geldt alleen zolang “Verdamping per uur” (Experimentele functies) uit staat.",
+            "keep": "Laatste waarde behouden",
+            "pause": "Pauzeren"
           },
           "pressure_types": {
             "absolute": "absoluut",

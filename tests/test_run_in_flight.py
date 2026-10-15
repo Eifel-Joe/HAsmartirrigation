@@ -55,6 +55,9 @@ class _FakeStore:
         d = self.distributors.get(int(distributor_id))
         return dict(d) if d is not None else None
 
+    def get_mapping(self, mapping_id):
+        return None
+
     async def async_get_zones(self):
         return [dict(z) for z in self.zones.values()]
 

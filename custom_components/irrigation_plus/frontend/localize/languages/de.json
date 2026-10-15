@@ -95,7 +95,9 @@
         "drainage-integrated": "der Überschuss über der Feldkapazität versickert kontinuierlich über das Zeitfenster (Brooks–Corey), die Rate sinkt also beim Abfließen",
         "no-drainage": "Aktuelle Drainage ist 0, weil",
         "forecast-weighting-applied": "Die Vorhersagegewichtung hat das Defizit für den erwarteten Regen reduziert",
-        "crop-coefficient-applied": "Mit dem Pflanzenkoeffizienten skaliert"
+        "crop-coefficient-applied": "Mit dem Pflanzenkoeffizienten skaliert",
+        "sensor-outage": "Keine Werte von {fields} von {start} bis {end} (Sensor stumm).",
+        "sensor-outage-share": "Verdunstung für {share} % des Zeitraums gebucht."
       }
     }
   },
@@ -233,6 +235,12 @@
             "temperature": "Temperatur",
             "windspeed": "Windgeschwindigkeit",
             "current precipitation": "Aktueller Niederschlag"
+          },
+          "on-silent-sensor": {
+            "title": "Wenn ein Sensor verstummt",
+            "help": "Pausieren: Nach 3 Stunden ohne Meldung werden die Werte des Sensors nicht mehr verwendet; wo die Verdunstungsrechnung ohne sie nicht auskommt, wird für diese Zeit keine Verdunstung gebucht. Ein Regenzähler zählt weiter. Gilt nur, solange „Stündliche Verdunstung“ (Experimentelle Funktionen) aus ist.",
+            "keep": "Letzten Wert behalten",
+            "pause": "Pausieren"
           },
           "pressure_types": {
             "absolute": "absolut",
