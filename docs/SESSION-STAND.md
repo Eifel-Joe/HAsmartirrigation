@@ -23,6 +23,105 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-15 — Live-Test PR 3 auf HA-Test bestanden (Soll 1–5); Nebenbefund B1 vorbestehend upstream; aufgeräumt
+
+### Stand
+
+- **Upstream-Runde** 09:00 (Fenster ab 14.10. 20:44 UTC): leer; #197 Kopf `6fa424e8`, 0 Reviews, 0 Checks.
+- **Live-Test PR 3** (v2026.10.14b1, HA-Test; HA-MCP der Sitzung weg → alles über `tools\mcp_test.py`): Protokoll mit
+  allen Stempeln und Rohausgaben `issue8-pr3-work\livetest\L-pr3.md` (+ `*.json`, Skripte `s_*.py`, `yaml_step.py`).
+  Soll 1 ✅ Pausier-Hinweis bei Stundenrechnung an; Soll 2 ✅ Live-ET der pausierenden Zone steht ab T0 + 3 h; Soll 3 ✅
+  ein Satz für vier Felder, **56 % = vorab gerechnet**, Teilschritte; Soll 4 ✅ Live = Commit (8,6·10⁻⁵ mm); Soll 5 ✅.
+  Abweichung: Stille 5,5 h statt 3,5 h — der Hintergrund-Timer für 12:20 meldete sich nicht (Memory
+  `long-waits-need-monitor`), User-Entscheidung „jetzt zurück“; R1/R2 aus dem Recorder.
+- **B1** (nach dem Test aufgeklärt, Probe `b1_probe.py` / `b1_probe_upstream.py`): Der Live-Übertrag `_HourlyCarry`
+  rechnet ab der vollen Stunde neu und hält dort die Sonne, wo die volle Rechnung (= Commit) aus der Klarheitsquote füllt.
+  Vorbestehend auf `upstream/master` `6a40e083`, nicht PR 3. Kein Issue vorhanden (gesucht bei uns + JustChr).
+- **Aufgeräumt:** Zonen, Gruppen, Modul, `mqtt`-YAML, Entitäten, Gerät weg; Konfiguration wie vorher (`final-check.json`).
+- Entwürfe (deutsch, nicht gesendet): `issue8-pr3-work\texts\p2-8-pr3-livetest-de.md`, `…\texts\b1-issue-de.md`.
+
+### Nächste Schritte
+
+1. Freigaben: B1-Issue (en + de), P2-Kommentar #8 (danach Issue-Nummer einsetzen), Archiv-Stand (Plan-Häkchen Task 11
+   Step 3–5, `L-pr3.md` + Skripte, Ledger, Sitzungsstand).
+2. Task 12 nach Merge von #197 (unverändert).
+3. Aufräumen nach Freigabe: `issue8-pr3-work\upstream-src` (Auszug `6a40e083` für die B1-Probe), `probe-wt`, `src`.
+
+## 2026-10-14 (4) — Upstream-Runde leer; Soll 3 aus dem Code hergeleitet (alte Formel falsch); Live-Test PR 3 für den 15.10. vorbereitet
+
+### Stand
+
+- **Upstream-Runde** 20:44 UTC (Fenster ab 20:35): leer. `JustChr#197` offen, Kopf `6fa424e8`, 0 Reviews, 0 Checks, 1
+  Kommentar (unser CI-Hinweis); `upstream/master` `6a40e083`; letzter Workflow-Lauf bei JustChr 2026-10-08. P2-Scan: nur
+  bekannte Bezüge.
+- **Soll 3 hergeleitet** (Code `c21478c8`, Belege mit Zeilen in `issue8-pr3-work\livetest\L-pr3.md`, Abschnitt
+  *Herleitung Soll 3*): Anteil = 1 − (max R_p − (T0 + 3 h)) / (C − W) über Temperatur, Feuchte, Wind, Sonne; T0 =
+  `start` des Ausfalls (letztes Lebenszeichen, am selben Gerät für alle vier gleich), R_p = `end` je Feld, W/C =
+  `last_consumed_at` vor/nach dem Commit; `round` (bei ,5 zur geraden Zahl), gehalten auf 1…99. Die Formel aus dem
+  Protokoll ließ die gültige Zeit zwischen Rückkehr und Commit weg (Zeitvorschlag: 86 % statt 83 %).
+- **Vorbereitet, nichts geschrieben:** HA-Test nur gelesen (Modul 0 PyETO = Standard `solrad_behavior` 1 → eigenes
+  Modul nötig; Zeitpläne außerhalb des Fensters; Koordinaten gesetzt). Skripte `issue8-pr3-work\livetest\s_*.py` +
+  `mqtt-e.yaml`, Ablauf-Tabelle mit Zeiten und konkreten Prüfungen für Soll 2/4 im Protokoll. Keines der Skripte ist
+  gelaufen.
+
+### Fallen
+
+- Commit erst nach der schließenden Prüfung (alle vier `end` gesetzt), sonst sperrt der offene Ausfall bis C.
+- Zonen-`update` frischt die Live-Schätzung nicht auf; `update_all_zones` schon (ruft für Gruppen 0/1 den Wetterdienst).
+- Entitäts-IDs der MQTT-Sensoren nach dem Anlegen per `ha_search` bestätigen; die Skripte erwarten
+  `sensor.hasi_livetest_e_livetest_e_*`.
+
+### Nächste Schritte
+
+1. 15.10. ~09:00: Upstream-Runde, dann Ablauf-Tabelle in `L-pr3.md` (T0 ≈ 09:30, Rückkehr ≈ 13:00:20, Commit danach).
+2. Danach unverändert: Aufräumen, Archiv-Stand (Freigabe), P2-Kommentar auf Eifel-Joe#8 deutsch zur Freigabe; Task 12
+   nach Merge von #197.
+
+## 2026-10-14 (3) — PR 3: Archiv-Stand gepusht; Pre-Release v2026.10.14b1 (PR 2 + L1 + PR 3) veröffentlicht; HA-Test auf 14b1; Upstream-Runden leer
+
+### Stand
+
+- **Upstream-Runden** 19:20, 19:27, 20:20 und 20:35 UTC (Fenster ab 18:04): leer. `JustChr#197` offen, Kopf `6fa424e8`, 0 Reviews,
+  0 Checks (einziger Kommentar unser CI-Hinweis); `upstream/master` `6a40e083`; kein Workflow-Lauf bei JustChr seit
+  2026-10-08. P2-Scan: alle Bezüge bekannt.
+- **Archiv** (Freigabe): `d8deb5f8..68524f7b` gepusht, Remote = lokal — zweiter Mutationslauf auf `c21478c8` (37/37,
+  Quell-Hashes = sauberer Worktree `c21478c8`) im Bauprotokoll, README-Satz ersetzt, Ledger, Sitzungsstand, Plan Task 10
+  Step 5 abgehakt.
+- **Task 11 Step 1 — Pre-Release [v2026.10.14b1](https://github.com/Eifel-Joe/HAsmartirrigation/releases/tag/v2026.10.14b1)**
+  (Texte de → en freigegeben): production **`a50b74f9`** = `6a40e083` + Branding + upstream PR 194 + PR 2 (18) + PR 3 (14) +
+  Build, 0 behind / 35 ahead; Bau = `c21478c8` + dasselbe Branding-Delta wie 13b1 (patch-id `92bad29b`). Suite
+  7/4010/9/496, 503 FAILED/ERROR-Namen = `c21478c8`, +9 = `test_brand_assets`. ZIP aus SHA 205 Einträge, sha256
+  `b2a9cc40…`, Download gleich, HTTP 200; Tag remote + lokal `a50b74f9`; CI production + Tag grün. Backup lokal
+  `backup/production-pre-v2026.10.14b1` = `77f041d2`. Worktree `prodrebuild-1014b1-work\wt` (+ `bump.py`,
+  `bundle_check.py`, `suite_compare.sh`).
+- **Task 11 Step 2 — HA-Test auf v2026.10.14b1** (HACS, Neustart angekündigt 20:31 UTC): `sw_version` 14b1, `loaded`,
+  Log ohne `irrigation_plus`. Vorher notiert: `hourlycalculation: false`, `live_estimate_enabled: false`.
+  Protokoll angelegt: `issue8-pr3-work\livetest\L-pr3.md`. HA-Prod unverändert 05b1.
+
+### Fallen
+
+- **Mehrere Bereiche in EINEM `git cherry-pick A..B B..C`** sind ein Mengen-Ausdruck: `^B` schließt `A..B` wieder aus →
+  PR 2 fehlte, PR 3 lief auf Konflikte. Abgebrochen (`--abort`), je Gruppe ein eigener Aufruf.
+- Der Neustart-Wächter (curl auf `manifest.json`, 3-s-Raster) sah keinen Ausfall — Neustart nur über `sw_version` und das
+  frische System-Log belegbar.
+- `ha_get_integration` gibt den Pirate-Schlüssel in `options` aus; Diagnostics-Pfad beginnt mit `data.` (`data.store.config.…`).
+
+### Nächste Schritte
+
+1. **Upstream-Runde** ab 2026-10-14 20:35 UTC; #197 (Antwort, Merge, CI) → P2 wie gehabt.
+2. **Task 11 Step 3–5 tagsüber am 15.10.:** Aufbau nach Spec PR 3 *Ende-zu-Ende-Kriterium* (Zeitvorschlag und offene
+   Punkte in `L-pr3.md`), Soll 3 VOR dem Test aus dem Code herleiten und eintragen, 3,5 h Ausfall, prüfen, aufräumen
+   (Stundenrechnung + Live-Schätzung zurück auf `false`).
+3. **Archiv** (Freigabe): Plan-Häkchen Task 11 Step 1/2 (schon in beiden Plan-Kopien gesetzt, ungepusht), Live-Test-Protokoll,
+   Ledger, dieser Sitzungsstand.
+4. **Task 12** nach Merge von #197 (unverändert, siehe unten).
+5. Aufräumen nach Freigabe: `issue8-pr3-work\probe-wt` + `src`; `prodrebuild-1014b1-work` nach dem nächsten Rebuild.
+
+### Empfohlene Skills
+
+- `task-loop`, `superpowers:verification-before-completion`; Live-Test: Memory `hasi-livetest-capability-boundary`,
+  `ha-no-auto-restart`, `verify-ha-system`; Task 12: `pr-workflow`, Memory `hasi-pr-build-recipe`.
+
 ## 2026-10-14 (2) — PR 3 (Eifel-Joe#8, Teil 3) gebaut: 14 Commits, Suite + 37/37, Abschluss-Review mit Fix-Welle; Archiv gepusht; Upstream-Runden leer
 
 ### Stand

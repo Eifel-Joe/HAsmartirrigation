@@ -46,3 +46,9 @@ Spec-Check per Skript, Task-Review Sonnet, Abschluss-Review Opus. Spec:
   Selbstprüfung), seit `e62b046f` per Test gehalten.
 - Umgebung: C: lief während des Baus voll; ab Task 8 gehen Temp und uv-Cache aller Läufe nach
   `D:\Entwicklung\HASI\issue8-pr3-work\`.
+- **Live-Test HA-Test** (Task 11, Pre-Release v2026.10.14b1, 2026-10-15): `livetest/L-pr3.md` mit Herleitung von Soll 3
+  aus dem Code, Ablauf, allen Stempeln und Ergebnis (Soll 1–5 erfüllt, Soll 3 = 56 % vorab gerechnet); Sandbox-Skripte
+  `livetest/s_*.py`, YAML `livetest/mqtt-e.yaml`, Client-Helfer `livetest/yaml_step.py`, `livetest/wait_closed.py`
+  (laufen über `tools/mcp_test.py` des Arbeitsplatzes, nicht im Archiv), Rohausgaben `livetest/*.json`.
+  Abweichung: 5,5 h Stille statt 3,5 h. Nebenbefund B1 mit Probe `livetest/b1_probe.py` (PR-3-Stand) und
+  `livetest/b1_probe_upstream.py` (`6a40e083`): vorbestehend upstream, nicht PR 3.

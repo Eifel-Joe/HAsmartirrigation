@@ -1,0 +1,107 @@
+{
+ "result": {
+  "removed": [
+   [
+    "zone",
+    9,
+    "{'success': True}"
+   ],
+   [
+    "zone",
+    10,
+    "{'success': True}"
+   ],
+   [
+    "group",
+    2,
+    "{'success': True}"
+   ],
+   [
+    "group",
+    3,
+    "{'success': True}"
+   ],
+   [
+    "module",
+    3,
+    "{'success': True}"
+   ]
+  ],
+  "config_post": "{'success': True}",
+  "config_after": {
+   "hourlycalculation": false,
+   "live_estimate_enabled": false,
+   "continuousupdates": false,
+   "autoupdateinterval": "60",
+   "calctime": "23:00"
+  },
+  "zones_left": [
+   [
+    0,
+    "Kirschlorbeer"
+   ],
+   [
+    1,
+    "Beet"
+   ],
+   [
+    2,
+    "Test1"
+   ],
+   [
+    3,
+    "Test2"
+   ],
+   [
+    4,
+    "Test3"
+   ],
+   [
+    5,
+    "Test4"
+   ],
+   [
+    6,
+    "Test5"
+   ],
+   [
+    7,
+    "Test6"
+   ],
+   [
+    8,
+    "Grace Test"
+   ]
+  ],
+  "groups_left": [
+   [
+    0,
+    "Standard Sensorgruppe",
+    "keep"
+   ],
+   [
+    1,
+    "My Sensor Group",
+    "keep"
+   ]
+  ],
+  "modules_left": [
+   [
+    0,
+    "PyETO",
+    "Die Berechnung der Verunstungsrate basiert auf der FAO56-Formel aus der PyETO-Bibliothek."
+   ],
+   [
+    1,
+    "Static",
+    "Modul mit einer statisch konfigurierbaren Verdunstungsrate.."
+   ],
+   [
+    2,
+    "Static",
+    null
+   ]
+  ]
+ },
+ "justification": "Remove the throwaway livetest zones, groups and module on HA-Test and restore hourly calculation and live estimate to false"
+}

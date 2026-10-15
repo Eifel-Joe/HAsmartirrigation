@@ -3957,24 +3957,30 @@ zurück. Kein pytest-Lauf daneben (Memory `workflow-agent-hygiene`).
 
 **Files:** keine Codeänderung im Branch.
 
-- [ ] **Step 1: production-Pre-Release** nach Memory `hasi-production-on-upstream` (Rezept von v2026.10.13b1): frisch von
+- [x] **Step 1: production-Pre-Release** nach Memory `hasi-production-on-upstream` (Rezept von v2026.10.13b1): frisch von
   `upstream/master`, Branding, offene Eigenentwicklungen (PR 2 vollständig inkl. `fa701bcd`/`6fa424e8`, dieser Branch),
   Build, Versionen synchron, `en.json` 0 URLs, Suite mit Namensvergleich, ZIP aus dem SHA. Release-Text deutsch zur
   Freigabe, dann englisch; Push und Release nur nach Freigabe.
-- [ ] **Step 2: HA-Test aktualisieren** (HACS `update_information`, dann `download` mit `version`; Neustart ankündigen,
+- [x] **Step 2: HA-Test aktualisieren** (HACS `update_information`, dann `download` mit `version`; Neustart ankündigen,
   Memory `ha-no-auto-restart`), geladen und Version prüfen. Stand von `hourlycalculation` und `live_estimate_enabled`
   notieren.
-- [ ] **Step 3: Aufbau nach Spec PR 3, *Ende-zu-Ende-Kriterium*:** YAML-MQTT-Geräte unter eigenem Topic-Präfix, ohne
+- [x] **Step 3: Aufbau nach Spec PR 3, *Ende-zu-Ende-Kriterium*:** YAML-MQTT-Geräte unter eigenem Topic-Präfix, ohne
   Discovery (der Broker hängt an HA-Prod), mit Temperatur, Feuchte, Wind und Sonne (`force_update: true`, ein Gerät);
   pausierende Sensorgruppe; PyETO mit gemessener Sonne, `forecast_days = 0`; Stundenrechnung und Live-Schätzung an. Werkzeuge
   wie PR 2: `issue8-pr2-work\livetest\` (Memory `hasi-livetest-capability-boundary`). **Tagsüber** 3,5 h schweigen
   lassen, dann wieder senden und die Zone berechnen.
-- [ ] **Step 4: Soll prüfen** (vorab gerechnet und notiert): (1) Hinweis-Variante „pausiert“ trotz Stundenrechnung;
+  *Erledigt 2026-10-15:* eigenes PyETO-Modul (Modul 0 schätzte die Sonne), Gruppen *pausieren* + *behalten*, T0 09:30:11;
+  **Abweichung:** 5,5 h Stille statt 3,5 h (Timer-Meldung ausgeblieben, User „jetzt zurück“), Rückkehr 14:58:15.
+- [x] **Step 4: Soll prüfen** (vorab gerechnet und notiert): (1) Hinweis-Variante „pausiert“ trotz Stundenrechnung;
   (2) Live-ET seit dem Anker wächst ab Beginn + 3 h nicht mehr, Methode `hourly_sensor`; (3) Erklärung nennt Beginn + 3 h bis
   Ende, den vorab gerechneten Prozentwert und den Satz „Number of steps“; (4) Live-Eimer direkt nach dem Commit = gebuchter
   Eimer; (5) dieselbe Lage auf *behalten*: kein Satz, Hinweis im PR-1-Text. Protokoll `issue8-pr3-work\livetest\L-pr3.md`.
-- [ ] **Step 5: Aufräumen auf HA-Test:** Geräte und Gruppe entfernen, Stundenrechnung und Live-Schätzung auf den
+  *Erledigt 2026-10-15:* 1–5 ✅ (3: ein Satz, 56 % = vorab; 4: Live vor dem Commit = gebucht, 8,6·10⁻⁵ mm). Nebenbefund B1
+  (Live-Übertrag gegen Klarheitsquote) vorbestehend upstream, nicht PR 3. Protokoll im Archiv
+  `probes/2026-10-14-dead-weather-sensor-pr3-build/livetest/`.
+- [x] **Step 5: Aufräumen auf HA-Test:** Geräte und Gruppe entfernen, Stundenrechnung und Live-Schätzung auf den
   notierten Stand; 60-min-Intervall und Pirate-Schlüssel unberührt; Zonen 0/1 nie auf `service`.
+  *Erledigt 2026-10-15 15:05–15:07*, Kontrolle ohne Reste, Konfiguration wie vorher.
 
 ### Task 12: Nach dem Merge von upstream PR 197 — umsetzen, PR, Nachlauf
 

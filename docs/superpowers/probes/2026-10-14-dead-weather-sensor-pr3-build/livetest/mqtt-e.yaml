@@ -1,0 +1,41 @@
+sensor:
+  - name: "Livetest E temperature"
+    unique_id: hasi_livetest_e_temperature
+    state_topic: hasi_livetest/e/temperature
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    force_update: true
+    device:
+      identifiers: [hasi_livetest_e]
+      name: "HASI Livetest E"
+  - name: "Livetest E humidity"
+    unique_id: hasi_livetest_e_humidity
+    state_topic: hasi_livetest/e/humidity
+    unit_of_measurement: "%"
+    device_class: humidity
+    state_class: measurement
+    force_update: true
+    device:
+      identifiers: [hasi_livetest_e]
+      name: "HASI Livetest E"
+  - name: "Livetest E wind"
+    unique_id: hasi_livetest_e_wind
+    state_topic: hasi_livetest/e/wind
+    unit_of_measurement: "m/s"
+    device_class: wind_speed
+    state_class: measurement
+    force_update: true
+    device:
+      identifiers: [hasi_livetest_e]
+      name: "HASI Livetest E"
+  - name: "Livetest E solar"
+    unique_id: hasi_livetest_e_solar
+    state_topic: hasi_livetest/e/solar
+    unit_of_measurement: "W/m²"
+    device_class: irradiance
+    state_class: measurement
+    force_update: true
+    device:
+      identifiers: [hasi_livetest_e]
+      name: "HASI Livetest E"

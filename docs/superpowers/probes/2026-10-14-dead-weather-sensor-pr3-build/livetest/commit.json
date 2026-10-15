@@ -1,0 +1,49 @@
+{
+ "result": {
+  "zones": [
+   9,
+   10
+  ],
+  "before": {
+   "9": {
+    "bucket": -0.06713681767288232,
+    "last_consumed_at": "2026-10-15T09:30:25.800856"
+   },
+   "10": {
+    "bucket": -0.06714221847992768,
+    "last_consumed_at": "2026-10-15T09:30:25.960304"
+   }
+  },
+  "calc": [
+   [
+    9,
+    "{'success': True}"
+   ],
+   [
+    10,
+    "{'success': True}"
+   ]
+  ],
+  "after": [
+   {
+    "id": 9,
+    "name": "Livetest PR3 Pause Zone",
+    "bucket": -0.6082227688977266,
+    "delta": -0.5410859512248444,
+    "last_consumed_at": "2026-10-15T15:04:09.808637",
+    "last_calculated": "2026-10-15T15:04:09.808637",
+    "explanation": "Beachte: Diese Beschreibung nutzt '.' als Dezimalzeichen und zeigt gerundete Werte. Evapotranspirationsmangel ( = Summe der stÃ¼ndlichen FAO-56-et0 Ã¼ber den Zeitraum + Niederschlag) von -0.54. Keine Werte von Feuchtigkeit, Sonnenstrahlung, Temperatur, Windgeschwindigkeit von 2026-10-15 12:30 bis 2026-10-15 14:58 (Sensor stumm). Verdunstung fÃ¼r 56 % des Zeitraums gebucht.Der alte Vorrat war -0.07.<br/>Der maximale Vorrat ist 24.0.<br/>Drainagerate bei SÃ¤ttigung (Eimer am Maximum) betrÃ¤gt 20.0.<br/>Die Wasserbilanz wurde Ã¼ber den Zeitraum nachgerechnet, sodass Regen, Drainage und die Begrenzung auf den maximalen Vorrat zu ihren tatsÃ¤chlichen Zeitpunkten angewendet wurden statt alle zu Beginn des Zeitraums. Anzahl der Schritte: 7.<br/>Aktuelle Drainage berechnet als 0.00.<br/>Der neue Vorrat ist [alter_Vorrat] + [VerÃ¤nderung] - [Drainage] - [Abfluss] = -0.07-0.54 - 0.00 - 0.00 = -0.61.<br/>Wenn der Vorrat < 0 ist, ist eine BewÃ¤sserung nÃ¶tig..<br/>FÃ¼r eine exakte Berechnung der Dauer, wurden folgende Schritte durchgefÃ¼hrt:<br/><ol><li>Der Niederschlag ist [Durchfluss] * 60 / [GrÃ¶Ãe] = 10.0 * 60 / 10.0 = 60.0.</li><li>Die Dauer ist abs([Vorrat]) / [Niederschlag] * 3600 = 0.61 / 60.0 * 3600 = 36.</li><li>Der Multiplikator wird angewendet. Der Multiplikator ist 1.0, also ist die Dauer 36.</li><li>Die maximale Dauer wird angewendet. Diese ist 3600.</li><li>Zuletzt wird die Vorlaufzeit angewendet. Die Vorlaufzeit ist 0.0, also ist die Dauer 36</li></ol>also ist die Dauer 36.</li></ol>"
+   },
+   {
+    "id": 10,
+    "name": "Livetest PR3 Keep Zone",
+    "bucket": -1.066608589891798,
+    "delta": -0.9994663714118704,
+    "last_consumed_at": "2026-10-15T15:04:09.986161",
+    "last_calculated": "2026-10-15T15:04:09.986161",
+    "explanation": "Beachte: Diese Beschreibung nutzt '.' als Dezimalzeichen und zeigt gerundete Werte. Evapotranspirationsmangel ( = Summe der stÃ¼ndlichen FAO-56-et0 Ã¼ber den Zeitraum + Niederschlag) von -1.00.Der alte Vorrat war -0.07.<br/>Der maximale Vorrat ist 24.0.<br/>Drainagerate bei SÃ¤ttigung (Eimer am Maximum) betrÃ¤gt 20.0.<br/>Die Wasserbilanz wurde Ã¼ber den Zeitraum nachgerechnet, sodass Regen, Drainage und die Begrenzung auf den maximalen Vorrat zu ihren tatsÃ¤chlichen Zeitpunkten angewendet wurden statt alle zu Beginn des Zeitraums. Anzahl der Schritte: 7.<br/>Aktuelle Drainage berechnet als 0.00.<br/>Der neue Vorrat ist [alter_Vorrat] + [VerÃ¤nderung] - [Drainage] - [Abfluss] = -0.07-1.00 - 0.00 - 0.00 = -1.07.<br/>Wenn der Vorrat < 0 ist, ist eine BewÃ¤sserung nÃ¶tig..<br/>FÃ¼r eine exakte Berechnung der Dauer, wurden folgende Schritte durchgefÃ¼hrt:<br/><ol><li>Der Niederschlag ist [Durchfluss] * 60 / [GrÃ¶Ãe] = 10.0 * 60 / 10.0 = 60.0.</li><li>Die Dauer ist abs([Vorrat]) / [Niederschlag] * 3600 = 1.07 / 60.0 * 3600 = 64.</li><li>Der Multiplikator wird angewendet. Der Multiplikator ist 1.0, also ist die Dauer 64.</li><li>Die maximale Dauer wird angewendet. Diese ist 3600.</li><li>Zuletzt wird die Vorlaufzeit angewendet. Die Vorlaufzeit ist 0.0, also ist die Dauer 64</li></ol>also ist die Dauer 64.</li></ol>"
+   }
+  ]
+ },
+ "justification": "Calculate the two livetest zones once (the commit after the outage)"
+}

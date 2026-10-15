@@ -1,0 +1,7 @@
+{
+ "result": {
+  "called_after": "2026-10-15T15:04:07.166733+02:00",
+  "result": "[]"
+ },
+ "justification": "Call irrigation_plus.update_all_zones on HA-Test so the live estimates are recomputed"
+}

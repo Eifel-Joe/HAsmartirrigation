@@ -1,0 +1,18 @@
+{
+ "result": {
+  "devices_livetest": [],
+  "entities_livetest": [],
+  "states_livetest": [],
+  "zone_9_10_entities": [],
+  "issues": [],
+  "config": {
+   "hourlycalculation": false,
+   "live_estimate_enabled": false,
+   "continuousupdates": false,
+   "autoupdateinterval": "60",
+   "calctime": "23:00",
+   "weather_service": "Pirate Weather"
+  }
+ },
+ "justification": "Read-only: verify the livetest cleanup on HA-Test (devices, entities, issues, config flags)"
+}

@@ -1,0 +1,137 @@
+{
+ "result": {
+  "probe": "2026-10-15T15:04:08.588078+02:00|temperature=15.0@2026-10-15T12:58:15.335651+00:00;humidity=70@2026-10-15T12:58:15.339092+00:00;wind=7.2@2026-10-15T12:58:15.343499+00:00;solar=350@2026-10-15T12:58:15.347198+00:00;",
+  "hourlycalculation": true,
+  "live_estimate_enabled": true,
+  "groups": [
+   {
+    "id": 2,
+    "name": "Livetest PR3 Pause",
+    "on_silent_sensor": "pause",
+    "outages": [
+     {
+      "entity_id": "sensor.hasi_livetest_e_livetest_e_temperature",
+      "device_id": "8d2701bf16ac6ad27738dbadd9c09ab5",
+      "fields": [
+       "Temperature"
+      ],
+      "start": "2026-10-15T09:30:11.744301",
+      "end": "2026-10-15T14:58:15.335651"
+     },
+     {
+      "entity_id": "sensor.hasi_livetest_e_livetest_e_humidity",
+      "device_id": "8d2701bf16ac6ad27738dbadd9c09ab5",
+      "fields": [
+       "Humidity"
+      ],
+      "start": "2026-10-15T09:30:11.744301",
+      "end": "2026-10-15T14:58:15.339092"
+     },
+     {
+      "entity_id": "sensor.hasi_livetest_e_livetest_e_wind",
+      "device_id": "8d2701bf16ac6ad27738dbadd9c09ab5",
+      "fields": [
+       "Windspeed"
+      ],
+      "start": "2026-10-15T09:30:11.744301",
+      "end": "2026-10-15T14:58:15.343499"
+     },
+     {
+      "entity_id": "sensor.hasi_livetest_e_livetest_e_solar",
+      "device_id": "8d2701bf16ac6ad27738dbadd9c09ab5",
+      "fields": [
+       "Solar Radiation"
+      ],
+      "start": "2026-10-15T09:30:11.744301",
+      "end": "2026-10-15T14:58:15.347198"
+     }
+    ]
+   },
+   {
+    "id": 3,
+    "name": "Livetest PR3 Keep",
+    "on_silent_sensor": "keep",
+    "outages": [
+     {
+      "entity_id": "sensor.hasi_livetest_e_livetest_e_temperature",
+      "device_id": "8d2701bf16ac6ad27738dbadd9c09ab5",
+      "fields": [
+       "Temperature"
+      ],
+      "start": "2026-10-15T09:30:11.744301",
+      "end": "2026-10-15T14:58:15.335651"
+     },
+     {
+      "entity_id": "sensor.hasi_livetest_e_livetest_e_humidity",
+      "device_id": "8d2701bf16ac6ad27738dbadd9c09ab5",
+      "fields": [
+       "Humidity"
+      ],
+      "start": "2026-10-15T09:30:11.744301",
+      "end": "2026-10-15T14:58:15.339092"
+     },
+     {
+      "entity_id": "sensor.hasi_livetest_e_livetest_e_wind",
+      "device_id": "8d2701bf16ac6ad27738dbadd9c09ab5",
+      "fields": [
+       "Windspeed"
+      ],
+      "start": "2026-10-15T09:30:11.744301",
+      "end": "2026-10-15T14:58:15.343499"
+     },
+     {
+      "entity_id": "sensor.hasi_livetest_e_livetest_e_solar",
+      "device_id": "8d2701bf16ac6ad27738dbadd9c09ab5",
+      "fields": [
+       "Solar Radiation"
+      ],
+      "start": "2026-10-15T09:30:11.744301",
+      "end": "2026-10-15T14:58:15.347198"
+     }
+    ]
+   }
+  ],
+  "issues": [],
+  "zones": [
+   {
+    "id": 9,
+    "name": "Livetest PR3 Pause Zone",
+    "bucket": -0.06713681767288232,
+    "last_consumed_at": "2026-10-15T09:30:25.800856",
+    "last_calculated": "2026-10-15T09:30:25.800856"
+   },
+   {
+    "id": 10,
+    "name": "Livetest PR3 Keep Zone",
+    "bucket": -0.06714221847992768,
+    "last_consumed_at": "2026-10-15T09:30:25.960304",
+    "last_calculated": "2026-10-15T09:30:25.960304"
+   }
+  ],
+  "live": {
+   "sensor.irrigation_plus_lt_wegwerf_zone_live_deficit": {
+    "state": "-0.61",
+    "method": "hourly_sensor",
+    "et_since": 0.541,
+    "precip_since": 0.0,
+    "drainage_since": 0.0,
+    "as_of": "2026-10-15T15:04:07.404123",
+    "balance_form": "replayed",
+    "forecast_tier": null,
+    "reason": null
+   },
+   "sensor.irrigation_plus_hasi61_b_live_deficit": {
+    "state": "-1.07",
+    "method": "hourly_sensor",
+    "et_since": 0.9993,
+    "precip_since": 0.0,
+    "drainage_since": 0.0,
+    "as_of": "2026-10-15T15:04:07.404123",
+    "balance_form": "replayed",
+    "forecast_tier": null,
+    "reason": null
+   }
+  }
+ },
+ "justification": "Read-only: livetest sensors, groups' outage records, repair issues, zones and live-estimate sensors on HA-Test"
+}

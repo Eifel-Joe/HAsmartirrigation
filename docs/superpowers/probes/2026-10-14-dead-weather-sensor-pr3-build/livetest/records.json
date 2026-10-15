@@ -1,0 +1,51 @@
+{
+ "result": {
+  "2": [
+   [
+    "2026-10-15T15:04:07.384625",
+    15.0,
+    70.0,
+    2.0000000000000018,
+    30.240000000000002,
+    [
+     "current_precipitation",
+     "dewpoint",
+     "evapotranspiration",
+     "humidity",
+     "max_temperature",
+     "min_temperature",
+     "precipitation",
+     "pressure",
+     "retrieval_time",
+     "solar_radiation",
+     "temperature",
+     "timestamp"
+    ]
+   ]
+  ],
+  "3": [
+   [
+    "2026-10-15T15:04:07.394816",
+    15.0,
+    70.0,
+    2.0000000000000018,
+    30.240000000000002,
+    [
+     "current_precipitation",
+     "dewpoint",
+     "evapotranspiration",
+     "humidity",
+     "max_temperature",
+     "min_temperature",
+     "precipitation",
+     "pressure",
+     "retrieval_time",
+     "solar_radiation",
+     "temperature",
+     "timestamp"
+    ]
+   ]
+  ]
+ },
+ "justification": "Read-only: weather records of the two livetest sensor groups"
+}
