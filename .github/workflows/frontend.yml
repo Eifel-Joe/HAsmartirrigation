@@ -6,6 +6,8 @@ name: Build Frontend
 # installs the repo source tree at the release tag, so it must be present there).
 
 on:
+  # Run by hand too: re-enabling Actions does not replay the pushes missed meanwhile.
+  workflow_dispatch:
   push:
     branches: [main, master]
     paths:
