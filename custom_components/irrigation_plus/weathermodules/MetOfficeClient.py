@@ -419,7 +419,7 @@ class MetOfficeClient:  # pylint: disable=invalid-name
                 _LOGGER.warning("Met Office get_data: empty time series")
                 return None
 
-            now = datetime.datetime.now(datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.UTC)
             # Pick the most recent step at or before now; fall back to the first.
             chosen = steps[0]
             for step in steps:
@@ -480,7 +480,7 @@ class MetOfficeClient:  # pylint: disable=invalid-name
             if not steps:
                 return None
 
-            today = datetime.datetime.now(datetime.timezone.utc).date()
+            today = datetime.datetime.now(datetime.UTC).date()
             # Group 3-hourly steps by their UTC calendar date.
             by_day: dict[datetime.date, list[dict]] = {}
             for step in steps:
@@ -532,7 +532,7 @@ class MetOfficeClient:  # pylint: disable=invalid-name
                 # but its precipitation holds only the steps that exist, so that
                 # day's total is short.
                 day_start = datetime.datetime(
-                    day.year, day.month, day.day, tzinfo=datetime.timezone.utc
+                    day.year, day.month, day.day, tzinfo=datetime.UTC
                 )
 
                 day_data = {

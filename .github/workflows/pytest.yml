@@ -90,7 +90,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff black isort
+          pip install ruff==0.17.1 black isort
 
       - name: Run ruff linter
         run: ruff check custom_components/irrigation_plus/ --output-format=github

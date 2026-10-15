@@ -178,7 +178,7 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
             try:
                 out.append(
                     (
-                        datetime.datetime.fromtimestamp(stamp, datetime.timezone.utc),
+                        datetime.datetime.fromtimestamp(stamp, datetime.UTC),
                         float(temp),
                     )
                 )
@@ -222,7 +222,7 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
             try:
                 out.append(
                     (
-                        datetime.datetime.fromtimestamp(stamp, datetime.timezone.utc),
+                        datetime.datetime.fromtimestamp(stamp, datetime.UTC),
                         float(rate),
                     )
                 )
@@ -311,12 +311,10 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                         # local-midnight bucketing (see FORECAST_DAY_END below),
                         # not something this measurement itself covers.
                         parsed_data[FORECAST_DAY_START] = (
-                            datetime.datetime.fromtimestamp(
-                                data["time"], datetime.timezone.utc
-                            )
+                            datetime.datetime.fromtimestamp(data["time"], datetime.UTC)
                         )
                         parsed_data[FORECAST_DAY_END] = datetime.datetime.fromtimestamp(
-                            next_data["time"], datetime.timezone.utc
+                            next_data["time"], datetime.UTC
                         )
                         parsed_data_total.append(parsed_data)
                     self._cached_forecast_data = parsed_data_total
@@ -430,9 +428,7 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
 
                     obs_ts = data.get("time")
                     parsed_data[OBSERVATION_TIME] = (
-                        datetime.datetime.fromtimestamp(
-                            obs_ts, tz=datetime.timezone.utc
-                        )
+                        datetime.datetime.fromtimestamp(obs_ts, tz=datetime.UTC)
                         if obs_ts
                         else None
                     )

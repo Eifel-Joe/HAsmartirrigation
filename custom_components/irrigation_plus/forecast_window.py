@@ -92,7 +92,7 @@ from typing import NamedTuple
 
 from .const import FORECAST_DAY_END, FORECAST_DAY_START, MAPPING_PRECIPITATION
 
-_UTC = datetime.timezone.utc
+_UTC = datetime.UTC
 _SECONDS_PER_HOUR = 3600.0
 _BLOCK = datetime.timedelta(hours=24)
 # A covered span within this many seconds of the requested one counts as whole.

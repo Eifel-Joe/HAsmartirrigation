@@ -119,7 +119,7 @@ class OpenMeteoClient:
         the daily arrays and ``get_hourly_data`` rely on local dates and hours.
         See test_weather_modules.py::TestOpenMeteoClientGetData.
         """
-        now_local = datetime.datetime.now(datetime.timezone.utc).replace(
+        now_local = datetime.datetime.now(datetime.UTC).replace(
             tzinfo=None
         ) + datetime.timedelta(seconds=utc_offset_seconds)
         idx = 0
@@ -179,7 +179,7 @@ class OpenMeteoClient:
                 # the offset; tagging it as UTC as written moved it by the offset.
                 OBSERVATION_TIME: (
                     datetime.datetime.fromisoformat(obs_time_str).replace(
-                        tzinfo=datetime.timezone.utc
+                        tzinfo=datetime.UTC
                     )
                     - datetime.timedelta(seconds=offset_seconds)
                     if obs_time_str
@@ -218,7 +218,7 @@ class OpenMeteoClient:
             # different day than the site's.
             # See test_weather_modules.py::TestOpenMeteoClientGetForecastData.
             offset = datetime.timedelta(seconds=doc.get("utc_offset_seconds", 0))
-            site_today = (datetime.datetime.now(datetime.timezone.utc) + offset).date()
+            site_today = (datetime.datetime.now(datetime.UTC) + offset).date()
 
             result = []
             for i, day_str in enumerate(daily.get("time", [])):
@@ -275,7 +275,7 @@ class OpenMeteoClient:
                         day_date.year,
                         day_date.month,
                         day_date.day,
-                        tzinfo=datetime.timezone.utc,
+                        tzinfo=datetime.UTC,
                     )
                     - offset
                 )
@@ -342,7 +342,7 @@ class OpenMeteoClient:
             # The series is local wall clock (timezone=auto in the request), so
             # it is handed back as an absolute instant rather than leaving every
             # caller to rediscover which zone it was in.
-            out.append((local.replace(tzinfo=datetime.timezone.utc) - offset, temp))
+            out.append((local.replace(tzinfo=datetime.UTC) - offset, temp))
         return out or None
 
     def get_hourly_precipitation_forecast(self, covering_until=None):
@@ -377,9 +377,7 @@ class OpenMeteoClient:
                 local = datetime.datetime.fromisoformat(tstr)
             except (TypeError, ValueError):
                 continue
-            out.append(
-                (local.replace(tzinfo=datetime.timezone.utc) - offset, float(mm))
-            )
+            out.append((local.replace(tzinfo=datetime.UTC) - offset, float(mm)))
         return out or None
 
     def get_hourly_radiation_forecast(self):
@@ -410,7 +408,7 @@ class OpenMeteoClient:
                 continue
             out.append(
                 (
-                    local.replace(tzinfo=datetime.timezone.utc) - offset,
+                    local.replace(tzinfo=datetime.UTC) - offset,
                     float(watts) * _W_TO_MJ_HOUR,
                 )
             )

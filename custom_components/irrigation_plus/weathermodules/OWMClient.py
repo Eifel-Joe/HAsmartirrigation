@@ -146,9 +146,7 @@ class OWMClient:  # pylint: disable=invalid-name
                     MAPPING_CURRENT_PRECIPITATION: current_precip,
                     MAPPING_PRECIPITATION: current_precip,
                     OBSERVATION_TIME: (
-                        datetime.datetime.fromtimestamp(
-                            observation_dt, tz=datetime.timezone.utc
-                        )
+                        datetime.datetime.fromtimestamp(observation_dt, tz=datetime.UTC)
                         if observation_dt
                         else None
                     ),
@@ -187,7 +185,7 @@ class OWMClient:  # pylint: disable=invalid-name
             try:
                 out.append(
                     (
-                        datetime.datetime.fromtimestamp(stamp, datetime.timezone.utc),
+                        datetime.datetime.fromtimestamp(stamp, datetime.UTC),
                         float(temp),
                     )
                 )
@@ -231,7 +229,7 @@ class OWMClient:  # pylint: disable=invalid-name
             try:
                 out.append(
                     (
-                        datetime.datetime.fromtimestamp(stamp, datetime.timezone.utc),
+                        datetime.datetime.fromtimestamp(stamp, datetime.UTC),
                         total / 3.0,
                     )
                 )
@@ -296,7 +294,7 @@ class OWMClient:  # pylint: disable=invalid-name
 
                     # The bucket IS a UTC calendar day (see the grouping above).
                     day_start = datetime.datetime(
-                        day.year, day.month, day.day, tzinfo=datetime.timezone.utc
+                        day.year, day.month, day.day, tzinfo=datetime.UTC
                     )
 
                     parsed_data_total.append(
