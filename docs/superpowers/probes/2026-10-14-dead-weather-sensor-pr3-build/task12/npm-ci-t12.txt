@@ -1,0 +1,17 @@
+
+added 195 packages, and audited 196 packages in 27s
+
+60 packages are looking for funding
+  run `npm fund` for details
+
+6 vulnerabilities (2 moderate, 4 high)
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+npm notice
+npm notice New major version of npm available! 11.12.1 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

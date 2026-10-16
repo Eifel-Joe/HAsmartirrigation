@@ -1,0 +1,15 @@
+=== base summary
+= 7 failed, 3925 passed, 9 skipped, 11 warnings, 466 errors in 380.34s (0:06:20) =
+=== pr summary
+= 7 failed, 4001 passed, 9 skipped, 11 warnings, 496 errors in 390.67s (0:06:30) =
+=== baseline names missing in pr:
+ERROR tests/test_silent_sensor_commit.py::TestAGroupThatIsNotCutCalculatesAsBefore::test_a_pausing_group_under_the_hourly_calculation_matches_too
+ERROR tests/test_silent_sensor_commit.py::TestTheGate::test_with_the_hourly_calculation_nothing_is_cut
+=== FAILED compare:
+FAILED gleich
+=== new names in pr per file:
+     14 ERROR tests/test_live_estimate_silent_sensor.py
+      7 ERROR tests/test_live_estimate_silent_sensor_daily.py
+      2 ERROR tests/test_silent_sensor_commit.py
+      9 ERROR tests/test_silent_sensor_hourly_commit.py
+=== Lingering timer: base 932 / pr 992

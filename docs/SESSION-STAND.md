@@ -23,6 +23,79 @@
 > nicht in Git liegt — in eine Temp-Datei schreiben und per `os.replace`/`mv`
 > darüberlegen, oder das Write-Tool nehmen.
 
+## 2026-10-16 (2) — Upstream-Runde leer; Archiv PR 3 Task 12 (P1)
+
+### Stand
+
+- **Upstream-Runde 10:09 UTC** (Fenster ab 09:36 UTC, alle Autoren): leer — keine Issues/PRs bewegt, keine Kommentare
+  oder Review-Kommentare, keine Actions-Läufe, kein Release (jüngstes v2026.10.05), `upstream/master` = `4933c7eb`.
+  `JustChr#198`: offen, Kopf `7547b435`, CI 5/5 grün, MERGEABLE/CLEAN, 0 Reviews, 0 Kommentare. `JustChr#188` offen,
+  letzter Kommentar unserer vom 15.10. Scan-Skript: nur erwartete offene Bezüge (#8 → #188/#198, #20/#89 → #196,
+  #88 → #195, #92 → #193).
+- **Archiv** (Auftrag 2): Plan PR 3 Task 12 Step 5 abgehakt; Belege Step 3 + PR-Texte Step 4 nach
+  `probes/2026-10-14-dead-weather-sensor-pr3-build/task12/` und `…/texts/` im Worktree `pr139-work\archive-wt`
+  (Scan IP/Mail/Schlüssel leer).
+
+## 2026-10-15/16 — JustChr merged #197 + #194 und antwortet auf #193/#195/#196; PR 3 = `JustChr#198` offen, CI grün; P2 #8/#42
+
+### Stand
+
+- **Upstream-Runden** 16:54 UTC (leer), **21:20 UTC** (Funde unten), 21:55, 05:43, 05:48 UTC (nur unser #198).
+  `upstream/master` jetzt **`4933c7eb`**: `68ce7138` (#194), `f43428ec` (#197, Squash, Baum = `6fa424e8` + Screenshot),
+  `c9bf8a68` (workflow_dispatch), `4933c7eb` (**ruff auf 0.17.1 gepinnt**, UP017-Fix in Wetter-Clients/`forecast_window`).
+  Ursache der fehlenden CI seit 08.10.: Actions bei JustChr auf Kontoseite aus, seit 15.10. wieder an. Kein Release
+  (jüngstes v2026.10.05).
+- **JustChrs Kommentare 15.10. ~19:24 UTC** (alle ganz gelesen): #197 `6200443356` (lokal geprüft, 3932 passed, acht
+  Wächter selbst gebrochen, „go ahead with part 3 rebased on the merged master“); #194 `6200450506` (Static-Spalte: „yes
+  please, send the small PR“, Form: ET-Reihe, die von keiner Zone abhängt — die breitengrad-abgeleitete Referenz-ET); #195
+  `6200451010` (Option 1: Umrechnung an den zwei Live-Stellen, Tagespfad bleibt; unser Test + einer „Panel und Lauf
+  stimmen imperial überein“); #196 `6200451585` („build all three“: geteilter Abruf je Client, kurze gecachte Pause nach
+  Fehler mit `Retry-After`, Pause zwischen Pirate-Retries; Tests: gleichzeitige Aufrufer → eine Anfrage, Fehlerpause;
+  Erfolgspfad-Caching wie heute); #193 `6200495212` (Option 1 als **opt-in-Einstellung**, Bezug letzte zehn volle Jahre,
+  Herkunft + CC-BY-4.0 auf Karte/Doku, einmal holen/speichern/selten auffrischen, Fehlschlag lässt die Illustration).
+- **Task 12 (Plan PR 3) Step 1–4 erledigt**, Belege im Plan: Rebase `--onto 4933c7eb` ohne Konflikt → Kopf **`7547b435`**
+  (Sicherung `archive/pr3-pre-rebase-c21478c8`, lokal); Baseline 7/3925/9/466, Branch 7/4001/9/496, FAILED gleich, 32 neue
+  ERROR alle „Lingering timer“; 80 neue Testfälle; Mutationen 37/37, Killer = `mutations-final-wt.json`; black +
+  ruff 0.17.1 sauber; dist = Build. **`JustChr#198`** angelegt 2026-10-16 05:44:50 UTC (Texte
+  `issue8-pr3-work\texts\pr3-{de,en}.md`, Body `cmp`-gleich), **CI 5/5 grün**, mergeable CLEAN.
+- **P2** (Step 5, Freigabe de → en, „senden“): Kommentar #8 `6209034293`; #42 Punkt 9 en + de nachgezogen, de 25h neu
+  (Skript `texts\edit42_0516.py`); beides `cmp`-gleich zurückgelesen. Label #8 bleibt `upstream:freigegeben`.
+- Worktree `issue8-pr3-work\base-wt` (losgelöst auf `4933c7eb`, Baseline-Messung) steht noch.
+
+- **P2-Runde zu JustChrs Antworten** (16.10. 09:36–09:4x UTC, Freigabe de → en, „senden“; Upstream-Runde 09:36 leer;
+  Texte + Skripte `D:\Entwicklung\HASI\p2-1016-work\`, alles `cmp`-gleich zurückgelesen in `readback\`):
+  **Eifel-Joe#91** neu (Static-Spalte, `typ:fehler`/`schwere:niedrig`/`groesse:S`/`upstream:freigegeben`),
+  **Eifel-Joe#92** neu (Klimadaten aus `JustChr#193` als opt-in, `typ:feature`/`schwere:niedrig`/`groesse:L`/
+  `upstream:freigegeben`; User: eigenes Issue); #87 kommentiert + geschlossen (completed); #88, #89, #20 kommentiert,
+  `upstream:gemeldet` → `upstream:freigegeben`; #42: 22/25f/25g ergänzt, 39r + 43d neu, 43c durchgestrichen,
+  `JustChr#193` unter „Beobachtet“ (en + de). Scan-Skript danach: nur erwartete offene Bezüge.
+
+### Offen
+
+- **Bau-Aufträge jetzt freigegeben:** Eifel-Joe#88 (`JustChr#195`, Option 1), Eifel-Joe#89 + #20 (`JustChr#196`, alle
+  drei), Eifel-Joe#91 (Static-Spalte, klein), Eifel-Joe#92 (Klimadaten, Spec + Plan nötig, nach #91). Reihenfolge nach
+  Schwere (#88 ist `schwere:mittel`).
+- **production** 4 Commits hinter upstream (Neubau nur auf Zuruf); HA-Prod weiter v2026.10.05b1.
+- **Archiv** (P1, Task 12 Step 5): Plan-Häkchen Task 12 + Belege `suite-t12-*`, `t12-compare.txt`, `mutate-t12.txt`,
+  `mutations-t12.json`, Texte → `archive/design-history`; Push nur nach Freigabe.
+- Auftrag 3 unverändert auf Zuruf: Eifel-Joe#90 upstream melden; Aufräumen `upstream-src`, `probe-wt`, `src`, `base-wt`.
+
+### Fallen
+
+- Parallele Bash-Aufrufe mit `cd` liefen einmal im falschen Baum (diffstat des Hauptbaums statt des Worktrees) → bei
+  Worktree-Arbeit nur `git -C <absoluter Pfad>`.
+- `pytest -q --collect-only` gibt hier die Baumform aus (Projekt-Verbosität) → `-q -q` für Knoten-IDs.
+- `-rfE` nennt bei ERRORs keinen Grund → Gründe aus den Abschnitten „ERROR at teardown of …“ lesen
+  (`issue8-pr3-work\t12_error_reasons.py`).
+- `gh … --jq .body` hängt ein `\n` an → vor `cmp`/Upload das letzte Byte abschneiden.
+
+### Nächste Schritte
+
+1. Upstream-Runde ab 09:36 UTC (2026-10-16); Antwort/Merge auf `JustChr#198` → P2 #8 (dann schließen), #42, production.
+2. Archiv (P1) nach Freigabe.
+3. Nächster Bau nach Schwere (Memory `hasi-befunde-vor-features`): voraussichtlich Eifel-Joe#88, dann #89 + #20, #91,
+   #92 — Reihenfolge mit dem User festlegen.
+
 ## 2026-10-15 — Live-Test PR 3 auf HA-Test bestanden (Soll 1–5); Nebenbefund B1 vorbestehend upstream; aufgeräumt
 
 ### Stand
@@ -38,13 +111,29 @@
   rechnet ab der vollen Stunde neu und hält dort die Sonne, wo die volle Rechnung (= Commit) aus der Klarheitsquote füllt.
   Vorbestehend auf `upstream/master` `6a40e083`, nicht PR 3. Kein Issue vorhanden (gesucht bei uns + JustChr).
 - **Aufgeräumt:** Zonen, Gruppen, Modul, `mqtt`-YAML, Entitäten, Gerät weg; Konfiguration wie vorher (`final-check.json`).
-- Entwürfe (deutsch, nicht gesendet): `issue8-pr3-work\texts\p2-8-pr3-livetest-de.md`, `…\texts\b1-issue-de.md`.
+- **Archiv** (Freigabe): `archive/design-history` `68524f7b..a75e8fd3` gepusht, remote = lokal (Plan Task 11 Step 3–5
+  abgehakt, auch Hauptbaum-Kopie; `probes/…-pr3-build/livetest/` 35 Dateien; Ledger; Sitzungsstand); Scan IP/Schlüssel/Mail
+  leer, Commit-Message ohne `JustChr#`.
+- **P2** (Freigabe de → en, „ok, senden“; Upstream-Runden 13:29 und 15:21 UTC leer): **Eifel-Joe#90** (B1, `typ:fehler`,
+  `schwere:niedrig`), Kommentar #8 `6195660762`, #42 Punkt 9 + neuer Punkt 25h — alle zurückgelesen gleich. Texte
+  `issue8-pr3-work\texts\`.
+
+- **PR 3 nicht vorgezogen** (User fragte; Option 3 gewählt): Statt eines gestapelten PR (32 Commits inkl. ganz #197,
+  Squash-Merge erzwänge Force-Push) ein Stand-Kommentar auf `JustChr#188` `6196029290` (15:40 UTC: Teil 3 gebaut und
+  geprüft, PR nach dem Merge von #197, „No rush“, Angebot eines gestapelten Entwurfs auf Wunsch); P2-Notiz #8
+  `6196423767`. Beides zurückgelesen gleich. JustChr ist in diesem Repo seit 2026-10-06 nicht aktiv (öffentlich
+  anderswo aktiv); `JustChr#194` ebenfalls unbeantwortet.
+
+### Offen
+
+- Der **deutsche Teil von #42** hinkt bei Punkt 9 seit PR 2 hinterher („PR 2: Spec und Plan in Arbeit“), 25h fehlt dort;
+  nur mit eigener Text-Freigabe nachziehen.
+- Dieser Nachtrag (P2-Stand) ist noch nicht im Archiv → mit dem nächsten Archiv-Stand.
 
 ### Nächste Schritte
 
-1. Freigaben: B1-Issue (en + de), P2-Kommentar #8 (danach Issue-Nummer einsetzen), Archiv-Stand (Plan-Häkchen Task 11
-   Step 3–5, `L-pr3.md` + Skripte, Ledger, Sitzungsstand).
-2. Task 12 nach Merge von #197 (unverändert).
+1. Task 12 nach Merge von #197 (unverändert); bis dahin je Sitzung die Upstream-Runde.
+2. Eifel-Joe#90 einordnen (Reihenfolge nach Schwere, Memory `hasi-befunde-vor-features`); upstream melden nur auf Zuruf.
 3. Aufräumen nach Freigabe: `issue8-pr3-work\upstream-src` (Auszug `6a40e083` für die B1-Probe), `probe-wt`, `src`.
 
 ## 2026-10-14 (4) — Upstream-Runde leer; Soll 3 aus dem Code hergeleitet (alte Formel falsch); Live-Test PR 3 für den 15.10. vorbereitet

@@ -1,0 +1,28 @@
+
+> irrigation-plus@2026.10.05 build
+> npm run lint && npm run rollup
+
+
+> irrigation-plus@2026.10.05 lint
+> eslint src/**/*.ts
+
+
+> irrigation-plus@2026.10.05 rollup
+> rollup -c
+
+[36m
+[1msrc/irrigation-plus.ts[22m → [1mdist[22m...[39m
+[1m[33m(!) If you do not supply "output.name", you may not be able to access the exports of an IIFE bundle.[39m[22m
+[90mhttps://rollupjs.org/configuration-options/#output-name[39m
+[32mcreated [1mdist[22m in [1m7.1s[22m[39m
+[36m
+[1msrc/irrigation-plus-card.ts[22m → [1mdist[22m...[39m
+[32mcreated [1mdist[22m in [1m3.9s[22m[39m
+[36m
+[1msrc/irrigation-plus-card-legacy.ts[22m → [1mdist[22m...[39m
+[32mcreated [1mdist[22m in [1m3.6s[22m[39m
+[36m
+[1msrc/irrigation-plus-card-impl.ts[22m → [1mdist[22m...[39m
+[1m[33m(!) If you do not supply "output.name", you may not be able to access the exports of an IIFE bundle.[39m[22m
+[90mhttps://rollupjs.org/configuration-options/#output-name[39m
+[32mcreated [1mdist[22m in [1m3.6s[22m[39m

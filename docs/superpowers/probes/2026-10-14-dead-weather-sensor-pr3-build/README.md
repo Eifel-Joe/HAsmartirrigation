@@ -52,3 +52,14 @@ Spec-Check per Skript, Task-Review Sonnet, Abschluss-Review Opus. Spec:
   (laufen über `tools/mcp_test.py` des Arbeitsplatzes, nicht im Archiv), Rohausgaben `livetest/*.json`.
   Abweichung: 5,5 h Stille statt 3,5 h. Nebenbefund B1 mit Probe `livetest/b1_probe.py` (PR-3-Stand) und
   `livetest/b1_probe_upstream.py` (`6a40e083`): vorbestehend upstream, nicht PR 3.
+- **Task 12 — umgesetzt auf den gemergten master, upstream PR 198** (2026-10-15/16): PR 197 als Squash `f43428ec`
+  gemergt, master danach `4933c7eb` (ruff auf 0.17.1 gepinnt). `rebase --onto 4933c7eb 6fa424e8` ohne Konflikt, Kopf
+  **`7547b435`** (Sicherung des alten Kopfs: lokaler Branch `archive/pr3-pre-rebase-c21478c8`). Neu belegt in `task12/`:
+  Lauf-Skript `t12_suites.sh` (Baseline im Worktree `base-wt` auf `4933c7eb`, dann der Branch, nacheinander),
+  Rohausgaben `suite-t12-base.txt` / `suite-t12-pr.txt`, Namen `names-t12-*.txt`, Vergleich `t12-compare.txt`:
+  Baseline 7/3925/9/466, Branch 7/4001/9/496, FAILED gleich, entfallen nur die 2 in Task 5 umbenannten, 32 neue ERROR
+  alle Teardown „Lingering timer“ (`t12_error_reasons.py` über `t12-pr-error-lines.txt`); Collect `t12-collect-*.txt`.
+  Mutationen `mutate-t12.txt` / `mutations-t12.json`: 37/37 getötet, Killer-Mengen gleich `suite/mutations-final-wt.json`,
+  Quellen sha256-gleich zurück. Frontend `npm-ci-t12.txt` / `npm-build-t12.txt` (dist = committet). Lint black + ruff
+  0.17.1 sauber. PR-Texte `texts/pr3-de.md` (Freigabe), `texts/pr3-en.md` (gesendet), `texts/pr3-readback.md` (Body
+  zurückgelesen, `cmp`-gleich bis auf das von `gh --jq` angehängte `\n`). PR angelegt 2026-10-16 05:44:50 UTC, CI 5/5 grün.

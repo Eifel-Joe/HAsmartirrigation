@@ -3984,17 +3984,38 @@ zurück. Kein pytest-Lauf daneben (Memory `workflow-agent-hygiene`).
 
 ### Task 12: Nach dem Merge von upstream PR 197 — umsetzen, PR, Nachlauf
 
-- [ ] **Step 1:** Upstream-Runde; `git fetch upstream`; den Merge-Commit von PR 197 finden.
-- [ ] **Step 2:** Nur die Commits dieses Branches auf den gemergten Stand setzen:
+- [x] **Step 1:** Upstream-Runde; `git fetch upstream`; den Merge-Commit von PR 197 finden.
+  *Erledigt 2026-10-15 21:20 UTC:* PR 197 gemergt 19:23 UTC als Squash `f43428ec` (Baum = `6fa424e8` + Screenshot aus
+  upstream PR 194), JustChr: „Please go ahead with part 3 rebased on the merged master“. Danach auf master zwei CI-Commits
+  (`c9bf8a68` workflow_dispatch, `4933c7eb` ruff auf 0.17.1 gepinnt + UP017-Fix in fremden Dateien).
+- [x] **Step 2:** Nur die Commits dieses Branches auf den gemergten Stand setzen:
   `git rebase --onto upstream/master 6fa424e8 feat/pause-silent-sensor-hourly-live`. Der Branch wird **vor diesem
   Schritt nicht gepusht** (globale Regel: kein Rebase auf gepushten Branches); production bekommt seine Commits in Task 11
   per Cherry-Pick. Konflikte entstehen nur, wo JustChr PR 2 geändert hat; je Konflikt Test zuerst.
-- [ ] **Step 3:** Neu belegen: Baseline auf `upstream/master`, volle Suite mit Namensvergleich, Mutationen, Lint, Greps
+  *Erledigt:* vorher `git ls-remote` leer (nie gepusht), Sicherung `archive/pr3-pre-rebase-c21478c8`; Rebase auf
+  `4933c7eb` ohne Konflikt, 14 Commits, Kopf **`7547b435`**; Baum-Diff zu `c21478c8` = genau die vier upstream-Commits.
+- [x] **Step 3:** Neu belegen: Baseline auf `upstream/master`, volle Suite mit Namensvergleich, Mutationen, Lint, Greps
   aus Task 10 Step 1, `dist` neu bauen.
-- [ ] **Step 4:** PR-Text mit zwei Abschnitten (Commit, Live), deutsch zur Freigabe, dann englisch; Push und
+  *Erledigt 2026-10-15/16* (Ausgaben `issue8-pr3-work\suite-t12-*.txt`, `t12-compare.txt`, `mutate-t12.txt`,
+  `mutations-t12.json`): Baseline `4933c7eb` (Worktree `base-wt`) 7/3925/9/466, FAILED gleich wie auf `6fa424e8`; Branch
+  7/4001/9/496, FAILED gleich, entfallen nur die 2 in Task 5 umbenannten, 32 neue ERROR alle Teardown „Lingering timer“
+  (`t12_error_reasons.py`, 32/32); Collect 80 neu / 4 weg. Mutationen 37/37, Killer-Mengen identisch mit
+  `mutations-final-wt.json`, Quellen byte-gleich zurück. `black` 26.10.1 + **`ruff@0.17.1`** (neuer CI-Pin; die
+  0.16.10-Ausnahme oben ist damit hinfällig) sauber; Greps leer; `dist` neu gebaut = committet (4/4 inhaltlich gleich).
+- [x] **Step 4:** PR-Text mit zwei Abschnitten (Commit, Live), deutsch zur Freigabe, dann englisch; Push und
   `gh pr create --repo JustChr/HAsmartirrigation --base master --head Eifel-Joe:feat/pause-silent-sensor-hourly-live` nur
   nach Freigabe (Skill `pr-workflow`, Memory `hasi-pr-build-recipe`).
-- [ ] **Step 5:** P2: Kommentar auf Eifel-Joe#8, `#42` Punkt 9, Label; Archiv nach P1.
+  *Erledigt 2026-10-16* (Freigaben de „Freigabe“, en „Freigabe, senden“; Upstream-Runde 05:43 UTC leer): gepusht,
+  **upstream PR 198** angelegt 05:44:50 UTC, Body byte-gleich mit `issue8-pr3-work\texts\pr3-en.md`; CI 5/5 grün
+  (build, lint, test 3.13, test-ha-floor, validate), mergeable CLEAN. B1 steht nicht im Text (Text ohne B1 freigegeben; die Meldung upstream bleibt offen, nur auf Zuruf).
+- [x] **Step 5:** P2: Kommentar auf Eifel-Joe#8, `#42` Punkt 9, Label; Archiv nach P1.
+  *P2 erledigt 2026-10-16* (Freigaben de → en, „senden“; Upstream-Runde 05:48 UTC nur der eigene PR): Kommentar #8
+  `6209034293`, `#42` Punkt 9 en + de, de 25h neu; beides `cmp`-gleich zurückgelesen; Label bleibt
+  `upstream:freigegeben`.
+  *Archiv 2026-10-16* (Upstream-Runde 10:09 UTC leer, PR 198 unverändert offen): dieser Plan, die Belege aus Step 3 und
+  die PR-Texte aus Step 4 unter `probes/2026-10-14-dead-weather-sensor-pr3-build/task12/` bzw. `…/texts/`, dazu
+  `docs/SESSION-STAND.md`, auf `archive/design-history`. Der Merge von PR 198 und sein Nachlauf (P2, #8 schließen,
+  production) liegen außerhalb dieses Plans.
 
 ---
 
