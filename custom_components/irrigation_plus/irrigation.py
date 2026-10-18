@@ -21,7 +21,11 @@ from homeassistant.util.unit_system import METRIC_SYSTEM
 from . import const
 from .actuate import async_actuate
 from .batch import is_batch_zone
-from .duration_math import calibrated_flow_seconds, zone_run_duration
+from .duration_math import (
+    calibrated_flow_seconds,
+    forecast_sized_deficit,
+    zone_run_duration,
+)
 from .flow_metering import (
     FlowMeter,
     flow_is_totalizer,
@@ -2456,6 +2460,8 @@ class IrrigationRunnerMixin:
         and the returned ``deficit`` stay the true actuals balance, so the live
         bucket still means what it says and the rain that really falls fills the
         rest. A credit that covers the deficit sizes to 0 and drops the zone.
+        The credit is millimetres and ``deficit`` display units;
+        ``forecast_sized_deficit`` converts it (#195).
 
         Returns None when the zone does not water.
         """
@@ -2498,7 +2504,7 @@ class IrrigationRunnerMixin:
                     threshold,
                 )
             return None
-        sized = min(0.0, deficit + credit) if credit > 0 else deficit
+        sized = forecast_sized_deficit(deficit, credit, metric)
         live = self._duration_for_deficit(zone, sized, metric)
         if live <= 0:
             return None

@@ -97,7 +97,7 @@ from .day_projection import (
     forecast_remainder,
     radiation_share,
 )
-from .duration_math import zone_run_duration
+from .duration_math import forecast_sized_deficit, zone_run_duration
 from .et_estimate import (
     SiteGeometry,
     estimate_daily_et0_hargreaves,
@@ -1652,15 +1652,16 @@ class LiveEstimateMixin:
         number entirely, and so does the panel.
 
         ``credit`` is the forecast rain the weighting folds into the SIZING
-        (#159), in the same unit as ``deficit``; the runner passes the same
-        figure to ``_zone_run_decision``, so the screen still states the run's
-        duration rather than the unweighted one.
+        (#159), in millimetres whatever the units of ``deficit``; the runner
+        passes the same figure to ``_zone_run_decision`` and both fold it in
+        through ``forecast_sized_deficit``, so the screen still states the
+        run's duration rather than the unweighted one.
         """
         if zone.get(const.ZONE_FLOW_SENSOR):
             return None
-        if credit > 0:
-            deficit = min(0.0, deficit + credit)
-        return zone_run_duration(zone, deficit, metric)
+        return zone_run_duration(
+            zone, forecast_sized_deficit(deficit, credit, metric), metric
+        )
 
     async def async_get_zone_estimates(self) -> dict:
         """Return ``{zone_id: estimate}`` for every zone with an available value.
