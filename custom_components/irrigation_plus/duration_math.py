@@ -102,6 +102,26 @@ def zone_run_duration(zone, deficit, metric, *, capped=True):
     )
 
 
+def forecast_sized_deficit(deficit, credit_mm, metric):
+    """The live ``deficit`` the run is sized on once the forecast credit is folded in.
+
+    The one rule both live consumers of the forecast weighting share (#159):
+    the runner's ``_zone_run_decision`` and the panel's ``_live_run_duration``,
+    so the screen and the run cannot size the same zone differently. The credit
+    shortens the SIZING only and never lifts the deficit above 0.
+
+    ``deficit`` is in display units (mm, or inches when not ``metric``);
+    ``credit_mm`` is what ``forecast_weighting_credit`` returns, always
+    millimetres. Adding the two unconverted let 0.5 mm of forecast rain cancel
+    a 0.5 in (12.7 mm) deficit on an imperial install (#195). The daily path
+    converts its bucket to millimetres first and does not come here.
+    """
+    if not credit_mm or credit_mm <= 0:
+        return deficit
+    credit = credit_mm if metric else credit_mm / const.INCH_TO_MM_FACTOR
+    return min(0.0, deficit + credit)
+
+
 def calibrated_flow_seconds(zone, planned_seconds, metric):
     """``planned_seconds`` for a flow zone, re-priced at the rate it measured.
 
