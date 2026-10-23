@@ -128,6 +128,8 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
         # hourly temperatures stay reachable without a second call on a
         # metered key.
         self._cached_doc = None
+        self._data_gate = fetch_gate.FetchGate(self, "_cached_data_at")
+        self._forecast_gate = fetch_gate.FetchGate(self, "_cached_forecast_at")
 
     def validate_key(self):
         """Test the API key by making a real request and checking the HTTP status.
@@ -219,6 +221,10 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
 
     def get_forecast_data(self):
         """Validate and return forecast data."""
+        return self._forecast_gate.run(self._fetch_forecast)
+
+    def _fetch_forecast(self):
+        """Body of ``get_forecast_data``, run inside ``_forecast_gate``."""
         if not fetch_gate.is_fresh(
             self._cached_forecast_at, self.cache_seconds, self.override_cache
         ):
@@ -327,6 +333,10 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
 
     def get_data(self):
         """Validate and return data."""
+        return self._data_gate.run(self._fetch_data)
+
+    def _fetch_data(self):
+        """Body of ``get_data``, run inside ``_data_gate``."""
         if not fetch_gate.is_fresh(
             self._cached_data_at, self.cache_seconds, self.override_cache
         ):

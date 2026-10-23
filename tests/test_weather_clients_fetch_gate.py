@@ -9,6 +9,8 @@ The tests below run over that table.
 import dataclasses
 import json
 import pathlib
+import threading
+import time
 from collections.abc import Callable
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -164,3 +166,43 @@ def test_every_client_asks_the_shared_freshness_check(case):
         case.call(client)
     # Without the shared check the second call is a cache hit.
     assert get.call_count == 2
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+def test_concurrent_callers_make_one_request(case):
+    client = case.make()
+    release = threading.Event()
+    results: list = []
+
+    def slow_get(*args, **kwargs):
+        # Bounded wait: a gate that never opens must fail the test, not hang it.
+        release.wait(timeout=5)
+        return _ok(case.ok_body)
+
+    get = MagicMock(side_effect=slow_get)
+
+    def caller():
+        try:
+            results.append(case.call(client))
+        except Exception as ex:
+            results.append(ex)
+
+    threads = [threading.Thread(target=caller, daemon=True) for _ in range(5)]
+    with patch(case.patch, get):
+        try:
+            for thread in threads:
+                thread.start()
+            deadline = time.monotonic() + 5
+            while get.call_count < 1 and time.monotonic() < deadline:
+                time.sleep(0.01)
+            time.sleep(0.2)  # time for the other four to reach the gate
+        finally:
+            release.set()
+            for thread in threads:
+                thread.join(timeout=5)
+
+    assert not any(thread.is_alive() for thread in threads)
+    assert get.call_count == 1
+    assert getattr(client, case.stamp) is not None
+    assert len(results) == 5
+    assert len({repr(r) for r in results}) == 1  # everyone got the same answer

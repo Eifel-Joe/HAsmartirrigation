@@ -75,6 +75,8 @@ class OWMClient:  # pylint: disable=invalid-name
         # into calendar days, which loses the intra-day shape the composed window
         # needs, and re-requesting for it would be a second call on a metered key.
         self._cached_forecast_doc = None
+        self._data_gate = fetch_gate.FetchGate(self, "_cached_data_at")
+        self._forecast_gate = fetch_gate.FetchGate(self, "_cached_forecast_at")
 
     def validate_key(self):
         """Test the API key using /data/2.5/weather (works on all OWM plans).
@@ -90,6 +92,10 @@ class OWMClient:  # pylint: disable=invalid-name
 
     def get_data(self):
         """Fetch and return current weather data from /data/2.5/weather."""
+        return self._data_gate.run(self._fetch_data)
+
+    def _fetch_data(self):
+        """Body of ``get_data``, run inside ``_data_gate``."""
         if not fetch_gate.is_fresh(
             self._cached_data_at, self.cache_seconds, self.override_cache
         ):
@@ -233,6 +239,10 @@ class OWMClient:  # pylint: disable=invalid-name
         carries the span it covers (FORECAST_DAY_START/END).
         Today's partial data is excluded; up to 4 complete future days are returned.
         """
+        return self._forecast_gate.run(self._fetch_forecast)
+
+    def _fetch_forecast(self):
+        """Body of ``get_forecast_data``, run inside ``_forecast_gate``."""
         if not fetch_gate.is_fresh(
             self._cached_forecast_at, self.cache_seconds, self.override_cache
         ):
