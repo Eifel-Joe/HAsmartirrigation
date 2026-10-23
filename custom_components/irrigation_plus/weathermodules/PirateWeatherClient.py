@@ -5,6 +5,7 @@ import json
 import logging
 import math
 import sys
+import time
 
 import requests
 
@@ -63,6 +64,9 @@ _SESSION = requests.Session()
 PirateWeather_URL = "https://api.pirateweather.net/forecast/{}/{},{}?units={}&version={}&exclude=minutely,alerts&extend=hourly"
 
 RETRY_TIMES = 3
+# Seconds to wait before the second and before the third attempt: one pause
+# fewer than RETRY_TIMES, as nothing is waited for after the last attempt.
+RETRY_PAUSES_SECONDS = (1, 2)
 # Required PirateWeather keys for validation
 PirateWeather_wind_speed_key_name = "windSpeed"
 PirateWeather_pressure_key_name = "pressure"
@@ -219,6 +223,40 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
                 continue
         return out or None
 
+    def _get_with_retries(self, gate: fetch_gate.FetchGate) -> requests.Response:
+        """GET ``self.url``, at most RETRY_TIMES times; return the last response."""
+        # Wurzel: the two fetch bodies asked up to three times back to back,
+        #   whatever the answer. A short gateway fault had no time to clear, and
+        #   a 429 -- at Pirate Weather the monthly quota is used up -- cannot turn
+        #   into a 200 a second later: the retries were more requests on a key
+        #   that is already refused.
+        # Fix-Logik: 1 s, then 2 s between the attempts, none after the last. A
+        #   429 or any response that names a time (``Retry-After``) ends the
+        #   attempts at once; the caller's non-200 branch returns None and the
+        #   gate's pause takes over. Each response goes to ``note_response``,
+        #   since that None does not carry it; as such a response ends the loop,
+        #   none from an earlier attempt outlives a later network exception.
+        #   Otherwise as before: three attempts, retried only on a status other
+        #   than 200, a network exception is not retried.
+        # NOT-TO-DO: do not wait out ``Retry-After`` here -- up to a day, in an
+        #   executor thread under the gate's lock. That wait is the gate's pause.
+        # siehe test_weather_clients_fetch_gate.py::test_pirate_pauses_one_then_two_seconds_between_retries,
+        #   ::test_pirate_stops_retrying_on_429,
+        #   ::test_pirate_stops_retrying_when_told_when_to_come_back
+        #   und ::test_retry_after_reaches_the_gate
+        for attempt in range(RETRY_TIMES):
+            req = _SESSION.get(self.url, timeout=60)  # 60 seconds timeout
+            gate.note_response(req)
+            if (
+                req.status_code == 200
+                or req.status_code == 429
+                or fetch_gate.retry_after_seconds(req) is not None
+            ):
+                break
+            if attempt < RETRY_TIMES - 1:
+                time.sleep(RETRY_PAUSES_SECONDS[attempt])
+        return req
+
     def get_forecast_data(self):
         """Validate and return forecast data."""
         return self._forecast_gate.run(self._fetch_forecast)
@@ -229,14 +267,7 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
             self._cached_forecast_at, self.cache_seconds, self.override_cache
         ):
             try:
-                for i in range(RETRY_TIMES):
-                    req = _SESSION.get(self.url, timeout=60)  # 60 seconds timeout
-                    # A bad status ends in a None that does not carry the
-                    # response, so hand it to the gate for its ``Retry-After``.
-                    self._forecast_gate.note_response(req)
-                    if req.status_code == 200:
-                        break
-                    i = i + 1
+                req = self._get_with_retries(self._forecast_gate)
                 if req.status_code != 200:
                     _LOGGER.error(
                         "PirateWeather API returned error status code: %s",
@@ -344,12 +375,7 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
             self._cached_data_at, self.cache_seconds, self.override_cache
         ):
             try:
-                for i in range(RETRY_TIMES):
-                    req = _SESSION.get(self.url, timeout=60)  # 60 seconds timeout
-                    self._data_gate.note_response(req)  # see _fetch_forecast
-                    if req.status_code == 200:
-                        break
-                    i = i + 1
+                req = self._get_with_retries(self._data_gate)
                 if req.status_code != 200:
                     _LOGGER.error(
                         "PirateWeather API returned error status code: %s",
