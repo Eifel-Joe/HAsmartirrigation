@@ -78,6 +78,7 @@ class OpenMeteoClient:
         self.cache_seconds = cache_seconds
         self._cached_doc = None
         self._cached_doc_at = None
+        self._doc_gate = fetch_gate.FetchGate(self, "_cached_doc_at")
 
     def _fetch(self):
         """Return the (cached) Open-Meteo response document.
@@ -87,6 +88,10 @@ class OpenMeteoClient:
         the cache window repeated callers reuse it instead of each hitting the
         network (and a DNS lookup).
         """
+        return self._doc_gate.run(self._fetch_doc)
+
+    def _fetch_doc(self):
+        """Body of ``_fetch``, run inside ``_doc_gate``."""
         if self._cached_doc is not None and fetch_gate.is_fresh(
             self._cached_doc_at, self.cache_seconds, self.override_cache
         ):

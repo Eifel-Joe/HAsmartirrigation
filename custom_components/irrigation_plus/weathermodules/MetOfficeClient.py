@@ -117,6 +117,8 @@ class MetOfficeClient:  # pylint: disable=invalid-name
         self._cached_hourly_at = None
         self._cached_three_hourly = None
         self._cached_three_hourly_at = None
+        self._hourly_gate = fetch_gate.FetchGate(self, "_cached_hourly_at")
+        self._three_hourly_gate = fetch_gate.FetchGate(self, "_cached_three_hourly_at")
 
     # ------------------------------------------------------------------ helpers
 
@@ -215,6 +217,10 @@ class MetOfficeClient:  # pylint: disable=invalid-name
     # --------------------------------------------------------------- public API
 
     def _fetch_hourly(self):
+        return self._hourly_gate.run(self._fetch_hourly_doc)
+
+    def _fetch_hourly_doc(self):
+        """Body of ``_fetch_hourly``, run inside ``_hourly_gate``."""
         if fetch_gate.is_fresh(
             self._cached_hourly_at, self.cache_seconds, self.override_cache
         ):
@@ -225,6 +231,10 @@ class MetOfficeClient:  # pylint: disable=invalid-name
         return doc
 
     def _fetch_three_hourly(self):
+        return self._three_hourly_gate.run(self._fetch_three_hourly_doc)
+
+    def _fetch_three_hourly_doc(self):
+        """Body of ``_fetch_three_hourly``, run inside ``_three_hourly_gate``."""
         if fetch_gate.is_fresh(
             self._cached_three_hourly_at, self.cache_seconds, self.override_cache
         ):
