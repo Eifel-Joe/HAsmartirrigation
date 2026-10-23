@@ -234,10 +234,10 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
         #   429 or any response that names a time (``Retry-After``) ends the
         #   attempts at once; the caller's non-200 branch returns None and the
         #   gate's pause takes over. Each response goes to ``note_response``,
-        #   since that None does not carry it; as such a response ends the loop,
-        #   none from an earlier attempt outlives a later network exception.
-        #   Otherwise as before: three attempts, retried only on a status other
-        #   than 200, a network exception is not retried.
+        #   since that None does not carry it; since a response with Retry-After
+        #   ends the loop, the response noted before a later network exception
+        #   never carries one. Otherwise as before: three attempts, retried only
+        #   on a status other than 200, a network exception is not retried.
         # NOT-TO-DO: do not wait out ``Retry-After`` here -- up to a day, in an
         #   executor thread under the gate's lock. That wait is the gate's pause.
         # siehe test_weather_clients_fetch_gate.py::test_pirate_pauses_one_then_two_seconds_between_retries,

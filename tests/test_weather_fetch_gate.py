@@ -1,4 +1,4 @@
-"""The freshness check the four weather clients share."""
+"""The fetch gate the four weather clients share: freshness, single flight, pause."""
 
 import contextlib
 import datetime
@@ -151,15 +151,7 @@ def test_two_gates_do_not_wait_for_each_other():
     assert not holder.is_alive()
 
 
-class _Picky(Exception):
-    """An exception ``copy.copy`` cannot rebuild: its constructor wants a keyword."""
-
-    def __init__(self, text, *, code):
-        super().__init__(text)
-        self.code = code
-
-
-def _gaps(gate, owner, fetch, frozen, requests):
+def _gaps(gate, owner, fetch, frozen, wanted):
     """Seconds between the real requests when a caller asks once a second."""
     moments = []
     for second in range(5000):
@@ -167,10 +159,10 @@ def _gaps(gate, owner, fetch, frozen, requests):
         gate.run(fetch)
         if owner.calls > before:
             moments.append(second)
-            if len(moments) == requests:
+            if len(moments) == wanted:
                 break
         frozen.tick(1)
-    assert len(moments) == requests
+    assert len(moments) == wanted
     return [
         later - earlier for earlier, later in zip(moments, moments[1:], strict=False)
     ]
@@ -209,53 +201,49 @@ def test_a_raised_failure_is_replayed_with_its_type_and_message():
     assert replayed_again.value is not replayed.value  # no traceback piling up
 
 
-def test_replay_of_an_uncopyable_exception_keeps_its_type():
-    owner = _Owner()
-    owner.error = lambda: _Picky("odd", code=7)
-    gate = fetch_gate.FetchGate(owner, "stamp")
-    with freeze_time("2026-10-23 12:00:00") as frozen:
-        with pytest.raises(_Picky, match="odd") as real:
-            gate.run(owner.fetch_raise)
-        frozen.tick(30)
-        with pytest.raises(_Picky, match="odd") as replayed:
-            gate.run(owner.fetch_raise)
-    assert owner.calls == 1
-    assert fetch_gate.is_replay(replayed.value)
-    assert replayed.value.code == 7  # the rebuilt copy keeps its attributes
-    # The real failure is the first caller's: a waiter must never mark it, or
-    # that caller's accessor would log a real failure at DEBUG.
-    assert replayed.value is not real.value
-    assert not fetch_gate.is_replay(real.value)
+class _Picky(Exception):
+    """An exception ``copy.copy`` cannot copy: its constructor wants a keyword."""
 
-
-class _Unrebuildable(Exception):
-    """An exception neither ``copy.copy`` nor ``__new__`` plus ``args`` can rebuild."""
-
-    def __new__(cls, *args, real=False):
-        if not real:
-            raise TypeError("only the real constructor builds one")
-        return super().__new__(cls, *args)
-
-    def __init__(self, text, *, real):
+    def __init__(self, text, *, code):
         super().__init__(text)
+        self.code = code
 
 
-def test_an_exception_that_cannot_be_rebuilt_is_raised_again_unmarked():
+class _SelfCopy(Exception):
+    """An exception whose ``__copy__`` hands back the instance itself."""
+
+    code = 7
+
+    def __copy__(self):
+        return self
+
+
+@pytest.mark.parametrize(
+    "error",
+    [lambda: _Picky("odd", code=7), lambda: _SelfCopy("odd")],
+    ids=["constructor_refuses_a_copy", "copy_is_the_instance_itself"],
+)
+def test_an_exception_that_cannot_be_copied_is_raised_again_unmarked(error):
     owner = _Owner()
-    owner.error = lambda: _Unrebuildable("stuck", real=True)
+    owner.error = error
     gate = fetch_gate.FetchGate(owner, "stamp")
     with freeze_time("2026-10-23 12:00:00") as frozen:
-        with pytest.raises(_Unrebuildable, match="stuck") as real:
+        with pytest.raises((_Picky, _SelfCopy), match="odd") as real:
             gate.run(owner.fetch_raise)
         frozen.tick(30)
-        with pytest.raises(_Unrebuildable, match="stuck") as replayed:
+        with pytest.raises((_Picky, _SelfCopy), match="odd") as replayed:
             gate.run(owner.fetch_raise)
-    assert owner.calls == 1
-    # Fail loud: nothing to copy, so the instance itself comes back, and it is
-    # not marked, so the accessor logs it at ERROR. A real failure is never
-    # silenced; the worst case is one more ERROR line.
+    assert owner.calls == 1  # replayed, not asked again
+    # Fail loud: there is nothing to copy, so the stored instance itself comes
+    # back, and it is not marked, so the accessor logs it at ERROR. A real
+    # failure is never silenced; the worst case is one more ERROR line. The
+    # instance is the first caller's: marking it would have that caller's
+    # accessor log a real failure at DEBUG.
+    assert type(replayed.value) is type(real.value)
     assert replayed.value is real.value
+    assert not fetch_gate.is_replay(real.value)
     assert not fetch_gate.is_replay(replayed.value)
+    assert replayed.value.code == 7
 
 
 def test_a_failure_keeps_no_traceback_alive_after_its_caller_is_done():
@@ -287,10 +275,11 @@ def test_a_failure_keeps_no_traceback_alive_after_its_caller_is_done():
 
 
 def test_a_fresh_entry_is_served_even_during_a_pause():
-    # Freshness comes before the pause. An outage raises ``cache_seconds``
-    # (__init__.py, the update-interval handler), which brings an old stamp back
-    # into the window; the entry is fresh again and is served, not replaced by
-    # the replay of the failure that began the pause.
+    # Freshness comes before the pause. Lengthening the update interval during
+    # an outage raises ``cache_seconds`` (__init__.py, ``track_update_time``; it
+    # changes only when the user edits the update settings), which brings an old
+    # stamp back into the window; the entry is fresh again and is served, not
+    # replaced by the replay of the failure that began the pause.
     owner = _Owner()
     owner.cache_seconds = 600
     gate = fetch_gate.FetchGate(owner, "stamp")
@@ -312,7 +301,7 @@ def test_consecutive_failures_double_the_pause_up_to_the_cache_lifetime():
     owner.cache_seconds = 599
     gate = fetch_gate.FetchGate(owner, "stamp")
     with freeze_time("2026-10-23 12:00:00") as frozen:
-        gaps = _gaps(gate, owner, owner.fetch_none, frozen, requests=7)
+        gaps = _gaps(gate, owner, owner.fetch_none, frozen, wanted=7)
     assert gaps == [60, 120, 240, 480, 599, 599]
 
 
@@ -321,7 +310,7 @@ def test_without_auto_update_the_pause_stays_at_sixty_seconds():
     owner.cache_seconds = 0
     gate = fetch_gate.FetchGate(owner, "stamp")
     with freeze_time("2026-10-23 12:00:00") as frozen:
-        gaps = _gaps(gate, owner, owner.fetch_none, frozen, requests=4)
+        gaps = _gaps(gate, owner, owner.fetch_none, frozen, wanted=4)
     assert gaps == [60, 60, 60]
 
 
@@ -468,6 +457,26 @@ def test_retry_after_tolerates_what_a_response_may_look_like():
     # a date without a zone is read as UTC
     zoneless = "Fri, 23 Oct 2026 12:05:00 -0000"
     assert retry_after_seconds(_resp({"Retry-After": zoneless})) == 300
+
+
+def test_an_http_date_is_measured_against_the_utc_clock():
+    # ``freeze_time(..., tz_offset=...)`` shifts ``now(tz)`` along with ``now()``,
+    # so under it the UTC clock and a naive local one agree and a mix-up of the
+    # two goes unseen. This stand-in reads two hours ahead only without a zone,
+    # as a clock does in UTC+2; with a zone it is right.
+    utc_now = datetime.datetime(2026, 10, 23, 12, 0, tzinfo=datetime.UTC)
+    local_now = utc_now.replace(tzinfo=None) + timedelta(hours=2)
+    clock = MagicMock()
+    clock.UTC = datetime.UTC
+    clock.timedelta = datetime.timedelta
+    clock.datetime.now.side_effect = lambda tz=None: (
+        local_now if tz is None else utc_now.astimezone(tz)
+    )
+    with patch.object(fetch_gate, "datetime", clock):
+        dated = "Fri, 23 Oct 2026 12:05:00 GMT"
+        assert retry_after_seconds(_resp({"Retry-After": dated})) == 300
+        zoneless = "Fri, 23 Oct 2026 12:05:00 -0000"  # read as UTC
+        assert retry_after_seconds(_resp({"Retry-After": zoneless})) == 300
 
 
 def _throttled(owner, gate, retry_after):
