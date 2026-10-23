@@ -425,6 +425,40 @@ def test_the_backoff_counts_from_the_start_of_the_failed_run():
         assert owner.calls == 2
 
 
+def test_waiters_behind_a_slow_failure_share_it():
+    # A failed run can outlast its own backoff (a 60 s timeout, three tries); with
+    # the backoff counted from its start the pause is over when it ends. The
+    # callers that waited on the lock meanwhile are handed its outcome all the
+    # same: each of them would otherwise go to the network in turn.
+    owner = _Owner()
+    owner.cache_seconds = 599
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    clock = [5000.0]
+    began, release = threading.Event(), threading.Event()
+
+    def slow_failure():
+        owner.calls += 1
+        began.set()
+        release.wait(timeout=5)
+        clock[0] += 61  # longer than the first backoff of 60 s
+        return None
+
+    with patch.object(time, "monotonic", lambda: clock[0]):
+        first = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
+        waiter = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
+        try:
+            first.start()
+            assert began.wait(timeout=5)
+            waiter.start()  # arrives while the failure is still running
+            time.sleep(0.1)  # real time: let it reach the lock
+        finally:
+            release.set()
+            first.join(timeout=5)
+            waiter.join(timeout=5)
+        assert not first.is_alive() and not waiter.is_alive()
+    assert owner.calls == 1
+
+
 def test_retry_after_counts_from_the_answer():
     # "Not before" is measured from the response that asked for it, not from the
     # start of the run that got it.
