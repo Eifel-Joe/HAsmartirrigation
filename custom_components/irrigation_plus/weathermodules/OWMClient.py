@@ -102,6 +102,9 @@ class OWMClient:  # pylint: disable=invalid-name
             url = OWM_CURRENT_URL.format(self.latitude, self.longitude, self.api_key)
             try:
                 req = _SESSION.get(url, timeout=60)
+                # A bad status leaves as an OSError that does not carry the
+                # response, so hand it to the gate for its ``Retry-After``.
+                self._data_gate.note_response(req)
                 doc = json.loads(req.text)
                 _LOGGER.debug(
                     "OWMClient get_data called API %s and received %s",
@@ -249,6 +252,7 @@ class OWMClient:  # pylint: disable=invalid-name
             url = OWM_FORECAST_URL.format(self.latitude, self.longitude, self.api_key)
             try:
                 req = _SESSION.get(url, timeout=60)
+                self._forecast_gate.note_response(req)  # see _fetch_data
                 doc = json.loads(req.text)
                 _LOGGER.debug(
                     "OWMClient get_forecast_data called API %s and received %s",
