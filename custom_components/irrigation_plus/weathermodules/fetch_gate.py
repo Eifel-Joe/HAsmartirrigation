@@ -150,10 +150,12 @@ class FetchGate:
         self._stamp_attr = stamp_attr
         self._lock = threading.Lock()
         self._failures = 0  # failed runs in a row
-        self._failed_at: float | None = None  # time.monotonic() of the latest one
+        # time.monotonic() at which the latest one began
+        self._failed_at: float | None = None
         # (raised, value) of it; an exception is kept as a copy without traceback
         self._outcome: tuple[bool, Any] | None = None
-        self._retry_after = 0.0  # seconds its response asked us to wait; 0 = none
+        # time.monotonic() before which its response asked us not to come back
+        self._asked_until: float | None = None
         self._response: Any = None  # latest response of the run in progress
 
     def note_response(self, response: Any) -> None:
@@ -199,15 +201,18 @@ class FetchGate:
                 if seconds_left > 0:
                     return self._replay(seconds_left)
             self._response = None
+            started = time.monotonic()
             try:
                 result = fetch()
             except Exception as exc:
-                self._settle(before, was_fresh, raised=True, value=exc)
+                self._settle(before, was_fresh, started, raised=True, value=exc)
                 raise
-            self._settle(before, was_fresh, raised=False, value=result)
+            self._settle(before, was_fresh, started, raised=False, value=result)
             return result
 
-    def _settle(self, before: Any, was_fresh: bool, raised: bool, value: Any) -> None:
+    def _settle(
+        self, before: Any, was_fresh: bool, started: float, raised: bool, value: Any
+    ) -> None:
         """Note how the run that has just ended went: a good fetch or a failure."""
         # Wurzel: the fetch points fail in three different ways -- an exception, a
         #   None after a non-200 status, a None after an incomplete document --
@@ -227,22 +232,38 @@ class FetchGate:
             self._failures = 0
             self._failed_at = None
             self._outcome = None
-            self._retry_after = 0.0
+            self._asked_until = None
         elif not was_fresh:
             self._failures += 1
             # Wurzel: the pause measures a duration, not a time of day. A wall
             #   clock jumps when the clocks go back or the system time is set.
-            # Fix-Logik: ``time.monotonic()``, called here and in ``_pause_left``
-            #   at the moment it is needed.
+            #   And cycles come one cache window apart, start to start, while a
+            #   failed run can take its time: Pirate Weather's three tries, 1 s
+            #   and 2 s apart, took a good 3 s on a live install, so a pause
+            #   counted from the end of the run still had 2 s to go when the next
+            #   cycle came, and a capped gate asked only every second cycle.
+            # Fix-Logik: ``time.monotonic()``, called in ``run`` and in
+            #   ``_pause_left`` at the moment it is needed; the backoff counts
+            #   from the start of the failed run, like the cycle does. What a
+            #   response asked for counts from that response (``_asked_until``).
             # NOT-TO-DO: not ``datetime.datetime.now()`` -- the freshness check
             #   keeps it because the success path must not change; two clocks in
             #   one module is the price. And never bind ``time.monotonic`` to a
             #   name or a default argument: freezegun moves it with ``tick()``
-            #   only when the call goes through the ``time`` module.
-            # siehe test_weather_fetch_gate.py::test_the_pause_runs_on_the_monotonic_clock
-            self._failed_at = time.monotonic()
+            #   only when the call goes through the ``time`` module. Do not count
+            #   ``Retry-After`` from the start as well: it would ask a service
+            #   that named a wait again that many seconds too early.
+            # siehe test_weather_fetch_gate.py::test_the_pause_runs_on_the_monotonic_clock,
+            #   ::test_the_backoff_counts_from_the_start_of_the_failed_run
+            #   und ::test_retry_after_counts_from_the_answer
+            self._failed_at = started
             # What the response of this failure asked for; see ``_pause_left``.
-            self._retry_after = self._asked_wait(response, raised, value)
+            asked = self._asked_wait(response, raised, value)
+            self._asked_until = (
+                time.monotonic() + min(asked, MAX_RETRY_AFTER_SECONDS)
+                if asked > 0
+                else None
+            )
             # Wurzel: the exception that failed the run carries its traceback, and
             #   that holds every frame of the fetch and what was in them (a
             #   response body, a parsed document) for as long as the outcome is
@@ -306,10 +327,11 @@ class FetchGate:
         #   again (``Retry-After``). None of the four documents the header, so this
         #   is a safeguard for whatever sits in front of them -- a gateway, a proxy
         #   -- but a request before that moment is likely to be refused again.
-        # Fix-Logik: the pause is the longer of the backoff and what the latest
-        #   failure asked for, the latter at most MAX_RETRY_AFTER_SECONDS. "Honour"
-        #   means not earlier; asking later is allowed, so the header is a lower
-        #   bound and never shortens the backoff (10 s asked, 60 s paused).
+        # Fix-Logik: the pause ends at the later of the backoff's end and the time
+        #   the latest failure's response asked for, the latter at most
+        #   MAX_RETRY_AFTER_SECONDS after that response. "Honour" means not
+        #   earlier; asking later is allowed, so the header is a lower bound and
+        #   never shortens the backoff (10 s asked, 60 s paused).
         # NOT-TO-DO: not the header alone as the pause -- a short value would have
         #   an outage asked about more often than the backoff allows. Not uncapped
         #   either: an absurd or misread value (a date years ahead, seconds taken
@@ -317,8 +339,10 @@ class FetchGate:
         #   a day. The cache lifetime does not cap it: the service decides here.
         # siehe test_weather_fetch_gate.py::test_a_longer_retry_after_wins_over_the_backoff,
         #   ::test_a_shorter_retry_after_keeps_the_backoff, ::test_retry_after_is_capped_at_a_day
-        pause = max(backoff, min(self._retry_after, MAX_RETRY_AFTER_SECONDS))
-        return max(0.0, self._failed_at + pause - time.monotonic())
+        ends = self._failed_at + backoff
+        if self._asked_until is not None:
+            ends = max(ends, self._asked_until)
+        return max(0.0, ends - time.monotonic())
 
     def _replay(self, seconds_left: float) -> Any:
         """Hand back the outcome of the failure that began the pause: no request."""
