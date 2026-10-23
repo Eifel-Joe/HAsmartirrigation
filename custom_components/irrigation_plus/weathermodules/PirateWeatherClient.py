@@ -231,6 +231,9 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
             try:
                 for i in range(RETRY_TIMES):
                     req = _SESSION.get(self.url, timeout=60)  # 60 seconds timeout
+                    # A bad status ends in a None that does not carry the
+                    # response, so hand it to the gate for its ``Retry-After``.
+                    self._forecast_gate.note_response(req)
                     if req.status_code == 200:
                         break
                     i = i + 1
@@ -343,6 +346,7 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
             try:
                 for i in range(RETRY_TIMES):
                     req = _SESSION.get(self.url, timeout=60)  # 60 seconds timeout
+                    self._data_gate.note_response(req)  # see _fetch_forecast
                     if req.status_code == 200:
                         break
                     i = i + 1

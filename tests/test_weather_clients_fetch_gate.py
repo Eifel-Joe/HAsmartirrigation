@@ -260,6 +260,27 @@ def test_a_failed_fetch_pauses_its_gate(case):
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+def test_retry_after_reaches_the_gate(case):
+    # OWM and Pirate Weather do not expose the response of a bad status (an
+    # OSError, a None); Open-Meteo and Met Office raise an HTTPError that
+    # carries it. The pause must honour the header on all seven paths.
+    client = case.make()
+    get = MagicMock(return_value=_failing(429, {"Retry-After": "900"}))
+    with freeze_time("2026-10-23 12:00:00") as frozen, patch(case.patch, get):
+        _outcome(case, client)
+        asked = get.call_count
+        assert asked >= 1  # how many requests one run makes is not this test's business
+
+        frozen.tick(600)
+        _outcome(case, client)
+        assert get.call_count == asked  # the backoff alone (60 s) would be over
+
+        frozen.tick(301)
+        _outcome(case, client)
+        assert get.call_count > asked
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
 def test_a_replayed_failure_logs_nothing_above_debug(case, caplog):
     # An ERROR line of a weather client means a real request was made and failed.
     # A failure the gate replays during its pause made no request, so Open-Meteo's
