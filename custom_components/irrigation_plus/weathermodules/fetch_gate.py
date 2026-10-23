@@ -370,14 +370,23 @@ class FetchGate:
     def _replay(self, seconds_left: float) -> Any:
         """Hand back the outcome of the failure that began the pause: no request."""
         raised, value = self._outcome
-        _LOGGER.debug(
-            "%s %s: %d failed fetch(es) in a row, no request for another %.0f s;"
-            " replaying the last outcome",
-            type(self._owner).__name__,
-            self._stamp_attr,
-            self._failures,
-            seconds_left,
-        )
+        if seconds_left > 0:
+            _LOGGER.debug(
+                "%s %s: %d failed fetch(es) in a row, no request for another %.0f s;"
+                " replaying the last outcome",
+                type(self._owner).__name__,
+                self._stamp_attr,
+                self._failures,
+                seconds_left,
+            )
+        else:  # a caller that waited through the failure (_waited_through_failure)
+            _LOGGER.debug(
+                "%s %s: waited through the latest of %d failed fetch(es) in a row;"
+                " replaying the last outcome",
+                type(self._owner).__name__,
+                self._stamp_attr,
+                self._failures,
+            )
         if not raised:
             return value
         # ``value`` is the copy made when the failure was recorded; raise a fresh
