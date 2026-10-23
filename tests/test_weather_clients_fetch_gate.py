@@ -8,6 +8,7 @@ The tests below run over that table.
 
 import dataclasses
 import json
+import logging
 import pathlib
 import threading
 import time
@@ -256,6 +257,61 @@ def test_a_failed_fetch_pauses_its_gate(case):
         frozen.tick(31)
         _outcome(case, client)
         assert get.call_count == 2 * case.failed_attempts
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+def test_a_replayed_failure_logs_nothing_above_debug(case, caplog):
+    # An ERROR line of a weather client means a real request was made and failed.
+    # A failure the gate replays during its pause made no request, so Open-Meteo's
+    # and Met Office's accessors, which log the exception above the gate, must log
+    # it at DEBUG. OWM and Pirate Weather catch inside the gate body, which does
+    # not run in the pause.
+    client = case.make()
+    get = MagicMock(return_value=_failing(500))
+    caplog.set_level(logging.DEBUG, logger="custom_components.irrigation_plus")
+    with freeze_time("2026-10-23 12:00:00") as frozen, patch(case.patch, get):
+        # No assertion on the first call's log: OWM's forecast lets its OSError out
+        # unlogged, and the others log the real failure at ERROR.
+        first = _outcome(case, client)
+        assert get.call_count == case.failed_attempts
+        caplog.clear()
+
+        frozen.tick(30)
+        assert _outcome(case, client) == first  # the outcome is the same as before
+        assert get.call_count == case.failed_attempts  # and it was a replay
+
+    ours = [
+        r
+        for r in caplog.records
+        if r.name.startswith("custom_components.irrigation_plus.weathermodules")
+    ]
+    assert [r for r in ours if r.levelno > logging.DEBUG] == []
+    assert any("replaying the last outcome" in r.getMessage() for r in ours)
+
+
+@pytest.mark.parametrize("call", ["get_data", "get_forecast_data", "get_hourly_data"])
+def test_every_open_meteo_accessor_logs_a_replay_at_debug(call, caplog):
+    # The table above reaches one Open-Meteo accessor; all three read the one
+    # document behind one gate and each has its own log line.
+    client = _open_meteo()
+    get = MagicMock(return_value=_failing(500))
+    caplog.set_level(logging.DEBUG, logger="custom_components.irrigation_plus")
+
+    def levels():
+        return [r.levelno for r in caplog.records if r.name.endswith("OpenMeteoClient")]
+
+    with freeze_time("2026-10-23 12:00:00") as frozen, patch(
+        M + "OpenMeteoClient._SESSION.get", get
+    ):
+        getattr(client, call)()  # the real failure: still an ERROR line
+        assert get.call_count == 1
+        assert levels() == [logging.ERROR]
+        caplog.clear()
+
+        frozen.tick(30)
+        getattr(client, call)()
+        assert get.call_count == 1  # a replay: no request
+        assert [level for level in levels() if level > logging.DEBUG] == []
 
 
 _CASE_BY_ID = {case.id: case for case in CASES}
