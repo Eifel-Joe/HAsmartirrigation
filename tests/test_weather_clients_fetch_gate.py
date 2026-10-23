@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from freezegun import freeze_time
 
 from custom_components.irrigation_plus.weathermodules.MetOfficeClient import (
     MetOfficeClient,
@@ -168,16 +169,18 @@ def test_every_client_asks_the_shared_freshness_check(case):
     assert get.call_count == 2
 
 
-@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
-def test_concurrent_callers_make_one_request(case):
-    client = case.make()
+def _five_callers_at_once(case, client, response):
+    """Five threads call at once; the request is held back until all have arrived.
+
+    Returns the session mock and what each caller returned or raised.
+    """
     release = threading.Event()
     results: list = []
 
     def slow_get(*args, **kwargs):
         # Bounded wait: a gate that never opens must fail the test, not hang it.
         release.wait(timeout=5)
-        return _ok(case.ok_body)
+        return response
 
     get = MagicMock(side_effect=slow_get)
 
@@ -202,7 +205,94 @@ def test_concurrent_callers_make_one_request(case):
                 thread.join(timeout=5)
 
     assert not any(thread.is_alive() for thread in threads)
+    return get, results
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+def test_concurrent_callers_make_one_request(case):
+    client = case.make()
+    get, results = _five_callers_at_once(case, client, _ok(case.ok_body))
+
     assert get.call_count == 1
     assert getattr(client, case.stamp) is not None
     assert len(results) == 5
     assert len({repr(r) for r in results}) == 1  # everyone got the same answer
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+def test_concurrent_callers_during_an_outage_share_one_failed_run(case):
+    client = case.make()
+    get, results = _five_callers_at_once(case, client, _failing(500))
+
+    # The callers behind the failed run must not each make their own request:
+    # they get the failure's outcome, the same one the first caller got.
+    assert get.call_count == case.failed_attempts
+    assert getattr(client, case.stamp) is None
+    assert len(results) == 5
+    assert len({repr(r) for r in results}) == 1
+
+
+def _outcome(case, client):
+    """What a caller sees: the value it got, or the type and message it was thrown."""
+    try:
+        return ("returned", case.call(client))
+    except Exception as ex:
+        return ("raised", type(ex), str(ex))
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+def test_a_failed_fetch_pauses_its_gate(case):
+    client = case.make()
+    get = MagicMock(return_value=_failing(500))
+    with freeze_time("2026-10-23 12:00:00") as frozen, patch(case.patch, get):
+        first = _outcome(case, client)
+        assert get.call_count == case.failed_attempts
+        assert getattr(client, case.stamp) is None  # a failure leaves no timestamp
+
+        frozen.tick(30)
+        assert _outcome(case, client) == first  # same result, no request
+        assert get.call_count == case.failed_attempts
+
+        frozen.tick(31)
+        _outcome(case, client)
+        assert get.call_count == 2 * case.failed_attempts
+
+
+_CASE_BY_ID = {case.id: case for case in CASES}
+
+
+@pytest.mark.parametrize(
+    "paused_id, free_id",
+    [("owm_forecast", "owm_data"), ("met_three_hourly", "met_hourly")],
+)
+def test_a_paused_forecast_does_not_hold_up_current_conditions(paused_id, free_id):
+    paused, free = _CASE_BY_ID[paused_id], _CASE_BY_ID[free_id]
+    client = paused.make()
+    get = MagicMock(return_value=_failing(500))
+    with freeze_time("2026-10-23 12:00:00"), patch(paused.patch, get):
+        _outcome(paused, client)
+        assert get.call_count == paused.failed_attempts
+
+        get.return_value = _ok(free.ok_body)
+        free.call(client)
+        assert get.call_count == paused.failed_attempts + 1  # the other door is open
+        assert getattr(client, free.stamp) is not None
+
+        get.return_value = _failing(500)
+        _outcome(paused, client)
+        assert get.call_count == paused.failed_attempts + 1  # this one is still shut
+
+
+def test_validate_key_ignores_a_running_pause():
+    case = _CASE_BY_ID["owm_data"]
+    client = case.make()
+    get = MagicMock(return_value=_failing(500))
+    with freeze_time("2026-10-23 12:00:00"), patch(case.patch, get):
+        _outcome(case, client)
+        assert get.call_count == 1
+        _outcome(case, client)
+        assert get.call_count == 1  # paused
+
+        get.return_value = _ok({"cod": 200})
+        client.validate_key()
+        assert get.call_count == 2  # the key check always asks
