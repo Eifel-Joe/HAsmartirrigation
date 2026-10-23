@@ -392,6 +392,57 @@ def test_the_pause_runs_on_the_monotonic_clock():
         assert owner.calls == 2
 
 
+def _slow_failure(owner, clock, seconds, gate=None, retry_after=None):
+    """A fetch point that fails after ``seconds``, as Pirate Weather does over its retries."""
+
+    def fetch():
+        owner.calls += 1
+        clock[0] += seconds
+        if retry_after is not None:
+            gate.note_response(_resp({"Retry-After": retry_after}))
+        return None
+
+    return fetch
+
+
+def test_the_backoff_counts_from_the_start_of_the_failed_run():
+    # Cycles come one cache window apart, start to start. A failed run that takes
+    # its time (Pirate Weather: three tries, 1 s and 2 s apart) must not carry the
+    # pause past the next cycle; on a live install the pause, counted from the end
+    # of such a run, still had 2 s to go when the next cycle came.
+    owner = _Owner()
+    owner.cache_seconds = 0  # the pause is 60 s every time: the cap is the floor
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    clock = [5000.0]
+    fetch = _slow_failure(owner, clock, 3)
+    with patch.object(time, "monotonic", lambda: clock[0]):
+        gate.run(fetch)  # begins at 5000, fails at 5003
+        clock[0] = 5000 + 59
+        gate.run(fetch)
+        assert owner.calls == 1
+        clock[0] = 5000 + 60.5  # 60 s after the start, 57.5 s after the end
+        gate.run(fetch)
+        assert owner.calls == 2
+
+
+def test_retry_after_counts_from_the_answer():
+    # "Not before" is measured from the response that asked for it, not from the
+    # start of the run that got it.
+    owner = _Owner()
+    owner.cache_seconds = 0
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    clock = [5000.0]
+    fetch = _slow_failure(owner, clock, 3, gate=gate, retry_after="100")
+    with patch.object(time, "monotonic", lambda: clock[0]):
+        gate.run(fetch)  # begins at 5000, answered at 5003
+        clock[0] = 5000 + 101  # 101 s after the start, 98 s after the answer
+        gate.run(fetch)
+        assert owner.calls == 1
+        clock[0] = 5003 + 101
+        gate.run(fetch)
+        assert owner.calls == 2
+
+
 def test_a_replay_logs_one_debug_line_and_nothing_louder(caplog):
     owner = _Owner()
     gate = fetch_gate.FetchGate(owner, "stamp")
