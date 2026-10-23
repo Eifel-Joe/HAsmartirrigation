@@ -1,9 +1,11 @@
 """The freshness check the four weather clients share."""
 
 import datetime
+import logging
 import threading
 import time
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from freezegun import freeze_time
@@ -40,6 +42,8 @@ class _Owner:
         self.stamp = None
         self.cached = None
         self.calls = 0  # requests that actually went out
+        self.delay = 0.2  # how long ``fetch_ok`` takes
+        self.error = lambda: ValueError("boom")  # what ``fetch_raise`` raises
 
     def _serve_cached(self):
         return fetch_gate.is_fresh(self.stamp, self.cache_seconds, self.override_cache)
@@ -49,7 +53,7 @@ class _Owner:
         if self._serve_cached():
             return self.cached
         self.calls += 1
-        time.sleep(0.2)  # long enough for the other thread to arrive meanwhile
+        time.sleep(self.delay)  # long enough for the other thread to arrive meanwhile
         self.cached = "document"
         self.stamp = datetime.datetime.now()
         return self.cached
@@ -66,7 +70,7 @@ class _Owner:
         if self._serve_cached():
             return self.cached
         self.calls += 1
-        raise ValueError("boom")
+        raise self.error()
 
 
 def _in_threads(*calls):
@@ -103,10 +107,10 @@ def test_run_serialises_two_threads_onto_one_fetch():
 
 
 def test_run_hands_back_what_the_fetch_returned():
+    # One gate each: after a failed fetch a gate pauses, and this is not about that.
     owner = _Owner()
-    gate = fetch_gate.FetchGate(owner, "stamp")
-    assert gate.run(owner.fetch_none) is None
-    assert gate.run(owner.fetch_ok) == "document"
+    assert fetch_gate.FetchGate(owner, "stamp").run(owner.fetch_none) is None
+    assert fetch_gate.FetchGate(owner, "stamp").run(owner.fetch_ok) == "document"
 
 
 def test_run_lets_an_exception_through_and_lets_the_next_caller_in():
@@ -114,6 +118,7 @@ def test_run_lets_an_exception_through_and_lets_the_next_caller_in():
     gate = fetch_gate.FetchGate(owner, "stamp")
     with pytest.raises(ValueError, match="boom"):
         gate.run(owner.fetch_raise)
+    owner.override_cache = True  # the pause after the failure is not what this is about
     # A lock left held by the failed run would hang this call.
     assert _in_threads(lambda: gate.run(owner.fetch_ok)) == ["document"]
 
@@ -139,3 +144,187 @@ def test_two_gates_do_not_wait_for_each_other():
         release.set()
         holder.join(timeout=5)
     assert not holder.is_alive()
+
+
+class _Picky(Exception):
+    """An exception ``copy.copy`` cannot rebuild: its constructor wants a keyword."""
+
+    def __init__(self, text, *, code):
+        super().__init__(text)
+        self.code = code
+
+
+def _gaps(gate, owner, fetch, frozen, requests):
+    """Seconds between the real requests when a caller asks once a second."""
+    moments = []
+    for second in range(5000):
+        before = owner.calls
+        gate.run(fetch)
+        if owner.calls > before:
+            moments.append(second)
+            if len(moments) == requests:
+                break
+        frozen.tick(1)
+    assert len(moments) == requests
+    return [
+        later - earlier for earlier, later in zip(moments, moments[1:], strict=False)
+    ]
+
+
+def test_a_failure_is_replayed_without_a_fetch_during_the_pause():
+    owner = _Owner()
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    with freeze_time("2026-10-23 12:00:00") as frozen:
+        assert gate.run(owner.fetch_none) is None
+        assert owner.calls == 1
+        frozen.tick(59)
+        assert gate.run(owner.fetch_none) is None
+        assert owner.calls == 1
+        frozen.tick(2)
+        assert gate.run(owner.fetch_none) is None
+        assert owner.calls == 2
+
+
+def test_a_raised_failure_is_replayed_with_its_type_and_message():
+    owner = _Owner()
+    owner.error = lambda: OSError("down")
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    with freeze_time("2026-10-23 12:00:00") as frozen:
+        with pytest.raises(OSError, match="down") as real:
+            gate.run(owner.fetch_raise)
+        frozen.tick(30)
+        with pytest.raises(OSError, match="down") as replayed:
+            gate.run(owner.fetch_raise)
+        with pytest.raises(OSError, match="down") as replayed_again:
+            gate.run(owner.fetch_raise)
+    assert owner.calls == 1
+    assert fetch_gate.is_replay(replayed.value)
+    assert not fetch_gate.is_replay(real.value)  # the real failure is not marked
+    assert replayed.value is not real.value
+    assert replayed_again.value is not replayed.value  # no traceback piling up
+
+
+def test_replay_of_an_uncopyable_exception_keeps_its_type():
+    owner = _Owner()
+    owner.error = lambda: _Picky("odd", code=7)
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    with freeze_time("2026-10-23 12:00:00") as frozen:
+        with pytest.raises(_Picky, match="odd"):
+            gate.run(owner.fetch_raise)
+        frozen.tick(30)
+        with pytest.raises(_Picky, match="odd") as replayed:
+            gate.run(owner.fetch_raise)
+    assert owner.calls == 1
+    assert fetch_gate.is_replay(replayed.value)
+
+
+def test_consecutive_failures_double_the_pause_up_to_the_cache_lifetime():
+    owner = _Owner()
+    owner.cache_seconds = 599
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    with freeze_time("2026-10-23 12:00:00") as frozen:
+        gaps = _gaps(gate, owner, owner.fetch_none, frozen, requests=7)
+    assert gaps == [60, 120, 240, 480, 599, 599]
+
+
+def test_without_auto_update_the_pause_stays_at_sixty_seconds():
+    owner = _Owner()
+    owner.cache_seconds = 0
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    with freeze_time("2026-10-23 12:00:00") as frozen:
+        gaps = _gaps(gate, owner, owner.fetch_none, frozen, requests=4)
+    assert gaps == [60, 60, 60]
+
+
+def test_a_success_resets_the_backoff():
+    owner = _Owner()
+    owner.delay = 0
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    with freeze_time("2026-10-23 12:00:00") as frozen:
+        gate.run(owner.fetch_none)  # failure 1: pause 60
+        frozen.tick(60)
+        gate.run(owner.fetch_none)  # failure 2: pause 120
+        frozen.tick(120)
+        assert gate.run(owner.fetch_ok) == "document"  # success
+        frozen.tick(601)  # the entry has aged out
+        calls = owner.calls
+        gate.run(owner.fetch_none)  # one failure again, not the third in a row
+        frozen.tick(59)
+        gate.run(owner.fetch_none)
+        assert owner.calls == calls + 1
+        frozen.tick(2)
+        gate.run(owner.fetch_none)
+        assert owner.calls == calls + 2
+
+
+def test_override_cache_bypasses_the_pause():
+    owner = _Owner()
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    with freeze_time("2026-10-23 12:00:00"):
+        gate.run(owner.fetch_none)
+        gate.run(owner.fetch_none)
+        assert owner.calls == 1  # paused
+        owner.override_cache = True
+        gate.run(owner.fetch_none)
+        gate.run(owner.fetch_none)
+        assert owner.calls == 3
+
+
+def test_waiters_served_from_cache_do_not_count_as_failures():
+    owner = _Owner()
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    results = _in_threads(
+        lambda: gate.run(owner.fetch_ok), lambda: gate.run(owner.fetch_ok)
+    )
+    assert results == ["document", "document"]
+    assert owner.calls == 1
+    assert gate._failed_at is None
+    assert gate._failures == 0
+
+
+def test_a_shorter_update_interval_shortens_a_running_pause():
+    owner = _Owner()
+    owner.cache_seconds = 3599
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    with freeze_time("2026-10-23 12:00:00") as frozen:
+        gate.run(owner.fetch_none)
+        frozen.tick(60)
+        gate.run(owner.fetch_none)
+        frozen.tick(120)
+        gate.run(owner.fetch_none)  # the third failure: pause 240
+        assert owner.calls == 3
+        owner.cache_seconds = 0  # auto-update switched off: the pause is 60 now
+        frozen.tick(61)
+        gate.run(owner.fetch_none)
+        assert owner.calls == 4
+
+
+def test_the_pause_runs_on_the_monotonic_clock():
+    owner = _Owner()
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    clock = [5000.0]
+    # No freezegun here: only ``time.monotonic`` moves, the wall clock does not.
+    with patch.object(time, "monotonic", lambda: clock[0]):
+        gate.run(owner.fetch_none)
+        clock[0] += 59
+        gate.run(owner.fetch_none)
+        assert owner.calls == 1
+        clock[0] += 2
+        gate.run(owner.fetch_none)
+        assert owner.calls == 2
+
+
+def test_a_replay_logs_one_debug_line_and_nothing_louder(caplog):
+    owner = _Owner()
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    with (
+        freeze_time("2026-10-23 12:00:00") as frozen,
+        caplog.at_level(logging.DEBUG, logger=fetch_gate.__name__),
+    ):
+        gate.run(owner.fetch_none)  # the real failure: the client logs it
+        frozen.tick(30)
+        gate.run(owner.fetch_none)  # the replay
+    records = [r for r in caplog.records if r.name == fetch_gate.__name__]
+    assert [r.levelno for r in records] == [logging.DEBUG]
+    text = records[0].getMessage()
+    assert "_Owner" in text and "stamp" in text and "30" in text
