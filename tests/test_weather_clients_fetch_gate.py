@@ -14,7 +14,7 @@ import threading
 import time
 from collections.abc import Callable
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 import requests
@@ -38,6 +38,19 @@ M = "custom_components.irrigation_plus.weathermodules."
 _PIRATE_FIXTURE = (
     pathlib.Path(__file__).parent / "fixtures" / "pirate_weather_berlin.json"
 )
+
+
+@pytest.fixture(autouse=True)
+def sleep():
+    """Stand in for the pause Pirate Weather takes between its retries; yield it.
+
+    Without it every failing Pirate Weather run in this file would wait three
+    seconds for real. Only the client module's own name ``time`` is replaced:
+    patching ``PirateWeatherClient.time.sleep`` would swap ``time.sleep`` for the
+    whole process, and ``_five_callers_at_once`` relies on the real one.
+    """
+    with patch(M + "PirateWeatherClient.time") as fake_time:
+        yield fake_time.sleep
 
 
 @dataclasses.dataclass(frozen=True)
@@ -373,3 +386,54 @@ def test_validate_key_ignores_a_running_pause():
         get.return_value = _ok({"cod": 200})
         client.validate_key()
         assert get.call_count == 2  # the key check always asks
+
+
+_PIRATE_CASES = [case for case in CASES if case.id.startswith("pirate_")]
+
+
+@pytest.mark.parametrize("case", _PIRATE_CASES, ids=lambda c: c.id)
+def test_pirate_pauses_one_then_two_seconds_between_retries(case, sleep):
+    client = case.make()
+    get = MagicMock(return_value=_failing(500))
+    with patch(case.patch, get):
+        _outcome(case, client)
+
+    assert get.call_count == 3
+    # Two pauses between three attempts, none after the last.
+    assert sleep.call_args_list == [call(1), call(2)]
+
+
+@pytest.mark.parametrize("case", _PIRATE_CASES, ids=lambda c: c.id)
+def test_pirate_stops_retrying_on_429(case, sleep):
+    # At Pirate Weather a 429 means the monthly quota is used up: a second
+    # request a second or two later cannot succeed.
+    client = case.make()
+    get = MagicMock(return_value=_failing(429))
+    with patch(case.patch, get):
+        _outcome(case, client)
+
+    assert get.call_count == 1
+    sleep.assert_not_called()
+
+
+@pytest.mark.parametrize("case", _PIRATE_CASES, ids=lambda c: c.id)
+def test_pirate_stops_retrying_when_told_when_to_come_back(case, sleep):
+    # The service named the time; a retry after one second would ignore it.
+    client = case.make()
+    get = MagicMock(return_value=_failing(503, {"Retry-After": "120"}))
+    with patch(case.patch, get):
+        _outcome(case, client)
+
+    assert get.call_count == 1
+    sleep.assert_not_called()
+
+
+@pytest.mark.parametrize("case", _PIRATE_CASES, ids=lambda c: c.id)
+def test_pirate_does_not_retry_a_network_error(case, sleep):
+    client = case.make()
+    get = MagicMock(side_effect=requests.ConnectionError)
+    with patch(case.patch, get):
+        _outcome(case, client)
+
+    assert get.call_count == 1
+    sleep.assert_not_called()
