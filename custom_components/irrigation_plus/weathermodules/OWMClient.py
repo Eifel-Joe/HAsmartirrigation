@@ -22,19 +22,13 @@ from ..const import (
     OBSERVATION_TIME,
 )
 from ..pressure import relative_to_absolute_pressure
+from . import fetch_gate
 
 _LOGGER = logging.getLogger(__name__)
 
 # Shared session so repeated calls reuse the TCP connection and don't re-resolve
 # the API hostname on every request.
 _SESSION = requests.Session()
-
-# Floor for how long a fetched result is reused, even when the caller's configured
-# cache window is shorter (e.g. auto-update disabled → 0s). Repeated weather
-# lookups — skip-condition checks, the dashboard outlook, the intra-day estimate —
-# would otherwise each hit the network (and a DNS lookup); this caps them to at
-# most one call per method per minute.
-_MIN_CACHE_SECONDS = 60
 
 # OWM free-tier endpoints (2.5 — no paid subscription required)
 OWM_CURRENT_URL = "https://api.openweathermap.org/data/2.5/weather?units=metric&lat={}&lon={}&appid={}"
@@ -82,13 +76,6 @@ class OWMClient:  # pylint: disable=invalid-name
         # needs, and re-requesting for it would be a second call on a metered key.
         self._cached_forecast_doc = None
 
-    def _is_fresh(self, fetched_at) -> bool:
-        """Whether a result fetched at ``fetched_at`` may still be served cached."""
-        if fetched_at is None or self.override_cache:
-            return False
-        ttl = max(self.cache_seconds, _MIN_CACHE_SECONDS)
-        return datetime.datetime.now() < fetched_at + datetime.timedelta(seconds=ttl)
-
     def validate_key(self):
         """Test the API key using /data/2.5/weather (works on all OWM plans).
 
@@ -103,7 +90,9 @@ class OWMClient:  # pylint: disable=invalid-name
 
     def get_data(self):
         """Fetch and return current weather data from /data/2.5/weather."""
-        if not self._is_fresh(self._cached_data_at):
+        if not fetch_gate.is_fresh(
+            self._cached_data_at, self.cache_seconds, self.override_cache
+        ):
             url = OWM_CURRENT_URL.format(self.latitude, self.longitude, self.api_key)
             try:
                 req = _SESSION.get(url, timeout=60)
@@ -244,7 +233,9 @@ class OWMClient:  # pylint: disable=invalid-name
         carries the span it covers (FORECAST_DAY_START/END).
         Today's partial data is excluded; up to 4 complete future days are returned.
         """
-        if not self._is_fresh(self._cached_forecast_at):
+        if not fetch_gate.is_fresh(
+            self._cached_forecast_at, self.cache_seconds, self.override_cache
+        ):
             url = OWM_FORECAST_URL.format(self.latitude, self.longitude, self.api_key)
             try:
                 req = _SESSION.get(url, timeout=60)
