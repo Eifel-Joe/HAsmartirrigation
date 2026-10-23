@@ -328,3 +328,19 @@ def test_a_replay_logs_one_debug_line_and_nothing_louder(caplog):
     assert [r.levelno for r in records] == [logging.DEBUG]
     text = records[0].getMessage()
     assert "_Owner" in text and "stamp" in text and "30" in text
+
+
+def test_failure_log_level_is_debug_for_a_replay_and_error_otherwise():
+    owner = _Owner()
+    owner.error = lambda: OSError("down")
+    gate = fetch_gate.FetchGate(owner, "stamp")
+    with freeze_time("2026-10-23 12:00:00") as frozen:
+        with pytest.raises(OSError) as real:
+            gate.run(owner.fetch_raise)
+        frozen.tick(30)
+        with pytest.raises(OSError) as replayed:
+            gate.run(owner.fetch_raise)
+    assert fetch_gate.failure_log_level(real.value) == logging.ERROR
+    assert fetch_gate.failure_log_level(replayed.value) == logging.DEBUG
+    # an exception that never went through the gate, e.g. a parse error
+    assert fetch_gate.failure_log_level(ValueError("bad body")) == logging.ERROR

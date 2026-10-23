@@ -464,7 +464,9 @@ class MetOfficeClient:  # pylint: disable=invalid-name
             IndexError,
             ValueError,
         ) as ex:
-            _LOGGER.error("Met Office get_data error: %s", ex)
+            _LOGGER.log(
+                fetch_gate.failure_log_level(ex), "Met Office get_data error: %s", ex
+            )
             return None
 
     def get_forecast_data(self):
@@ -567,5 +569,9 @@ class MetOfficeClient:  # pylint: disable=invalid-name
             IndexError,
             ValueError,
         ) as ex:
-            _LOGGER.error("Met Office get_forecast_data error: %s", ex)
+            _LOGGER.log(
+                fetch_gate.failure_log_level(ex),
+                "Met Office get_forecast_data error: %s",
+                ex,
+            )
             return None

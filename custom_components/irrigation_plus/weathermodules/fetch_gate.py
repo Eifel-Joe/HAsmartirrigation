@@ -52,6 +52,18 @@ def is_replay(exc: BaseException) -> bool:
     return getattr(exc, _REPLAY_ATTR, False)
 
 
+def failure_log_level(exc: BaseException) -> int:
+    """The level to log a caught fetch failure at: DEBUG for a replay, else ERROR.
+
+    An ERROR line of a weather client means a request was made and failed. A
+    replay made none, and the gate has already logged it at DEBUG, so the
+    accessor that catches it above the gate logs it at DEBUG too. The message
+    stays the same; any other exception, including a failure to parse a good
+    response, keeps ERROR.
+    """
+    return logging.DEBUG if is_replay(exc) else logging.ERROR
+
+
 def _replayable_copy(exc: Exception) -> Exception | None:
     """A copy of ``exc`` marked as a replay, or None where it cannot be copied.
 

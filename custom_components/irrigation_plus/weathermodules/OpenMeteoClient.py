@@ -195,7 +195,9 @@ class OpenMeteoClient:
             KeyError,
             IndexError,
         ) as ex:
-            _LOGGER.error("Open-Meteo get_data error: %s", ex)
+            _LOGGER.log(
+                fetch_gate.failure_log_level(ex), "Open-Meteo get_data error: %s", ex
+            )
             return None
 
     def get_forecast_data(self):
@@ -305,7 +307,11 @@ class OpenMeteoClient:
             KeyError,
             IndexError,
         ) as ex:
-            _LOGGER.error("Open-Meteo get_forecast_data error: %s", ex)
+            _LOGGER.log(
+                fetch_gate.failure_log_level(ex),
+                "Open-Meteo get_forecast_data error: %s",
+                ex,
+            )
             return None
 
     def get_hourly_temperature_forecast(self):
@@ -472,5 +478,9 @@ class OpenMeteoClient:
             IndexError,
             ValueError,
         ) as ex:
-            _LOGGER.error("Open-Meteo get_hourly_data error: %s", ex)
+            _LOGGER.log(
+                fetch_gate.failure_log_level(ex),
+                "Open-Meteo get_hourly_data error: %s",
+                ex,
+            )
             return None, None
