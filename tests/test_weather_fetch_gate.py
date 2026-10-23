@@ -425,7 +425,7 @@ def test_the_backoff_counts_from_the_start_of_the_failed_run():
         assert owner.calls == 2
 
 
-def test_waiters_behind_a_slow_failure_share_it():
+def test_waiters_behind_a_slow_failure_share_it(caplog):
     # A failed run can outlast its own backoff (a 60 s timeout, three tries); with
     # the backoff counted from its start the pause is over when it ends. The
     # callers that waited on the lock meanwhile are handed its outcome all the
@@ -434,7 +434,7 @@ def test_waiters_behind_a_slow_failure_share_it():
     owner.cache_seconds = 599
     gate = fetch_gate.FetchGate(owner, "stamp")
     clock = [5000.0]
-    began, release = threading.Event(), threading.Event()
+    began, release, waiter_arrived = (threading.Event() for _ in range(3))
 
     def slow_failure():
         owner.calls += 1
@@ -443,20 +443,35 @@ def test_waiters_behind_a_slow_failure_share_it():
         clock[0] += 61  # longer than the first backoff of 60 s
         return None
 
-    with patch.object(time, "monotonic", lambda: clock[0]):
-        first = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
-        waiter = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
+    def monotonic():
+        # The waiter's first reading is its arrival; the failure may only end
+        # after it, which this handshake makes certain rather than likely. The
+        # value is read before the signal, so the clock cannot move in between.
+        now = clock[0]
+        if threading.current_thread() is waiter:
+            waiter_arrived.set()
+        return now
+
+    first = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
+    waiter = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
+    with (
+        patch.object(time, "monotonic", monotonic),
+        caplog.at_level(logging.DEBUG, logger=fetch_gate.__name__),
+    ):
         try:
             first.start()
             assert began.wait(timeout=5)
             waiter.start()  # arrives while the failure is still running
-            time.sleep(0.1)  # real time: let it reach the lock
+            assert waiter_arrived.wait(timeout=5)
         finally:
             release.set()
             first.join(timeout=5)
             waiter.join(timeout=5)
         assert not first.is_alive() and not waiter.is_alive()
     assert owner.calls == 1
+    replays = [r.getMessage() for r in caplog.records if r.name == fetch_gate.__name__]
+    assert len(replays) == 1
+    assert "waited through" in replays[0]  # not "no request for another 0 s"
 
 
 def test_retry_after_counts_from_the_answer():
