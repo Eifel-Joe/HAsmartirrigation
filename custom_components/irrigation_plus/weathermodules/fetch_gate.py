@@ -101,27 +101,29 @@ def _copy_of(exc: Exception) -> Exception | None:
     """A copy of ``exc`` without traceback, or None where none can be made.
 
     ``copy.copy`` rebuilds an exception through its class with ``args``, which an
-    exception whose constructor wants more than that refuses. The second try builds
-    the instance without running ``__init__`` and restores its attributes.
+    exception whose constructor wants more than that refuses. A class whose
+    ``__copy__`` hands back the instance itself gives no copy either: marking
+    that "copy" would mark the real exception.
+
+    None is the caller's cue to keep and raise the exception itself, unmarked
+    (see ``_replay``). There is no second attempt that rebuilds the instance
+    without its constructor: that would hand out an object its class never
+    initialised, and giving up costs only a replay logged at ERROR.
     """
     try:
-        return copy.copy(exc)
+        again = copy.copy(exc)
     except Exception:  # noqa: BLE001 -- any exception class may refuse a copy
-        pass
-    try:
-        rebuilt = type(exc).__new__(type(exc), *exc.args)
-        rebuilt.__dict__.update(exc.__dict__)
-    except Exception:  # noqa: BLE001 -- nor is a rebuild guaranteed
         return None
-    return rebuilt
+    return None if again is exc else again
 
 
 def _replayable_copy(exc: Exception) -> Exception | None:
     """A copy of ``exc`` marked as a replay, or None where none can be made.
 
-    A copy carries no traceback, so replaying it again and again does not grow
-    one, and callers in several threads never share an instance. Only the copy is
-    marked, never ``exc``: it may be the failure a first caller is about to log.
+    A copy has no traceback of its own, so replaying it again and again does not
+    grow one, and callers in several threads never share an instance. Only the
+    copy is marked, never ``exc``: it may be the failure a first caller is about
+    to log.
     """
     again = _copy_of(exc)
     if again is None:
@@ -169,8 +171,9 @@ class FetchGate:
         # Wurzel: the clients are called from several executor threads at once --
         #   every sensor refresh, skip check and outlook asks for the same
         #   document. Each caller checked the cache, found it empty and went to
-        #   the network itself: on the test install 1 get_data and 18
-        #   get_forecast_data requests left within 0.6 s, on a metered key.
+        #   the network itself: measured on one live install (Pirate Weather,
+        #   9 zones × 2 schedules), 1 get_data and 18 get_forecast_data requests
+        #   left within 0.6 s, on a metered key.
         # Fix-Logik: one lock per fetch point. ``fetch`` begins with its own
         #   freshness check, and that check now runs inside the lock, so a caller
         #   that waited finds the entry the first one stored and is served from
@@ -179,14 +182,10 @@ class FetchGate:
         #   so a failure is not retried once per waiter either.
         # NOT-TO-DO: no ``asyncio`` lock -- every path that reaches a gate runs
         #   in an executor thread, and an ``asyncio`` lock does not hold threads
-        #   back. Not every client method stays off the event loop: live_estimate.py
-        #   calls get_hourly_precipitation_forecast and get_hourly_temperature_forecast
-        #   there. That is safe only because those accessors read stored
-        #   documents and never reach a gate; a gate must never be reached from
-        #   such an accessor, or a waiting caller would block the loop. No lock
-        #   around the request alone either: the parse and the timestamp come
-        #   after it, so the waiters would wake to a cache that is still empty
-        #   and fetch again.
+        #   back. The hourly accessors that run on the event loop only read
+        #   stored documents and must never reach a gate. No lock around the
+        #   request alone either: the parse and the timestamp come after it, so
+        #   the waiters would wake to a cache that is still empty and fetch again.
         # siehe test_weather_clients_fetch_gate.py::test_concurrent_callers_make_one_request
         #   und ::test_concurrent_callers_during_an_outage_share_one_failed_run
         with self._lock:
@@ -251,11 +250,20 @@ class FetchGate:
             #   caller also still holds the real exception and logs it; a replay
             #   that marked that very instance would turn a real failure into a
             #   DEBUG line.
-            # Fix-Logik: keep a copy without traceback, made now; each replay raises
-            #   a fresh copy of it (see ``_replay``). The real exception goes to the
-            #   first caller untouched. Where no copy can be made it is kept as it is.
+            # Fix-Logik: keep a copy, made now; each replay raises a fresh copy of it
+            #   (see ``_replay``). The copy has no traceback of its own, which lets
+            #   go of the fetch's frames. The real exception goes to the first
+            #   caller untouched. Where no copy can be made it is kept as it is.
+            # Limit: exceptions chained inside the copy keep their tracebacks.
+            #   ``requests`` wraps urllib3's ``MaxRetryError`` in ``args[0]``, and
+            #   that traceback holds the failed fetch's frames until the next fetch
+            #   at this gate replaces the outcome. Bounded -- one chain per gate --
+            #   and deliberate: the inner exception is shared with the real one
+            #   the first caller holds (its ``__context__``), so stripping its
+            #   traceback would cut one that caller is still using.
             # NOT-TO-DO: do not keep the original "for the traceback" -- nobody reads
-            #   a replayed failure's traceback, it points into the gate.
+            #   a replayed failure's traceback, it points into the gate. Do not
+            #   strip the traceback of a chained exception either (Limit).
             # siehe test_weather_fetch_gate.py::test_a_failure_keeps_no_traceback_alive_after_its_caller_is_done
             if raised:
                 kept = _copy_of(value)
@@ -275,10 +283,11 @@ class FetchGate:
         """Seconds the pause after the latest failure still runs; 0 where there is none."""
         if self._failed_at is None:
             return 0.0
-        # Wurzel: callers come every few seconds (6-7 lookups every 10-30 s on
-        #   the production install). A pause of a fixed 60 s asks 1440 times a
-        #   day in an outage, ten times the 144 of normal operation at 10 min;
-        #   Met Office's free tier allows 360 calls a day and has two gates.
+        # Wurzel: callers come every few seconds (6-7 lookups every 10-30 s,
+        #   measured on one live install: OpenWeatherMap, 3 zones × 1 schedule).
+        #   A pause of a fixed 60 s asks 1440 times a day in an outage, ten times
+        #   the 144 of normal operation at 10 min; Met Office's free tier allows
+        #   360 calls a day and has two gates.
         # Fix-Logik: 60 s, doubled with every further failure in a row, capped at
         #   the cache lifetime -- the failure path never asks more often than
         #   normal operation does. It is worked out at every check from the
@@ -328,14 +337,19 @@ class FetchGate:
         # copy of it, so no two callers ever share an instance.
         replayed = _replayable_copy(value)
         if replayed is None:
-            # Wurzel: an exception that cannot even be rebuilt (``_copy_of``).
+            # Wurzel: an exception that cannot be copied (``_copy_of``), or whose
+            #   copy refuses the mark.
             # Fix-Logik: raise the kept instance itself, unmarked. Its replay is
             #   then logged at ERROR like a fresh failure: a line too many, never
             #   a real failure silenced.
-            # NOT-TO-DO: never mark it. It is the real exception, which the first
-            #   caller may be about to log, and a mark would have that logged at
-            #   DEBUG. No ``with_traceback(None)`` either: it would cut the traceback
-            #   the first caller is still building.
-            # siehe test_weather_fetch_gate.py::test_an_exception_that_cannot_be_rebuilt_is_raised_again_unmarked
+            # NOT-TO-DO: never mark it. Where nothing could be copied it is the
+            #   real exception, which the first caller may be about to log, and a
+            #   mark would have that logged at DEBUG. No ``with_traceback(None)``
+            #   either: it would cut the traceback the first caller is still
+            #   building. The price is that every replay adds frames to the
+            #   traceback of that one shared instance, so it grows for as long as
+            #   the pause lasts; none of the seven fetch points can reach this,
+            #   their exception types all copy.
+            # siehe test_weather_fetch_gate.py::test_an_exception_that_cannot_be_copied_is_raised_again_unmarked
             raise value
         raise replayed

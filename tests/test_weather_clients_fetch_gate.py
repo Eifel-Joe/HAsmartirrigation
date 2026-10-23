@@ -348,6 +348,34 @@ def test_every_open_meteo_accessor_logs_a_replay_at_debug(call, caplog):
         assert [level for level in levels() if level > logging.DEBUG] == []
 
 
+@pytest.mark.parametrize("call", ["get_data", "get_forecast_data"])
+def test_every_met_office_accessor_logs_its_first_failure_at_error(call, caplog):
+    # Both accessors log the failure above the gate with ``failure_log_level``.
+    # The table's replay test says nothing about the first call, and Open-Meteo's
+    # twin above is not Met Office's code: a hard-coded DEBUG at either Met Office
+    # site would pass both and hide every outage of that service from the log.
+    client = _met_office()
+    get = MagicMock(return_value=_failing(500))
+    caplog.set_level(logging.DEBUG, logger="custom_components.irrigation_plus")
+    prefix = "custom_components.irrigation_plus.weathermodules"
+
+    def ours():
+        return [r for r in caplog.records if r.name.startswith(prefix)]
+
+    with freeze_time("2026-10-23 12:00:00") as frozen, patch(
+        M + "MetOfficeClient._SESSION.get", get
+    ):
+        getattr(client, call)()  # the real failure
+        assert get.call_count == 1
+        assert [r.levelno for r in ours()].count(logging.ERROR) == 1
+        caplog.clear()
+
+        frozen.tick(30)
+        getattr(client, call)()
+        assert get.call_count == 1  # a replay: no request
+        assert [r for r in ours() if r.levelno > logging.DEBUG] == []
+
+
 _CASE_BY_ID = {case.id: case for case in CASES}
 
 
@@ -389,6 +417,9 @@ def test_validate_key_ignores_a_running_pause():
 
 
 _PIRATE_CASES = [case for case in CASES if case.id.startswith("pirate_")]
+# Renaming a case id would empty this list and the four tests below would
+# collect no case at all, passing by not running.
+assert len(_PIRATE_CASES) == 2
 
 
 @pytest.mark.parametrize("case", _PIRATE_CASES, ids=lambda c: c.id)
