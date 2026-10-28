@@ -1,0 +1,305 @@
+# Review package: cb6c83edd3b7a9a9b7042332870833bbf4702d72..HEAD
+
+## Commits
+49a5a3e8 fix(weather): a replayed failure is logged at DEBUG, not as a fresh error
+
+## Files changed
+ .../weathermodules/MetOfficeClient.py              | 10 +++-
+ .../weathermodules/OpenMeteoClient.py              | 16 +++++--
+ .../irrigation_plus/weathermodules/fetch_gate.py   | 12 +++++
+ tests/test_weather_clients_fetch_gate.py           | 56 ++++++++++++++++++++++
+ tests/test_weather_fetch_gate.py                   | 16 +++++++
+ 5 files changed, 105 insertions(+), 5 deletions(-)
+
+## Diff
+diff --git a/custom_components/irrigation_plus/weathermodules/MetOfficeClient.py b/custom_components/irrigation_plus/weathermodules/MetOfficeClient.py
+index fa2110db..d680c148 100644
+--- a/custom_components/irrigation_plus/weathermodules/MetOfficeClient.py
++++ b/custom_components/irrigation_plus/weathermodules/MetOfficeClient.py
+@@ -457,21 +457,23 @@ class MetOfficeClient:  # pylint: disable=invalid-name
+             _LOGGER.debug("Met Office get_data: %s", parsed)
+             return parsed
+ 
+         except (
+             requests.RequestException,
+             json.JSONDecodeError,
+             KeyError,
+             IndexError,
+             ValueError,
+         ) as ex:
+-            _LOGGER.error("Met Office get_data error: %s", ex)
++            _LOGGER.log(
++                fetch_gate.failure_log_level(ex), "Met Office get_data error: %s", ex
++            )
+             return None
+ 
+     def get_forecast_data(self):
+         """Return a daily forecast (one dict per day) from the three-hourly product.
+ 
+         The three-hourly product has no dew point and no solar radiation, so dew
+         point is derived from the day's mean temperature and humidity (Magnus)
+         and solar radiation is left for PyETO to estimate from temperature. Today
+         is skipped (its delta is already covered by the accumulated current data),
+         matching the other clients.
+@@ -560,12 +562,16 @@ class MetOfficeClient:  # pylint: disable=invalid-name
+             _LOGGER.debug("Met Office get_forecast_data: %s", result)
+             return result
+ 
+         except (
+             requests.RequestException,
+             json.JSONDecodeError,
+             KeyError,
+             IndexError,
+             ValueError,
+         ) as ex:
+-            _LOGGER.error("Met Office get_forecast_data error: %s", ex)
++            _LOGGER.log(
++                fetch_gate.failure_log_level(ex),
++                "Met Office get_forecast_data error: %s",
++                ex,
++            )
+             return None
+diff --git a/custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py b/custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py
+index dd0571b1..c2ee0c76 100644
+--- a/custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py
++++ b/custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py
+@@ -188,21 +188,23 @@ class OpenMeteoClient:
+ 
+             _LOGGER.debug("Open-Meteo get_data: %s", parsed)
+             return parsed
+ 
+         except (
+             requests.RequestException,
+             json.JSONDecodeError,
+             KeyError,
+             IndexError,
+         ) as ex:
+-            _LOGGER.error("Open-Meteo get_data error: %s", ex)
++            _LOGGER.log(
++                fetch_gate.failure_log_level(ex), "Open-Meteo get_data error: %s", ex
++            )
+             return None
+ 
+     def get_forecast_data(self):
+         """Return daily forecast mapped to MAPPING_* constants (list, one dict per day)."""
+         try:
+             doc = self._fetch()
+             daily = doc.get("daily", {})
+             # The request asks for past_days=1 so the intra-day estimate can
+             # reach back to the previous evening's calculation, which puts
+             # yesterday at index 0 and today at index 1. Skipping index 0 served
+@@ -298,21 +300,25 @@ class OpenMeteoClient:
+ 
+             _LOGGER.debug("Open-Meteo get_forecast_data: %s", result)
+             return result
+ 
+         except (
+             requests.RequestException,
+             json.JSONDecodeError,
+             KeyError,
+             IndexError,
+         ) as ex:
+-            _LOGGER.error("Open-Meteo get_forecast_data error: %s", ex)
++            _LOGGER.log(
++                fetch_gate.failure_log_level(ex),
++                "Open-Meteo get_forecast_data error: %s",
++                ex,
++            )
+             return None
+ 
+     def get_hourly_temperature_forecast(self):
+         """``[(aware UTC datetime, temperature C)]`` over the whole hourly series.
+ 
+         Past and future alike, ascending, because the caller composes a window
+         that starts before now and ends after it. Reads only what has already
+         been fetched and never issues a request of its own: the live estimate
+         asks for this every minute per zone, and that path adds no external
+         polling. ``None`` until some other
+@@ -465,12 +471,16 @@ class OpenMeteoClient:
+                 )
+             return rows, tz_offset_h
+ 
+         except (
+             requests.RequestException,
+             json.JSONDecodeError,
+             KeyError,
+             IndexError,
+             ValueError,
+         ) as ex:
+-            _LOGGER.error("Open-Meteo get_hourly_data error: %s", ex)
++            _LOGGER.log(
++                fetch_gate.failure_log_level(ex),
++                "Open-Meteo get_hourly_data error: %s",
++                ex,
++            )
+             return None, None
+diff --git a/custom_components/irrigation_plus/weathermodules/fetch_gate.py b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+index a3cb7271..c898c71a 100644
+--- a/custom_components/irrigation_plus/weathermodules/fetch_gate.py
++++ b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+@@ -45,20 +45,32 @@ def is_fresh(
+     return datetime.datetime.now() < fetched_at + datetime.timedelta(
+         seconds=cache_lifetime(cache_seconds)
+     )
+ 
+ 
+ def is_replay(exc: BaseException) -> bool:
+     """Whether ``exc`` is a failure the gate replayed, not a fresh one."""
+     return getattr(exc, _REPLAY_ATTR, False)
+ 
+ 
++def failure_log_level(exc: BaseException) -> int:
++    """The level to log a caught fetch failure at: DEBUG for a replay, else ERROR.
++
++    An ERROR line of a weather client means a request was made and failed. A
++    replay made none, and the gate has already logged it at DEBUG, so the
++    accessor that catches it above the gate logs it at DEBUG too. The message
++    stays the same; any other exception, including a failure to parse a good
++    response, keeps ERROR.
++    """
++    return logging.DEBUG if is_replay(exc) else logging.ERROR
++
++
+ def _replayable_copy(exc: Exception) -> Exception | None:
+     """A copy of ``exc`` marked as a replay, or None where it cannot be copied.
+ 
+     A copy carries no traceback, so replaying it again and again does not grow
+     one, and callers in several threads never share an instance.
+     """
+     try:
+         again = copy.copy(exc)
+         setattr(again, _REPLAY_ATTR, True)
+     except Exception:  # noqa: BLE001 -- any exception class may refuse a copy
+diff --git a/tests/test_weather_clients_fetch_gate.py b/tests/test_weather_clients_fetch_gate.py
+index 4603d77c..d17727b1 100644
+--- a/tests/test_weather_clients_fetch_gate.py
++++ b/tests/test_weather_clients_fetch_gate.py
+@@ -1,20 +1,21 @@
+ """Every fetch point of the four weather clients, one table, one door.
+ 
+ ``CASES`` names each of the seven places where a client goes to the network:
+ how to build the client, which call reaches the fetch point, a body the fetch
+ point accepts, and the attribute that holds the time of the last good fetch.
+ The tests below run over that table.
+ """
+ 
+ import dataclasses
+ import json
++import logging
+ import pathlib
+ import threading
+ import time
+ from collections.abc import Callable
+ from typing import Any
+ from unittest.mock import MagicMock, patch
+ 
+ import pytest
+ import requests
+ from freezegun import freeze_time
+@@ -251,20 +252,75 @@ def test_a_failed_fetch_pauses_its_gate(case):
+ 
+         frozen.tick(30)
+         assert _outcome(case, client) == first  # same result, no request
+         assert get.call_count == case.failed_attempts
+ 
+         frozen.tick(31)
+         _outcome(case, client)
+         assert get.call_count == 2 * case.failed_attempts
+ 
+ 
++@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
++def test_a_replayed_failure_logs_nothing_above_debug(case, caplog):
++    # An ERROR line of a weather client means a real request was made and failed.
++    # A failure the gate replays during its pause made no request, so Open-Meteo's
++    # and Met Office's accessors, which log the exception above the gate, must log
++    # it at DEBUG. OWM and Pirate Weather catch inside the gate body, which does
++    # not run in the pause.
++    client = case.make()
++    get = MagicMock(return_value=_failing(500))
++    caplog.set_level(logging.DEBUG, logger="custom_components.irrigation_plus")
++    with freeze_time("2026-10-23 12:00:00") as frozen, patch(case.patch, get):
++        # No assertion on the first call's log: OWM's forecast lets its OSError out
++        # unlogged, and the others log the real failure at ERROR.
++        first = _outcome(case, client)
++        assert get.call_count == case.failed_attempts
++        caplog.clear()
++
++        frozen.tick(30)
++        assert _outcome(case, client) == first  # the outcome is the same as before
++        assert get.call_count == case.failed_attempts  # and it was a replay
++
++    ours = [
++        r
++        for r in caplog.records
++        if r.name.startswith("custom_components.irrigation_plus.weathermodules")
++    ]
++    assert [r for r in ours if r.levelno > logging.DEBUG] == []
++    assert any("replaying the last outcome" in r.getMessage() for r in ours)
++
++
++@pytest.mark.parametrize("call", ["get_data", "get_forecast_data", "get_hourly_data"])
++def test_every_open_meteo_accessor_logs_a_replay_at_debug(call, caplog):
++    # The table above reaches one Open-Meteo accessor; all three read the one
++    # document behind one gate and each has its own log line.
++    client = _open_meteo()
++    get = MagicMock(return_value=_failing(500))
++    caplog.set_level(logging.DEBUG, logger="custom_components.irrigation_plus")
++
++    def levels():
++        return [r.levelno for r in caplog.records if r.name.endswith("OpenMeteoClient")]
++
++    with freeze_time("2026-10-23 12:00:00") as frozen, patch(
++        M + "OpenMeteoClient._SESSION.get", get
++    ):
++        getattr(client, call)()  # the real failure: still an ERROR line
++        assert get.call_count == 1
++        assert levels() == [logging.ERROR]
++        caplog.clear()
++
++        frozen.tick(30)
++        getattr(client, call)()
++        assert get.call_count == 1  # a replay: no request
++        assert [level for level in levels() if level > logging.DEBUG] == []
++
++
+ _CASE_BY_ID = {case.id: case for case in CASES}
+ 
+ 
+ @pytest.mark.parametrize(
+     "paused_id, free_id",
+     [("owm_forecast", "owm_data"), ("met_three_hourly", "met_hourly")],
+ )
+ def test_a_paused_forecast_does_not_hold_up_current_conditions(paused_id, free_id):
+     paused, free = _CASE_BY_ID[paused_id], _CASE_BY_ID[free_id]
+     client = paused.make()
+diff --git a/tests/test_weather_fetch_gate.py b/tests/test_weather_fetch_gate.py
+index e6698af9..64c88db6 100644
+--- a/tests/test_weather_fetch_gate.py
++++ b/tests/test_weather_fetch_gate.py
+@@ -321,10 +321,26 @@ def test_a_replay_logs_one_debug_line_and_nothing_louder(caplog):
+         freeze_time("2026-10-23 12:00:00") as frozen,
+         caplog.at_level(logging.DEBUG, logger=fetch_gate.__name__),
+     ):
+         gate.run(owner.fetch_none)  # the real failure: the client logs it
+         frozen.tick(30)
+         gate.run(owner.fetch_none)  # the replay
+     records = [r for r in caplog.records if r.name == fetch_gate.__name__]
+     assert [r.levelno for r in records] == [logging.DEBUG]
+     text = records[0].getMessage()
+     assert "_Owner" in text and "stamp" in text and "30" in text
++
++
++def test_failure_log_level_is_debug_for_a_replay_and_error_otherwise():
++    owner = _Owner()
++    owner.error = lambda: OSError("down")
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        with pytest.raises(OSError) as real:
++            gate.run(owner.fetch_raise)
++        frozen.tick(30)
++        with pytest.raises(OSError) as replayed:
++            gate.run(owner.fetch_raise)
++    assert fetch_gate.failure_log_level(real.value) == logging.ERROR
++    assert fetch_gate.failure_log_level(replayed.value) == logging.DEBUG
++    # an exception that never went through the gate, e.g. a parse error
++    assert fetch_gate.failure_log_level(ValueError("bad body")) == logging.ERROR

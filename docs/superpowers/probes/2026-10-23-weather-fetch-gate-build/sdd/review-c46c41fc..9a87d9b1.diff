@@ -1,0 +1,682 @@
+# Review package: c46c41fc0ff688febbd74050c0602f9a2d35bc03..HEAD
+
+## Commits
+9a87d9b1 refactor(weather): one freshness check shared by the four weather clients
+
+## Files changed
+ .../weathermodules/MetOfficeClient.py              |  25 +---
+ .../irrigation_plus/weathermodules/OWMClient.py    |  23 +--
+ .../weathermodules/OpenMeteoClient.py              |  20 +--
+ .../weathermodules/PirateWeatherClient.py          |  23 +--
+ .../irrigation_plus/weathermodules/fetch_gate.py   |  26 ++++
+ tests/test_weather_clients_fetch_gate.py           | 166 +++++++++++++++++++++
+ tests/test_weather_fetch_gate.py                   |  27 ++++
+ 7 files changed, 247 insertions(+), 63 deletions(-)
+
+## Diff
+diff --git a/custom_components/irrigation_plus/weathermodules/MetOfficeClient.py b/custom_components/irrigation_plus/weathermodules/MetOfficeClient.py
+index 89135d4d..fd6eff30 100644
+--- a/custom_components/irrigation_plus/weathermodules/MetOfficeClient.py
++++ b/custom_components/irrigation_plus/weathermodules/MetOfficeClient.py
+@@ -40,34 +40,28 @@ from ..const import (
+     MAPPING_HUMIDITY,
+     MAPPING_MAX_TEMP,
+     MAPPING_MIN_TEMP,
+     MAPPING_PRECIPITATION,
+     MAPPING_PRESSURE,
+     MAPPING_TEMPERATURE,
+     MAPPING_WINDSPEED,
+     OBSERVATION_TIME,
+ )
+ from ..pressure import relative_to_absolute_pressure
++from . import fetch_gate
+ 
+ _LOGGER = logging.getLogger(__name__)
+ 
+ # Shared session so repeated calls reuse the TCP connection and don't re-resolve
+ # the API hostname on every request.
+ _SESSION = requests.Session()
+ 
+-# Floor for how long a fetched result is reused, even when the caller's configured
+-# cache window is shorter (e.g. auto-update disabled → 0s). Repeated weather
+-# lookups — skip-condition checks, the dashboard outlook — would otherwise each
+-# hit the network (and a DNS lookup); this caps them to at most one call per
+-# endpoint per minute, which also keeps us well under the free-tier daily quota.
+-_MIN_CACHE_SECONDS = 60
+-
+ # The three-hourly product's step: the most the hourly document may lag behind it
+ # and still be read in its place, whatever the cache lifetime (_forecast_document).
+ _THREE_HOURLY_STEP = datetime.timedelta(hours=3)
+ 
+ _BASE_URL = "https://data.hub.api.metoffice.gov.uk/sitespecific/v0/point"
+ _HOURLY_URL = (
+     _BASE_URL + "/hourly?excludeParameterMetadata=true"
+     "&includeLocationName=false&latitude={lat}&longitude={lon}"
+ )
+ _THREE_HOURLY_URL = (
+@@ -119,27 +113,20 @@ class MetOfficeClient:  # pylint: disable=invalid-name
+         self.override_cache = override_cache
+         self._hourly_url = _HOURLY_URL.format(lat=latitude, lon=longitude)
+         self._three_hourly_url = _THREE_HOURLY_URL.format(lat=latitude, lon=longitude)
+         self._cached_hourly = None
+         self._cached_hourly_at = None
+         self._cached_three_hourly = None
+         self._cached_three_hourly_at = None
+ 
+     # ------------------------------------------------------------------ helpers
+ 
+-    def _is_fresh(self, fetched_at) -> bool:
+-        """Whether a result fetched at ``fetched_at`` may still be served cached."""
+-        if fetched_at is None or self.override_cache:
+-            return False
+-        ttl = max(self.cache_seconds, _MIN_CACHE_SECONDS)
+-        return datetime.datetime.now() < fetched_at + datetime.timedelta(seconds=ttl)
+-
+     def _request(self, url):
+         """GET ``url`` with the API key header and return the parsed JSON document."""
+         req = _SESSION.get(
+             url,
+             headers={"apikey": self.api_key, "accept": "application/json"},
+             timeout=60,
+         )
+         req.raise_for_status()
+         return json.loads(req.text)
+ 
+@@ -221,29 +208,33 @@ class MetOfficeClient:  # pylint: disable=invalid-name
+         if req.status_code in (401, 403):
+             raise OSError(
+                 f"Met Office API key is invalid or unauthorized (HTTP {req.status_code})"
+             )
+         if req.status_code != 200:
+             raise Exception(f"Met Office validation failed with HTTP {req.status_code}")
+ 
+     # --------------------------------------------------------------- public API
+ 
+     def _fetch_hourly(self):
+-        if self._is_fresh(self._cached_hourly_at):
++        if fetch_gate.is_fresh(
++            self._cached_hourly_at, self.cache_seconds, self.override_cache
++        ):
+             return self._cached_hourly
+         doc = self._request(self._hourly_url)
+         self._cached_hourly = doc
+         self._cached_hourly_at = datetime.datetime.now()
+         return doc
+ 
+     def _fetch_three_hourly(self):
+-        if self._is_fresh(self._cached_three_hourly_at):
++        if fetch_gate.is_fresh(
++            self._cached_three_hourly_at, self.cache_seconds, self.override_cache
++        ):
+             return self._cached_three_hourly
+         doc = self._request(self._three_hourly_url)
+         self._cached_three_hourly = doc
+         self._cached_three_hourly_at = datetime.datetime.now()
+         return doc
+ 
+     def _forecast_document(self, covering_until=None):
+         """The fetched document the hourly accessors read, or None.
+ 
+         ``covering_until`` is how far the caller needs the series to reach; a
+@@ -312,21 +303,21 @@ class MetOfficeClient:  # pylint: disable=invalid-name
+             three_hourly_reach = self._series_reach(three_hourly)
+             if (
+                 hourly_reach is not None
+                 and three_hourly_reach is not None
+                 and hourly_reach < covering_until <= three_hourly_reach
+             ):
+                 return three_hourly
+         if self._cached_hourly_at is None or self._cached_three_hourly_at is None:
+             return hourly
+         lifetime = datetime.timedelta(
+-            seconds=max(self.cache_seconds, _MIN_CACHE_SECONDS)
++            seconds=fetch_gate.cache_lifetime(self.cache_seconds)
+         )
+         tolerance = min(lifetime, _THREE_HOURLY_STEP)
+         if self._cached_three_hourly_at - self._cached_hourly_at > tolerance:
+             return three_hourly
+         return hourly
+ 
+     def get_hourly_temperature_forecast(self):
+         """``[(aware UTC datetime, temperature C)]`` from the hourly product.
+ 
+         The hourly endpoint runs T to T+48, which covers a calculation window's
+diff --git a/custom_components/irrigation_plus/weathermodules/OWMClient.py b/custom_components/irrigation_plus/weathermodules/OWMClient.py
+index 4c7a6d0b..c0b0de63 100644
+--- a/custom_components/irrigation_plus/weathermodules/OWMClient.py
++++ b/custom_components/irrigation_plus/weathermodules/OWMClient.py
+@@ -15,34 +15,28 @@ from ..const import (
+     MAPPING_HUMIDITY,
+     MAPPING_MAX_TEMP,
+     MAPPING_MIN_TEMP,
+     MAPPING_PRECIPITATION,
+     MAPPING_PRESSURE,
+     MAPPING_TEMPERATURE,
+     MAPPING_WINDSPEED,
+     OBSERVATION_TIME,
+ )
+ from ..pressure import relative_to_absolute_pressure
++from . import fetch_gate
+ 
+ _LOGGER = logging.getLogger(__name__)
+ 
+ # Shared session so repeated calls reuse the TCP connection and don't re-resolve
+ # the API hostname on every request.
+ _SESSION = requests.Session()
+ 
+-# Floor for how long a fetched result is reused, even when the caller's configured
+-# cache window is shorter (e.g. auto-update disabled → 0s). Repeated weather
+-# lookups — skip-condition checks, the dashboard outlook, the intra-day estimate —
+-# would otherwise each hit the network (and a DNS lookup); this caps them to at
+-# most one call per method per minute.
+-_MIN_CACHE_SECONDS = 60
+-
+ # OWM free-tier endpoints (2.5 — no paid subscription required)
+ OWM_CURRENT_URL = "https://api.openweathermap.org/data/2.5/weather?units=metric&lat={}&lon={}&appid={}"
+ OWM_FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast?units=metric&lat={}&lon={}&appid={}"
+ 
+ # OWM reports wind at 10 m; ET calculations need 2 m height
+ _WIND_HEIGHT_CORRECTION = 4.87 / math.log((67.8 * 10) - 5.42)
+ 
+ 
+ def _compute_dew_point(temp_c: float, humidity: float) -> float:
+     """Magnus formula: dew point (°C) from temperature (°C) and relative humidity (%)."""
+@@ -75,42 +69,37 @@ class OWMClient:  # pylint: disable=invalid-name
+         self._cached_data = None
+         self._cached_data_at = None
+         self._cached_forecast_data = None
+         self._cached_forecast_at = None
+         # The raw forecast document, kept alongside the parsed daily roll-up so
+         # the three-hourly entries stay reachable. get_forecast_data folds them
+         # into calendar days, which loses the intra-day shape the composed window
+         # needs, and re-requesting for it would be a second call on a metered key.
+         self._cached_forecast_doc = None
+ 
+-    def _is_fresh(self, fetched_at) -> bool:
+-        """Whether a result fetched at ``fetched_at`` may still be served cached."""
+-        if fetched_at is None or self.override_cache:
+-            return False
+-        ttl = max(self.cache_seconds, _MIN_CACHE_SECONDS)
+-        return datetime.datetime.now() < fetched_at + datetime.timedelta(seconds=ttl)
+-
+     def validate_key(self):
+         """Test the API key using /data/2.5/weather (works on all OWM plans).
+ 
+         Raises OSError on 401 (invalid key).
+         """
+         url = OWM_CURRENT_URL.format(self.latitude, self.longitude, self.api_key)
+         req = _SESSION.get(url, timeout=30)
+         if req.status_code == 401:
+             raise OSError("OWM API key is invalid (HTTP 401)")
+         if req.status_code not in (200, 403):
+             raise OSError(f"OWM validation failed with HTTP {req.status_code}")
+ 
+     def get_data(self):
+         """Fetch and return current weather data from /data/2.5/weather."""
+-        if not self._is_fresh(self._cached_data_at):
++        if not fetch_gate.is_fresh(
++            self._cached_data_at, self.cache_seconds, self.override_cache
++        ):
+             url = OWM_CURRENT_URL.format(self.latitude, self.longitude, self.api_key)
+             try:
+                 req = _SESSION.get(url, timeout=60)
+                 doc = json.loads(req.text)
+                 _LOGGER.debug(
+                     "OWMClient get_data called API %s and received %s",
+                     url.replace(self.api_key, "***") if self.api_key else url,
+                     doc,
+                 )
+ 
+@@ -237,21 +226,23 @@ class OWMClient:  # pylint: disable=invalid-name
+                 continue
+         return out or None
+ 
+     def get_forecast_data(self):
+         """Fetch and return daily forecast data from /data/2.5/forecast.
+ 
+         The 3-hourly entries are aggregated into UTC calendar days, and each entry
+         carries the span it covers (FORECAST_DAY_START/END).
+         Today's partial data is excluded; up to 4 complete future days are returned.
+         """
+-        if not self._is_fresh(self._cached_forecast_at):
++        if not fetch_gate.is_fresh(
++            self._cached_forecast_at, self.cache_seconds, self.override_cache
++        ):
+             url = OWM_FORECAST_URL.format(self.latitude, self.longitude, self.api_key)
+             try:
+                 req = _SESSION.get(url, timeout=60)
+                 doc = json.loads(req.text)
+                 _LOGGER.debug(
+                     "OWMClient get_forecast_data called API %s and received %s",
+                     url.replace(self.api_key, "***") if self.api_key else url,
+                     doc,
+                 )
+ 
+diff --git a/custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py b/custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py
+index b13af2f7..2ef8e0de 100644
+--- a/custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py
++++ b/custom_components/irrigation_plus/weathermodules/OpenMeteoClient.py
+@@ -17,34 +17,28 @@ from ..const import (
+     MAPPING_MIN_TEMP,
+     MAPPING_PRECIPITATION,
+     MAPPING_PRESSURE,
+     MAPPING_SOLRAD,
+     MAPPING_TEMPERATURE,
+     MAPPING_WINDSPEED,
+     OBSERVATION_TIME,
+     W_TO_MJ_DAY_FACTOR,
+ )
+ from ..pressure import relative_to_absolute_pressure
++from . import fetch_gate
+ 
+ _LOGGER = logging.getLogger(__name__)
+ 
+ # Shared session so repeated calls reuse the TCP connection and don't re-resolve
+ # the API hostname on every request.
+ _SESSION = requests.Session()
+ 
+-# Floor for how long a fetched response is reused, even when the caller's
+-# configured cache window is shorter (e.g. auto-update disabled → 0s). Open-Meteo
+-# returns current + forecast + hourly in one document, so caching it here collapses
+-# the burst of get_data/get_forecast_data/get_hourly_data lookups (skip checks, the
+-# dashboard outlook, the intra-day estimate) onto a single network/DNS call.
+-_MIN_CACHE_SECONDS = 60
+-
+ OPENMETEO_URL = (
+     "https://api.open-meteo.com/v1/forecast"
+     "?latitude={lat}&longitude={lon}"
+     "&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,precipitation"
+     ",wind_speed_10m,shortwave_radiation,pressure_msl"
+     "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum"
+     ",wind_speed_10m_mean,shortwave_radiation_sum,dew_point_2m_mean,pressure_msl_mean"
+     "&timezone=auto"
+     "&wind_speed_unit=ms"
+     "&forecast_days=7"
+@@ -86,27 +80,25 @@ class OpenMeteoClient:
+         self._cached_doc_at = None
+ 
+     def _fetch(self):
+         """Return the (cached) Open-Meteo response document.
+ 
+         The whole response — current, daily forecast and hourly series — comes
+         from one URL, so a single cached document serves every accessor. Within
+         the cache window repeated callers reuse it instead of each hitting the
+         network (and a DNS lookup).
+         """
+-        if self._cached_doc is not None and not self.override_cache:
+-            ttl = max(self.cache_seconds, _MIN_CACHE_SECONDS)
+-            if datetime.datetime.now() < self._cached_doc_at + datetime.timedelta(
+-                seconds=ttl
+-            ):
+-                _LOGGER.debug("Returning cached Open-Meteo document")
+-                return self._cached_doc
++        if self._cached_doc is not None and fetch_gate.is_fresh(
++            self._cached_doc_at, self.cache_seconds, self.override_cache
++        ):
++            _LOGGER.debug("Returning cached Open-Meteo document")
++            return self._cached_doc
+         req = _SESSION.get(self.url, timeout=60)
+         req.raise_for_status()
+         doc = json.loads(req.text)
+         self._cached_doc = doc
+         self._cached_doc_at = datetime.datetime.now()
+         return doc
+ 
+     def _current_hour_index(self, time_list, utc_offset_seconds=0):
+         """Return the index of the current hour in the hourly time list.
+ 
+diff --git a/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py b/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py
+index f959e7d8..9095daa0 100644
+--- a/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py
++++ b/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py
+@@ -17,34 +17,28 @@ from ..const import (
+     MAPPING_HUMIDITY,
+     MAPPING_MAX_TEMP,
+     MAPPING_MIN_TEMP,
+     MAPPING_PRECIPITATION,
+     MAPPING_PRESSURE,
+     MAPPING_TEMPERATURE,
+     MAPPING_WINDSPEED,
+     OBSERVATION_TIME,
+ )
+ from ..pressure import relative_to_absolute_pressure
++from . import fetch_gate
+ 
+ _LOGGER = logging.getLogger(__name__)
+ 
+ # Shared session so repeated calls reuse the TCP connection and don't re-resolve
+ # the API hostname on every request.
+ _SESSION = requests.Session()
+ 
+-# Floor for how long a fetched result is reused, even when the caller's configured
+-# cache window is shorter (e.g. auto-update disabled → 0s). Repeated weather
+-# lookups — skip-condition checks, the dashboard outlook, the intra-day estimate —
+-# would otherwise each hit the network (and a DNS lookup); this caps them to at
+-# most one call per method per minute.
+-_MIN_CACHE_SECONDS = 60
+-
+ # Open Weather Map URL
+ #
+ # ``hourly`` is requested even though nothing reads it hour by hour for the
+ # ledger: the composed window needs the temperatures of a window's remaining
+ # hours, and a daily high and low cannot supply them. Measured, substituting a
+ # daily low for the window's post-midnight tail does not converge -- tomorrow's
+ # low usually falls after the window closes, so the construction imports an
+ # extreme the commit will never see and never lets go of it. Costs response size
+ # on a call that is made anyway, and no extra call.
+ #
+@@ -128,27 +122,20 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
+         self.override_cache = override_cache
+         self._cached_data = None
+         self._cached_data_at = None
+         self._cached_forecast_data = None
+         self._cached_forecast_at = None
+         # The raw response, kept by whichever accessor fetched it, so the
+         # hourly temperatures stay reachable without a second call on a
+         # metered key.
+         self._cached_doc = None
+ 
+-    def _is_fresh(self, fetched_at) -> bool:
+-        """Whether a result fetched at ``fetched_at`` may still be served cached."""
+-        if fetched_at is None or self.override_cache:
+-            return False
+-        ttl = max(self.cache_seconds, _MIN_CACHE_SECONDS)
+-        return datetime.datetime.now() < fetched_at + datetime.timedelta(seconds=ttl)
+-
+     def validate_key(self):
+         """Test the API key by making a real request and checking the HTTP status.
+ 
+         Raises OSError on 401/403 (invalid/unauthorized key).
+         Raises CannotConnect-compatible Exception on other non-200 statuses.
+         """
+         req = _SESSION.get(self.url, timeout=30)
+         if req.status_code == 401:
+             raise OSError("Pirate Weather API key is invalid (HTTP 401)")
+         if req.status_code == 403:
+@@ -225,21 +212,23 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
+                         datetime.datetime.fromtimestamp(stamp, datetime.UTC),
+                         float(rate),
+                     )
+                 )
+             except (TypeError, ValueError, OSError):
+                 continue
+         return out or None
+ 
+     def get_forecast_data(self):
+         """Validate and return forecast data."""
+-        if not self._is_fresh(self._cached_forecast_at):
++        if not fetch_gate.is_fresh(
++            self._cached_forecast_at, self.cache_seconds, self.override_cache
++        ):
+             try:
+                 for i in range(RETRY_TIMES):
+                     req = _SESSION.get(self.url, timeout=60)  # 60 seconds timeout
+                     if req.status_code == 200:
+                         break
+                     i = i + 1
+                 if req.status_code != 200:
+                     _LOGGER.error(
+                         "PirateWeather API returned error status code: %s",
+                         req.status_code,
+@@ -331,21 +320,23 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
+                 _LOGGER.error("Error decoding PirateWeather API response: %s", ex)
+             else:
+                 return None
+         else:
+             # return cached_data
+             _LOGGER.debug("Returning cached PirateWeather forecastdata")
+             return self._cached_forecast_data
+ 
+     def get_data(self):
+         """Validate and return data."""
+-        if not self._is_fresh(self._cached_data_at):
++        if not fetch_gate.is_fresh(
++            self._cached_data_at, self.cache_seconds, self.override_cache
++        ):
+             try:
+                 for i in range(RETRY_TIMES):
+                     req = _SESSION.get(self.url, timeout=60)  # 60 seconds timeout
+                     if req.status_code == 200:
+                         break
+                     i = i + 1
+                 if req.status_code != 200:
+                     _LOGGER.error(
+                         "PirateWeather API returned error status code: %s",
+                         req.status_code,
+diff --git a/custom_components/irrigation_plus/weathermodules/fetch_gate.py b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+new file mode 100644
+index 00000000..e6f6f478
+--- /dev/null
++++ b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+@@ -0,0 +1,26 @@
++"""Rules the four weather clients share when they go to the network."""
++
++import datetime
++
++# Floor for how long a fetched result is reused, even when the caller's configured
++# cache window is shorter (e.g. auto-update disabled → 0s). Repeated weather
++# lookups — skip-condition checks, the dashboard outlook, the intra-day estimate —
++# would otherwise each hit the network (and a DNS lookup); this caps them to at
++# most one call per method per minute.
++MIN_CACHE_SECONDS = 60
++
++
++def cache_lifetime(cache_seconds: float) -> float:
++    """How long a fetched result is reused: the configured window, but at least the floor."""
++    return max(cache_seconds, MIN_CACHE_SECONDS)
++
++
++def is_fresh(
++    fetched_at: datetime.datetime | None, cache_seconds: float, override_cache: bool
++) -> bool:
++    """Whether a result fetched at ``fetched_at`` may still be served cached."""
++    if fetched_at is None or override_cache:
++        return False
++    return datetime.datetime.now() < fetched_at + datetime.timedelta(
++        seconds=cache_lifetime(cache_seconds)
++    )
+diff --git a/tests/test_weather_clients_fetch_gate.py b/tests/test_weather_clients_fetch_gate.py
+new file mode 100644
+index 00000000..d3b1da42
+--- /dev/null
++++ b/tests/test_weather_clients_fetch_gate.py
+@@ -0,0 +1,166 @@
++"""Every fetch point of the four weather clients, one table, one door.
++
++``CASES`` names each of the seven places where a client goes to the network:
++how to build the client, which call reaches the fetch point, a body the fetch
++point accepts, and the attribute that holds the time of the last good fetch.
++The tests below run over that table.
++"""
++
++import dataclasses
++import json
++import pathlib
++from collections.abc import Callable
++from typing import Any
++from unittest.mock import MagicMock, patch
++
++import pytest
++import requests
++
++from custom_components.irrigation_plus.weathermodules.MetOfficeClient import (
++    MetOfficeClient,
++)
++from custom_components.irrigation_plus.weathermodules.OpenMeteoClient import (
++    OpenMeteoClient,
++)
++from custom_components.irrigation_plus.weathermodules.OWMClient import OWMClient
++from custom_components.irrigation_plus.weathermodules.PirateWeatherClient import (
++    PirateWeatherClient,
++)
++
++from . import test_weather_modules as twm
++
++M = "custom_components.irrigation_plus.weathermodules."
++
++_PIRATE_FIXTURE = (
++    pathlib.Path(__file__).parent / "fixtures" / "pirate_weather_berlin.json"
++)
++
++
++@dataclasses.dataclass(frozen=True)
++class GateCase:
++    """One fetch point of one client."""
++
++    id: str
++    patch: str  # the session call the fetch point makes
++    make: Callable[[], Any]  # a fresh client
++    call: Callable[[Any], Any]  # the public call that reaches the fetch point
++    ok_body: dict  # a body the fetch point accepts
++    stamp: str  # attribute holding the time of the last good fetch
++    failed_attempts: int  # requests one failed run makes with status 500
++
++
++def _ok(body):
++    """A 200 response carrying ``body``."""
++    response = MagicMock()
++    response.status_code = 200
++    response.text = json.dumps(body)
++    response.headers = {}
++    return response
++
++
++def _failing(status, headers=None):
++    """A response with ``status`` whose ``raise_for_status`` raises ``HTTPError``."""
++    response = MagicMock()
++    response.status_code = status
++    response.text = "{}"
++    response.headers = {} if headers is None else headers
++    response.raise_for_status.side_effect = requests.HTTPError(
++        str(status), response=response
++    )
++    return response
++
++
++def _owm():
++    return OWMClient(api_key="k", latitude=1.0, longitude=2.0, elevation=0)
++
++
++def _pirate():
++    return PirateWeatherClient("key", "1", 52.0, 5.0, 0)
++
++
++def _open_meteo():
++    return OpenMeteoClient(latitude=1.0, longitude=2.0)
++
++
++def _met_office():
++    return MetOfficeClient(api_key="k", latitude=1.0, longitude=2.0)
++
++
++_PIRATE_BODY = json.loads(_PIRATE_FIXTURE.read_text(encoding="utf-8"))
++
++CASES: list[GateCase] = [
++    GateCase(
++        "owm_data",
++        M + "OWMClient._SESSION.get",
++        _owm,
++        lambda c: c.get_data(),
++        twm.TestOWMClientCaching._CURRENT_BODY,
++        "_cached_data_at",
++        1,
++    ),
++    GateCase(
++        "owm_forecast",
++        M + "OWMClient._SESSION.get",
++        _owm,
++        lambda c: c.get_forecast_data(),
++        twm.TestOWMClientGetForecastData()._forecast_body(),
++        "_cached_forecast_at",
++        1,
++    ),
++    GateCase(
++        "pirate_data",
++        M + "PirateWeatherClient._SESSION.get",
++        _pirate,
++        lambda c: c.get_data(),
++        _PIRATE_BODY,
++        "_cached_data_at",
++        3,
++    ),
++    GateCase(
++        "pirate_forecast",
++        M + "PirateWeatherClient._SESSION.get",
++        _pirate,
++        lambda c: c.get_forecast_data(),
++        _PIRATE_BODY,
++        "_cached_forecast_at",
++        3,
++    ),
++    GateCase(
++        "openmeteo_doc",
++        M + "OpenMeteoClient._SESSION.get",
++        _open_meteo,
++        lambda c: c.get_forecast_data(),
++        {"hourly": {"time": []}, "daily": {"time": []}},
++        "_cached_doc_at",
++        1,
++    ),
++    GateCase(
++        "met_hourly",
++        M + "MetOfficeClient._SESSION.get",
++        _met_office,
++        lambda c: c.get_data(),
++        twm._met_doc([]),
++        "_cached_hourly_at",
++        1,
++    ),
++    GateCase(
++        "met_three_hourly",
++        M + "MetOfficeClient._SESSION.get",
++        _met_office,
++        lambda c: c.get_forecast_data(),
++        twm._met_doc([]),
++        "_cached_three_hourly_at",
++        1,
++    ),
++]
++
++
++@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
++def test_every_client_asks_the_shared_freshness_check(case):
++    client = case.make()
++    get = MagicMock(return_value=_ok(case.ok_body))
++    with patch(case.patch, get), patch(M + "fetch_gate.is_fresh", return_value=False):
++        case.call(client)
++        case.call(client)
++    # Without the shared check the second call is a cache hit.
++    assert get.call_count == 2
+diff --git a/tests/test_weather_fetch_gate.py b/tests/test_weather_fetch_gate.py
+new file mode 100644
+index 00000000..be411c83
+--- /dev/null
++++ b/tests/test_weather_fetch_gate.py
+@@ -0,0 +1,27 @@
++"""The freshness check the four weather clients share."""
++
++import datetime
++from datetime import timedelta
++
++from freezegun import freeze_time
++
++from custom_components.irrigation_plus.weathermodules.fetch_gate import (
++    cache_lifetime,
++    is_fresh,
++)
++
++
++def test_cache_lifetime_has_a_floor_of_sixty_seconds():
++    assert cache_lifetime(0) == 60
++    assert cache_lifetime(59) == 60
++    assert cache_lifetime(599) == 599
++
++
++@freeze_time("2026-10-23 12:00:00")
++def test_is_fresh_matches_the_clients_old_rule():
++    now = datetime.datetime.now()
++    assert is_fresh(None, 599, False) is False
++    assert is_fresh(now, 599, True) is False  # override_cache
++    assert is_fresh(now - timedelta(seconds=598), 599, False) is True
++    assert is_fresh(now - timedelta(seconds=599), 599, False) is False
++    assert is_fresh(now - timedelta(seconds=59), 0, False) is True  # floor

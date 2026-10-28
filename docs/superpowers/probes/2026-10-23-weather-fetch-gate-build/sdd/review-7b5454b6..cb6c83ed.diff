@@ -1,0 +1,704 @@
+# Review package: 7b5454b6b4ce37d52063f09ba83de5cc56e3733b..HEAD
+
+## Commits
+cb6c83ed fix(weather): a failed fetch pauses that document instead of being retried at once
+
+## Files changed
+ .../irrigation_plus/weathermodules/fetch_gate.py   | 159 +++++++++++++++-
+ tests/test_weather_clients_fetch_gate.py           |  98 +++++++++-
+ tests/test_weather_fetch_gate.py                   | 199 ++++++++++++++++++++-
+ 3 files changed, 439 insertions(+), 17 deletions(-)
+
+## Diff
+diff --git a/custom_components/irrigation_plus/weathermodules/fetch_gate.py b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+index 0aacc6e2..a3cb7271 100644
+--- a/custom_components/irrigation_plus/weathermodules/fetch_gate.py
++++ b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+@@ -1,65 +1,208 @@
+ """Rules the four weather clients share when they go to the network."""
+ 
++import copy
+ import datetime
++import logging
+ import threading
++import time
+ from collections.abc import Callable
+ from typing import Any, TypeVar
+ 
+ T = TypeVar("T")
+ 
++_LOGGER = logging.getLogger(__name__)
++
+ # Floor for how long a fetched result is reused, even when the caller's configured
+ # cache window is shorter (e.g. auto-update disabled → 0s). Repeated weather
+ # lookups — skip-condition checks, the dashboard outlook, the intra-day estimate —
+ # would otherwise each hit the network (and a DNS lookup); this caps them to at
+ # most one call per method per minute.
+ MIN_CACHE_SECONDS = 60
+ 
++# How long a fetch point stays shut after its first failed fetch. Every further
++# failure in a row doubles it, up to the cache lifetime (see ``_pause_left``).
++FIRST_PAUSE_SECONDS = 60
++
++# Doublings after which the cache lifetime has won in any case; keeps ``2 ** n``
++# small for a gate that has been failing for weeks.
++_MAX_DOUBLINGS = 16
++
++# Set on an exception the gate raises again in place of a fresh failure.
++_REPLAY_ATTR = "_fetch_gate_replay"
++
+ 
+ def cache_lifetime(cache_seconds: float) -> float:
+     """How long a fetched result is reused: the configured window, but at least the floor."""
+     return max(cache_seconds, MIN_CACHE_SECONDS)
+ 
+ 
+ def is_fresh(
+     fetched_at: datetime.datetime | None, cache_seconds: float, override_cache: bool
+ ) -> bool:
+     """Whether a result fetched at ``fetched_at`` may still be served cached."""
+     if fetched_at is None or override_cache:
+         return False
+     return datetime.datetime.now() < fetched_at + datetime.timedelta(
+         seconds=cache_lifetime(cache_seconds)
+     )
+ 
+ 
++def is_replay(exc: BaseException) -> bool:
++    """Whether ``exc`` is a failure the gate replayed, not a fresh one."""
++    return getattr(exc, _REPLAY_ATTR, False)
++
++
++def _replayable_copy(exc: Exception) -> Exception | None:
++    """A copy of ``exc`` marked as a replay, or None where it cannot be copied.
++
++    A copy carries no traceback, so replaying it again and again does not grow
++    one, and callers in several threads never share an instance.
++    """
++    try:
++        again = copy.copy(exc)
++        setattr(again, _REPLAY_ATTR, True)
++    except Exception:  # noqa: BLE001 -- any exception class may refuse a copy
++        return None
++    return again
++
++
+ class FetchGate:
+     """The door in front of one fetch point: one caller at a time goes through.
+ 
+     ``owner`` is the client and ``stamp_attr`` the name of the attribute that holds
+-    the time of its last good fetch at this point.
++    the time of its last good fetch at this point. After a failed fetch the door
++    stays shut for a while and hands the callers behind it that failure's outcome
++    instead of asking the service again.
+     """
+ 
+     def __init__(self, owner: Any, stamp_attr: str) -> None:
+         """Init."""
+         self._owner = owner
+         self._stamp_attr = stamp_attr
+         self._lock = threading.Lock()
++        self._failures = 0  # failed runs in a row
++        self._failed_at: float | None = None  # time.monotonic() of the latest one
++        self._outcome: tuple[bool, Any] | None = None  # (raised, value) of it
++        self._retry_after = 0.0  # seconds a response asked us to wait; 0 = none
+ 
+     def run(self, fetch: Callable[[], T]) -> T:
+         """Run ``fetch`` with every other caller of this gate held back."""
+         # Wurzel: the clients are called from several executor threads at once --
+         #   every sensor refresh, skip check and outlook asks for the same
+         #   document. Each caller checked the cache, found it empty and went to
+         #   the network itself: on the test install 1 get_data and 18
+         #   get_forecast_data requests left within 0.6 s, on a metered key.
+         # Fix-Logik: one lock per fetch point. ``fetch`` begins with its own
+         #   freshness check, and that check now runs inside the lock, so a caller
+         #   that waited finds the entry the first one stored and is served from
+-        #   it -- one request per document.
+-        # NOT-TO-DO: no ``asyncio`` lock -- the clients run only in executor
+-        #   threads, never on the event loop, and an ``asyncio`` lock does not
+-        #   hold threads back. No lock around the request alone either: the parse
+-        #   and the timestamp come after it, so the waiters would wake to a cache
+-        #   that is still empty and fetch again.
++        #   it -- one request per document. A caller that waited behind a failed
++        #   fetch finds the pause (below) and is handed that failure's outcome,
++        #   so a failure is not retried once per waiter either.
++        # NOT-TO-DO: no ``asyncio`` lock -- every path that reaches a gate runs
++        #   in an executor thread, and an ``asyncio`` lock does not hold threads
++        #   back. Not every client method stays off the event loop: live_estimate.py
++        #   calls get_hourly_precipitation_forecast and get_hourly_temperature_forecast
++        #   there. That is safe only because those accessors read stored
++        #   documents and never reach a gate; a gate must never be reached from
++        #   such an accessor, or a waiting caller would block the loop. No lock
++        #   around the request alone either: the parse and the timestamp come
++        #   after it, so the waiters would wake to a cache that is still empty
++        #   and fetch again.
+         # siehe test_weather_clients_fetch_gate.py::test_concurrent_callers_make_one_request
++        #   und ::test_concurrent_callers_during_an_outage_share_one_failed_run
+         with self._lock:
+-            return fetch()
++            owner = self._owner
++            before = getattr(owner, self._stamp_attr)
++            was_fresh = is_fresh(before, owner.cache_seconds, owner.override_cache)
++            # ``override_cache`` means "hand out nothing stored", and a stored
++            # failure is stored too: it asks the service every time.
++            if not was_fresh and not owner.override_cache:
++                seconds_left = self._pause_left()
++                if seconds_left > 0:
++                    return self._replay(seconds_left)
++            try:
++                result = fetch()
++            except Exception as exc:
++                self._settle(before, was_fresh, raised=True, value=exc)
++                raise
++            self._settle(before, was_fresh, raised=False, value=result)
++            return result
++
++    def _settle(self, before: Any, was_fresh: bool, raised: bool, value: Any) -> None:
++        """Note how the run that has just ended went: a good fetch or a failure."""
++        # Wurzel: the fetch points fail in three different ways -- an exception, a
++        #   None after a non-200 status, a None after an incomplete document --
++        #   and only the exception says so. What they have in common is that none
++        #   of them leaves a new timestamp.
++        # Fix-Logik: a run that went to the network (the entry was not fresh when
++        #   it began) and left no new timestamp is a failure; a new timestamp is a
++        #   success and clears the count. A run served from the cache -- a caller
++        #   that waited for the one that fetched -- is neither.
++        # NOT-TO-DO: no list of status codes and exception types. It would have to
++        #   be kept per client, and it would miss exactly the quiet None branches
++        #   that today's code already treats as "nothing fetched".
++        # siehe test_weather_clients_fetch_gate.py::test_a_failed_fetch_pauses_its_gate
++        #   und test_weather_fetch_gate.py::test_waiters_served_from_cache_do_not_count_as_failures
++        if getattr(self._owner, self._stamp_attr) != before:
++            self._failures = 0
++            self._failed_at = None
++            self._outcome = None
++        elif not was_fresh:
++            self._failures += 1
++            # Wurzel: the pause measures a duration, not a time of day. A wall
++            #   clock jumps when the clocks go back or the system time is set.
++            # Fix-Logik: ``time.monotonic()``, called here and in ``_pause_left``
++            #   at the moment it is needed.
++            # NOT-TO-DO: not ``datetime.datetime.now()`` -- the freshness check
++            #   keeps it because the success path must not change; two clocks in
++            #   one module is the price. And never bind ``time.monotonic`` to a
++            #   name or a default argument: freezegun moves it with ``tick()``
++            #   only when the call goes through the ``time`` module.
++            # siehe test_weather_fetch_gate.py::test_the_pause_runs_on_the_monotonic_clock
++            self._failed_at = time.monotonic()
++            self._outcome = (raised, value)
++
++    def _pause_left(self) -> float:
++        """Seconds the pause after the latest failure still runs; 0 where there is none."""
++        if self._failed_at is None:
++            return 0.0
++        # Wurzel: callers come every few seconds (6-7 lookups every 10-30 s on
++        #   the production install). A pause of a fixed 60 s asks 1440 times a
++        #   day in an outage, ten times the 144 of normal operation at 10 min;
++        #   Met Office's free tier allows 360 calls a day and has two gates.
++        # Fix-Logik: 60 s, doubled with every further failure in a row, capped at
++        #   the cache lifetime -- the failure path never asks more often than
++        #   normal operation does. It is worked out at every check from the
++        #   owner's current ``cache_seconds`` instead of being stored as a
++        #   deadline, so a changed update interval takes effect at once.
++        # NOT-TO-DO: no fixed 60 s (above). No pause of a whole cache window from
++        #   the first failure either: one blip would then cost a full window, a
++        #   whole day with daily updates.
++        # siehe test_weather_fetch_gate.py::test_consecutive_failures_double_the_pause_up_to_the_cache_lifetime
++        #   und ::test_a_shorter_update_interval_shortens_a_running_pause
++        pause = min(
++            FIRST_PAUSE_SECONDS * 2 ** min(self._failures - 1, _MAX_DOUBLINGS),
++            cache_lifetime(self._owner.cache_seconds),
++        )
++        return max(0.0, self._failed_at + pause - time.monotonic())
++
++    def _replay(self, seconds_left: float) -> Any:
++        """Hand back the outcome of the failure that began the pause: no request."""
++        raised, value = self._outcome
++        _LOGGER.debug(
++            "%s %s: %d failed fetch(es) in a row, no request for another %.0f s;"
++            " replaying the last outcome",
++            type(self._owner).__name__,
++            self._stamp_attr,
++            self._failures,
++            seconds_left,
++        )
++        if not raised:
++            return value
++        replayed = _replayable_copy(value)
++        if replayed is None:
++            # An exception that cannot be copied keeps its type: mark the
++            # instance itself and raise it with a clean traceback.
++            setattr(value, _REPLAY_ATTR, True)
++            replayed = value.with_traceback(None)
++        raise replayed
+diff --git a/tests/test_weather_clients_fetch_gate.py b/tests/test_weather_clients_fetch_gate.py
+index dd44b5ce..4603d77c 100644
+--- a/tests/test_weather_clients_fetch_gate.py
++++ b/tests/test_weather_clients_fetch_gate.py
+@@ -10,20 +10,21 @@ import dataclasses
+ import json
+ import pathlib
+ import threading
+ import time
+ from collections.abc import Callable
+ from typing import Any
+ from unittest.mock import MagicMock, patch
+ 
+ import pytest
+ import requests
++from freezegun import freeze_time
+ 
+ from custom_components.irrigation_plus.weathermodules.MetOfficeClient import (
+     MetOfficeClient,
+ )
+ from custom_components.irrigation_plus.weathermodules.OpenMeteoClient import (
+     OpenMeteoClient,
+ )
+ from custom_components.irrigation_plus.weathermodules.OWMClient import OWMClient
+ from custom_components.irrigation_plus.weathermodules.PirateWeatherClient import (
+     PirateWeatherClient,
+@@ -161,30 +162,32 @@ CASES: list[GateCase] = [
+ def test_every_client_asks_the_shared_freshness_check(case):
+     client = case.make()
+     get = MagicMock(return_value=_ok(case.ok_body))
+     with patch(case.patch, get), patch(M + "fetch_gate.is_fresh", return_value=False):
+         case.call(client)
+         case.call(client)
+     # Without the shared check the second call is a cache hit.
+     assert get.call_count == 2
+ 
+ 
+-@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+-def test_concurrent_callers_make_one_request(case):
+-    client = case.make()
++def _five_callers_at_once(case, client, response):
++    """Five threads call at once; the request is held back until all have arrived.
++
++    Returns the session mock and what each caller returned or raised.
++    """
+     release = threading.Event()
+     results: list = []
+ 
+     def slow_get(*args, **kwargs):
+         # Bounded wait: a gate that never opens must fail the test, not hang it.
+         release.wait(timeout=5)
+-        return _ok(case.ok_body)
++        return response
+ 
+     get = MagicMock(side_effect=slow_get)
+ 
+     def caller():
+         try:
+             results.append(case.call(client))
+         except Exception as ex:
+             results.append(ex)
+ 
+     threads = [threading.Thread(target=caller, daemon=True) for _ in range(5)]
+@@ -195,14 +198,101 @@ def test_concurrent_callers_make_one_request(case):
+             deadline = time.monotonic() + 5
+             while get.call_count < 1 and time.monotonic() < deadline:
+                 time.sleep(0.01)
+             time.sleep(0.2)  # time for the other four to reach the gate
+         finally:
+             release.set()
+             for thread in threads:
+                 thread.join(timeout=5)
+ 
+     assert not any(thread.is_alive() for thread in threads)
++    return get, results
++
++
++@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
++def test_concurrent_callers_make_one_request(case):
++    client = case.make()
++    get, results = _five_callers_at_once(case, client, _ok(case.ok_body))
++
+     assert get.call_count == 1
+     assert getattr(client, case.stamp) is not None
+     assert len(results) == 5
+     assert len({repr(r) for r in results}) == 1  # everyone got the same answer
++
++
++@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
++def test_concurrent_callers_during_an_outage_share_one_failed_run(case):
++    client = case.make()
++    get, results = _five_callers_at_once(case, client, _failing(500))
++
++    # The callers behind the failed run must not each make their own request:
++    # they get the failure's outcome, the same one the first caller got.
++    assert get.call_count == case.failed_attempts
++    assert getattr(client, case.stamp) is None
++    assert len(results) == 5
++    assert len({repr(r) for r in results}) == 1
++
++
++def _outcome(case, client):
++    """What a caller sees: the value it got, or the type and message it was thrown."""
++    try:
++        return ("returned", case.call(client))
++    except Exception as ex:
++        return ("raised", type(ex), str(ex))
++
++
++@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
++def test_a_failed_fetch_pauses_its_gate(case):
++    client = case.make()
++    get = MagicMock(return_value=_failing(500))
++    with freeze_time("2026-10-23 12:00:00") as frozen, patch(case.patch, get):
++        first = _outcome(case, client)
++        assert get.call_count == case.failed_attempts
++        assert getattr(client, case.stamp) is None  # a failure leaves no timestamp
++
++        frozen.tick(30)
++        assert _outcome(case, client) == first  # same result, no request
++        assert get.call_count == case.failed_attempts
++
++        frozen.tick(31)
++        _outcome(case, client)
++        assert get.call_count == 2 * case.failed_attempts
++
++
++_CASE_BY_ID = {case.id: case for case in CASES}
++
++
++@pytest.mark.parametrize(
++    "paused_id, free_id",
++    [("owm_forecast", "owm_data"), ("met_three_hourly", "met_hourly")],
++)
++def test_a_paused_forecast_does_not_hold_up_current_conditions(paused_id, free_id):
++    paused, free = _CASE_BY_ID[paused_id], _CASE_BY_ID[free_id]
++    client = paused.make()
++    get = MagicMock(return_value=_failing(500))
++    with freeze_time("2026-10-23 12:00:00"), patch(paused.patch, get):
++        _outcome(paused, client)
++        assert get.call_count == paused.failed_attempts
++
++        get.return_value = _ok(free.ok_body)
++        free.call(client)
++        assert get.call_count == paused.failed_attempts + 1  # the other door is open
++        assert getattr(client, free.stamp) is not None
++
++        get.return_value = _failing(500)
++        _outcome(paused, client)
++        assert get.call_count == paused.failed_attempts + 1  # this one is still shut
++
++
++def test_validate_key_ignores_a_running_pause():
++    case = _CASE_BY_ID["owm_data"]
++    client = case.make()
++    get = MagicMock(return_value=_failing(500))
++    with freeze_time("2026-10-23 12:00:00"), patch(case.patch, get):
++        _outcome(case, client)
++        assert get.call_count == 1
++        _outcome(case, client)
++        assert get.call_count == 1  # paused
++
++        get.return_value = _ok({"cod": 200})
++        client.validate_key()
++        assert get.call_count == 2  # the key check always asks
+diff --git a/tests/test_weather_fetch_gate.py b/tests/test_weather_fetch_gate.py
+index cac164be..e6698af9 100644
+--- a/tests/test_weather_fetch_gate.py
++++ b/tests/test_weather_fetch_gate.py
+@@ -1,16 +1,18 @@
+ """The freshness check the four weather clients share."""
+ 
+ import datetime
++import logging
+ import threading
+ import time
+ from datetime import timedelta
++from unittest.mock import patch
+ 
+ import pytest
+ from freezegun import freeze_time
+ 
+ from custom_components.irrigation_plus.weathermodules import fetch_gate
+ from custom_components.irrigation_plus.weathermodules.fetch_gate import (
+     cache_lifetime,
+     is_fresh,
+ )
+ 
+@@ -33,47 +35,49 @@ def test_is_fresh_matches_the_clients_old_rule():
+ 
+ class _Owner:
+     """What a gate needs from a client: the cache settings, a stamp, a fetch point."""
+ 
+     def __init__(self):
+         self.cache_seconds = 600
+         self.override_cache = False
+         self.stamp = None
+         self.cached = None
+         self.calls = 0  # requests that actually went out
++        self.delay = 0.2  # how long ``fetch_ok`` takes
++        self.error = lambda: ValueError("boom")  # what ``fetch_raise`` raises
+ 
+     def _serve_cached(self):
+         return fetch_gate.is_fresh(self.stamp, self.cache_seconds, self.override_cache)
+ 
+     def fetch_ok(self):
+         """Serve the cache while fresh, else make one slow request and keep it."""
+         if self._serve_cached():
+             return self.cached
+         self.calls += 1
+-        time.sleep(0.2)  # long enough for the other thread to arrive meanwhile
++        time.sleep(self.delay)  # long enough for the other thread to arrive meanwhile
+         self.cached = "document"
+         self.stamp = datetime.datetime.now()
+         return self.cached
+ 
+     def fetch_none(self):
+         """Like ``fetch_ok``, but the request yields nothing and nothing is kept."""
+         if self._serve_cached():
+             return self.cached
+         self.calls += 1
+         return None
+ 
+     def fetch_raise(self):
+         """Like ``fetch_ok``, but the request fails and nothing is kept."""
+         if self._serve_cached():
+             return self.cached
+         self.calls += 1
+-        raise ValueError("boom")
++        raise self.error()
+ 
+ 
+ def _in_threads(*calls):
+     """Run each call in its own thread; return what each one returned or raised."""
+     results = [None] * len(calls)
+ 
+     def worker(index, call):
+         try:
+             results[index] = call()
+         except Exception as ex:
+@@ -96,31 +100,32 @@ def test_run_serialises_two_threads_onto_one_fetch():
+     owner = _Owner()
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     results = _in_threads(
+         lambda: gate.run(owner.fetch_ok), lambda: gate.run(owner.fetch_ok)
+     )
+     assert owner.calls == 1
+     assert results == ["document", "document"]
+ 
+ 
+ def test_run_hands_back_what_the_fetch_returned():
++    # One gate each: after a failed fetch a gate pauses, and this is not about that.
+     owner = _Owner()
+-    gate = fetch_gate.FetchGate(owner, "stamp")
+-    assert gate.run(owner.fetch_none) is None
+-    assert gate.run(owner.fetch_ok) == "document"
++    assert fetch_gate.FetchGate(owner, "stamp").run(owner.fetch_none) is None
++    assert fetch_gate.FetchGate(owner, "stamp").run(owner.fetch_ok) == "document"
+ 
+ 
+ def test_run_lets_an_exception_through_and_lets_the_next_caller_in():
+     owner = _Owner()
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     with pytest.raises(ValueError, match="boom"):
+         gate.run(owner.fetch_raise)
++    owner.override_cache = True  # the pause after the failure is not what this is about
+     # A lock left held by the failed run would hang this call.
+     assert _in_threads(lambda: gate.run(owner.fetch_ok)) == ["document"]
+ 
+ 
+ def test_two_gates_do_not_wait_for_each_other():
+     owner = _Owner()
+     first = fetch_gate.FetchGate(owner, "stamp")
+     second = fetch_gate.FetchGate(owner, "stamp")
+     inside = threading.Event()
+     release = threading.Event()
+@@ -132,10 +137,194 @@ def test_two_gates_do_not_wait_for_each_other():
+ 
+     holder = threading.Thread(target=lambda: first.run(hold))
+     holder.start()
+     try:
+         assert inside.wait(timeout=5)
+         assert _in_threads(lambda: second.run(lambda: "free")) == ["free"]
+     finally:
+         release.set()
+         holder.join(timeout=5)
+     assert not holder.is_alive()
++
++
++class _Picky(Exception):
++    """An exception ``copy.copy`` cannot rebuild: its constructor wants a keyword."""
++
++    def __init__(self, text, *, code):
++        super().__init__(text)
++        self.code = code
++
++
++def _gaps(gate, owner, fetch, frozen, requests):
++    """Seconds between the real requests when a caller asks once a second."""
++    moments = []
++    for second in range(5000):
++        before = owner.calls
++        gate.run(fetch)
++        if owner.calls > before:
++            moments.append(second)
++            if len(moments) == requests:
++                break
++        frozen.tick(1)
++    assert len(moments) == requests
++    return [
++        later - earlier for earlier, later in zip(moments, moments[1:], strict=False)
++    ]
++
++
++def test_a_failure_is_replayed_without_a_fetch_during_the_pause():
++    owner = _Owner()
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        assert gate.run(owner.fetch_none) is None
++        assert owner.calls == 1
++        frozen.tick(59)
++        assert gate.run(owner.fetch_none) is None
++        assert owner.calls == 1
++        frozen.tick(2)
++        assert gate.run(owner.fetch_none) is None
++        assert owner.calls == 2
++
++
++def test_a_raised_failure_is_replayed_with_its_type_and_message():
++    owner = _Owner()
++    owner.error = lambda: OSError("down")
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        with pytest.raises(OSError, match="down") as real:
++            gate.run(owner.fetch_raise)
++        frozen.tick(30)
++        with pytest.raises(OSError, match="down") as replayed:
++            gate.run(owner.fetch_raise)
++        with pytest.raises(OSError, match="down") as replayed_again:
++            gate.run(owner.fetch_raise)
++    assert owner.calls == 1
++    assert fetch_gate.is_replay(replayed.value)
++    assert not fetch_gate.is_replay(real.value)  # the real failure is not marked
++    assert replayed.value is not real.value
++    assert replayed_again.value is not replayed.value  # no traceback piling up
++
++
++def test_replay_of_an_uncopyable_exception_keeps_its_type():
++    owner = _Owner()
++    owner.error = lambda: _Picky("odd", code=7)
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        with pytest.raises(_Picky, match="odd"):
++            gate.run(owner.fetch_raise)
++        frozen.tick(30)
++        with pytest.raises(_Picky, match="odd") as replayed:
++            gate.run(owner.fetch_raise)
++    assert owner.calls == 1
++    assert fetch_gate.is_replay(replayed.value)
++
++
++def test_consecutive_failures_double_the_pause_up_to_the_cache_lifetime():
++    owner = _Owner()
++    owner.cache_seconds = 599
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        gaps = _gaps(gate, owner, owner.fetch_none, frozen, requests=7)
++    assert gaps == [60, 120, 240, 480, 599, 599]
++
++
++def test_without_auto_update_the_pause_stays_at_sixty_seconds():
++    owner = _Owner()
++    owner.cache_seconds = 0
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        gaps = _gaps(gate, owner, owner.fetch_none, frozen, requests=4)
++    assert gaps == [60, 60, 60]
++
++
++def test_a_success_resets_the_backoff():
++    owner = _Owner()
++    owner.delay = 0
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        gate.run(owner.fetch_none)  # failure 1: pause 60
++        frozen.tick(60)
++        gate.run(owner.fetch_none)  # failure 2: pause 120
++        frozen.tick(120)
++        assert gate.run(owner.fetch_ok) == "document"  # success
++        frozen.tick(601)  # the entry has aged out
++        calls = owner.calls
++        gate.run(owner.fetch_none)  # one failure again, not the third in a row
++        frozen.tick(59)
++        gate.run(owner.fetch_none)
++        assert owner.calls == calls + 1
++        frozen.tick(2)
++        gate.run(owner.fetch_none)
++        assert owner.calls == calls + 2
++
++
++def test_override_cache_bypasses_the_pause():
++    owner = _Owner()
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00"):
++        gate.run(owner.fetch_none)
++        gate.run(owner.fetch_none)
++        assert owner.calls == 1  # paused
++        owner.override_cache = True
++        gate.run(owner.fetch_none)
++        gate.run(owner.fetch_none)
++        assert owner.calls == 3
++
++
++def test_waiters_served_from_cache_do_not_count_as_failures():
++    owner = _Owner()
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    results = _in_threads(
++        lambda: gate.run(owner.fetch_ok), lambda: gate.run(owner.fetch_ok)
++    )
++    assert results == ["document", "document"]
++    assert owner.calls == 1
++    assert gate._failed_at is None
++    assert gate._failures == 0
++
++
++def test_a_shorter_update_interval_shortens_a_running_pause():
++    owner = _Owner()
++    owner.cache_seconds = 3599
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        gate.run(owner.fetch_none)
++        frozen.tick(60)
++        gate.run(owner.fetch_none)
++        frozen.tick(120)
++        gate.run(owner.fetch_none)  # the third failure: pause 240
++        assert owner.calls == 3
++        owner.cache_seconds = 0  # auto-update switched off: the pause is 60 now
++        frozen.tick(61)
++        gate.run(owner.fetch_none)
++        assert owner.calls == 4
++
++
++def test_the_pause_runs_on_the_monotonic_clock():
++    owner = _Owner()
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    clock = [5000.0]
++    # No freezegun here: only ``time.monotonic`` moves, the wall clock does not.
++    with patch.object(time, "monotonic", lambda: clock[0]):
++        gate.run(owner.fetch_none)
++        clock[0] += 59
++        gate.run(owner.fetch_none)
++        assert owner.calls == 1
++        clock[0] += 2
++        gate.run(owner.fetch_none)
++        assert owner.calls == 2
++
++
++def test_a_replay_logs_one_debug_line_and_nothing_louder(caplog):
++    owner = _Owner()
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with (
++        freeze_time("2026-10-23 12:00:00") as frozen,
++        caplog.at_level(logging.DEBUG, logger=fetch_gate.__name__),
++    ):
++        gate.run(owner.fetch_none)  # the real failure: the client logs it
++        frozen.tick(30)
++        gate.run(owner.fetch_none)  # the replay
++    records = [r for r in caplog.records if r.name == fetch_gate.__name__]
++    assert [r.levelno for r in records] == [logging.DEBUG]
++    text = records[0].getMessage()
++    assert "_Owner" in text and "stamp" in text and "30" in text

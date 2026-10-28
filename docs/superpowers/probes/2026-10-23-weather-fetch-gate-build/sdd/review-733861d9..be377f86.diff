@@ -1,0 +1,269 @@
+### commit
+be377f86 fix(weather): callers that waited through a failure are handed it, however long it took
+
+With the backoff counted from the start of the failed run, a run that
+outlasts its own backoff -- a 60 s timeout, and Pirate Weather tries three
+times -- ends with its pause already over, and every caller that had been
+waiting on the lock meanwhile went to the network in turn. A caller now
+notes when it arrived, before taking the lock; one that arrived before the
+latest failure ended waited through it and is handed its outcome like the
+others, whether or not the pause has run out.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+### stat
+ .../irrigation_plus/weathermodules/fetch_gate.py   | 49 ++++++++++++++++------
+ tests/test_weather_fetch_gate.py                   | 34 +++++++++++++++
+ 2 files changed, 70 insertions(+), 13 deletions(-)
+### diff
+diff --git a/custom_components/irrigation_plus/weathermodules/fetch_gate.py b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+index c2ecf68d..1d8e766b 100644
+--- a/custom_components/irrigation_plus/weathermodules/fetch_gate.py
++++ b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+@@ -147,67 +147,73 @@ class FetchGate:
+     def __init__(self, owner: Any, stamp_attr: str) -> None:
+         """Init."""
+         self._owner = owner
+         self._stamp_attr = stamp_attr
+         self._lock = threading.Lock()
+         self._failures = 0  # failed runs in a row
+         # time.monotonic() at which the latest one began
+         self._failed_at: float | None = None
+         # (raised, value) of it; an exception is kept as a copy without traceback
+         self._outcome: tuple[bool, Any] | None = None
+         # time.monotonic() before which its response asked us not to come back
+         self._asked_until: float | None = None
++        # time.monotonic() at which it ended; a caller that arrived earlier waited
++        # through it
++        self._settled_at: float | None = None
+         self._response: Any = None  # latest response of the run in progress
+ 
+     def note_response(self, response: Any) -> None:
+         """Remember ``response``, the answer to the request the fetch has just made.
+ 
+         For a fetch body that does not let the response out when the status is bad
+         (it returns None or raises an error that does not carry it): the pause
+         then still finds its ``Retry-After``. Called from inside ``fetch``, so
+         under the lock and in the thread that runs it; the latest call wins.
+         """
+         self._response = response
+ 
+     def run(self, fetch: Callable[[], T]) -> T:
+         """Run ``fetch`` with every other caller of this gate held back."""
+         # Wurzel: the clients are called from several executor threads at once --
+         #   every sensor refresh, skip check and outlook asks for the same
+         #   document. Each caller checked the cache, found it empty and went to
+         #   the network itself: measured on one live install (Pirate Weather,
+         #   9 zones × 2 schedules), 1 get_data and 18 get_forecast_data requests
+         #   left within 0.6 s, on a metered key.
+         # Fix-Logik: one lock per fetch point. ``fetch`` begins with its own
+         #   freshness check, and that check now runs inside the lock, so a caller
+         #   that waited finds the entry the first one stored and is served from
+         #   it -- one request per document. A caller that waited behind a failed
+-        #   fetch finds the pause (below) and is handed that failure's outcome,
+-        #   so a failure is not retried once per waiter either.
++        #   fetch is handed that failure's outcome, so a failure is not retried
++        #   once per waiter either: it notes when it arrived, before taking the
++        #   lock, and a failure that ended after that is one it waited through
++        #   (``_waited_through_failure``) -- whether or not the pause is over.
+         # NOT-TO-DO: no ``asyncio`` lock -- every path that reaches a gate runs
+         #   in an executor thread, and an ``asyncio`` lock does not hold threads
+         #   back. The hourly accessors that run on the event loop only read
+         #   stored documents and must never reach a gate. No lock around the
+         #   request alone either: the parse and the timestamp come after it, so
+         #   the waiters would wake to a cache that is still empty and fetch again.
+         # siehe test_weather_clients_fetch_gate.py::test_concurrent_callers_make_one_request
+         #   und ::test_concurrent_callers_during_an_outage_share_one_failed_run
++        arrived = time.monotonic()
+         with self._lock:
+             owner = self._owner
+             before = getattr(owner, self._stamp_attr)
+             was_fresh = is_fresh(before, owner.cache_seconds, owner.override_cache)
+             # ``override_cache`` means "hand out nothing stored", and a stored
+             # failure is stored too: it asks the service every time.
+             if not was_fresh and not owner.override_cache:
+                 seconds_left = self._pause_left()
+-                if seconds_left > 0:
++                if seconds_left > 0 or self._waited_through_failure(arrived):
+                     return self._replay(seconds_left)
+             self._response = None
+             started = time.monotonic()
+             try:
+                 result = fetch()
+             except Exception as exc:
+                 self._settle(before, was_fresh, started, raised=True, value=exc)
+                 raise
+             self._settle(before, was_fresh, started, raised=False, value=result)
+             return result
+ 
+     def _settle(
+@@ -224,54 +230,58 @@ class FetchGate:
+         #   that waited for the one that fetched -- is neither.
+         # NOT-TO-DO: no list of status codes and exception types. It would have to
+         #   be kept per client, and it would miss exactly the quiet None branches
+         #   that today's code already treats as "nothing fetched".
+         # siehe test_weather_clients_fetch_gate.py::test_a_failed_fetch_pauses_its_gate
+         #   und test_weather_fetch_gate.py::test_waiters_served_from_cache_do_not_count_as_failures
+         response, self._response = self._response, None  # not kept past this run
+         if getattr(self._owner, self._stamp_attr) != before:
+             self._failures = 0
+             self._failed_at = None
+             self._outcome = None
+             self._asked_until = None
++            self._settled_at = None
+         elif not was_fresh:
+             self._failures += 1
+             # Wurzel: the pause measures a duration, not a time of day. A wall
+             #   clock jumps when the clocks go back or the system time is set.
+             #   And cycles come one cache window apart, start to start, while a
+             #   failed run can take its time: Pirate Weather's three tries, 1 s
+             #   and 2 s apart, took a good 3 s on a live install, so a pause
+             #   counted from the end of the run still had 2 s to go when the next
+             #   cycle came, and a capped gate asked only every second cycle.
+-            # Fix-Logik: ``time.monotonic()``, called in ``run`` and in
+-            #   ``_pause_left`` at the moment it is needed; the backoff counts
+-            #   from the start of the failed run, like the cycle does. What a
+-            #   response asked for counts from that response (``_asked_until``).
++            # Fix-Logik: ``time.monotonic()``, read at the moment it is needed (in
++            #   ``run``, here and in ``_pause_left``); the backoff counts from the
++            #   start of the failed run, like the cycle does. What a response
++            #   asked for counts from that response (``_asked_until``), and the
++            #   callers that waited through the run are told by its end
++            #   (``_settled_at``), not by the pause.
+             # NOT-TO-DO: not ``datetime.datetime.now()`` -- the freshness check
+             #   keeps it because the success path must not change; two clocks in
+             #   one module is the price. And never bind ``time.monotonic`` to a
+             #   name or a default argument: freezegun moves it with ``tick()``
+             #   only when the call goes through the ``time`` module. Do not count
+             #   ``Retry-After`` from the start as well: it would ask a service
+-            #   that named a wait again that many seconds too early.
++            #   that named a wait again as many seconds too early as the run took.
+             # siehe test_weather_fetch_gate.py::test_the_pause_runs_on_the_monotonic_clock,
+-            #   ::test_the_backoff_counts_from_the_start_of_the_failed_run
+-            #   und ::test_retry_after_counts_from_the_answer
++            #   ::test_the_backoff_counts_from_the_start_of_the_failed_run,
++            #   ::test_retry_after_counts_from_the_answer
++            #   und ::test_waiters_behind_a_slow_failure_share_it
+             self._failed_at = started
++            ended = time.monotonic()
++            self._settled_at = ended
+             # What the response of this failure asked for; see ``_pause_left``.
+             asked = self._asked_wait(response, raised, value)
+             self._asked_until = (
+-                time.monotonic() + min(asked, MAX_RETRY_AFTER_SECONDS)
+-                if asked > 0
+-                else None
++                ended + min(asked, MAX_RETRY_AFTER_SECONDS) if asked > 0 else None
+             )
+             # Wurzel: the exception that failed the run carries its traceback, and
+             #   that holds every frame of the fetch and what was in them (a
+             #   response body, a parsed document) for as long as the outcome is
+             #   kept -- until the next fetch, up to a whole cache window. The first
+             #   caller also still holds the real exception and logs it; a replay
+             #   that marked that very instance would turn a real failure into a
+             #   DEBUG line.
+             # Fix-Logik: keep a copy, made now; each replay raises a fresh copy of it
+             #   (see ``_replay``). The copy has no traceback of its own, which lets
+             #   go of the fetch's frames. The real exception goes to the first
+             #   caller untouched. Where no copy can be made it is kept as it is.
+@@ -291,24 +301,37 @@ class FetchGate:
+                 if kept is not None:
+                     value = kept
+             self._outcome = (raised, value)
+ 
+     @staticmethod
+     def _asked_wait(response: Any, raised: bool, value: Any) -> float:
+         """Seconds the failed run's response asked us to wait; 0 where it did not."""
+         asked = [retry_after_seconds(response)]  # noted by a body that hides it
+         if raised:  # an HTTPError carries its response
+             asked.append(retry_after_seconds(getattr(value, "response", None)))
+         return max((seconds for seconds in asked if seconds is not None), default=0.0)
+ 
++    def _waited_through_failure(self, arrived: float) -> bool:
++        """Whether a caller that arrived at ``arrived`` waited through the latest failure."""
++        # Wurzel: the backoff counts from the start of the failed run, and a run
++        #   can outlast it -- a 60 s timeout, and Pirate Weather tries three
++        #   times. Its pause is then over the moment it ends, and every caller
++        #   that waited on the lock meanwhile would go to the network in turn.
++        # Fix-Logik: a caller that arrived before the failure ended was one of
++        #   those waiting for it, and is handed its outcome like the others.
++        # NOT-TO-DO: no margin added to the pause after the run's end: a guess at
++        #   how quickly the waiters wake, where their arrival is known exactly.
++        # siehe test_weather_fetch_gate.py::test_waiters_behind_a_slow_failure_share_it
++        return self._settled_at is not None and arrived < self._settled_at
++
+     def _pause_left(self) -> float:
+         """Seconds the pause after the latest failure still runs; 0 where there is none."""
+         if self._failed_at is None:
+             return 0.0
+         # Wurzel: callers come every few seconds (6-7 lookups every 10-30 s,
+         #   measured on one live install: OpenWeatherMap, 3 zones × 1 schedule).
+         #   A pause of a fixed 60 s asks 1440 times a day in an outage, ten times
+         #   the 144 of normal operation at 10 min; Met Office's free tier allows
+         #   360 calls a day and has two gates.
+         # Fix-Logik: 60 s, doubled with every further failure in a row, capped at
+         #   the cache lifetime -- the failure path never asks more often than
+         #   normal operation does. It is worked out at every check from the
+diff --git a/tests/test_weather_fetch_gate.py b/tests/test_weather_fetch_gate.py
+index c6df021f..92d95dc5 100644
+--- a/tests/test_weather_fetch_gate.py
++++ b/tests/test_weather_fetch_gate.py
+@@ -416,24 +416,58 @@ def test_the_backoff_counts_from_the_start_of_the_failed_run():
+     clock = [5000.0]
+     fetch = _slow_failure(owner, clock, 3)
+     with patch.object(time, "monotonic", lambda: clock[0]):
+         gate.run(fetch)  # begins at 5000, fails at 5003
+         clock[0] = 5000 + 59
+         gate.run(fetch)
+         assert owner.calls == 1
+         clock[0] = 5000 + 60.5  # 60 s after the start, 57.5 s after the end
+         gate.run(fetch)
+         assert owner.calls == 2
+ 
+ 
++def test_waiters_behind_a_slow_failure_share_it():
++    # A failed run can outlast its own backoff (a 60 s timeout, three tries); with
++    # the backoff counted from its start the pause is over when it ends. The
++    # callers that waited on the lock meanwhile are handed its outcome all the
++    # same: each of them would otherwise go to the network in turn.
++    owner = _Owner()
++    owner.cache_seconds = 599
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    clock = [5000.0]
++    began, release = threading.Event(), threading.Event()
++
++    def slow_failure():
++        owner.calls += 1
++        began.set()
++        release.wait(timeout=5)
++        clock[0] += 61  # longer than the first backoff of 60 s
++        return None
++
++    with patch.object(time, "monotonic", lambda: clock[0]):
++        first = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
++        waiter = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
++        try:
++            first.start()
++            assert began.wait(timeout=5)
++            waiter.start()  # arrives while the failure is still running
++            time.sleep(0.1)  # real time: let it reach the lock
++        finally:
++            release.set()
++            first.join(timeout=5)
++            waiter.join(timeout=5)
++        assert not first.is_alive() and not waiter.is_alive()
++    assert owner.calls == 1
++
++
+ def test_retry_after_counts_from_the_answer():
+     # "Not before" is measured from the response that asked for it, not from the
+     # start of the run that got it.
+     owner = _Owner()
+     owner.cache_seconds = 0
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     clock = [5000.0]
+     fetch = _slow_failure(owner, clock, 3, gate=gate, retry_after="100")
+     with patch.object(time, "monotonic", lambda: clock[0]):
+         gate.run(fetch)  # begins at 5000, answered at 5003
+         clock[0] = 5000 + 101  # 101 s after the start, 98 s after the answer
+         gate.run(fetch)

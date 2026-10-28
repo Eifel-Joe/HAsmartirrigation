@@ -1,0 +1,779 @@
+# Review package: 49a5a3e8afe33912972472e4d76d32db7f87ab04..HEAD
+
+## Commits
+79d1569f fix(weather): the pause after a failure honours Retry-After
+
+## Files changed
+ .../irrigation_plus/weathermodules/OWMClient.py    |   4 +
+ .../weathermodules/PirateWeatherClient.py          |   4 +
+ .../irrigation_plus/weathermodules/fetch_gate.py   | 143 ++++++++++++-
+ tests/test_weather_clients_fetch_gate.py           |  21 ++
+ tests/test_weather_fetch_gate.py                   | 231 ++++++++++++++++++++-
+ 5 files changed, 390 insertions(+), 13 deletions(-)
+
+## Diff
+diff --git a/custom_components/irrigation_plus/weathermodules/OWMClient.py b/custom_components/irrigation_plus/weathermodules/OWMClient.py
+index 99f01735..321e8b45 100644
+--- a/custom_components/irrigation_plus/weathermodules/OWMClient.py
++++ b/custom_components/irrigation_plus/weathermodules/OWMClient.py
+@@ -95,20 +95,23 @@ class OWMClient:  # pylint: disable=invalid-name
+         return self._data_gate.run(self._fetch_data)
+ 
+     def _fetch_data(self):
+         """Body of ``get_data``, run inside ``_data_gate``."""
+         if not fetch_gate.is_fresh(
+             self._cached_data_at, self.cache_seconds, self.override_cache
+         ):
+             url = OWM_CURRENT_URL.format(self.latitude, self.longitude, self.api_key)
+             try:
+                 req = _SESSION.get(url, timeout=60)
++                # A bad status leaves as an OSError that does not carry the
++                # response, so hand it to the gate for its ``Retry-After``.
++                self._data_gate.note_response(req)
+                 doc = json.loads(req.text)
+                 _LOGGER.debug(
+                     "OWMClient get_data called API %s and received %s",
+                     url.replace(self.api_key, "***") if self.api_key else url,
+                     doc,
+                 )
+ 
+                 if doc.get("cod") not in (200, "200"):
+                     self.raiseHTTPError()
+ 
+@@ -242,20 +245,21 @@ class OWMClient:  # pylint: disable=invalid-name
+         return self._forecast_gate.run(self._fetch_forecast)
+ 
+     def _fetch_forecast(self):
+         """Body of ``get_forecast_data``, run inside ``_forecast_gate``."""
+         if not fetch_gate.is_fresh(
+             self._cached_forecast_at, self.cache_seconds, self.override_cache
+         ):
+             url = OWM_FORECAST_URL.format(self.latitude, self.longitude, self.api_key)
+             try:
+                 req = _SESSION.get(url, timeout=60)
++                self._forecast_gate.note_response(req)  # see _fetch_data
+                 doc = json.loads(req.text)
+                 _LOGGER.debug(
+                     "OWMClient get_forecast_data called API %s and received %s",
+                     url.replace(self.api_key, "***") if self.api_key else url,
+                     doc,
+                 )
+ 
+                 if doc.get("cod") not in (200, "200"):
+                     self.raiseHTTPError()
+ 
+diff --git a/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py b/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py
+index b8fed838..4aa10bd0 100644
+--- a/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py
++++ b/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py
+@@ -224,20 +224,23 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
+         return self._forecast_gate.run(self._fetch_forecast)
+ 
+     def _fetch_forecast(self):
+         """Body of ``get_forecast_data``, run inside ``_forecast_gate``."""
+         if not fetch_gate.is_fresh(
+             self._cached_forecast_at, self.cache_seconds, self.override_cache
+         ):
+             try:
+                 for i in range(RETRY_TIMES):
+                     req = _SESSION.get(self.url, timeout=60)  # 60 seconds timeout
++                    # A bad status ends in a None that does not carry the
++                    # response, so hand it to the gate for its ``Retry-After``.
++                    self._forecast_gate.note_response(req)
+                     if req.status_code == 200:
+                         break
+                     i = i + 1
+                 if req.status_code != 200:
+                     _LOGGER.error(
+                         "PirateWeather API returned error status code: %s",
+                         req.status_code,
+                     )
+                     return None
+                 doc = json.loads(req.text)
+@@ -336,20 +339,21 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
+         return self._data_gate.run(self._fetch_data)
+ 
+     def _fetch_data(self):
+         """Body of ``get_data``, run inside ``_data_gate``."""
+         if not fetch_gate.is_fresh(
+             self._cached_data_at, self.cache_seconds, self.override_cache
+         ):
+             try:
+                 for i in range(RETRY_TIMES):
+                     req = _SESSION.get(self.url, timeout=60)  # 60 seconds timeout
++                    self._data_gate.note_response(req)  # see _fetch_forecast
+                     if req.status_code == 200:
+                         break
+                     i = i + 1
+                 if req.status_code != 200:
+                     _LOGGER.error(
+                         "PirateWeather API returned error status code: %s",
+                         req.status_code,
+                     )
+                     return None
+                 doc = json.loads(req.text)
+diff --git a/custom_components/irrigation_plus/weathermodules/fetch_gate.py b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+index c898c71a..d9d423ab 100644
+--- a/custom_components/irrigation_plus/weathermodules/fetch_gate.py
++++ b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+@@ -1,14 +1,15 @@
+ """Rules the four weather clients share when they go to the network."""
+ 
+ import copy
+ import datetime
++import email.utils
+ import logging
+ import threading
+ import time
+ from collections.abc import Callable
+ from typing import Any, TypeVar
+ 
+ T = TypeVar("T")
+ 
+ _LOGGER = logging.getLogger(__name__)
+ 
+@@ -20,20 +21,24 @@ _LOGGER = logging.getLogger(__name__)
+ MIN_CACHE_SECONDS = 60
+ 
+ # How long a fetch point stays shut after its first failed fetch. Every further
+ # failure in a row doubles it, up to the cache lifetime (see ``_pause_left``).
+ FIRST_PAUSE_SECONDS = 60
+ 
+ # Doublings after which the cache lifetime has won in any case; keeps ``2 ** n``
+ # small for a gate that has been failing for weeks.
+ _MAX_DOUBLINGS = 16
+ 
++# The longest a ``Retry-After`` header can keep a fetch point shut: one day. The
++# reasons are with the pause itself (``_pause_left``).
++MAX_RETRY_AFTER_SECONDS = 86400
++
+ # Set on an exception the gate raises again in place of a fresh failure.
+ _REPLAY_ATTR = "_fetch_gate_replay"
+ 
+ 
+ def cache_lifetime(cache_seconds: float) -> float:
+     """How long a fetched result is reused: the configured window, but at least the floor."""
+     return max(cache_seconds, MIN_CACHE_SECONDS)
+ 
+ 
+ def is_fresh(
+@@ -57,52 +62,114 @@ def failure_log_level(exc: BaseException) -> int:
+ 
+     An ERROR line of a weather client means a request was made and failed. A
+     replay made none, and the gate has already logged it at DEBUG, so the
+     accessor that catches it above the gate logs it at DEBUG too. The message
+     stays the same; any other exception, including a failure to parse a good
+     response, keeps ERROR.
+     """
+     return logging.DEBUG if is_replay(exc) else logging.ERROR
+ 
+ 
++def retry_after_seconds(response: Any) -> float | None:
++    """Seconds from now that ``response`` asks us to wait (``Retry-After``), or None.
++
++    RFC 9110 section 10.2.3 allows a number of seconds or an HTTP date. A header
++    that is missing, unreadable, not a string (a test double's attribute) or
++    already due gives None. The value is returned as sent; the cap on how much of
++    it counts is applied where the pause is worked out.
++    """
++    get = getattr(getattr(response, "headers", None), "get", None)
++    if not callable(get):
++        return None
++    value = get("Retry-After")
++    if not isinstance(value, str):
++        return None
++    value = value.strip()
++    try:
++        if value.isascii() and value.isdigit():
++            seconds = float(int(value))
++        else:
++            when = email.utils.parsedate_to_datetime(value)
++            if when.tzinfo is None:  # "-0000": a date without a zone is UTC
++                when = when.replace(tzinfo=datetime.UTC)
++            seconds = (when - datetime.datetime.now(datetime.UTC)).total_seconds()
++    except (ValueError, TypeError, OverflowError):
++        return None
++    return seconds if seconds > 0 else None
++
++
++def _copy_of(exc: Exception) -> Exception | None:
++    """A copy of ``exc`` without traceback, or None where none can be made.
++
++    ``copy.copy`` rebuilds an exception through its class with ``args``, which an
++    exception whose constructor wants more than that refuses. The second try builds
++    the instance without running ``__init__`` and restores its attributes.
++    """
++    try:
++        return copy.copy(exc)
++    except Exception:  # noqa: BLE001 -- any exception class may refuse a copy
++        pass
++    try:
++        rebuilt = type(exc).__new__(type(exc), *exc.args)
++        rebuilt.__dict__.update(exc.__dict__)
++    except Exception:  # noqa: BLE001 -- nor is a rebuild guaranteed
++        return None
++    return rebuilt
++
++
+ def _replayable_copy(exc: Exception) -> Exception | None:
+-    """A copy of ``exc`` marked as a replay, or None where it cannot be copied.
++    """A copy of ``exc`` marked as a replay, or None where none can be made.
+ 
+     A copy carries no traceback, so replaying it again and again does not grow
+-    one, and callers in several threads never share an instance.
++    one, and callers in several threads never share an instance. Only the copy is
++    marked, never ``exc``: it may be the failure a first caller is about to log.
+     """
++    again = _copy_of(exc)
++    if again is None:
++        return None
+     try:
+-        again = copy.copy(exc)
+         setattr(again, _REPLAY_ATTR, True)
+-    except Exception:  # noqa: BLE001 -- any exception class may refuse a copy
++    except Exception:  # noqa: BLE001 -- a class may refuse a new attribute
+         return None
+     return again
+ 
+ 
+ class FetchGate:
+     """The door in front of one fetch point: one caller at a time goes through.
+ 
+     ``owner`` is the client and ``stamp_attr`` the name of the attribute that holds
+     the time of its last good fetch at this point. After a failed fetch the door
+     stays shut for a while and hands the callers behind it that failure's outcome
+     instead of asking the service again.
+     """
+ 
+     def __init__(self, owner: Any, stamp_attr: str) -> None:
+         """Init."""
+         self._owner = owner
+         self._stamp_attr = stamp_attr
+         self._lock = threading.Lock()
+         self._failures = 0  # failed runs in a row
+         self._failed_at: float | None = None  # time.monotonic() of the latest one
+-        self._outcome: tuple[bool, Any] | None = None  # (raised, value) of it
+-        self._retry_after = 0.0  # seconds a response asked us to wait; 0 = none
++        # (raised, value) of it; an exception is kept as a copy without traceback
++        self._outcome: tuple[bool, Any] | None = None
++        self._retry_after = 0.0  # seconds its response asked us to wait; 0 = none
++        self._response: Any = None  # latest response of the run in progress
++
++    def note_response(self, response: Any) -> None:
++        """Remember ``response``, the answer to the request the fetch has just made.
++
++        For a fetch body that does not let the response out when the status is bad
++        (it returns None or raises an error that does not carry it): the pause
++        then still finds its ``Retry-After``. Called from inside ``fetch``, so
++        under the lock and in the thread that runs it; the latest call wins.
++        """
++        self._response = response
+ 
+     def run(self, fetch: Callable[[], T]) -> T:
+         """Run ``fetch`` with every other caller of this gate held back."""
+         # Wurzel: the clients are called from several executor threads at once --
+         #   every sensor refresh, skip check and outlook asks for the same
+         #   document. Each caller checked the cache, found it empty and went to
+         #   the network itself: on the test install 1 get_data and 18
+         #   get_forecast_data requests left within 0.6 s, on a metered key.
+         # Fix-Logik: one lock per fetch point. ``fetch`` begins with its own
+         #   freshness check, and that check now runs inside the lock, so a caller
+@@ -125,20 +192,21 @@ class FetchGate:
+         with self._lock:
+             owner = self._owner
+             before = getattr(owner, self._stamp_attr)
+             was_fresh = is_fresh(before, owner.cache_seconds, owner.override_cache)
+             # ``override_cache`` means "hand out nothing stored", and a stored
+             # failure is stored too: it asks the service every time.
+             if not was_fresh and not owner.override_cache:
+                 seconds_left = self._pause_left()
+                 if seconds_left > 0:
+                     return self._replay(seconds_left)
++            self._response = None
+             try:
+                 result = fetch()
+             except Exception as exc:
+                 self._settle(before, was_fresh, raised=True, value=exc)
+                 raise
+             self._settle(before, was_fresh, raised=False, value=result)
+             return result
+ 
+     def _settle(self, before: Any, was_fresh: bool, raised: bool, value: Any) -> None:
+         """Note how the run that has just ended went: a good fetch or a failure."""
+@@ -148,73 +216,126 @@ class FetchGate:
+         #   of them leaves a new timestamp.
+         # Fix-Logik: a run that went to the network (the entry was not fresh when
+         #   it began) and left no new timestamp is a failure; a new timestamp is a
+         #   success and clears the count. A run served from the cache -- a caller
+         #   that waited for the one that fetched -- is neither.
+         # NOT-TO-DO: no list of status codes and exception types. It would have to
+         #   be kept per client, and it would miss exactly the quiet None branches
+         #   that today's code already treats as "nothing fetched".
+         # siehe test_weather_clients_fetch_gate.py::test_a_failed_fetch_pauses_its_gate
+         #   und test_weather_fetch_gate.py::test_waiters_served_from_cache_do_not_count_as_failures
++        response, self._response = self._response, None  # not kept past this run
+         if getattr(self._owner, self._stamp_attr) != before:
+             self._failures = 0
+             self._failed_at = None
+             self._outcome = None
++            self._retry_after = 0.0
+         elif not was_fresh:
+             self._failures += 1
+             # Wurzel: the pause measures a duration, not a time of day. A wall
+             #   clock jumps when the clocks go back or the system time is set.
+             # Fix-Logik: ``time.monotonic()``, called here and in ``_pause_left``
+             #   at the moment it is needed.
+             # NOT-TO-DO: not ``datetime.datetime.now()`` -- the freshness check
+             #   keeps it because the success path must not change; two clocks in
+             #   one module is the price. And never bind ``time.monotonic`` to a
+             #   name or a default argument: freezegun moves it with ``tick()``
+             #   only when the call goes through the ``time`` module.
+             # siehe test_weather_fetch_gate.py::test_the_pause_runs_on_the_monotonic_clock
+             self._failed_at = time.monotonic()
++            # What the response of this failure asked for; see ``_pause_left``.
++            self._retry_after = self._asked_wait(response, raised, value)
++            # Wurzel: the exception that failed the run carries its traceback, and
++            #   that holds every frame of the fetch and what was in them (a
++            #   response body, a parsed document) for as long as the outcome is
++            #   kept -- until the next fetch, up to a whole cache window. The first
++            #   caller also still holds the real exception and logs it; a replay
++            #   that marked that very instance would turn a real failure into a
++            #   DEBUG line.
++            # Fix-Logik: keep a copy without traceback, made now; each replay raises
++            #   a fresh copy of it (see ``_replay``). The real exception goes to the
++            #   first caller untouched. Where no copy can be made it is kept as it is.
++            # NOT-TO-DO: do not keep the original "for the traceback" -- nobody reads
++            #   a replayed failure's traceback, it points into the gate.
++            # siehe test_weather_fetch_gate.py::test_a_failure_keeps_no_traceback_alive_after_its_caller_is_done
++            if raised:
++                kept = _copy_of(value)
++                if kept is not None:
++                    value = kept
+             self._outcome = (raised, value)
+ 
++    @staticmethod
++    def _asked_wait(response: Any, raised: bool, value: Any) -> float:
++        """Seconds the failed run's response asked us to wait; 0 where it did not."""
++        asked = [retry_after_seconds(response)]  # noted by a body that hides it
++        if raised:  # an HTTPError carries its response
++            asked.append(retry_after_seconds(getattr(value, "response", None)))
++        return max((seconds for seconds in asked if seconds is not None), default=0.0)
++
+     def _pause_left(self) -> float:
+         """Seconds the pause after the latest failure still runs; 0 where there is none."""
+         if self._failed_at is None:
+             return 0.0
+         # Wurzel: callers come every few seconds (6-7 lookups every 10-30 s on
+         #   the production install). A pause of a fixed 60 s asks 1440 times a
+         #   day in an outage, ten times the 144 of normal operation at 10 min;
+         #   Met Office's free tier allows 360 calls a day and has two gates.
+         # Fix-Logik: 60 s, doubled with every further failure in a row, capped at
+         #   the cache lifetime -- the failure path never asks more often than
+         #   normal operation does. It is worked out at every check from the
+         #   owner's current ``cache_seconds`` instead of being stored as a
+         #   deadline, so a changed update interval takes effect at once.
+         # NOT-TO-DO: no fixed 60 s (above). No pause of a whole cache window from
+         #   the first failure either: one blip would then cost a full window, a
+         #   whole day with daily updates.
+         # siehe test_weather_fetch_gate.py::test_consecutive_failures_double_the_pause_up_to_the_cache_lifetime
+         #   und ::test_a_shorter_update_interval_shortens_a_running_pause
+-        pause = min(
++        backoff = min(
+             FIRST_PAUSE_SECONDS * 2 ** min(self._failures - 1, _MAX_DOUBLINGS),
+             cache_lifetime(self._owner.cache_seconds),
+         )
++        # Wurzel: a service that answers 429 or 503 may say when it wants to be asked
++        #   again (``Retry-After``). None of the four documents the header, so this
++        #   is a safeguard for whatever sits in front of them -- a gateway, a proxy
++        #   -- but a request before that moment is likely to be refused again.
++        # Fix-Logik: the pause is the longer of the backoff and what the latest
++        #   failure asked for, the latter at most MAX_RETRY_AFTER_SECONDS. "Honour"
++        #   means not earlier; asking later is allowed, so the header is a lower
++        #   bound and never shortens the backoff (10 s asked, 60 s paused).
++        # NOT-TO-DO: not the header alone as the pause -- a short value would have
++        #   an outage asked about more often than the backoff allows. Not uncapped
++        #   either: an absurd or misread value (a date years ahead, seconds taken
++        #   for milliseconds) would shut the gate for good; at the cap it asks once
++        #   a day. The cache lifetime does not cap it: the service decides here.
++        # siehe test_weather_fetch_gate.py::test_a_longer_retry_after_wins_over_the_backoff,
++        #   ::test_a_shorter_retry_after_keeps_the_backoff, ::test_retry_after_is_capped_at_a_day
++        pause = max(backoff, min(self._retry_after, MAX_RETRY_AFTER_SECONDS))
+         return max(0.0, self._failed_at + pause - time.monotonic())
+ 
+     def _replay(self, seconds_left: float) -> Any:
+         """Hand back the outcome of the failure that began the pause: no request."""
+         raised, value = self._outcome
+         _LOGGER.debug(
+             "%s %s: %d failed fetch(es) in a row, no request for another %.0f s;"
+             " replaying the last outcome",
+             type(self._owner).__name__,
+             self._stamp_attr,
+             self._failures,
+             seconds_left,
+         )
+         if not raised:
+             return value
++        # ``value`` is the copy made when the failure was recorded; raise a fresh
++        # copy of it, so no two callers ever share an instance.
+         replayed = _replayable_copy(value)
+         if replayed is None:
+-            # An exception that cannot be copied keeps its type: mark the
+-            # instance itself and raise it with a clean traceback.
+-            setattr(value, _REPLAY_ATTR, True)
+-            replayed = value.with_traceback(None)
++            # Wurzel: an exception that cannot even be rebuilt (``_copy_of``).
++            # Fix-Logik: raise the kept instance itself, unmarked. Its replay is
++            #   then logged at ERROR like a fresh failure: a line too many, never
++            #   a real failure silenced.
++            # NOT-TO-DO: never mark it. It is the real exception, which the first
++            #   caller may be about to log, and a mark would have that logged at
++            #   DEBUG. No ``with_traceback(None)`` either: it would cut the traceback
++            #   the first caller is still building.
++            # siehe test_weather_fetch_gate.py::test_an_exception_that_cannot_be_rebuilt_is_raised_again_unmarked
++            raise value
+         raise replayed
+diff --git a/tests/test_weather_clients_fetch_gate.py b/tests/test_weather_clients_fetch_gate.py
+index d17727b1..b4fded17 100644
+--- a/tests/test_weather_clients_fetch_gate.py
++++ b/tests/test_weather_clients_fetch_gate.py
+@@ -252,20 +252,41 @@ def test_a_failed_fetch_pauses_its_gate(case):
+ 
+         frozen.tick(30)
+         assert _outcome(case, client) == first  # same result, no request
+         assert get.call_count == case.failed_attempts
+ 
+         frozen.tick(31)
+         _outcome(case, client)
+         assert get.call_count == 2 * case.failed_attempts
+ 
+ 
++@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
++def test_retry_after_reaches_the_gate(case):
++    # OWM and Pirate Weather do not expose the response of a bad status (an
++    # OSError, a None); Open-Meteo and Met Office raise an HTTPError that
++    # carries it. The pause must honour the header on all seven paths.
++    client = case.make()
++    get = MagicMock(return_value=_failing(429, {"Retry-After": "900"}))
++    with freeze_time("2026-10-23 12:00:00") as frozen, patch(case.patch, get):
++        _outcome(case, client)
++        asked = get.call_count
++        assert asked >= 1  # how many requests one run makes is not this test's business
++
++        frozen.tick(600)
++        _outcome(case, client)
++        assert get.call_count == asked  # the backoff alone (60 s) would be over
++
++        frozen.tick(301)
++        _outcome(case, client)
++        assert get.call_count > asked
++
++
+ @pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+ def test_a_replayed_failure_logs_nothing_above_debug(case, caplog):
+     # An ERROR line of a weather client means a real request was made and failed.
+     # A failure the gate replays during its pause made no request, so Open-Meteo's
+     # and Met Office's accessors, which log the exception above the gate, must log
+     # it at DEBUG. OWM and Pirate Weather catch inside the gate body, which does
+     # not run in the pause.
+     client = case.make()
+     get = MagicMock(return_value=_failing(500))
+     caplog.set_level(logging.DEBUG, logger="custom_components.irrigation_plus")
+diff --git a/tests/test_weather_fetch_gate.py b/tests/test_weather_fetch_gate.py
+index 64c88db6..4daba183 100644
+--- a/tests/test_weather_fetch_gate.py
++++ b/tests/test_weather_fetch_gate.py
+@@ -1,26 +1,31 @@
+ """The freshness check the four weather clients share."""
+ 
++import contextlib
+ import datetime
++import gc
+ import logging
+ import threading
+ import time
++import weakref
+ from datetime import timedelta
+-from unittest.mock import patch
++from unittest.mock import MagicMock, patch
+ 
+ import pytest
++import requests
+ from freezegun import freeze_time
+ 
+ from custom_components.irrigation_plus.weathermodules import fetch_gate
+ from custom_components.irrigation_plus.weathermodules.fetch_gate import (
+     cache_lifetime,
+     is_fresh,
++    retry_after_seconds,
+ )
+ 
+ 
+ def test_cache_lifetime_has_a_floor_of_sixty_seconds():
+     assert cache_lifetime(0) == 60
+     assert cache_lifetime(59) == 60
+     assert cache_lifetime(599) == 599
+ 
+ 
+ @freeze_time("2026-10-23 12:00:00")
+@@ -202,27 +207,111 @@ def test_a_raised_failure_is_replayed_with_its_type_and_message():
+     assert not fetch_gate.is_replay(real.value)  # the real failure is not marked
+     assert replayed.value is not real.value
+     assert replayed_again.value is not replayed.value  # no traceback piling up
+ 
+ 
+ def test_replay_of_an_uncopyable_exception_keeps_its_type():
+     owner = _Owner()
+     owner.error = lambda: _Picky("odd", code=7)
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     with freeze_time("2026-10-23 12:00:00") as frozen:
+-        with pytest.raises(_Picky, match="odd"):
++        with pytest.raises(_Picky, match="odd") as real:
+             gate.run(owner.fetch_raise)
+         frozen.tick(30)
+         with pytest.raises(_Picky, match="odd") as replayed:
+             gate.run(owner.fetch_raise)
+     assert owner.calls == 1
+     assert fetch_gate.is_replay(replayed.value)
++    assert replayed.value.code == 7  # the rebuilt copy keeps its attributes
++    # The real failure is the first caller's: a waiter must never mark it, or
++    # that caller's accessor would log a real failure at DEBUG.
++    assert replayed.value is not real.value
++    assert not fetch_gate.is_replay(real.value)
++
++
++class _Unrebuildable(Exception):
++    """An exception neither ``copy.copy`` nor ``__new__`` plus ``args`` can rebuild."""
++
++    def __new__(cls, *args, real=False):
++        if not real:
++            raise TypeError("only the real constructor builds one")
++        return super().__new__(cls, *args)
++
++    def __init__(self, text, *, real):
++        super().__init__(text)
++
++
++def test_an_exception_that_cannot_be_rebuilt_is_raised_again_unmarked():
++    owner = _Owner()
++    owner.error = lambda: _Unrebuildable("stuck", real=True)
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        with pytest.raises(_Unrebuildable, match="stuck") as real:
++            gate.run(owner.fetch_raise)
++        frozen.tick(30)
++        with pytest.raises(_Unrebuildable, match="stuck") as replayed:
++            gate.run(owner.fetch_raise)
++    assert owner.calls == 1
++    # Fail loud: nothing to copy, so the instance itself comes back, and it is
++    # not marked, so the accessor logs it at ERROR. A real failure is never
++    # silenced; the worst case is one more ERROR line.
++    assert replayed.value is real.value
++    assert not fetch_gate.is_replay(replayed.value)
++
++
++def test_a_failure_keeps_no_traceback_alive_after_its_caller_is_done():
++    # The outcome kept for the pause is a copy without traceback. The original
++    # exception carries its traceback, and that holds every frame of the failed
++    # fetch and the locals in them (a response body, a parsed document) until
++    # the next fetch.
++    owner = _Owner()
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    sentinels = []
++
++    class _Local:
++        """Stands for what a failed fetch leaves in its frame."""
++
++    def fetch():
++        local = _Local()
++        sentinels.append(weakref.ref(local))
++        raise ValueError("boom")
++
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        with contextlib.suppress(ValueError):
++            gate.run(fetch)
++        gc.collect()
++        assert sentinels[0]() is None
++        frozen.tick(30)
++        with pytest.raises(ValueError, match="boom"):  # still replayed
++            gate.run(fetch)
++    assert len(sentinels) == 1
++
++
++def test_a_fresh_entry_is_served_even_during_a_pause():
++    # Freshness comes before the pause. An outage raises ``cache_seconds``
++    # (__init__.py, the update-interval handler), which brings an old stamp back
++    # into the window; the entry is fresh again and is served, not replaced by
++    # the replay of the failure that began the pause.
++    owner = _Owner()
++    owner.cache_seconds = 600
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00"):
++        owner.cached = "document"
++        owner.stamp = datetime.datetime.now() - timedelta(seconds=700)  # stale
++        assert gate.run(owner.fetch_none) is None  # the failure: the pause begins
++        assert owner.calls == 1
++        assert gate.run(owner.fetch_none) is None  # shut: replayed, no request
++        assert owner.calls == 1
++
++        owner.cache_seconds = 3599  # 700 s old is inside the window again
++        assert gate.run(owner.fetch_none) == "document"
++        assert owner.calls == 1
+ 
+ 
+ def test_consecutive_failures_double_the_pause_up_to_the_cache_lifetime():
+     owner = _Owner()
+     owner.cache_seconds = 599
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     with freeze_time("2026-10-23 12:00:00") as frozen:
+         gaps = _gaps(gate, owner, owner.fetch_none, frozen, requests=7)
+     assert gaps == [60, 120, 240, 480, 599, 599]
+ 
+@@ -337,10 +426,148 @@ def test_failure_log_level_is_debug_for_a_replay_and_error_otherwise():
+     with freeze_time("2026-10-23 12:00:00") as frozen:
+         with pytest.raises(OSError) as real:
+             gate.run(owner.fetch_raise)
+         frozen.tick(30)
+         with pytest.raises(OSError) as replayed:
+             gate.run(owner.fetch_raise)
+     assert fetch_gate.failure_log_level(real.value) == logging.ERROR
+     assert fetch_gate.failure_log_level(replayed.value) == logging.DEBUG
+     # an exception that never went through the gate, e.g. a parse error
+     assert fetch_gate.failure_log_level(ValueError("bad body")) == logging.ERROR
++
++
++def _resp(headers):
++    """A response carrying ``headers``."""
++    response = MagicMock()
++    response.headers = headers
++    return response
++
++
++@freeze_time("2026-10-23 12:00:00")
++def test_retry_after_is_read_as_seconds_or_http_date():
++    assert retry_after_seconds(_resp({"Retry-After": "120"})) == 120
++    assert (
++        retry_after_seconds(_resp({"Retry-After": "Fri, 23 Oct 2026 12:05:00 GMT"}))
++        == 300
++    )
++    for bad in ("", "soon", "-5", "Fri, 23 Oct 2026 11:00:00 GMT"):
++        assert retry_after_seconds(_resp({"Retry-After": bad})) is None
++    assert retry_after_seconds(_resp({})) is None
++    assert retry_after_seconds(MagicMock()) is None  # non-str header value
++
++
++@freeze_time("2026-10-23 12:00:00")
++def test_retry_after_tolerates_what_a_response_may_look_like():
++    assert retry_after_seconds(None) is None  # e.g. ConnectionError.response
++    assert retry_after_seconds(_resp(None)) is None
++    assert retry_after_seconds(_resp({"Retry-After": 120})) is None  # not a str
++    assert retry_after_seconds(_resp({"Retry-After": " 90 "})) == 90
++    assert retry_after_seconds(_resp({"Retry-After": "0"})) is None  # nothing to wait
++    superscript_two = chr(0xB2)  # str.isdigit() is true for it, int() refuses it
++    assert retry_after_seconds(_resp({"Retry-After": superscript_two})) is None
++    assert retry_after_seconds(_resp({"Retry-After": "9" * 5000})) is None
++    # a date without a zone is read as UTC
++    zoneless = "Fri, 23 Oct 2026 12:05:00 -0000"
++    assert retry_after_seconds(_resp({"Retry-After": zoneless})) == 300
++
++
++def _throttled(owner, gate, retry_after):
++    """A fetch point that fails with a 429 whose ``Retry-After`` is ``retry_after``."""
++
++    def fetch():
++        owner.calls += 1
++        gate.note_response(_resp({"Retry-After": retry_after}))
++        return None
++
++    return fetch
++
++
++def test_a_longer_retry_after_wins_over_the_backoff():
++    owner = _Owner()
++    owner.cache_seconds = 599
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    fetch = _throttled(owner, gate, "900")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        gate.run(fetch)
++        assert owner.calls == 1
++        frozen.tick(899)
++        gate.run(fetch)
++        assert owner.calls == 1  # the backoff alone (60 s) would be over long ago
++        frozen.tick(2)
++        gate.run(fetch)
++        assert owner.calls == 2
++
++
++def test_a_shorter_retry_after_keeps_the_backoff():
++    owner = _Owner()
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    fetch = _throttled(owner, gate, "10")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        gate.run(fetch)
++        frozen.tick(30)
++        gate.run(fetch)
++        assert owner.calls == 1  # Retry-After is a lower bound, not the pause
++        frozen.tick(31)
++        gate.run(fetch)
++        assert owner.calls == 2
++
++
++def test_retry_after_is_capped_at_a_day():
++    owner = _Owner()
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    fetch = _throttled(owner, gate, "999999")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        gate.run(fetch)
++        frozen.tick(86399)
++        gate.run(fetch)
++        assert owner.calls == 1
++        frozen.tick(2)
++        gate.run(fetch)
++        assert owner.calls == 2
++
++
++def test_retry_after_is_read_from_a_raised_http_error():
++    owner = _Owner()
++    owner.error = lambda: requests.HTTPError(
++        "429", response=_resp({"Retry-After": "900"})
++    )
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        with pytest.raises(requests.HTTPError):
++            gate.run(owner.fetch_raise)
++        frozen.tick(899)
++        with pytest.raises(requests.HTTPError):
++            gate.run(owner.fetch_raise)
++        assert owner.calls == 1
++        frozen.tick(2)
++        with pytest.raises(requests.HTTPError):
++            gate.run(owner.fetch_raise)
++        assert owner.calls == 2
++
++
++def test_retry_after_binds_only_the_failure_that_carried_it():
++    owner = _Owner()
++    owner.cache_seconds = 599
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    throttled = _throttled(owner, gate, "900")
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        gate.run(throttled)
++        frozen.tick(901)
++        gate.run(owner.fetch_none)  # the second failure says nothing
++        assert owner.calls == 2
++        frozen.tick(119)
++        gate.run(owner.fetch_none)
++        assert owner.calls == 2  # the backoff of the second failure: 120 s
++        frozen.tick(2)
++        gate.run(owner.fetch_none)
++        assert owner.calls == 3
++
++
++def test_a_response_noted_by_one_run_does_not_reach_the_next():
++    owner = _Owner()
++    gate = fetch_gate.FetchGate(owner, "stamp")
++    gate.note_response(_resp({"Retry-After": "900"}))  # before any run
++    with freeze_time("2026-10-23 12:00:00") as frozen:
++        gate.run(owner.fetch_none)  # a failure that noted nothing itself
++        frozen.tick(61)
++        gate.run(owner.fetch_none)
++        assert owner.calls == 2

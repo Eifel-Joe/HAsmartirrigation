@@ -1,0 +1,955 @@
+### NEW commit messages (c46c41fc..HEAD)
+=== 2ba2f05a test(weather): pin Met Office's first real failure, correct comments
+Met Office logs a failed fetch above the gate with failure_log_level. The
+shared tests only looked at the replay, so a hard-coded DEBUG at either of the
+two Met Office sites would have hidden every outage of that service and still
+passed. A twin of the Open-Meteo accessor test now pins that the first real
+failure of get_data and get_forecast_data is one ERROR record and that the
+replay inside the pause logs nothing above DEBUG.
+
+An exception the gate cannot copy (its constructor refuses, or __copy__ returns
+the instance itself) is now kept and raised again unmarked. The second try that
+rebuilt it without running its constructor is gone: an instance whose class
+never initialised it is a worse thing to hand out than one extra ERROR line.
+Before, a __copy__ that returned the instance itself got the real exception
+marked as a replay. One test covers both ways of not being copyable.
+
+Comments and test notes that said more than is true or pointed at one install:
+- the copy kept for a pause has no traceback of its own, but exceptions chained
+  inside it (requests wraps urllib3's MaxRetryError in args[0]) keep theirs,
+  bounded to one chain per gate and shared with the first caller's real
+  exception on purpose;
+- cache_seconds changes when the user lengthens the update interval, not by
+  itself in an outage;
+- measurements are described as taken on one live install, not "the test
+  install" or "the production install";
+- the NOT-TO-DO on the asyncio lock keeps its rule in one sentence: the hourly
+  accessors on the event loop only read stored documents and never reach a gate;
+- the Pirate Weather retry comment states why the response noted before a later
+  network exception never carries a Retry-After.
+
+Test housekeeping: the module docstring covers the whole gate, a helper
+parameter no longer shadows the requests import, and the Pirate Weather case
+table asserts its size so a renamed id cannot empty four tests. An HTTP-date
+Retry-After is now checked against a clock whose zoneless now() reads two hours
+ahead; freezegun's tz_offset shifts now(tz) as well, so it cannot tell the two
+clocks apart.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== 2caf6f1e fix(weather): Pirate Weather pauses between retries and stops on 429
+Both Pirate Weather fetch bodies asked up to three times back to back,
+whatever the answer. A short gateway fault had no time to clear between
+the requests, and a 429, which at Pirate Weather means the monthly quota
+is used up, cannot turn into a 200 a second later: the retries were only
+more requests on a key that is already refused.
+
+The two copies of the retry loop are now one method, _get_with_retries.
+It waits 1 s before the second attempt and 2 s before the third, and
+nothing after the last, so a failing call takes at most 3 s longer
+against a 60 s timeout per attempt. A 429, or any response that names a
+time with Retry-After, ends the attempts at once; the caller's non-200
+branch then returns None and the gate's pause (which honours the header)
+takes over. The method does not wait out Retry-After itself: that can be
+up to a day, and it would hold an executor thread under the gate's lock.
+
+Everything else is unchanged: three attempts, a retry only on a status
+other than 200, network exceptions are not retried, the error log and the
+parsing after the loop. Each response is still handed to the gate. Since a
+response with Retry-After ends the loop, the response noted before a later
+network exception never carries one. The dead "i = i + 1" goes.
+
+The tests replace the client module's own name for time, not time.sleep
+itself, so no failing run waits for real and the tests that sleep in the
+test file keep the real sleep.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== efcdf823 fix(weather): the pause after a failure honours Retry-After
+A service (or a gateway or proxy in front of it) that answers 429 or 503
+may say when it wants to be asked again. None of the four services
+documents the header, so this is a safeguard; but a request before that
+moment is likely to be refused again.
+
+The pause after a failed fetch is now the longer of the existing backoff
+and the Retry-After of the failing response, at most one day. "Honour"
+means not earlier, so the header is a lower bound: a short value never
+shortens the backoff, and the cap keeps an absurd or misread value from
+shutting a gate for good. The header is read as seconds or as an HTTP
+date (RFC 9110 section 10.2.3); anything missing, unreadable, not a
+string or already due counts as absent.
+
+Open-Meteo and Met Office raise an HTTPError that carries the response.
+OWM and Pirate Weather do not let the response out on a bad status (an
+OSError, a None), so they hand it to their gate with note_response right
+after each request.
+
+Three carried fixes in the same code, each with its own test:
+
+- Pin that a fresh entry is served before the pause is looked at.
+  Lengthening the update interval during an outage raises cache_seconds
+  (it changes only when the user edits the update settings), which
+  brings an old timestamp back into the window; the entry is fresh
+  again and must not be replaced by the replay of the failure. The
+  behaviour was already right, but a run that checked the pause first
+  passed every test.
+- Keep the outcome of a failed run as a copy, made when the failure is
+  recorded; the copy has no traceback of its own. The original exception
+  held the frames of the failed fetch, and with them a response body or
+  a parsed document, until the next fetch. Exceptions chained inside the
+  copy keep their tracebacks (requests wraps urllib3's MaxRetryError in
+  args[0]): bounded to one chain per gate, and deliberate, since the
+  inner exception is shared with the real one the first caller holds.
+  Each replay still raises its own fresh copy of it.
+- Never mark the original exception as a replay. For a class that cannot
+  be copied the gate marked the instance itself; a waiter could then
+  mark the first caller's real exception before its accessor logged it,
+  and a real failure came out as a DEBUG line. The fallback is to raise
+  the stored instance itself, unmarked, so the worst case is one more
+  ERROR line.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== bfe1a9ea fix(weather): a replayed failure is logged at DEBUG, not as a fresh error
+An ERROR line of a weather client should mean a request was made and
+failed. Open-Meteo's and Met Office's public accessors catch a fetch
+failure above the gate and logged it at ERROR. Once the gate replays a
+failure during its pause, that repeats the same ERROR line for every
+caller although no request left the machine, so an outage filled the log
+with errors that were not new.
+
+fetch_gate.failure_log_level() returns DEBUG for an exception the gate
+replayed and ERROR for anything else. The five accessor log sites
+(Open-Meteo get_data, get_forecast_data and get_hourly_data; Met Office
+get_data and get_forecast_data) log through it. The message texts and
+return values are unchanged, and the first real failure, or a failure to
+parse a good response, still logs at ERROR.
+
+OWM and Pirate Weather need no change: their gate wraps the whole
+method, so the logging code does not run during the pause.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== 6a1ea83a fix(weather): a failed fetch pauses that document instead of being retried at once
+After a fetch that left no new timestamp (an exception, or a None after a
+non-200 status or an incomplete document), the gate of that fetch point
+stays shut: the next callers get that failure's outcome back -- the same
+return value, or an exception of the same type and message -- without a
+request. The first failure pauses for 60 s; every further failure in a row
+doubles the pause, capped at the cache lifetime, and a good fetch resets
+it. override_cache still asks every time.
+
+Why: callers arrive every few seconds, and a failed fetch is not stored,
+so every one of them (and every caller that had waited behind the failed
+run) went to the network again, three times over for Pirate Weather. With
+the cap the failure path never asks more often than normal operation does,
+which matters for the quota-limited services (Met Office's free tier allows
+360 calls a day across its two documents).
+
+The pause is worked out at every check from the owner's current
+cache_seconds, so a changed update interval takes effect at once, and it
+is measured on the monotonic clock because it is a duration; the freshness
+check keeps datetime.now() so the success path does not change. A replayed
+exception is a copy marked with is_replay(), so callers that log can tell
+it from a fresh failure; one that cannot be copied is raised itself,
+unmarked, so it is logged like a fresh failure: the worst case is one more
+ERROR line, never a real failure silenced.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== 436d66af fix(weather): concurrent callers wait for one fetch instead of each fetching
+The weather clients are called from several executor threads at once: every
+sensor refresh, skip-condition check and outlook asks for the same document.
+Each caller checked the cache, found it empty and went to the network itself,
+so a cold cache turned into a burst of identical requests (measured on one
+live install with Pirate Weather, 9 zones × 2 schedules: 1 current-conditions
+and 18 forecast requests within 0.6 s) on what is often a metered API key.
+
+Put a FetchGate, a thread lock, in front of each of the seven fetch points
+(OWM current and forecast, Pirate Weather current and forecast, the Open-Meteo
+document, the Met Office hourly and three-hourly documents). The body of each
+fetch point is unchanged and moved into a private method; the public name now
+runs it through the gate. Its own freshness check therefore runs inside the
+lock, so a caller that waited finds the entry the first caller stored and is
+served from it.
+
+A thread lock rather than an asyncio one because every path that reaches a
+gate runs in an executor thread; the hourly accessors that run on the event
+loop only read stored documents and never reach a gate. It has to cover the
+whole body rather than the request alone, since the parse and the timestamp
+come after the request.
+
+No change on the success path: the same values, timestamps and log lines. One
+gate per fetch point, so the current-conditions and forecast documents still
+do not wait for each other.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== 9a87d9b1 refactor(weather): one freshness check shared by the four weather clients
+The "is this cached result still fresh" rule existed three times as a
+byte-identical _is_fresh method (OWM, Pirate Weather, Met Office) and once
+inline in Open-Meteo's _fetch, next to four copies of the one-minute floor
+constant. Met Office also worked the cache lifetime out a second time in
+_forecast_document.
+
+Move the rule into weathermodules/fetch_gate.py (MIN_CACHE_SECONDS,
+cache_lifetime, is_fresh) and have all four clients call it through the
+module, so a later change to how the clients fetch has one place to land and
+one patch target in tests.
+
+No behaviour change: the same result is served for the same time, the floor is
+still 60 seconds, and nothing on the success path differs. The only
+difference is that a cached Open-Meteo document with no timestamp is fetched
+again instead of raising, a state the client never produces itself.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+
+### OLD commit messages (c46c41fc..48945139, before reword)
+=== 48945139 fix(weather): Pirate Weather pauses between retries and stops on 429
+Both Pirate Weather fetch bodies asked up to three times back to back,
+whatever the answer. A short gateway fault had no time to clear between
+the requests, and a 429, which at Pirate Weather means the monthly quota
+is used up, cannot turn into a 200 a second later: the retries were only
+more requests on a key that is already refused.
+
+The two copies of the retry loop are now one method, _get_with_retries.
+It waits 1 s before the second attempt and 2 s before the third, and
+nothing after the last, so a failing call takes at most 3 s longer
+against a 60 s timeout per attempt. A 429, or any response that names a
+time with Retry-After, ends the attempts at once; the caller's non-200
+branch then returns None and the gate's pause (which honours the header)
+takes over. The method does not wait out Retry-After itself: that can be
+up to a day, and it would hold an executor thread under the gate's lock.
+
+Everything else is unchanged: three attempts, a retry only on a status
+other than 200, network exceptions are not retried, the error log and the
+parsing after the loop. Each response is still handed to the gate. As a
+response with Retry-After now ends the loop, none from an earlier attempt
+is left to outlive a later network exception. The dead "i = i + 1" goes.
+
+The tests replace the client module's own name for time, not time.sleep
+itself, so no failing run waits for real and the tests that sleep in the
+test file keep the real sleep.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== 79d1569f fix(weather): the pause after a failure honours Retry-After
+A service (or a gateway or proxy in front of it) that answers 429 or 503
+may say when it wants to be asked again. None of the four services
+documents the header, so this is a safeguard; but a request before that
+moment is likely to be refused again.
+
+The pause after a failed fetch is now the longer of the existing backoff
+and the Retry-After of the failing response, at most one day. "Honour"
+means not earlier, so the header is a lower bound: a short value never
+shortens the backoff, and the cap keeps an absurd or misread value from
+shutting a gate for good. The header is read as seconds or as an HTTP
+date (RFC 9110 section 10.2.3); anything missing, unreadable, not a
+string or already due counts as absent.
+
+Open-Meteo and Met Office raise an HTTPError that carries the response.
+OWM and Pirate Weather do not let the response out on a bad status (an
+OSError, a None), so they hand it to their gate with note_response right
+after each request.
+
+Three carried fixes in the same code, each with its own test:
+
+- Pin that a fresh entry is served before the pause is looked at. An
+  outage raises cache_seconds, which brings an old timestamp back into
+  the window; the entry is fresh again and must not be replaced by the
+  replay of the failure. The behaviour was already right, but a run that
+  checked the pause first passed every test.
+- Keep the outcome of a failed run as a copy without traceback, made
+  when the failure is recorded. The original exception held the frames
+  of the failed fetch, and with them a response body or a parsed
+  document, until the next fetch. Each replay still raises its own fresh
+  copy of it.
+- Never mark the original exception as a replay. For a class that cannot
+  be copied the gate marked the instance itself; a waiter could then
+  mark the first caller's real exception before its accessor logged it,
+  and a real failure came out as a DEBUG line. The fallback now rebuilds
+  the instance without running __init__ and marks only that; if even
+  that fails, the original is raised unmarked, so the worst case is one
+  more ERROR line.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== 49a5a3e8 fix(weather): a replayed failure is logged at DEBUG, not as a fresh error
+An ERROR line of a weather client should mean a request was made and
+failed. Open-Meteo's and Met Office's public accessors catch a fetch
+failure above the gate and logged it at ERROR. Once the gate replays a
+failure during its pause, that repeats the same ERROR line for every
+caller although no request left the machine, so an outage filled the log
+with errors that were not new.
+
+fetch_gate.failure_log_level() returns DEBUG for an exception the gate
+replayed and ERROR for anything else. The five accessor log sites
+(Open-Meteo get_data, get_forecast_data and get_hourly_data; Met Office
+get_data and get_forecast_data) log through it. The message texts and
+return values are unchanged, and the first real failure, or a failure to
+parse a good response, still logs at ERROR.
+
+OWM and Pirate Weather need no change: their gate wraps the whole
+method, so the logging code does not run during the pause.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== cb6c83ed fix(weather): a failed fetch pauses that document instead of being retried at once
+After a fetch that left no new timestamp (an exception, or a None after a
+non-200 status or an incomplete document), the gate of that fetch point
+stays shut: the next callers get that failure's outcome back -- the same
+return value, or an exception of the same type and message -- without a
+request. The first failure pauses for 60 s; every further failure in a row
+doubles the pause, capped at the cache lifetime, and a good fetch resets
+it. override_cache still asks every time.
+
+Why: callers arrive every few seconds, and a failed fetch is not stored,
+so every one of them (and every caller that had waited behind the failed
+run) went to the network again, three times over for Pirate Weather. With
+the cap the failure path never asks more often than normal operation does,
+which matters for the quota-limited services (Met Office's free tier allows
+360 calls a day across its two documents).
+
+The pause is worked out at every check from the owner's current
+cache_seconds, so a changed update interval takes effect at once, and it
+is measured on the monotonic clock because it is a duration; the freshness
+check keeps datetime.now() so the success path does not change. A replayed
+exception is a copy marked with is_replay(), so callers that log can tell
+it from a fresh failure; one that cannot be copied is raised itself with a
+clean traceback.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== 7b5454b6 fix(weather): concurrent callers wait for one fetch instead of each fetching
+The weather clients are called from several executor threads at once: every
+sensor refresh, skip-condition check and outlook asks for the same document.
+Each caller checked the cache, found it empty and went to the network itself,
+so a cold cache turned into a burst of identical requests (on a test install,
+1 current-conditions and 18 forecast requests within 0.6 s) on what is often a
+metered API key.
+
+Put a FetchGate, a thread lock, in front of each of the seven fetch points
+(OWM current and forecast, Pirate Weather current and forecast, the Open-Meteo
+document, the Met Office hourly and three-hourly documents). The body of each
+fetch point is unchanged and moved into a private method; the public name now
+runs it through the gate. Its own freshness check therefore runs inside the
+lock, so a caller that waited finds the entry the first caller stored and is
+served from it.
+
+A thread lock rather than an asyncio one because the clients run only in
+executor threads. It has to cover the whole body rather than the request
+alone, since the parse and the timestamp come after the request.
+
+No change on the success path: the same values, timestamps and log lines. One
+gate per fetch point, so the current-conditions and forecast documents still
+do not wait for each other.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+=== 9a87d9b1 refactor(weather): one freshness check shared by the four weather clients
+The "is this cached result still fresh" rule existed three times as a
+byte-identical _is_fresh method (OWM, Pirate Weather, Met Office) and once
+inline in Open-Meteo's _fetch, next to four copies of the one-minute floor
+constant. Met Office also worked the cache lifetime out a second time in
+_forecast_document.
+
+Move the rule into weathermodules/fetch_gate.py (MIN_CACHE_SECONDS,
+cache_lifetime, is_fresh) and have all four clients call it through the
+module, so a later change to how the clients fetch has one place to land and
+one patch target in tests.
+
+No behaviour change: the same result is served for the same time, the floor is
+still 60 seconds, and nothing on the success path differs. The only
+difference is that a cached Open-Meteo document with no timestamp is fetched
+again instead of raising, a state the client never produces itself.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+
+### CONTENT stat 48945139..HEAD
+ .../weathermodules/PirateWeatherClient.py          |   8 +-
+ .../irrigation_plus/weathermodules/fetch_gate.py   |  86 +++++++++-------
+ tests/test_weather_clients_fetch_gate.py           |  31 ++++++
+ tests/test_weather_fetch_gate.py                   | 111 +++++++++++----------
+ 4 files changed, 145 insertions(+), 91 deletions(-)
+
+### CONTENT diff 48945139..HEAD
+diff --git a/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py b/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py
+index 24122c27..592d5760 100644
+--- a/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py
++++ b/custom_components/irrigation_plus/weathermodules/PirateWeatherClient.py
+@@ -227,24 +227,24 @@ class PirateWeatherClient:  # pylint: disable=invalid-name
+         """GET ``self.url``, at most RETRY_TIMES times; return the last response."""
+         # Wurzel: the two fetch bodies asked up to three times back to back,
+         #   whatever the answer. A short gateway fault had no time to clear, and
+         #   a 429 -- at Pirate Weather the monthly quota is used up -- cannot turn
+         #   into a 200 a second later: the retries were more requests on a key
+         #   that is already refused.
+         # Fix-Logik: 1 s, then 2 s between the attempts, none after the last. A
+         #   429 or any response that names a time (``Retry-After``) ends the
+         #   attempts at once; the caller's non-200 branch returns None and the
+         #   gate's pause takes over. Each response goes to ``note_response``,
+-        #   since that None does not carry it; as such a response ends the loop,
+-        #   none from an earlier attempt outlives a later network exception.
+-        #   Otherwise as before: three attempts, retried only on a status other
+-        #   than 200, a network exception is not retried.
++        #   since that None does not carry it; since a response with Retry-After
++        #   ends the loop, the response noted before a later network exception
++        #   never carries one. Otherwise as before: three attempts, retried only
++        #   on a status other than 200, a network exception is not retried.
+         # NOT-TO-DO: do not wait out ``Retry-After`` here -- up to a day, in an
+         #   executor thread under the gate's lock. That wait is the gate's pause.
+         # siehe test_weather_clients_fetch_gate.py::test_pirate_pauses_one_then_two_seconds_between_retries,
+         #   ::test_pirate_stops_retrying_on_429,
+         #   ::test_pirate_stops_retrying_when_told_when_to_come_back
+         #   und ::test_retry_after_reaches_the_gate
+         for attempt in range(RETRY_TIMES):
+             req = _SESSION.get(self.url, timeout=60)  # 60 seconds timeout
+             gate.note_response(req)
+             if (
+diff --git a/custom_components/irrigation_plus/weathermodules/fetch_gate.py b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+index d9d423ab..fac1b1d7 100644
+--- a/custom_components/irrigation_plus/weathermodules/fetch_gate.py
++++ b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+@@ -94,41 +94,43 @@ def retry_after_seconds(response: Any) -> float | None:
+             seconds = (when - datetime.datetime.now(datetime.UTC)).total_seconds()
+     except (ValueError, TypeError, OverflowError):
+         return None
+     return seconds if seconds > 0 else None
+ 
+ 
+ def _copy_of(exc: Exception) -> Exception | None:
+     """A copy of ``exc`` without traceback, or None where none can be made.
+ 
+     ``copy.copy`` rebuilds an exception through its class with ``args``, which an
+-    exception whose constructor wants more than that refuses. The second try builds
+-    the instance without running ``__init__`` and restores its attributes.
++    exception whose constructor wants more than that refuses. A class whose
++    ``__copy__`` hands back the instance itself gives no copy either: marking
++    that "copy" would mark the real exception.
++
++    None is the caller's cue to keep and raise the exception itself, unmarked
++    (see ``_replay``). There is no second attempt that rebuilds the instance
++    without its constructor: that would hand out an object its class never
++    initialised, and giving up costs only a replay logged at ERROR.
+     """
+     try:
+-        return copy.copy(exc)
++        again = copy.copy(exc)
+     except Exception:  # noqa: BLE001 -- any exception class may refuse a copy
+-        pass
+-    try:
+-        rebuilt = type(exc).__new__(type(exc), *exc.args)
+-        rebuilt.__dict__.update(exc.__dict__)
+-    except Exception:  # noqa: BLE001 -- nor is a rebuild guaranteed
+         return None
+-    return rebuilt
++    return None if again is exc else again
+ 
+ 
+ def _replayable_copy(exc: Exception) -> Exception | None:
+     """A copy of ``exc`` marked as a replay, or None where none can be made.
+ 
+-    A copy carries no traceback, so replaying it again and again does not grow
+-    one, and callers in several threads never share an instance. Only the copy is
+-    marked, never ``exc``: it may be the failure a first caller is about to log.
++    A copy has no traceback of its own, so replaying it again and again does not
++    grow one, and callers in several threads never share an instance. Only the
++    copy is marked, never ``exc``: it may be the failure a first caller is about
++    to log.
+     """
+     again = _copy_of(exc)
+     if again is None:
+         return None
+     try:
+         setattr(again, _REPLAY_ATTR, True)
+     except Exception:  # noqa: BLE001 -- a class may refuse a new attribute
+         return None
+     return again
+ 
+@@ -162,38 +164,35 @@ class FetchGate:
+         then still finds its ``Retry-After``. Called from inside ``fetch``, so
+         under the lock and in the thread that runs it; the latest call wins.
+         """
+         self._response = response
+ 
+     def run(self, fetch: Callable[[], T]) -> T:
+         """Run ``fetch`` with every other caller of this gate held back."""
+         # Wurzel: the clients are called from several executor threads at once --
+         #   every sensor refresh, skip check and outlook asks for the same
+         #   document. Each caller checked the cache, found it empty and went to
+-        #   the network itself: on the test install 1 get_data and 18
+-        #   get_forecast_data requests left within 0.6 s, on a metered key.
++        #   the network itself: measured on one live install (Pirate Weather,
++        #   9 zones × 2 schedules), 1 get_data and 18 get_forecast_data requests
++        #   left within 0.6 s, on a metered key.
+         # Fix-Logik: one lock per fetch point. ``fetch`` begins with its own
+         #   freshness check, and that check now runs inside the lock, so a caller
+         #   that waited finds the entry the first one stored and is served from
+         #   it -- one request per document. A caller that waited behind a failed
+         #   fetch finds the pause (below) and is handed that failure's outcome,
+         #   so a failure is not retried once per waiter either.
+         # NOT-TO-DO: no ``asyncio`` lock -- every path that reaches a gate runs
+         #   in an executor thread, and an ``asyncio`` lock does not hold threads
+-        #   back. Not every client method stays off the event loop: live_estimate.py
+-        #   calls get_hourly_precipitation_forecast and get_hourly_temperature_forecast
+-        #   there. That is safe only because those accessors read stored
+-        #   documents and never reach a gate; a gate must never be reached from
+-        #   such an accessor, or a waiting caller would block the loop. No lock
+-        #   around the request alone either: the parse and the timestamp come
+-        #   after it, so the waiters would wake to a cache that is still empty
+-        #   and fetch again.
++        #   back. The hourly accessors that run on the event loop only read
++        #   stored documents and must never reach a gate. No lock around the
++        #   request alone either: the parse and the timestamp come after it, so
++        #   the waiters would wake to a cache that is still empty and fetch again.
+         # siehe test_weather_clients_fetch_gate.py::test_concurrent_callers_make_one_request
+         #   und ::test_concurrent_callers_during_an_outage_share_one_failed_run
+         with self._lock:
+             owner = self._owner
+             before = getattr(owner, self._stamp_attr)
+             was_fresh = is_fresh(before, owner.cache_seconds, owner.override_cache)
+             # ``override_cache`` means "hand out nothing stored", and a stored
+             # failure is stored too: it asks the service every time.
+             if not was_fresh and not owner.override_cache:
+                 seconds_left = self._pause_left()
+@@ -244,48 +243,58 @@ class FetchGate:
+             self._failed_at = time.monotonic()
+             # What the response of this failure asked for; see ``_pause_left``.
+             self._retry_after = self._asked_wait(response, raised, value)
+             # Wurzel: the exception that failed the run carries its traceback, and
+             #   that holds every frame of the fetch and what was in them (a
+             #   response body, a parsed document) for as long as the outcome is
+             #   kept -- until the next fetch, up to a whole cache window. The first
+             #   caller also still holds the real exception and logs it; a replay
+             #   that marked that very instance would turn a real failure into a
+             #   DEBUG line.
+-            # Fix-Logik: keep a copy without traceback, made now; each replay raises
+-            #   a fresh copy of it (see ``_replay``). The real exception goes to the
+-            #   first caller untouched. Where no copy can be made it is kept as it is.
++            # Fix-Logik: keep a copy, made now; each replay raises a fresh copy of it
++            #   (see ``_replay``). The copy has no traceback of its own, which lets
++            #   go of the fetch's frames. The real exception goes to the first
++            #   caller untouched. Where no copy can be made it is kept as it is.
++            # Limit: exceptions chained inside the copy keep their tracebacks.
++            #   ``requests`` wraps urllib3's ``MaxRetryError`` in ``args[0]``, and
++            #   that traceback holds the failed fetch's frames until the next fetch
++            #   at this gate replaces the outcome. Bounded -- one chain per gate --
++            #   and deliberate: the inner exception is shared with the real one
++            #   the first caller holds (its ``__context__``), so stripping its
++            #   traceback would cut one that caller is still using.
+             # NOT-TO-DO: do not keep the original "for the traceback" -- nobody reads
+-            #   a replayed failure's traceback, it points into the gate.
++            #   a replayed failure's traceback, it points into the gate. Do not
++            #   strip the traceback of a chained exception either (Limit).
+             # siehe test_weather_fetch_gate.py::test_a_failure_keeps_no_traceback_alive_after_its_caller_is_done
+             if raised:
+                 kept = _copy_of(value)
+                 if kept is not None:
+                     value = kept
+             self._outcome = (raised, value)
+ 
+     @staticmethod
+     def _asked_wait(response: Any, raised: bool, value: Any) -> float:
+         """Seconds the failed run's response asked us to wait; 0 where it did not."""
+         asked = [retry_after_seconds(response)]  # noted by a body that hides it
+         if raised:  # an HTTPError carries its response
+             asked.append(retry_after_seconds(getattr(value, "response", None)))
+         return max((seconds for seconds in asked if seconds is not None), default=0.0)
+ 
+     def _pause_left(self) -> float:
+         """Seconds the pause after the latest failure still runs; 0 where there is none."""
+         if self._failed_at is None:
+             return 0.0
+-        # Wurzel: callers come every few seconds (6-7 lookups every 10-30 s on
+-        #   the production install). A pause of a fixed 60 s asks 1440 times a
+-        #   day in an outage, ten times the 144 of normal operation at 10 min;
+-        #   Met Office's free tier allows 360 calls a day and has two gates.
++        # Wurzel: callers come every few seconds (6-7 lookups every 10-30 s,
++        #   measured on one live install: OpenWeatherMap, 3 zones × 1 schedule).
++        #   A pause of a fixed 60 s asks 1440 times a day in an outage, ten times
++        #   the 144 of normal operation at 10 min; Met Office's free tier allows
++        #   360 calls a day and has two gates.
+         # Fix-Logik: 60 s, doubled with every further failure in a row, capped at
+         #   the cache lifetime -- the failure path never asks more often than
+         #   normal operation does. It is worked out at every check from the
+         #   owner's current ``cache_seconds`` instead of being stored as a
+         #   deadline, so a changed update interval takes effect at once.
+         # NOT-TO-DO: no fixed 60 s (above). No pause of a whole cache window from
+         #   the first failure either: one blip would then cost a full window, a
+         #   whole day with daily updates.
+         # siehe test_weather_fetch_gate.py::test_consecutive_failures_double_the_pause_up_to_the_cache_lifetime
+         #   und ::test_a_shorter_update_interval_shortens_a_running_pause
+@@ -321,21 +330,26 @@ class FetchGate:
+             self._stamp_attr,
+             self._failures,
+             seconds_left,
+         )
+         if not raised:
+             return value
+         # ``value`` is the copy made when the failure was recorded; raise a fresh
+         # copy of it, so no two callers ever share an instance.
+         replayed = _replayable_copy(value)
+         if replayed is None:
+-            # Wurzel: an exception that cannot even be rebuilt (``_copy_of``).
++            # Wurzel: an exception that cannot be copied (``_copy_of``), or whose
++            #   copy refuses the mark.
+             # Fix-Logik: raise the kept instance itself, unmarked. Its replay is
+             #   then logged at ERROR like a fresh failure: a line too many, never
+             #   a real failure silenced.
+-            # NOT-TO-DO: never mark it. It is the real exception, which the first
+-            #   caller may be about to log, and a mark would have that logged at
+-            #   DEBUG. No ``with_traceback(None)`` either: it would cut the traceback
+-            #   the first caller is still building.
+-            # siehe test_weather_fetch_gate.py::test_an_exception_that_cannot_be_rebuilt_is_raised_again_unmarked
++            # NOT-TO-DO: never mark it. Where nothing could be copied it is the
++            #   real exception, which the first caller may be about to log, and a
++            #   mark would have that logged at DEBUG. No ``with_traceback(None)``
++            #   either: it would cut the traceback the first caller is still
++            #   building. The price is that every replay adds frames to the
++            #   traceback of that one shared instance, so it grows for as long as
++            #   the pause lasts; none of the seven fetch points can reach this,
++            #   their exception types all copy.
++            # siehe test_weather_fetch_gate.py::test_an_exception_that_cannot_be_copied_is_raised_again_unmarked
+             raise value
+         raise replayed
+diff --git a/tests/test_weather_clients_fetch_gate.py b/tests/test_weather_clients_fetch_gate.py
+index 93ef599f..28e4a606 100644
+--- a/tests/test_weather_clients_fetch_gate.py
++++ b/tests/test_weather_clients_fetch_gate.py
+@@ -341,20 +341,48 @@ def test_every_open_meteo_accessor_logs_a_replay_at_debug(call, caplog):
+         assert get.call_count == 1
+         assert levels() == [logging.ERROR]
+         caplog.clear()
+ 
+         frozen.tick(30)
+         getattr(client, call)()
+         assert get.call_count == 1  # a replay: no request
+         assert [level for level in levels() if level > logging.DEBUG] == []
+ 
+ 
++@pytest.mark.parametrize("call", ["get_data", "get_forecast_data"])
++def test_every_met_office_accessor_logs_its_first_failure_at_error(call, caplog):
++    # Both accessors log the failure above the gate with ``failure_log_level``.
++    # The table's replay test says nothing about the first call, and Open-Meteo's
++    # twin above is not Met Office's code: a hard-coded DEBUG at either Met Office
++    # site would pass both and hide every outage of that service from the log.
++    client = _met_office()
++    get = MagicMock(return_value=_failing(500))
++    caplog.set_level(logging.DEBUG, logger="custom_components.irrigation_plus")
++    prefix = "custom_components.irrigation_plus.weathermodules"
++
++    def ours():
++        return [r for r in caplog.records if r.name.startswith(prefix)]
++
++    with freeze_time("2026-10-23 12:00:00") as frozen, patch(
++        M + "MetOfficeClient._SESSION.get", get
++    ):
++        getattr(client, call)()  # the real failure
++        assert get.call_count == 1
++        assert [r.levelno for r in ours()].count(logging.ERROR) == 1
++        caplog.clear()
++
++        frozen.tick(30)
++        getattr(client, call)()
++        assert get.call_count == 1  # a replay: no request
++        assert [r for r in ours() if r.levelno > logging.DEBUG] == []
++
++
+ _CASE_BY_ID = {case.id: case for case in CASES}
+ 
+ 
+ @pytest.mark.parametrize(
+     "paused_id, free_id",
+     [("owm_forecast", "owm_data"), ("met_three_hourly", "met_hourly")],
+ )
+ def test_a_paused_forecast_does_not_hold_up_current_conditions(paused_id, free_id):
+     paused, free = _CASE_BY_ID[paused_id], _CASE_BY_ID[free_id]
+     client = paused.make()
+@@ -382,20 +410,23 @@ def test_validate_key_ignores_a_running_pause():
+         assert get.call_count == 1
+         _outcome(case, client)
+         assert get.call_count == 1  # paused
+ 
+         get.return_value = _ok({"cod": 200})
+         client.validate_key()
+         assert get.call_count == 2  # the key check always asks
+ 
+ 
+ _PIRATE_CASES = [case for case in CASES if case.id.startswith("pirate_")]
++# Renaming a case id would empty this list and the four tests below would
++# collect no case at all, passing by not running.
++assert len(_PIRATE_CASES) == 2
+ 
+ 
+ @pytest.mark.parametrize("case", _PIRATE_CASES, ids=lambda c: c.id)
+ def test_pirate_pauses_one_then_two_seconds_between_retries(case, sleep):
+     client = case.make()
+     get = MagicMock(return_value=_failing(500))
+     with patch(case.patch, get):
+         _outcome(case, client)
+ 
+     assert get.call_count == 3
+diff --git a/tests/test_weather_fetch_gate.py b/tests/test_weather_fetch_gate.py
+index 4daba183..50ea42c2 100644
+--- a/tests/test_weather_fetch_gate.py
++++ b/tests/test_weather_fetch_gate.py
+@@ -1,11 +1,11 @@
+-"""The freshness check the four weather clients share."""
++"""The fetch gate the four weather clients share: freshness, single flight, pause."""
+ 
+ import contextlib
+ import datetime
+ import gc
+ import logging
+ import threading
+ import time
+ import weakref
+ from datetime import timedelta
+ from unittest.mock import MagicMock, patch
+@@ -144,40 +144,32 @@ def test_two_gates_do_not_wait_for_each_other():
+     holder.start()
+     try:
+         assert inside.wait(timeout=5)
+         assert _in_threads(lambda: second.run(lambda: "free")) == ["free"]
+     finally:
+         release.set()
+         holder.join(timeout=5)
+     assert not holder.is_alive()
+ 
+ 
+-class _Picky(Exception):
+-    """An exception ``copy.copy`` cannot rebuild: its constructor wants a keyword."""
+-
+-    def __init__(self, text, *, code):
+-        super().__init__(text)
+-        self.code = code
+-
+-
+-def _gaps(gate, owner, fetch, frozen, requests):
++def _gaps(gate, owner, fetch, frozen, wanted):
+     """Seconds between the real requests when a caller asks once a second."""
+     moments = []
+     for second in range(5000):
+         before = owner.calls
+         gate.run(fetch)
+         if owner.calls > before:
+             moments.append(second)
+-            if len(moments) == requests:
++            if len(moments) == wanted:
+                 break
+         frozen.tick(1)
+-    assert len(moments) == requests
++    assert len(moments) == wanted
+     return [
+         later - earlier for earlier, later in zip(moments, moments[1:], strict=False)
+     ]
+ 
+ 
+ def test_a_failure_is_replayed_without_a_fetch_during_the_pause():
+     owner = _Owner()
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     with freeze_time("2026-10-23 12:00:00") as frozen:
+         assert gate.run(owner.fetch_none) is None
+@@ -202,67 +194,63 @@ def test_a_raised_failure_is_replayed_with_its_type_and_message():
+             gate.run(owner.fetch_raise)
+         with pytest.raises(OSError, match="down") as replayed_again:
+             gate.run(owner.fetch_raise)
+     assert owner.calls == 1
+     assert fetch_gate.is_replay(replayed.value)
+     assert not fetch_gate.is_replay(real.value)  # the real failure is not marked
+     assert replayed.value is not real.value
+     assert replayed_again.value is not replayed.value  # no traceback piling up
+ 
+ 
+-def test_replay_of_an_uncopyable_exception_keeps_its_type():
+-    owner = _Owner()
+-    owner.error = lambda: _Picky("odd", code=7)
+-    gate = fetch_gate.FetchGate(owner, "stamp")
+-    with freeze_time("2026-10-23 12:00:00") as frozen:
+-        with pytest.raises(_Picky, match="odd") as real:
+-            gate.run(owner.fetch_raise)
+-        frozen.tick(30)
+-        with pytest.raises(_Picky, match="odd") as replayed:
+-            gate.run(owner.fetch_raise)
+-    assert owner.calls == 1
+-    assert fetch_gate.is_replay(replayed.value)
+-    assert replayed.value.code == 7  # the rebuilt copy keeps its attributes
+-    # The real failure is the first caller's: a waiter must never mark it, or
+-    # that caller's accessor would log a real failure at DEBUG.
+-    assert replayed.value is not real.value
+-    assert not fetch_gate.is_replay(real.value)
++class _Picky(Exception):
++    """An exception ``copy.copy`` cannot copy: its constructor wants a keyword."""
+ 
++    def __init__(self, text, *, code):
++        super().__init__(text)
++        self.code = code
+ 
+-class _Unrebuildable(Exception):
+-    """An exception neither ``copy.copy`` nor ``__new__`` plus ``args`` can rebuild."""
+ 
+-    def __new__(cls, *args, real=False):
+-        if not real:
+-            raise TypeError("only the real constructor builds one")
+-        return super().__new__(cls, *args)
++class _SelfCopy(Exception):
++    """An exception whose ``__copy__`` hands back the instance itself."""
+ 
+-    def __init__(self, text, *, real):
+-        super().__init__(text)
++    code = 7
+ 
++    def __copy__(self):
++        return self
+ 
+-def test_an_exception_that_cannot_be_rebuilt_is_raised_again_unmarked():
++
++@pytest.mark.parametrize(
++    "error",
++    [lambda: _Picky("odd", code=7), lambda: _SelfCopy("odd")],
++    ids=["constructor_refuses_a_copy", "copy_is_the_instance_itself"],
++)
++def test_an_exception_that_cannot_be_copied_is_raised_again_unmarked(error):
+     owner = _Owner()
+-    owner.error = lambda: _Unrebuildable("stuck", real=True)
++    owner.error = error
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     with freeze_time("2026-10-23 12:00:00") as frozen:
+-        with pytest.raises(_Unrebuildable, match="stuck") as real:
++        with pytest.raises((_Picky, _SelfCopy), match="odd") as real:
+             gate.run(owner.fetch_raise)
+         frozen.tick(30)
+-        with pytest.raises(_Unrebuildable, match="stuck") as replayed:
++        with pytest.raises((_Picky, _SelfCopy), match="odd") as replayed:
+             gate.run(owner.fetch_raise)
+-    assert owner.calls == 1
+-    # Fail loud: nothing to copy, so the instance itself comes back, and it is
+-    # not marked, so the accessor logs it at ERROR. A real failure is never
+-    # silenced; the worst case is one more ERROR line.
++    assert owner.calls == 1  # replayed, not asked again
++    # Fail loud: there is nothing to copy, so the stored instance itself comes
++    # back, and it is not marked, so the accessor logs it at ERROR. A real
++    # failure is never silenced; the worst case is one more ERROR line. The
++    # instance is the first caller's: marking it would have that caller's
++    # accessor log a real failure at DEBUG.
++    assert type(replayed.value) is type(real.value)
+     assert replayed.value is real.value
++    assert not fetch_gate.is_replay(real.value)
+     assert not fetch_gate.is_replay(replayed.value)
++    assert replayed.value.code == 7
+ 
+ 
+ def test_a_failure_keeps_no_traceback_alive_after_its_caller_is_done():
+     # The outcome kept for the pause is a copy without traceback. The original
+     # exception carries its traceback, and that holds every frame of the failed
+     # fetch and the locals in them (a response body, a parsed document) until
+     # the next fetch.
+     owner = _Owner()
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     sentinels = []
+@@ -280,24 +268,25 @@ def test_a_failure_keeps_no_traceback_alive_after_its_caller_is_done():
+             gate.run(fetch)
+         gc.collect()
+         assert sentinels[0]() is None
+         frozen.tick(30)
+         with pytest.raises(ValueError, match="boom"):  # still replayed
+             gate.run(fetch)
+     assert len(sentinels) == 1
+ 
+ 
+ def test_a_fresh_entry_is_served_even_during_a_pause():
+-    # Freshness comes before the pause. An outage raises ``cache_seconds``
+-    # (__init__.py, the update-interval handler), which brings an old stamp back
+-    # into the window; the entry is fresh again and is served, not replaced by
+-    # the replay of the failure that began the pause.
++    # Freshness comes before the pause. Lengthening the update interval during
++    # an outage raises ``cache_seconds`` (__init__.py, ``track_update_time``; it
++    # changes only when the user edits the update settings), which brings an old
++    # stamp back into the window; the entry is fresh again and is served, not
++    # replaced by the replay of the failure that began the pause.
+     owner = _Owner()
+     owner.cache_seconds = 600
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     with freeze_time("2026-10-23 12:00:00"):
+         owner.cached = "document"
+         owner.stamp = datetime.datetime.now() - timedelta(seconds=700)  # stale
+         assert gate.run(owner.fetch_none) is None  # the failure: the pause begins
+         assert owner.calls == 1
+         assert gate.run(owner.fetch_none) is None  # shut: replayed, no request
+         assert owner.calls == 1
+@@ -305,30 +294,30 @@ def test_a_fresh_entry_is_served_even_during_a_pause():
+         owner.cache_seconds = 3599  # 700 s old is inside the window again
+         assert gate.run(owner.fetch_none) == "document"
+         assert owner.calls == 1
+ 
+ 
+ def test_consecutive_failures_double_the_pause_up_to_the_cache_lifetime():
+     owner = _Owner()
+     owner.cache_seconds = 599
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     with freeze_time("2026-10-23 12:00:00") as frozen:
+-        gaps = _gaps(gate, owner, owner.fetch_none, frozen, requests=7)
++        gaps = _gaps(gate, owner, owner.fetch_none, frozen, wanted=7)
+     assert gaps == [60, 120, 240, 480, 599, 599]
+ 
+ 
+ def test_without_auto_update_the_pause_stays_at_sixty_seconds():
+     owner = _Owner()
+     owner.cache_seconds = 0
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     with freeze_time("2026-10-23 12:00:00") as frozen:
+-        gaps = _gaps(gate, owner, owner.fetch_none, frozen, requests=4)
++        gaps = _gaps(gate, owner, owner.fetch_none, frozen, wanted=4)
+     assert gaps == [60, 60, 60]
+ 
+ 
+ def test_a_success_resets_the_backoff():
+     owner = _Owner()
+     owner.delay = 0
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     with freeze_time("2026-10-23 12:00:00") as frozen:
+         gate.run(owner.fetch_none)  # failure 1: pause 60
+         frozen.tick(60)
+@@ -463,20 +452,40 @@ def test_retry_after_tolerates_what_a_response_may_look_like():
+     assert retry_after_seconds(_resp({"Retry-After": " 90 "})) == 90
+     assert retry_after_seconds(_resp({"Retry-After": "0"})) is None  # nothing to wait
+     superscript_two = chr(0xB2)  # str.isdigit() is true for it, int() refuses it
+     assert retry_after_seconds(_resp({"Retry-After": superscript_two})) is None
+     assert retry_after_seconds(_resp({"Retry-After": "9" * 5000})) is None
+     # a date without a zone is read as UTC
+     zoneless = "Fri, 23 Oct 2026 12:05:00 -0000"
+     assert retry_after_seconds(_resp({"Retry-After": zoneless})) == 300
+ 
+ 
++def test_an_http_date_is_measured_against_the_utc_clock():
++    # ``freeze_time(..., tz_offset=...)`` shifts ``now(tz)`` along with ``now()``,
++    # so under it the UTC clock and a naive local one agree and a mix-up of the
++    # two goes unseen. This stand-in reads two hours ahead only without a zone,
++    # as a clock does in UTC+2; with a zone it is right.
++    utc_now = datetime.datetime(2026, 10, 23, 12, 0, tzinfo=datetime.UTC)
++    local_now = utc_now.replace(tzinfo=None) + timedelta(hours=2)
++    clock = MagicMock()
++    clock.UTC = datetime.UTC
++    clock.timedelta = datetime.timedelta
++    clock.datetime.now.side_effect = lambda tz=None: (
++        local_now if tz is None else utc_now.astimezone(tz)
++    )
++    with patch.object(fetch_gate, "datetime", clock):
++        dated = "Fri, 23 Oct 2026 12:05:00 GMT"
++        assert retry_after_seconds(_resp({"Retry-After": dated})) == 300
++        zoneless = "Fri, 23 Oct 2026 12:05:00 -0000"  # read as UTC
++        assert retry_after_seconds(_resp({"Retry-After": zoneless})) == 300
++
++
+ def _throttled(owner, gate, retry_after):
+     """A fetch point that fails with a 429 whose ``Retry-After`` is ``retry_after``."""
+ 
+     def fetch():
+         owner.calls += 1
+         gate.note_response(_resp({"Retry-After": retry_after}))
+         return None
+ 
+     return fetch
+ 

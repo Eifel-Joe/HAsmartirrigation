@@ -1,0 +1,139 @@
+### commit
+06173427 fix(weather): a waiter's replay says it waited through the failure; the test no longer races
+
+A caller handed the outcome of a failure it waited through, after that
+failure's pause had already run out, was logged as "no request for another
+0 s", which reads like a fault. It now says that it waited through the
+latest failure. The test for that case made sure the waiter had arrived by
+sleeping a tenth of a second; on a loaded runner it could fail for no
+reason. The patched clock now signals the waiter's arrival instead.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+### diff
+diff --git a/custom_components/irrigation_plus/weathermodules/fetch_gate.py b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+index 1d8e766b..60cedae4 100644
+--- a/custom_components/irrigation_plus/weathermodules/fetch_gate.py
++++ b/custom_components/irrigation_plus/weathermodules/fetch_gate.py
+@@ -363,28 +363,37 @@ class FetchGate:
+         # siehe test_weather_fetch_gate.py::test_a_longer_retry_after_wins_over_the_backoff,
+         #   ::test_a_shorter_retry_after_keeps_the_backoff, ::test_retry_after_is_capped_at_a_day
+         ends = self._failed_at + backoff
+         if self._asked_until is not None:
+             ends = max(ends, self._asked_until)
+         return max(0.0, ends - time.monotonic())
+ 
+     def _replay(self, seconds_left: float) -> Any:
+         """Hand back the outcome of the failure that began the pause: no request."""
+         raised, value = self._outcome
+-        _LOGGER.debug(
+-            "%s %s: %d failed fetch(es) in a row, no request for another %.0f s;"
+-            " replaying the last outcome",
+-            type(self._owner).__name__,
+-            self._stamp_attr,
+-            self._failures,
+-            seconds_left,
+-        )
++        if seconds_left > 0:
++            _LOGGER.debug(
++                "%s %s: %d failed fetch(es) in a row, no request for another %.0f s;"
++                " replaying the last outcome",
++                type(self._owner).__name__,
++                self._stamp_attr,
++                self._failures,
++                seconds_left,
++            )
++        else:  # a caller that waited through the failure (_waited_through_failure)
++            _LOGGER.debug(
++                "%s %s: waited through the latest of %d failed fetch(es) in a row;"
++                " replaying the last outcome",
++                type(self._owner).__name__,
++                self._stamp_attr,
++                self._failures,
++            )
+         if not raised:
+             return value
+         # ``value`` is the copy made when the failure was recorded; raise a fresh
+         # copy of it, so no two callers ever share an instance.
+         replayed = _replayable_copy(value)
+         if replayed is None:
+             # Wurzel: an exception that cannot be copied (``_copy_of``), or whose
+             #   copy refuses the mark.
+             # Fix-Logik: raise the kept instance itself, unmarked. Its replay is
+             #   then logged at ERROR like a fresh failure: a line too many, never
+diff --git a/tests/test_weather_fetch_gate.py b/tests/test_weather_fetch_gate.py
+index 92d95dc5..8720f50f 100644
+--- a/tests/test_weather_fetch_gate.py
++++ b/tests/test_weather_fetch_gate.py
+@@ -418,52 +418,65 @@ def test_the_backoff_counts_from_the_start_of_the_failed_run():
+     with patch.object(time, "monotonic", lambda: clock[0]):
+         gate.run(fetch)  # begins at 5000, fails at 5003
+         clock[0] = 5000 + 59
+         gate.run(fetch)
+         assert owner.calls == 1
+         clock[0] = 5000 + 60.5  # 60 s after the start, 57.5 s after the end
+         gate.run(fetch)
+         assert owner.calls == 2
+ 
+ 
+-def test_waiters_behind_a_slow_failure_share_it():
++def test_waiters_behind_a_slow_failure_share_it(caplog):
+     # A failed run can outlast its own backoff (a 60 s timeout, three tries); with
+     # the backoff counted from its start the pause is over when it ends. The
+     # callers that waited on the lock meanwhile are handed its outcome all the
+     # same: each of them would otherwise go to the network in turn.
+     owner = _Owner()
+     owner.cache_seconds = 599
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     clock = [5000.0]
+-    began, release = threading.Event(), threading.Event()
++    began, release, waiter_arrived = (threading.Event() for _ in range(3))
+ 
+     def slow_failure():
+         owner.calls += 1
+         began.set()
+         release.wait(timeout=5)
+         clock[0] += 61  # longer than the first backoff of 60 s
+         return None
+ 
+-    with patch.object(time, "monotonic", lambda: clock[0]):
+-        first = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
+-        waiter = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
++    def monotonic():
++        # The waiter's first reading is its arrival; the failure may only end
++        # after it, which this handshake makes certain rather than likely.
++        if threading.current_thread() is waiter:
++            waiter_arrived.set()
++        return clock[0]
++
++    first = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
++    waiter = threading.Thread(target=gate.run, args=(slow_failure,), daemon=True)
++    with (
++        patch.object(time, "monotonic", monotonic),
++        caplog.at_level(logging.DEBUG, logger=fetch_gate.__name__),
++    ):
+         try:
+             first.start()
+             assert began.wait(timeout=5)
+             waiter.start()  # arrives while the failure is still running
+-            time.sleep(0.1)  # real time: let it reach the lock
++            assert waiter_arrived.wait(timeout=5)
+         finally:
+             release.set()
+             first.join(timeout=5)
+             waiter.join(timeout=5)
+         assert not first.is_alive() and not waiter.is_alive()
+     assert owner.calls == 1
++    replays = [r.getMessage() for r in caplog.records if r.name == fetch_gate.__name__]
++    assert len(replays) == 1
++    assert "waited through" in replays[0]  # not "no request for another 0 s"
+ 
+ 
+ def test_retry_after_counts_from_the_answer():
+     # "Not before" is measured from the response that asked for it, not from the
+     # start of the run that got it.
+     owner = _Owner()
+     owner.cache_seconds = 0
+     gate = fetch_gate.FetchGate(owner, "stamp")
+     clock = [5000.0]
+     fetch = _slow_failure(owner, clock, 3, gate=gate, retry_after="100")
